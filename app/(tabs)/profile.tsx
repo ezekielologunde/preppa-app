@@ -1,5 +1,5 @@
 import React from 'react';
-import { View, Text, ScrollView, Pressable } from 'react-native';
+import { View, Text, ScrollView, Pressable, Alert } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
 import { LinearGradient } from 'expo-linear-gradient';
@@ -14,7 +14,18 @@ export default function Profile() {
   const c = useC();
   const insets = useSafeAreaInsets();
   const router = useRouter();
-  const { resetOnboarding, darkMode, setDarkMode, toast } = useStore();
+  const { resetOnboarding, darkMode, setDarkMode, logout, deleteAccount, toast } = useStore();
+
+  const confirmDelete = () => {
+    Alert.alert(
+      'Delete account',
+      'This permanently removes your account, orders, and saved data. This can’t be undone.',
+      [
+        { text: 'Cancel', style: 'cancel' },
+        { text: 'Delete', style: 'destructive', onPress: () => { deleteAccount(); toast('Account deleted', 'x'); } },
+      ],
+    );
+  };
 
   const rows: { ico: string; cls: Tone; t: string; act: () => void }[] = [
     { ico: 'ticket', cls: 'amber', t: 'Your orders', act: () => router.push('/orders') },
@@ -102,7 +113,20 @@ export default function Profile() {
           </View>
         </Press>
 
-        <Text style={[type(12, 700), { color: c.muted, textAlign: 'center', padding: 20 }]}>preppa · v1.0 — prototype</Text>
+        <View style={{ backgroundColor: c.surface, borderRadius: radius.card, marginHorizontal: 16, marginTop: 16, borderWidth: 1, borderColor: c.border2, overflow: 'hidden' }}>
+          <Pressable onPress={logout} style={{ flexDirection: 'row', alignItems: 'center', gap: 13, paddingVertical: 15, paddingHorizontal: 16, borderBottomWidth: 1, borderBottomColor: c.border2 }}>
+            <IconWell ico="logout" tone="" />
+            <Text style={[type(15, 700), { color: c.ink, flex: 1 }]}>Log out</Text>
+          </Pressable>
+          <Pressable onPress={confirmDelete} style={{ flexDirection: 'row', alignItems: 'center', gap: 13, paddingVertical: 15, paddingHorizontal: 16 }}>
+            <View style={{ width: 36, height: 36, borderRadius: 11, backgroundColor: c.pinkL, alignItems: 'center', justifyContent: 'center' }}>
+              <Icon name="x" size={19} color={c.red} />
+            </View>
+            <Text style={[type(15, 700), { color: c.red, flex: 1 }]}>Delete account</Text>
+          </Pressable>
+        </View>
+
+        <Text style={[type(12, 700), { color: c.muted, textAlign: 'center', padding: 20 }]}>preppa · v1.0</Text>
       </ScrollView>
     </View>
   );

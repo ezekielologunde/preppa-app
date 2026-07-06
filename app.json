@@ -9,7 +9,12 @@
     "userInterfaceStyle": "automatic",
     "newArchEnabled": true,
     "ios": {
-      "supportsTablet": true
+      "supportsTablet": true,
+      "infoPlist": {
+        "NSCameraUsageDescription": "Preppa uses the camera to scan the QR code at cash-on-delivery handoff and to add photos of your dishes.",
+        "NSLocationWhenInUseUsageDescription": "Preppa uses your location to show cooks and meals near you and to set your delivery address.",
+        "NSPhotoLibraryUsageDescription": "Preppa lets cooks attach photos of their dishes from your photo library."
+      }
     },
     "android": {
       "adaptiveIcon": {

@@ -53,6 +53,8 @@ interface Store {
 
   darkMode: boolean;
   setDarkMode: (v: boolean) => void;
+  logout: () => void;
+  deleteAccount: () => void;
 
   cart: CartLine[];
   cartCount: number;
@@ -214,6 +216,23 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
   }, [orders, addToCart, toast]);
 
   const resetOnboarding = useCallback(() => setOnboardedState(false), []);
+  const logout = useCallback(() => setOnboardedState(false), []);
+  const deleteAccount = useCallback(() => {
+    // Apple 5.1.1(v): account-deletion path. (On a real backend this also calls the server.)
+    AsyncStorage.removeItem(LS).catch(() => {});
+    setCart([]);
+    setFav(new Set());
+    setSubscription(null);
+    setOrders(SEED_ORDERS);
+    setRequests(SEED_REQUESTS);
+    setLastOrder(null);
+    setTip(2);
+    setMode('delivery');
+    setDarkModeState(false);
+    setAvail(true);
+    setActed([]);
+    setOnboardedState(false);
+  }, []);
 
   const subscribe = useCallback((s: Subscription) => setSubscription(s), []);
   const updateSub = useCallback((patch: Partial<Subscription>) => setSubscription((s) => (s ? { ...s, ...patch } : s)), []);
@@ -250,6 +269,8 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
     resetOnboarding,
     darkMode,
     setDarkMode: setDarkModeState,
+    logout,
+    deleteAccount,
     cart,
     cartCount,
     addToCart,
