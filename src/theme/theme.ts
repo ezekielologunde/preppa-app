@@ -74,6 +74,9 @@ export function type(size: number, weight: keyof typeof FONT | number = 500, opt
   };
 }
 
+/** Tabular (monospaced) figures — use on prices/totals/timers so digits don't shift. */
+export const tnum = { fontVariant: ['tabular-nums'] as ('tabular-nums')[] };
+
 export const shadow = {
   card: { shadowColor: '#000', shadowOpacity: 0.05, shadowRadius: 10, shadowOffset: { width: 0, height: 2 }, elevation: 2 },
   soft: { shadowColor: '#000', shadowOpacity: 0.06, shadowRadius: 6, shadowOffset: { width: 0, height: 3 }, elevation: 2 },

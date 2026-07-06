@@ -3,7 +3,7 @@ import { View, Text, StyleProp, ViewStyle } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
 import { useC } from '../theme/ThemeContext';
-import { type, radius, shadow } from '../theme/theme';
+import { type, radius, shadow, tnum } from '../theme/theme';
 import { useStore } from '../store/store';
 import { Icon } from './Icon';
 import { Press } from './primitives';
@@ -50,7 +50,7 @@ export function DockTotal({ label, value }: { label: string; value: string }) {
   return (
     <View>
       <Text style={[type(11, 700), { color: c.muted, textTransform: 'uppercase', letterSpacing: 0.4 }]}>{label}</Text>
-      <Text style={[type(22, 900), { color: c.ink, letterSpacing: -0.6 }]}>{value}</Text>
+      <Text style={[type(22, 900), { color: c.ink, letterSpacing: -0.6 }, tnum]}>{value}</Text>
     </View>
   );
 }

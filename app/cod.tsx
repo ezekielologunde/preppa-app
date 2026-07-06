@@ -3,9 +3,9 @@ import { View, Text, Animated } from 'react-native';
 import { useRouter } from 'expo-router';
 import { COOKS, money } from '../src/data/data';
 import { useC } from '../src/theme/ThemeContext';
-import { type, radius, shadow } from '../src/theme/theme';
+import { type, radius, shadow, tnum } from '../src/theme/theme';
 import { useStore } from '../src/store/store';
-import { Icon, Btn } from '../src/ui';
+import { Icon, Btn, useReducedMotion } from '../src/ui';
 import { Screen, TopBar, Dock } from '../src/ui/layout';
 import { useTotals, Burst } from '../src/components/shared';
 
@@ -46,16 +46,17 @@ export default function COD() {
   const [stage, setStage] = useState(0);
   const code = ['4', '8', '1', '2', '0', '6'];
   const scan = useRef(new Animated.Value(0)).current;
+  const reduced = useReducedMotion();
 
   useEffect(() => {
-    if (stage !== 0) return;
+    if (stage !== 0 || reduced) return; // no looping scan sweep when Reduce Motion is on
     const loop = Animated.loop(Animated.sequence([
       Animated.timing(scan, { toValue: 1, duration: 1100, useNativeDriver: true }),
       Animated.timing(scan, { toValue: 0, duration: 1100, useNativeDriver: true }),
     ]));
     loop.start();
     return () => loop.stop();
-  }, [stage, scan]);
+  }, [stage, scan, reduced]);
 
   if (stage === 2) {
     return (
@@ -79,12 +80,12 @@ export default function COD() {
       <View style={{ flex: 1, alignItems: 'center', paddingHorizontal: 18, paddingTop: 14 }}>
         <View style={{ alignItems: 'center' }}>
           <Text style={[type(13, 700), { color: c.muted, textTransform: 'uppercase', letterSpacing: 0.5 }]}>Amount to pay in cash</Text>
-          <Text style={[type(46, 900), { color: c.ink, letterSpacing: -1.8 }]}>{money(t.total)}</Text>
+          <Text style={[type(46, 900), { color: c.ink, letterSpacing: -1.8 }, tnum]}>{money(t.total)}</Text>
         </View>
 
         <View style={{ width: 208, height: 208, marginTop: 18, backgroundColor: '#fff', borderRadius: radius.hero, padding: 18, borderWidth: 1, borderColor: c.border, ...shadow.hero }}>
           <FauxQR dark="#0E0E10" />
-          {stage === 0 ? (
+          {stage === 0 && !reduced ? (
             <Animated.View style={{ position: 'absolute', left: 18, right: 18, top: 18, height: 3, borderRadius: 3, backgroundColor: c.primary, transform: [{ translateY }], shadowColor: c.primary, shadowOpacity: 0.6, shadowRadius: 6, elevation: 4 }} />
           ) : null}
         </View>

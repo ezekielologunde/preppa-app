@@ -8,7 +8,7 @@ import { computeTotals, Totals } from '../data/totals';
 export { computeTotals } from '../data/totals';
 export type { Totals } from '../data/totals';
 import { useC } from '../theme/ThemeContext';
-import { type, radius, shadow } from '../theme/theme';
+import { type, radius, shadow, tnum } from '../theme/theme';
 import { Icon, Press, Avatar } from '../ui';
 import { MiniTag } from '../ui/layout';
 
@@ -46,7 +46,7 @@ export function Summary({ t, mode }: { t: Totals; mode: 'delivery' | 'pickup' })
       {t.tip > 0 ? <Row label="Tip · 100% to cook" value={money(t.tip)} strong /> : null}
       <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', borderTopWidth: 1, borderTopColor: c.border, borderStyle: 'dashed', marginTop: 8, paddingTop: 14 }}>
         <Text style={[type(17, 900), { color: c.ink }]}>Total</Text>
-        <Text style={[type(19, 900), { color: c.ink }]}>{money(t.total)}</Text>
+        <Text style={[type(19, 900), { color: c.ink }, tnum]}>{money(t.total)}</Text>
       </View>
     </View>
   );

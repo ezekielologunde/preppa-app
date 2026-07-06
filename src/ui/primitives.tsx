@@ -1,10 +1,11 @@
 import React, { useRef } from 'react';
 import { Animated, Pressable, View, Text, ActivityIndicator, StyleProp, ViewStyle, TextStyle, PressableProps } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
-import { GRAD, GradKey, radius, type, shadow } from '../theme/theme';
+import { GRAD, GradKey, radius, type, shadow, tnum } from '../theme/theme';
 import { useC } from '../theme/ThemeContext';
 import { COOKS, CookId, Grad } from '../data/data';
 import { Icon } from './Icon';
+import { useReducedMotion } from './useReducedMotion';
 
 /** Resolve a grad key OR a [start,end] tuple to a colour pair. */
 export function gradColors(g: GradKey | Grad | string): readonly [string, string, ...string[]] {
@@ -33,7 +34,11 @@ export function Press({
   label?: string;
 }) {
   const a = useRef(new Animated.Value(1)).current;
-  const to = (v: number) => Animated.spring(a, { toValue: v, useNativeDriver: true, speed: 40, bounciness: 6 }).start();
+  const reduced = useReducedMotion();
+  const to = (v: number) => {
+    if (reduced) { a.setValue(1); return; } // no scale motion when Reduce Motion is on
+    Animated.spring(a, { toValue: v, useNativeDriver: true, speed: 40, bounciness: 6 }).start();
+  };
   return (
     <Pressable
       onPress={onPress}
@@ -97,13 +102,13 @@ export function Stepper({ value, onDec, onInc, sm }: { value: number; onDec: () 
   const btn = sm ? 30 : 38;
   return (
     <View style={{ flexDirection: 'row', alignItems: 'center', backgroundColor: c.bg2, borderRadius: radius.pill, padding: 4 }}>
-      <Press scale={0.9} onPress={onDec}>
+      <Press scale={0.9} onPress={onDec} label="Decrease" hitSlop={10}>
         <View style={[st.stepBtn, { width: btn, height: btn, backgroundColor: c.surface }, shadow.soft]}>
           <Icon name="minus" size={sm ? 15 : 18} color={c.ink} />
         </View>
       </Press>
-      <Text style={[type(sm ? 15 : 17, 900), { color: c.ink, minWidth: 40, textAlign: 'center' }]}>{value}</Text>
-      <Press scale={0.9} onPress={onInc}>
+      <Text style={[type(sm ? 15 : 17, 900), { color: c.ink, minWidth: 40, textAlign: 'center' }, tnum]}>{value}</Text>
+      <Press scale={0.9} onPress={onInc} label="Increase" hitSlop={10}>
         <View style={[st.stepBtn, { width: btn, height: btn, backgroundColor: c.surface }, shadow.soft]}>
           <Icon name="plus" size={sm ? 15 : 18} color={c.ink} />
         </View>
