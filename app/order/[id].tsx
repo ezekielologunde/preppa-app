@@ -96,6 +96,7 @@ export default function OrderDetail() {
           <RRow label="Subtotal" value={money(o.subtotal)} c={c} />
           <RRow label={o.mode === 'pickup' ? 'Pickup' : 'Delivery'} value="Free" c={c} green />
           <RRow label="Service fee" value={o.service === 0 ? '$0.00' : money(o.service)} c={c} green={o.service === 0} />
+          <RRow label="Sales tax" value={money(o.tax ?? 0)} c={c} />
           {o.tip > 0 ? <RRow label="Tip · 100% to cook" value={money(o.tip)} c={c} /> : null}
           <View style={{ flexDirection: 'row', justifyContent: 'space-between', marginTop: 4 }}>
             <Text style={[type(16, 900), { color: c.ink }]}>Total</Text>

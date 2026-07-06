@@ -70,12 +70,12 @@ export function MealCardLg({ m, showMatch, width }: { m: Meal; showMatch?: boole
               <Text style={[type(10, 900), { color: '#fff', textTransform: 'uppercase' }]}>Match</Text>
             </View>
           ) : null}
-          <Press scale={0.85} onPress={() => toggleFav(m.id)} style={{ position: 'absolute', top: 8, right: 8 }} hitSlop={8}>
+          <Press scale={0.85} onPress={() => toggleFav(m.id)} label={isFav ? `Remove ${m.name} from favorites` : `Save ${m.name} to favorites`} style={{ position: 'absolute', top: 8, right: 8 }} hitSlop={8}>
             <View style={{ width: 28, height: 28, borderRadius: 14, backgroundColor: 'rgba(255,255,255,.92)', alignItems: 'center', justifyContent: 'center', ...shadow.soft }}>
               <Icon name={isFav ? 'heartFill' : 'heart'} size={15} color={isFav ? c.primary : c.soft} />
             </View>
           </Press>
-          <Press scale={0.85} onPress={quickAdd} style={{ position: 'absolute', bottom: 9, right: 9 }} hitSlop={8}>
+          <Press scale={0.85} onPress={quickAdd} label={`Quick add ${m.name} to cart`} style={{ position: 'absolute', bottom: 9, right: 9 }} hitSlop={8}>
             <View style={{ width: 34, height: 34, borderRadius: 12, backgroundColor: c.primary, alignItems: 'center', justifyContent: 'center', ...shadow.brand }}>
               <Icon name="plus" size={18} color="#fff" />
             </View>

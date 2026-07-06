@@ -2,8 +2,9 @@ import React, { createContext, useContext, useState, useEffect, useCallback, use
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import {
   GradKey, CookId, Subscription, ServiceRequest, SEED_REQUESTS, genQuotes,
-  NOTIFS, CONVERSATIONS, FOUNDING,
+  NOTIFS, CONVERSATIONS,
 } from '../data/data';
+import { computeTotals } from '../data/totals';
 
 const LS = 'preppa.v1';
 
@@ -23,6 +24,8 @@ export interface CustomerOrder {
   lines: CartLine[];
   subtotal: number;
   service: number;
+  tax: number;
+  delivery: number;
   tip: number;
   total: number;
   mode: 'delivery' | 'pickup';
@@ -31,8 +34,8 @@ export interface CustomerOrder {
   when: string;
 }
 const SEED_ORDERS: CustomerOrder[] = [
-  { id: 'PR-2045', cook: 'denise', lines: [{ key: 'shortrib', name: 'Slow-Braised Short Rib', cook: 'denise', price: 16.5, grad: 'g6', qty: 1 }], subtotal: 16.5, service: 1.65, tip: 3, total: 21.15, mode: 'delivery', flow: 'paid', status: 'completed', when: 'Yesterday' },
-  { id: 'PR-2041', cook: 'amara', lines: [{ key: 'jollof', name: 'Smoky Jollof & Chicken', cook: 'amara', price: 12, grad: 'g1', qty: 2 }], subtotal: 24, service: 0, tip: 2, total: 26, mode: 'pickup', flow: 'cod', status: 'completed', when: 'Mon' },
+  { id: 'PR-2045', cook: 'denise', lines: [{ key: 'shortrib', name: 'Slow-Braised Short Rib', cook: 'denise', price: 16.5, grad: 'g6', qty: 1 }], subtotal: 16.5, service: 1.65, tax: 1.47, delivery: 0, tip: 3, total: 22.62, mode: 'delivery', flow: 'paid', status: 'completed', when: 'Yesterday' },
+  { id: 'PR-2041', cook: 'amara', lines: [{ key: 'jollof', name: 'Smoky Jollof & Chicken', cook: 'amara', price: 12, grad: 'g1', qty: 2 }], subtotal: 24, service: 0, tax: 2.14, delivery: 0, tip: 2, total: 28.14, mode: 'pickup', flow: 'cod', status: 'completed', when: 'Mon' },
 ];
 
 export interface Toast {
@@ -180,17 +183,18 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
 
   const placeOrder = useCallback((flow: OrderFlow) => {
     if (cart.length > 0) {
-      const subtotal = cart.reduce((s, l) => s + l.price * l.qty, 0);
-      const hasFounder = cart.some((l) => FOUNDING.has(l.cook));
-      const service = hasFounder ? 0 : Math.round(subtotal * 0.1 * 100) / 100;
+      const t = computeTotals(cart, tip, mode); // single source of truth — matches the cart UI
+      const id = 'PR-' + (Date.now().toString(36) + Math.floor(Math.random() * 46656).toString(36)).slice(-6).toUpperCase();
       const order: CustomerOrder = {
-        id: 'PR-' + String(Date.now()).slice(-4),
+        id,
         cook: cart[0].cook,
         lines: cart,
-        subtotal,
-        service,
-        tip,
-        total: subtotal + service + tip,
+        subtotal: t.subtotal,
+        service: t.service,
+        tax: t.tax,
+        delivery: t.delivery,
+        tip: t.tip,
+        total: t.total,
         mode,
         flow,
         status: flow === 'cod' ? 'completed' : 'preparing',

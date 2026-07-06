@@ -189,4 +189,17 @@ export const STORE_SPECIALTIES: Record<CookId, string[]> = {
   lucia: ['Mole', 'Handmade tortillas', 'Mezcal nights'], sana: ['Dum biryani', 'Halal-certified', 'Family boxes'],
 };
 
-export const money = (n: number) => '$' + n.toFixed(2);
+/** Safe currency formatter — guards NaN/Infinity/negative-zero, adds thousands separators. */
+export const money = (n: number) => {
+  const v = Number.isFinite(n) ? n : 0;
+  const sign = v < 0 ? '-' : '';
+  return sign + '$' + Math.abs(v).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+};
+
+/** Deterministic "Today's drop" — same meal all day, rotates daily. No fake scarcity. */
+export function dailyDropId(): string {
+  const now = new Date();
+  const start = new Date(now.getFullYear(), 0, 0);
+  const dayOfYear = Math.floor((now.getTime() - start.getTime()) / 86400000);
+  return MEALS[dayOfYear % MEALS.length].id;
+}

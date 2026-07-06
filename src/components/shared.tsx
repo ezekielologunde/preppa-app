@@ -3,29 +3,17 @@ import { View, Text } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useRouter } from 'expo-router';
 import { CartLine } from '../store/store';
-import { COOKS, CookId, FOUNDING, money } from '../data/data';
+import { COOKS, CookId, money } from '../data/data';
+import { computeTotals, Totals } from '../data/totals';
+export { computeTotals } from '../data/totals';
+export type { Totals } from '../data/totals';
 import { useC } from '../theme/ThemeContext';
 import { type, radius, shadow } from '../theme/theme';
 import { Icon, Press, Avatar } from '../ui';
 import { MiniTag } from '../ui/layout';
 
-export interface Totals {
-  subtotal: number;
-  service: number;
-  serviceFull: number;
-  hasFounder: boolean;
-  deliveryFull: number;
-  total: number;
-  tip: number;
-}
 export function useTotals(cart: CartLine[], tip: number, mode: 'delivery' | 'pickup'): Totals {
-  const subtotal = cart.reduce((s, l) => s + l.price * l.qty, 0);
-  const hasFounder = cart.some((l) => FOUNDING.has(l.cook));
-  const serviceFull = Math.round(subtotal * 0.1 * 100) / 100;
-  const service = hasFounder ? 0 : serviceFull;
-  const deliveryFull = mode === 'pickup' ? 0 : 2.99;
-  const total = subtotal + service + 0 + tip;
-  return { subtotal, service, serviceFull, hasFounder, deliveryFull, total, tip };
+  return computeTotals(cart, tip, mode);
 }
 
 export function Summary({ t, mode }: { t: Totals; mode: 'delivery' | 'pickup' }) {
@@ -54,6 +42,7 @@ export function Summary({ t, mode }: { t: Totals; mode: 'delivery' | 'pickup' })
           <Text style={[type(14, 800), { color: c.ink }]}>{money(t.service)}</Text>
         )}
       </View>
+      <Row label="Sales tax" value={money(t.tax)} />
       {t.tip > 0 ? <Row label="Tip · 100% to cook" value={money(t.tip)} strong /> : null}
       <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', borderTopWidth: 1, borderTopColor: c.border, borderStyle: 'dashed', marginTop: 8, paddingTop: 14 }}>
         <Text style={[type(17, 900), { color: c.ink }]}>Total</Text>

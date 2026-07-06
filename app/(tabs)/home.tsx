@@ -3,7 +3,7 @@ import { View, Text, ScrollView, Pressable, useWindowDimensions } from 'react-na
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useRouter } from 'expo-router';
-import { MEALS, EXPERIENCES } from '../../src/data/data';
+import { MEALS, EXPERIENCES, dailyDropId } from '../../src/data/data';
 import { useC } from '../../src/theme/ThemeContext';
 import { type, radius, shadow } from '../../src/theme/theme';
 import { useStore } from '../../src/store/store';
@@ -27,7 +27,8 @@ export default function HomeScreen() {
   const { mode, setMode, cartCount, notifCount, toast } = useStore();
   const { width } = useWindowDimensions();
   const wide = width >= 700; // logo + actions live in the SideRail on wide screens
-  const picks = MEALS.filter((m) => m.id !== 'lasagna').slice(0, 4);
+  const dropId = dailyDropId();
+  const picks = MEALS.filter((m) => m.id !== dropId).slice(0, 4);
 
   return (
     <View style={{ flex: 1, backgroundColor: c.primaryL, paddingTop: insets.top }}>
@@ -95,7 +96,7 @@ export default function HomeScreen() {
 
         {/* [2+] content */}
         <SectionHeader title="Today’s drop" />
-        <HeroDrop id="lasagna" />
+        <HeroDrop id={dropId} />
 
         <SectionHeader title="Fresh near you" action="See all" onAction={() => router.push('/explore')} />
         <MealGrid meals={picks} />
@@ -114,7 +115,7 @@ export default function HomeScreen() {
 function HdrIcon({ name, dot, onPress }: { name: string; dot?: boolean; onPress: () => void }) {
   const c = useC();
   return (
-    <Press scale={0.9} onPress={onPress}>
+    <Press scale={0.9} onPress={onPress} label={name === 'bell' ? 'Notifications' : 'Cart'}>
       <View style={{ width: 44, height: 44, borderRadius: 14, backgroundColor: c.bg2, alignItems: 'center', justifyContent: 'center' }}>
         <Icon name={name} size={19} color={c.ink2} />
         {dot ? <View style={{ position: 'absolute', top: 9, right: 10, width: 9, height: 9, borderRadius: 5, backgroundColor: c.primary, borderWidth: 2, borderColor: c.bg2 }} /> : null}

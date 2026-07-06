@@ -30,7 +30,7 @@ export interface Palette {
 export const light: Palette = {
   primary: '#F26B1D', primaryD: '#C0560F', primaryL: '#FFF1E6',
   purple: '#7C3AED', purpleL: '#F1EAFE',
-  ink: '#0E0E10', ink2: '#1C1C1E', soft: '#5A5A66', muted: '#9B9BA4',
+  ink: '#0E0E10', ink2: '#1C1C1E', soft: '#5A5A66', muted: '#6E6E78',
   surface: '#FFFFFF', bg: '#F7F7F9', bg2: '#F2F2F5', border: '#E6E6EE', border2: '#EDEDF2',
   green: '#16A34A', green2: '#22C55E', greenL: '#E7F7EE',
   blue: '#0EA5E9', blueL: '#E5F4FD', pink: '#EC4899', pinkL: '#FDE9F3', red: '#EF4444', star: '#F59E0B',
@@ -41,7 +41,7 @@ export const light: Palette = {
 export const dark: Palette = {
   primary: '#F26B1D', primaryD: '#C0560F', primaryL: '#3A2413',
   purple: '#7C3AED', purpleL: '#2B2138',
-  ink: '#F6F1EA', ink2: '#EAE3D9', soft: '#B6AB9D', muted: '#7E7466',
+  ink: '#F6F1EA', ink2: '#EAE3D9', soft: '#B6AB9D', muted: '#9A8F7E',
   surface: '#1F1A15', bg: '#151210', bg2: '#2B241D', border: '#332C23', border2: '#2A241D',
   green: '#16A34A', green2: '#22C55E', greenL: '#16281B',
   blue: '#0EA5E9', blueL: '#122836', pink: '#EC4899', pinkL: '#331A28', red: '#EF4444', star: '#F59E0B',

@@ -1,5 +1,5 @@
 import React, { useRef } from 'react';
-import { Animated, Pressable, View, Text, StyleProp, ViewStyle, TextStyle, PressableProps } from 'react-native';
+import { Animated, Pressable, View, Text, ActivityIndicator, StyleProp, ViewStyle, TextStyle, PressableProps } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { GRAD, GradKey, radius, type, shadow } from '../theme/theme';
 import { useC } from '../theme/ThemeContext';
@@ -21,6 +21,7 @@ export function Press({
   scale = 0.97,
   disabled,
   hitSlop,
+  label,
 }: {
   children: React.ReactNode;
   onPress?: () => void;
@@ -28,6 +29,8 @@ export function Press({
   scale?: number;
   disabled?: boolean;
   hitSlop?: PressableProps['hitSlop'];
+  /** Accessibility label — required for icon-only buttons (no readable text child). */
+  label?: string;
 }) {
   const a = useRef(new Animated.Value(1)).current;
   const to = (v: number) => Animated.spring(a, { toValue: v, useNativeDriver: true, speed: 40, bounciness: 6 }).start();
@@ -36,6 +39,9 @@ export function Press({
       onPress={onPress}
       disabled={disabled}
       hitSlop={hitSlop}
+      accessibilityRole={onPress ? 'button' : undefined}
+      accessibilityLabel={label}
+      accessibilityState={{ disabled: !!disabled }}
       onPressIn={() => to(scale)}
       onPressOut={() => to(1)}
     >
@@ -125,6 +131,7 @@ export function Btn({
   block,
   lg,
   disabled,
+  loading,
   icon,
   iconRight,
   style,
@@ -137,6 +144,8 @@ export function Btn({
   block?: boolean;
   lg?: boolean;
   disabled?: boolean;
+  /** Show a spinner and block presses (prevents double-fire on async actions). */
+  loading?: boolean;
   icon?: string;
   iconRight?: string;
   style?: StyleProp<ViewStyle>;
@@ -147,6 +156,7 @@ export function Btn({
   const h = height ?? (lg ? 56 : 52);
   const bg = variant === 'pri' ? c.primary : variant === 'dark' ? c.ink : c.surface;
   const fg = variant === 'ghost' ? c.ink : '#fff';
+  const blocked = disabled || loading;
   const base: ViewStyle = {
     height: h,
     borderRadius: radius.pill,
@@ -156,7 +166,7 @@ export function Btn({
     justifyContent: 'center',
     gap: 8,
     backgroundColor: bg,
-    opacity: disabled ? 0.5 : 1,
+    opacity: blocked ? 0.55 : 1,
   };
   const extra: ViewStyle =
     variant === 'ghost'
@@ -165,21 +175,27 @@ export function Btn({
         ? shadow.brand
         : {};
   return (
-    <Press scale={0.96} disabled={disabled} onPress={onPress} style={[block ? { width: '100%' } : null, flex ? { flex } : null, style]}>
+    <Press scale={0.96} disabled={blocked} onPress={loading ? undefined : onPress} label={label} style={[block ? { width: '100%' } : null, flex ? { flex } : null, style]}>
       <View style={[base, extra]}>
-        {icon ? <Icon name={icon} size={lg ? 19 : 18} color={fg} /> : null}
-        {label ? <Text style={[type(lg ? 17 : 16, 800), { color: fg, letterSpacing: -0.1 }]}>{label}</Text> : null}
-        {iconRight ? <Icon name={iconRight} size={lg ? 19 : 18} color={fg} /> : null}
+        {loading ? (
+          <ActivityIndicator color={fg} size="small" />
+        ) : (
+          <>
+            {icon ? <Icon name={icon} size={lg ? 19 : 18} color={fg} /> : null}
+            {label ? <Text style={[type(lg ? 17 : 16, 800), { color: fg, letterSpacing: -0.1 }]}>{label}</Text> : null}
+            {iconRight ? <Icon name={iconRight} size={lg ? 19 : 18} color={fg} /> : null}
+          </>
+        )}
       </View>
     </Press>
   );
 }
 
 /** Round icon button (42x42 circle by default). */
-export function IconBtn({ name, onPress, size = 42, iconSize = 18, bg, color, dot }: { name: string; onPress?: () => void; size?: number; iconSize?: number; bg?: string; color?: string; dot?: boolean }) {
+export function IconBtn({ name, onPress, size = 42, iconSize = 18, bg, color, dot, label }: { name: string; onPress?: () => void; size?: number; iconSize?: number; bg?: string; color?: string; dot?: boolean; label?: string }) {
   const c = useC();
   return (
-    <Press scale={0.9} onPress={onPress}>
+    <Press scale={0.9} onPress={onPress} label={label ?? name}>
       <View style={[{ width: size, height: size, borderRadius: size / 2, backgroundColor: bg ?? c.surface, alignItems: 'center', justifyContent: 'center' }, shadow.soft]}>
         <Icon name={name} size={iconSize} color={color ?? c.ink} />
         {dot ? <View style={{ position: 'absolute', top: 9, right: 10, width: 9, height: 9, borderRadius: 5, backgroundColor: c.primary, borderWidth: 2, borderColor: bg ?? c.surface }} /> : null}

@@ -15,8 +15,11 @@ export default function Checkout() {
   const { cart, tip, mode, placeOrder, toast } = useStore();
   const t = useTotals(cart, tip, mode);
   const [pay, setPay] = useState<'online' | 'cod'>('online');
+  const [busy, setBusy] = useState(false);
 
   const place = () => {
+    if (busy) return; // guard against double-fire / double-order
+    setBusy(true);
     if (pay === 'cod') router.push('/cod');
     else { placeOrder('paid'); router.replace('/track?flow=paid'); }
   };
@@ -57,7 +60,7 @@ export default function Checkout() {
 
       <Dock>
         <DockTotal label="Total" value={money(t.total)} />
-        <Btn label={pay === 'cod' ? 'Place order' : `Pay ${money(t.total)}`} flex={1} onPress={place} />
+        <Btn label={pay === 'cod' ? 'Place order' : `Pay ${money(t.total)}`} flex={1} loading={busy && pay !== 'cod'} onPress={place} />
       </Dock>
     </Screen>
   );

@@ -16,6 +16,7 @@ import { ToastHost } from '../src/ui';
 import { SplashOverlay } from '../src/components/Splash';
 import { OnboardingFlow } from '../src/components/Onboarding';
 import { SideRail } from '../src/components/SideRail';
+import { ErrorBoundary } from '../src/components/ErrorBoundary';
 
 SplashScreen.preventAutoHideAsync().catch(() => {});
 
@@ -63,15 +64,17 @@ function AppShell() {
   return (
     <View style={{ flex: 1, backgroundColor: bg }}>
       <StatusBar style={isDark ? 'light' : 'dark'} />
-      <View style={{ flex: 1, flexDirection: wide ? 'row' : 'column' }}>
-        {wide ? <SideRail width={railW} /> : null}
-        <View style={{ flex: 1, minWidth: 0 }}>
-          <Stack screenOptions={{ headerShown: false, contentStyle: { backgroundColor: bg } }}>
-            <Stack.Screen name="index" />
-            <Stack.Screen name="(tabs)" />
-          </Stack>
+      <ErrorBoundary>
+        <View style={{ flex: 1, flexDirection: wide ? 'row' : 'column' }}>
+          {wide ? <SideRail width={railW} /> : null}
+          <View style={{ flex: 1, minWidth: 0 }}>
+            <Stack screenOptions={{ headerShown: false, contentStyle: { backgroundColor: bg } }}>
+              <Stack.Screen name="index" />
+              <Stack.Screen name="(tabs)" />
+            </Stack>
+          </View>
         </View>
-      </View>
+      </ErrorBoundary>
       <ToastHost />
       {ready && !onboarded ? <OnboardingFlow /> : null}
       {showSplash ? <SplashOverlay /> : null}
