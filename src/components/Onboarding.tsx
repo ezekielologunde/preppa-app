@@ -171,6 +171,8 @@ function Code({ email, onNext }: { email: string; onNext: () => void }) {
   useEffect(() => { const t = setTimeout(() => ref.current?.focus(), 300); return () => clearTimeout(t); }, []);
   useEffect(() => { if (cool <= 0) return; const t = setTimeout(() => setCool((c) => c - 1), 1000); return () => clearTimeout(t); }, [cool]);
   useEffect(() => {
+    // NB: depend on `code` only. If `busy` were a dep, flipping it in setBusy(true)
+    // would re-run this effect and its cleanup would clearTimeout the verify before it fires.
     if (code.length !== 6 || busy) return;
     setBusy(true);
     const t = setTimeout(() => {
@@ -178,22 +180,33 @@ function Code({ email, onNext }: { email: string; onNext: () => void }) {
       else { setBusy(false); setErr(true); shake.fire(); setCode(''); }
     }, 1100);
     return () => clearTimeout(t);
-  }, [code, busy]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [code]);
   const resend = () => { setCool(24); setResent(true); setErr(false); setTimeout(() => setResent(false), 2400); };
   return (
     <>
       <Title parts={['Check your inbox.']} />
       <Lead>We sent a 6-digit code to <Text style={{ color: '#fff', fontFamily: type(15.5, 700).fontFamily }}>{email}</Text>.</Lead>
       <Animated.View style={{ flexDirection: 'row', gap: 9, marginTop: 22, transform: [{ translateX: shake.x }] }}>
-        <TextInput ref={ref} value={code} onChangeText={(t) => { setCode(t.replace(/\D/g, '').slice(0, 6)); if (err) setErr(false); }} keyboardType="number-pad" maxLength={6} style={[FILL, { opacity: 0 }] as any} caretHidden />
         {Array.from({ length: 6 }).map((_, i) => {
           const live = i === code.length && !busy;
           return (
-            <Pressable key={i} onPress={() => ref.current?.focus()} style={[stt.otpBox, err ? { borderColor: '#F87171' } : live ? { borderColor: '#F26B1D' } : null]}>
+            <View key={i} style={[stt.otpBox, err ? { borderColor: '#F87171' } : live ? { borderColor: '#F26B1D' } : null]}>
               <Text style={[type(23, 900), { color: '#fff' }]}>{code[i] || ''}</Text>
-            </Pressable>
+            </View>
           );
         })}
+        <TextInput
+          ref={ref}
+          value={code}
+          onChangeText={(t) => { setCode(t.replace(/\D/g, '').slice(0, 6)); if (err) setErr(false); }}
+          keyboardType="number-pad"
+          maxLength={6}
+          autoFocus
+          caretHidden
+          selectionColor="transparent"
+          style={[FILL, { color: 'transparent', fontSize: 24, textAlign: 'center' }] as any}
+        />
       </Animated.View>
       {err ? <View style={{ flexDirection: 'row', alignItems: 'center', gap: 7, marginTop: 12 }}><Icon name="info" size={15} color="#FCA5A5" /><Text style={[type(13, 700), { color: '#FCA5A5' }]}>That code didn’t match. Check the digits and try again.</Text></View> : null}
       {busy ? <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8, marginTop: 12 }}><Spinner size={15} /><Text style={[type(13, 700), { color: W(0.6) }]}>Verifying…</Text></View> : null}
