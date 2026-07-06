@@ -14,16 +14,17 @@ export default function Profile() {
   const c = useC();
   const insets = useSafeAreaInsets();
   const router = useRouter();
-  const { lastOrder, resetOnboarding, darkMode, setDarkMode, toast } = useStore();
+  const { resetOnboarding, darkMode, setDarkMode, toast } = useStore();
 
   const rows: { ico: string; cls: Tone; t: string; act: () => void }[] = [
-    { ico: 'ticket', cls: 'amber', t: 'Your orders', act: () => (lastOrder ? router.push(`/track?flow=${lastOrder}`) : toast('No orders yet — let’s fix that 🍽️')) },
+    { ico: 'ticket', cls: 'amber', t: 'Your orders', act: () => router.push('/orders') },
+    { ico: 'heart', cls: 'pink', t: 'Favorites', act: () => router.push('/favorites') },
     { ico: 'repeat', cls: 'amber', t: 'Meal plans & subscriptions', act: () => router.push('/plans') },
     { ico: 'calendar', cls: 'purple', t: 'Your experiences', act: () => router.push('/experiences') },
-    { ico: 'pin', cls: 'blue', t: 'Addresses', act: () => toast('Addresses — demo') },
-    { ico: 'card', cls: 'pink', t: 'Payment methods', act: () => toast('Payments — demo') },
-    { ico: 'gift', cls: 'green', t: 'Rewards & referrals', act: () => toast('Invite a friend, you both get free delivery 🎁') },
-    { ico: 'shield', cls: 'purple', t: 'PrepPlus membership', act: () => toast('PrepPlus — coming soon ✨') },
+    { ico: 'pin', cls: 'blue', t: 'Addresses', act: () => router.push('/addresses') },
+    { ico: 'card', cls: 'pink', t: 'Payment methods', act: () => router.push('/payments') },
+    { ico: 'gift', cls: 'green', t: 'Rewards & referrals', act: () => router.push('/rewards') },
+    { ico: 'shield', cls: 'purple', t: 'PrepPlus membership', act: () => router.push('/prepplus') },
     { ico: 'help', cls: '', t: 'Help & safety', act: () => toast('Help center — demo') },
   ];
 
@@ -45,6 +46,7 @@ export default function Profile() {
         </View>
 
         {/* rewards */}
+        <Press scale={0.99} onPress={() => router.push('/rewards')}>
         <LinearGradient colors={['#1C1C1E', '#0E0D12']} style={{ margin: 16, borderRadius: radius.xl, padding: 18, overflow: 'hidden' }}>
           <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-start' }}>
             <View>
@@ -58,6 +60,7 @@ export default function Profile() {
           </View>
           <Text style={[type(12, 600), { color: 'rgba(255,255,255,.7)', marginTop: 12 }]}>160 pts to your next <Text style={{ color: '#fff', fontFamily: type(12, 800).fontFamily }}>free delivery</Text> reward.</Text>
         </LinearGradient>
+        </Press>
 
         {/* become a preppa */}
         <LinearGradient colors={['#FFF1E6', '#FFE0CC']} style={{ marginHorizontal: 16, borderRadius: radius.xl, padding: 18, flexDirection: 'row', alignItems: 'center', gap: 14, borderWidth: 1, borderColor: '#FFD9BD' }}>

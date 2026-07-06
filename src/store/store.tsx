@@ -2,7 +2,7 @@ import React, { createContext, useContext, useState, useEffect, useCallback, use
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import {
   GradKey, CookId, Subscription, ServiceRequest, SEED_REQUESTS, genQuotes,
-  NOTIFS, CONVERSATIONS,
+  NOTIFS, CONVERSATIONS, FOUNDING,
 } from '../data/data';
 
 const LS = 'preppa.v1';
@@ -16,6 +16,24 @@ export interface CartLine {
   qty: number;
 }
 export type OrderFlow = 'paid' | 'cod';
+
+export interface CustomerOrder {
+  id: string;
+  cook: CookId;
+  lines: CartLine[];
+  subtotal: number;
+  service: number;
+  tip: number;
+  total: number;
+  mode: 'delivery' | 'pickup';
+  flow: OrderFlow;
+  status: 'preparing' | 'ready' | 'completed';
+  when: string;
+}
+const SEED_ORDERS: CustomerOrder[] = [
+  { id: 'PR-2045', cook: 'denise', lines: [{ key: 'shortrib', name: 'Slow-Braised Short Rib', cook: 'denise', price: 16.5, grad: 'g6', qty: 1 }], subtotal: 16.5, service: 1.65, tip: 3, total: 21.15, mode: 'delivery', flow: 'paid', status: 'completed', when: 'Yesterday' },
+  { id: 'PR-2041', cook: 'amara', lines: [{ key: 'jollof', name: 'Smoky Jollof & Chicken', cook: 'amara', price: 12, grad: 'g1', qty: 2 }], subtotal: 24, service: 0, tip: 2, total: 26, mode: 'pickup', flow: 'cod', status: 'completed', when: 'Mon' },
+];
 
 export interface Toast {
   id: number;
@@ -49,6 +67,8 @@ interface Store {
 
   lastOrder: OrderFlow | null;
   placeOrder: (flow: OrderFlow) => void;
+  orders: CustomerOrder[];
+  reorder: (id: string) => void;
 
   subscription: Subscription | null;
   subscribe: (s: Subscription) => void;
@@ -85,6 +105,7 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
   const [mode, setMode] = useState<'delivery' | 'pickup'>('delivery');
   const [fav, setFav] = useState<Set<string>>(new Set());
   const [lastOrder, setLastOrder] = useState<OrderFlow | null>(null);
+  const [orders, setOrders] = useState<CustomerOrder[]>(SEED_ORDERS);
   const [subscription, setSubscription] = useState<Subscription | null>(null);
   const [requests, setRequests] = useState<ServiceRequest[]>(SEED_REQUESTS);
   const [avail, setAvail] = useState(true);
@@ -106,6 +127,7 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
           if (s.mode) setMode(s.mode);
           if (Array.isArray(s.fav)) setFav(new Set(s.fav));
           if (s.lastOrder) setLastOrder(s.lastOrder);
+          if (Array.isArray(s.orders)) setOrders(s.orders);
           if (s.subscription) setSubscription(s.subscription);
           if (Array.isArray(s.requests)) setRequests(s.requests);
           if (typeof s.avail === 'boolean') setAvail(s.avail);
@@ -121,9 +143,9 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
     if (!hydrated.current) return;
     AsyncStorage.setItem(
       LS,
-      JSON.stringify({ onboarded, darkMode, cart, tip, mode, fav: [...fav], lastOrder, subscription, requests, avail }),
+      JSON.stringify({ onboarded, darkMode, cart, tip, mode, fav: [...fav], lastOrder, orders, subscription, requests, avail }),
     ).catch(() => {});
-  }, [onboarded, darkMode, cart, tip, mode, fav, lastOrder, subscription, requests, avail]);
+  }, [onboarded, darkMode, cart, tip, mode, fav, lastOrder, orders, subscription, requests, avail]);
 
   const toast = useCallback((msg: string, icon = 'check', green = false) => {
     const id = toastSeq++;
@@ -157,10 +179,35 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
   }, []);
 
   const placeOrder = useCallback((flow: OrderFlow) => {
+    if (cart.length > 0) {
+      const subtotal = cart.reduce((s, l) => s + l.price * l.qty, 0);
+      const hasFounder = cart.some((l) => FOUNDING.has(l.cook));
+      const service = hasFounder ? 0 : Math.round(subtotal * 0.1 * 100) / 100;
+      const order: CustomerOrder = {
+        id: 'PR-' + String(Date.now()).slice(-4),
+        cook: cart[0].cook,
+        lines: cart,
+        subtotal,
+        service,
+        tip,
+        total: subtotal + service + tip,
+        mode,
+        flow,
+        status: flow === 'cod' ? 'completed' : 'preparing',
+        when: 'Just now',
+      };
+      setOrders((os) => [order, ...os]);
+    }
     setLastOrder(flow);
     setCart([]);
     setTip(2);
-  }, []);
+  }, [cart, tip, mode]);
+  const reorder = useCallback((id: string) => {
+    const o = orders.find((x) => x.id === id);
+    if (!o) return;
+    o.lines.forEach((l) => addToCart({ key: l.key, name: l.name, cook: l.cook, price: l.price, grad: l.grad }, l.qty));
+    toast(`Added to cart · ${o.lines.length} item${o.lines.length !== 1 ? 's' : ''}`, 'cart', true);
+  }, [orders, addToCart, toast]);
 
   const resetOnboarding = useCallback(() => setOnboardedState(false), []);
 
@@ -212,6 +259,8 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
     toggleFav,
     lastOrder,
     placeOrder,
+    orders,
+    reorder,
     subscription,
     subscribe,
     updateSub,

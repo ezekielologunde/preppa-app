@@ -5,6 +5,7 @@ import { useRouter } from 'expo-router';
 import { LinearGradient } from 'expo-linear-gradient';
 import { FEED, COOKS, mealById, money } from '../../src/data/data';
 import { type, radius } from '../../src/theme/theme';
+import { useStore } from '../../src/store/store';
 import { Icon, Press, GradBox } from '../../src/ui';
 
 export default function Feeds() {
@@ -23,9 +24,12 @@ export default function Feeds() {
 function Reel({ f, height }: { f: (typeof FEED)[number]; height: number }) {
   const insets = useSafeAreaInsets();
   const router = useRouter();
+  const { toast } = useStore();
   const cook = COOKS[f.cook];
   const meal = mealById(f.meal);
   const [liked, setLiked] = useState(false);
+  const [saved, setSaved] = useState(false);
+  const [following, setFollowing] = useState(false);
   return (
     <View style={{ height, width: '100%' }}>
       <GradBox grad={f.grad} style={{ ...StyleAbs }} />
@@ -50,9 +54,9 @@ function Reel({ f, height }: { f: (typeof FEED)[number]; height: number }) {
       {/* right rail */}
       <View style={{ position: 'absolute', right: 12, bottom: 40, alignItems: 'center', gap: 20 }}>
         <RailBtn icon={liked ? 'heartFill' : 'heart'} label={f.likes} active={liked} onPress={() => setLiked((v) => !v)} />
-        <RailBtn icon="comment" label={String(f.comments)} onPress={() => {}} />
-        <RailBtn icon="share" label="Share" onPress={() => {}} />
-        <RailBtn icon="bookmark" label="Save" onPress={() => {}} />
+        <RailBtn icon="comment" label={String(f.comments)} onPress={() => toast('Comments — demo', 'comment')} />
+        <RailBtn icon="share" label="Share" onPress={() => toast('Shared (demo)', 'share')} />
+        <RailBtn icon={saved ? 'bookmarkFill' : 'bookmark'} label={saved ? 'Saved' : 'Save'} active={saved} onPress={() => { setSaved((v) => !v); toast(saved ? 'Removed from saved' : 'Saved to your list', 'bookmark', !saved); }} />
       </View>
 
       {/* bottom */}
@@ -67,9 +71,9 @@ function Reel({ f, height }: { f: (typeof FEED)[number]; height: number }) {
             <Text style={[type(15, 900), { color: '#fff' }]}>{cook.name}</Text>
             <Icon name="shield" size={14} color="#fff" />
           </View>
-          <Press scale={0.94} onPress={() => {}}>
-            <View style={{ height: 30, paddingHorizontal: 14, borderRadius: radius.pill, backgroundColor: '#fff', alignItems: 'center', justifyContent: 'center' }}>
-              <Text style={[type(12.5, 900), { color: '#0E0E10' }]}>Follow</Text>
+          <Press scale={0.94} onPress={() => { setFollowing((v) => !v); toast(following ? `Unfollowed ${cook.name}` : `Following ${cook.name}`, following ? 'x' : 'check', !following); }}>
+            <View style={{ height: 30, paddingHorizontal: 14, borderRadius: radius.pill, backgroundColor: following ? 'rgba(255,255,255,.2)' : '#fff', borderWidth: following ? 1 : 0, borderColor: 'rgba(255,255,255,.5)', alignItems: 'center', justifyContent: 'center' }}>
+              <Text style={[type(12.5, 900), { color: following ? '#fff' : '#0E0E10' }]}>{following ? 'Following' : 'Follow'}</Text>
             </View>
           </Press>
         </View>
