@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { View, Text, ScrollView } from 'react-native';
+import { View, Text, ScrollView, Pressable } from 'react-native';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { mealById, COOKS, ADDONS, money } from '../../src/data/data';
@@ -10,6 +10,7 @@ import { Icon, Press, GradBox, Stepper, Btn } from '../../src/ui';
 import { Screen, Dock, DockTotal, SectionLabel } from '../../src/ui/layout';
 import { CookRow, HeroTopBar, HeroBtn } from '../../src/components/shared';
 import { NotFound } from '../../src/components/NotFound';
+import { ImageViewer } from '../../src/components/ImageViewer';
 
 export default function MealDetail() {
   const c = useC();
@@ -20,6 +21,7 @@ export default function MealDetail() {
   const m = mealById(id!);
   const [qty, setQty] = useState(1);
   const [adds, setAdds] = useState<string[]>([]);
+  const [viewer, setViewer] = useState(false);
   if (!m) return <NotFound title="Meal" />;
   const cook = COOKS[m.cook];
   const toggleAdd = (k: string) => setAdds((p) => (p.includes(k) ? p.filter((x) => x !== k) : [...p, k]));
@@ -37,15 +39,22 @@ export default function MealDetail() {
   return (
     <Screen bg={c.surface}>
       <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={{ paddingBottom: 120 }}>
-        <GradBox grad={m.grad} style={{ height: 280 }}>
+        <GradBox grad={m.grad} img={m.img} style={{ height: 280 }}>
+          {m.img ? <Pressable onPress={() => setViewer(true)} accessibilityLabel={`View photo of ${m.name}`} style={{ position: 'absolute', top: 0, left: 0, right: 0, bottom: 0 }} /> : null}
           <HeroTopBar topInset={insets.top} onBack={() => router.back()} right={
             <View style={{ flexDirection: 'row', gap: 10 }}>
               <HeroBtn icon="share" onPress={() => toast('Share — demo', 'share')} />
               <HeroBtn icon={isFav ? 'heartFill' : 'heart'} color={isFav ? c.primary : c.ink} onPress={() => toggleFav(m.id)} />
             </View>
           } />
+          {m.img ? (
+            <View pointerEvents="none" style={{ position: 'absolute', bottom: 34, right: 16, height: 32, paddingHorizontal: 11, borderRadius: 16, backgroundColor: 'rgba(0,0,0,.45)', flexDirection: 'row', alignItems: 'center', gap: 5 }}>
+              <Icon name="search" size={14} color="#fff" />
+              <Text style={[type(12, 800), { color: '#fff' }]}>View photo</Text>
+            </View>
+          ) : null}
           {m.match ? (
-            <View style={{ position: 'absolute', bottom: 38, left: 18, height: 24, borderRadius: radius.pill, paddingHorizontal: 8, flexDirection: 'row', alignItems: 'center', gap: 3, backgroundColor: c.green }}>
+            <View pointerEvents="none" style={{ position: 'absolute', bottom: 38, left: 18, height: 24, borderRadius: radius.pill, paddingHorizontal: 8, flexDirection: 'row', alignItems: 'center', gap: 3, backgroundColor: c.green }}>
               <Icon name="check" size={11} color="#fff" />
               <Text style={[type(10, 900), { color: '#fff', textTransform: 'uppercase' }]}>Matches your taste</Text>
             </View>
@@ -103,6 +112,7 @@ export default function MealDetail() {
           </>
         )}
       </Dock>
+      <ImageViewer uri={m.img} caption={m.name} visible={viewer} onClose={() => setViewer(false)} />
     </Screen>
   );
 }

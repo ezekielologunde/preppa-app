@@ -68,7 +68,7 @@ export const MealCardLg = React.memo(function MealCardLg({ m, showMatch, width }
   return (
     <Press scale={0.97} onPress={() => router.push(`/meal/${m.id}`)} style={{ width }}>
       <View style={{ backgroundColor: c.surface, borderRadius: radius.card, borderWidth: 1, borderColor: c.border2, overflow: 'hidden', ...shadow.card }}>
-        <GradBox grad={m.grad} style={{ height: 150 }}>
+        <GradBox grad={m.grad} img={m.img} style={{ height: 150 }}>
           {showMatch && m.match ? (
             <View style={{ position: 'absolute', top: 8, left: 8, height: 22, borderRadius: radius.pill, paddingHorizontal: 8, flexDirection: 'row', alignItems: 'center', gap: 3, backgroundColor: c.green }}>
               <Icon name="check" size={11} color="#fff" />
@@ -131,7 +131,7 @@ export const HeroDrop = React.memo(function HeroDrop({ id }: { id: string }) {
   return (
     <Press scale={0.985} onPress={() => router.push(`/meal/${m.id}`)} style={{ marginHorizontal: 20 }}>
       <View style={{ backgroundColor: c.surface, borderWidth: 1, borderColor: c.border2, borderRadius: radius.hero, overflow: 'hidden', ...shadow.card }}>
-        <GradBox grad={m.grad} style={{ height: 210 }}>
+        <GradBox grad={m.grad} img={m.img} style={{ height: 210 }}>
           <View style={{ position: 'absolute', top: 14, left: 14, height: 30, borderRadius: radius.pill, paddingHorizontal: 13, flexDirection: 'row', alignItems: 'center', gap: 6, backgroundColor: 'rgba(255,255,255,.94)' }}>
             <Icon name="bolt" size={13} color={c.primary} />
             <Text style={[type(11, 900), { color: c.ink, textTransform: 'uppercase' }]}>Today’s drop</Text>

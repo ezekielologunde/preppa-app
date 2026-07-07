@@ -1,7 +1,7 @@
-import React, { useRef } from 'react';
-import { Animated, Pressable, StyleSheet, View, Text, ActivityIndicator, StyleProp, ViewStyle, TextStyle, PressableProps } from 'react-native';
+import React, { useRef, useState } from 'react';
+import { Animated, Pressable, StyleSheet, Image, View, Text, ActivityIndicator, StyleProp, ViewStyle, TextStyle, PressableProps } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
-import { GRAD, GradKey, radius, type, shadow, tnum } from '../theme/theme';
+import { GRAD, GradKey, radius, type, shadow, tnum, FILL } from '../theme/theme';
 import { useC } from '../theme/ThemeContext';
 import { COOKS, CookId, Grad } from '../data/data';
 import { Icon } from './Icon';
@@ -68,25 +68,32 @@ export function Press({
   );
 }
 
-/** 135deg linear-gradient fill box (the ListingImage placeholder convention). */
+/** 135deg linear-gradient fill box. Pass `img` to show a real photo over it —
+ *  the gradient stays visible while it loads and if it fails (graceful fallback). */
 export function GradBox({
   grad,
   style,
   children,
   radius: r,
+  img,
 }: {
   grad: GradKey | Grad | string;
   style?: StyleProp<ViewStyle>;
   children?: React.ReactNode;
   radius?: number;
+  img?: string;
 }) {
+  const [err, setErr] = useState(false);
   return (
     <LinearGradient
       colors={gradColors(grad)}
       start={{ x: 0, y: 0 }}
       end={{ x: 1, y: 1 }}
-      style={[r ? { borderRadius: r } : null, style]}
+      style={[r ? { borderRadius: r } : null, img ? { overflow: 'hidden' } : null, style]}
     >
+      {img && !err ? (
+        <Image source={{ uri: img }} onError={() => setErr(true)} resizeMode="cover" style={FILL as any} />
+      ) : null}
       {children}
     </LinearGradient>
   );

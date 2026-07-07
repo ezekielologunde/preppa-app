@@ -41,7 +41,7 @@ const Reel = React.memo(function Reel({ f, height }: { f: (typeof FEED)[number];
   const [following, setFollowing] = useState(false);
   return (
     <View style={{ height, width: '100%' }}>
-      <GradBox grad={f.grad} style={{ ...StyleAbs }} />
+      <GradBox grad={f.grad} img={meal?.img} style={{ ...StyleAbs }} />
       <LinearGradient colors={['rgba(0,0,0,.35)', 'transparent', 'rgba(0,0,0,.72)']} locations={[0, 0.4, 1]} style={StyleAbs} />
 
       {/* play */}
