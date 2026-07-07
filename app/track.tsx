@@ -82,6 +82,20 @@ export default function Track() {
             </View>
           </Press>
 
+          {!cod ? (
+            <View style={{ marginTop: 14, padding: 14, borderRadius: radius.lg, backgroundColor: c.purpleL, borderWidth: 1, borderColor: c.purple }}>
+              <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10 }}>
+                <Icon name="qr" size={20} color={c.purple} />
+                <Text style={[type(12.5, 700), { color: c.purple, flex: 1, lineHeight: 18 }]}>
+                  {mode === 'pickup' ? 'Show your code when you collect — your cook scans it to confirm the right order.' : 'Show your code at the door — your cook scans it to confirm the handoff.'}
+                </Text>
+              </View>
+              <View style={{ marginTop: 12 }}>
+                <Btn icon="qr" label={mode === 'pickup' ? 'Show pickup code' : 'Show handoff code'} block onPress={() => router.push(`/handoff?mode=${mode}&cook=maria`)} />
+              </View>
+            </View>
+          ) : null}
+
           <View style={{ flexDirection: 'row', gap: 10, marginTop: 14 }}>
             {!cod ? <Btn variant="ghost" label="Get help" flex={1} onPress={() => toast('Order help — demo', 'help')} /> : null}
             <Btn label={cod ? 'Back to home' : 'Done'} flex={1} onPress={() => router.replace('/home')} />
