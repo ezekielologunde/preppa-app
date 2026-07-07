@@ -86,14 +86,14 @@ export const CONVERSATIONS: Conversation[] = [
 
 export interface Experience {
   id: string; title: string; sub: string; cook: CookId; price: number;
-  grad: GradKey | Grad; when: string; spots: string; tag: string; ico: string;
+  grad: GradKey | Grad; when: string; spots: string; tag: string; ico: string; img?: string;
 }
 export const EXPERIENCES: Experience[] = [
-  { id: 'pasta', title: 'Pasta Masterclass', sub: 'Hands-on with Chef Maria', cook: 'maria', price: 65, grad: 'g4', when: 'Sat · 4:00 PM', spots: '4 spots left', tag: 'Class', ico: 'chefhat' },
-  { id: 'supper', title: 'West African Supper Club', sub: 'Authentic 5-course night', cook: 'amara', price: 58, grad: 'g1', when: 'Sun · 6:00 PM', spots: '8 seats', tag: 'Supper club', ico: 'globe' },
-  { id: 'birthday', title: 'Private Birthday Dinner', sub: 'Chef-crafted celebration', cook: 'denise', price: 45, grad: ['#FF6B9D', '#EC4899'], when: 'Book any date', spots: 'Private', tag: 'Private dining', ico: 'gift' },
-  { id: 'bbq', title: 'Backyard BBQ Night', sub: 'Open-fire gathering', cook: 'denise', price: 40, grad: 'g6', when: 'Sat · 5:00 PM', spots: '12 going', tag: 'Event', ico: 'bolt' },
-  { id: 'taco', title: 'Taco & Mezcal Evening', sub: 'Oaxacan night with Lucia', cook: 'lucia', price: 52, grad: 'g7', when: 'Fri · 7:00 PM', spots: '6 seats', tag: 'Supper club', ico: 'globe' },
+  { id: 'pasta', title: 'Pasta Masterclass', sub: 'Hands-on with Chef Maria', cook: 'maria', price: 65, grad: 'g4', when: 'Sat · 4:00 PM', spots: '4 spots left', tag: 'Class', ico: 'chefhat', img: IMG + 'rvxxuy1468312893.jpg' },
+  { id: 'supper', title: 'West African Supper Club', sub: 'Authentic 5-course night', cook: 'amara', price: 58, grad: 'g1', when: 'Sun · 6:00 PM', spots: '8 seats', tag: 'Supper club', ico: 'globe', img: IMG + 'wyxwsp1486979827.jpg' },
+  { id: 'birthday', title: 'Private Birthday Dinner', sub: 'Chef-crafted celebration', cook: 'denise', price: 45, grad: ['#FF6B9D', '#EC4899'], when: 'Book any date', spots: 'Private', tag: 'Private dining', ico: 'gift', img: IMG + 'wkhg581762773124.jpg' },
+  { id: 'bbq', title: 'Backyard BBQ Night', sub: 'Open-fire gathering', cook: 'denise', price: 40, grad: 'g6', when: 'Sat · 5:00 PM', spots: '12 going', tag: 'Event', ico: 'bolt', img: IMG + 'atd5sh1583188467.jpg' },
+  { id: 'taco', title: 'Taco & Mezcal Evening', sub: 'Oaxacan night with Lucia', cook: 'lucia', price: 52, grad: 'g7', when: 'Fri · 7:00 PM', spots: '6 seats', tag: 'Supper club', ico: 'globe', img: IMG + 'uvuyxu1503067369.jpg' },
 ];
 export const expById = (id: string) => EXPERIENCES.find((e) => e.id === id);
 
@@ -170,12 +170,12 @@ export function genQuotes(req: ServiceRequest): Quote[] {
 }
 
 /* ---------------- meal plans / subscriptions ---------------- */
-export interface MarketPlan { id: string; cook: CookId; name: string; price: number; per: string; meals: number; grad: GradKey; desc: string; items: string[]; }
+export interface MarketPlan { id: string; cook: CookId; name: string; price: number; per: string; meals: number; grad: GradKey; desc: string; items: string[]; img?: string; }
 export const MARKET_PLANS: MarketPlan[] = [
-  { id: 'weeknight', cook: 'maria', name: 'Weeknight Italian Box', price: 48, per: 'week', meals: 3, grad: 'g4', desc: 'Three chef-cooked dinners delivered every week — rotating pasta, bakes and one lighter dish.', items: ['Family Lasagna Tray', 'Sunday Meatballs', 'Eggplant Parmigiana'] },
-  { id: 'protein', cook: 'david', name: 'High-Protein Reset', price: 42, per: 'week', meals: 3, grad: 'g3', desc: 'Lean, macro-balanced dinners — grilled fish, bowls and greens. 40g+ protein each.', items: ['Honey Garlic Salmon', 'Rainbow Poke Bowl', 'Charred Greens Bowl'] },
-  { id: 'soul', cook: 'denise', name: 'Sunday Soul Table', price: 36, per: 'week', meals: 1, grad: 'g6', desc: 'One big family tray every Sunday — slow-braised comfort that feeds four.', items: ['Slow-Braised Short Rib tray', 'Honey Cornbread (6)'] },
-  { id: 'halal', cook: 'sana', name: 'Halal Family Box', price: 54, per: 'week', meals: 4, grad: 'g8', desc: 'Four halal-certified dinners for the family, spiced to order.', items: ['Chicken Biryani Box', 'Karahi Night', 'Daal + Naan', 'Kofta Curry'] },
+  { id: 'weeknight', cook: 'maria', name: 'Weeknight Italian Box', price: 48, per: 'week', meals: 3, grad: 'g4', desc: 'Three chef-cooked dinners delivered every week — rotating pasta, bakes and one lighter dish.', items: ['Family Lasagna Tray', 'Sunday Meatballs', 'Eggplant Parmigiana'], img: IMG + 'rvxxuy1468312893.jpg' },
+  { id: 'protein', cook: 'david', name: 'High-Protein Reset', price: 42, per: 'week', meals: 3, grad: 'g3', desc: 'Lean, macro-balanced dinners — grilled fish, bowls and greens. 40g+ protein each.', items: ['Honey Garlic Salmon', 'Rainbow Poke Bowl', 'Charred Greens Bowl'], img: IMG + 'ikizdm1763760862.jpg' },
+  { id: 'soul', cook: 'denise', name: 'Sunday Soul Table', price: 36, per: 'week', meals: 1, grad: 'g6', desc: 'One big family tray every Sunday — slow-braised comfort that feeds four.', items: ['Slow-Braised Short Rib tray', 'Honey Cornbread (6)'], img: IMG + 'pbzcrx1763765096.jpg' },
+  { id: 'halal', cook: 'sana', name: 'Halal Family Box', price: 54, per: 'week', meals: 4, grad: 'g8', desc: 'Four halal-certified dinners for the family, spiced to order.', items: ['Chicken Biryani Box', 'Karahi Night', 'Daal + Naan', 'Kofta Curry'], img: IMG + 'xrttsx1487339558.jpg' },
 ];
 export const marketPlanById = (id: string) => MARKET_PLANS.find((p) => p.id === id);
 export const PLAN_DAYS = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sun'];

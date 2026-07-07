@@ -213,7 +213,7 @@ export const ExpCard = React.memo(function ExpCard({ e, style }: { e: Experience
   return (
     <Press scale={0.97} onPress={() => router.push(`/experience/${e.id}`)} style={[{ width: 236 }, style]}>
       <View style={{ backgroundColor: c.surface, borderRadius: radius.card, borderWidth: 1, borderColor: c.border2, overflow: 'hidden', ...shadow.card }}>
-        <GradBox grad={e.grad} style={{ height: 132 }}>
+        <GradBox grad={e.grad} img={e.img} style={{ height: 132 }}>
           <View style={{ position: 'absolute', top: 10, left: 10, height: 26, borderRadius: radius.pill, paddingHorizontal: 10, flexDirection: 'row', alignItems: 'center', gap: 5, backgroundColor: 'rgba(255,255,255,.92)' }}>
             <Icon name={e.ico} size={13} color={c.primary} />
             <Text style={[type(10.5, 900), { color: c.ink, textTransform: 'uppercase' }]}>{e.tag}</Text>

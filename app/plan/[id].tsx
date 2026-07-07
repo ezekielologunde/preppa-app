@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { View, Text, ScrollView } from 'react-native';
+import { View, Text, ScrollView, Pressable } from 'react-native';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { marketPlanById, COOKS, PLAN_DAYS, money } from '../../src/data/data';
@@ -10,6 +10,7 @@ import { Icon, Press, GradBox, Btn } from '../../src/ui';
 import { Screen, TopBar, Dock, DockTotal, Block, SectionLabel } from '../../src/ui/layout';
 import { CookRow, HeroTopBar, Burst } from '../../src/components/shared';
 import { NotFound } from '../../src/components/NotFound';
+import { ImageViewer } from '../../src/components/ImageViewer';
 
 type Stage = 'info' | 'pay' | 'done';
 
@@ -22,6 +23,7 @@ export default function PlanDetailScreen() {
   const p = marketPlanById(id!);
   const [day, setDay] = useState('Thu');
   const [stage, setStage] = useState<Stage>('info');
+  const [viewer, setViewer] = useState(false);
   if (!p) return <NotFound title="Meal plan" />;
   const cook = COOKS[p.cook];
   const mealsLbl = `${p.meals} meal${p.meals !== 1 ? 's' : ''}`;
@@ -72,12 +74,19 @@ export default function PlanDetailScreen() {
   return (
     <Screen bg={c.surface}>
       <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={{ paddingBottom: 120 }}>
-        <GradBox grad={p.grad} style={{ height: 280 }}>
+        <GradBox grad={p.grad} img={p.img} style={{ height: 280 }}>
+          {p.img ? <Pressable onPress={() => setViewer(true)} accessibilityLabel={`View photo of ${p.name}`} style={{ position: 'absolute', top: 0, left: 0, right: 0, bottom: 0 }} /> : null}
           <HeroTopBar topInset={insets.top} onBack={() => router.back()} />
-          <View style={{ position: 'absolute', bottom: 38, left: 18, height: 24, borderRadius: radius.pill, paddingHorizontal: 9, flexDirection: 'row', alignItems: 'center', gap: 4, backgroundColor: c.purple }}>
+          <View pointerEvents="none" style={{ position: 'absolute', bottom: 38, left: 18, height: 24, borderRadius: radius.pill, paddingHorizontal: 9, flexDirection: 'row', alignItems: 'center', gap: 4, backgroundColor: c.purple }}>
             <Icon name="repeat" size={11} color="#fff" />
             <Text style={[type(10, 900), { color: '#fff', textTransform: 'uppercase', letterSpacing: 0.3 }]}>Weekly plan</Text>
           </View>
+          {p.img ? (
+            <View pointerEvents="none" style={{ position: 'absolute', bottom: 34, right: 16, height: 32, paddingHorizontal: 11, borderRadius: 16, backgroundColor: 'rgba(0,0,0,.45)', flexDirection: 'row', alignItems: 'center', gap: 5 }}>
+              <Icon name="search" size={14} color="#fff" />
+              <Text style={[type(12, 800), { color: '#fff' }]}>View photo</Text>
+            </View>
+          ) : null}
         </GradBox>
 
         <View style={{ backgroundColor: c.surface, borderTopLeftRadius: radius.sheet, borderTopRightRadius: radius.sheet, marginTop: -26, padding: 18, paddingTop: 22 }}>
@@ -120,6 +129,7 @@ export default function PlanDetailScreen() {
           </>
         )}
       </Dock>
+      <ImageViewer uri={p.img} caption={p.name} visible={viewer} onClose={() => setViewer(false)} />
     </Screen>
   );
 }

@@ -1,5 +1,5 @@
-import React from 'react';
-import { View, Text, ScrollView } from 'react-native';
+import React, { useState } from 'react';
+import { View, Text, ScrollView, Pressable } from 'react-native';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { expById, COOKS, money } from '../../src/data/data';
@@ -10,6 +10,7 @@ import { Icon, Press, GradBox, Avatar, Btn } from '../../src/ui';
 import { Screen, Dock, DockTotal, SectionLabel } from '../../src/ui/layout';
 import { HeroTopBar, HeroBtn } from '../../src/components/shared';
 import { NotFound } from '../../src/components/NotFound';
+import { ImageViewer } from '../../src/components/ImageViewer';
 
 export default function ExperienceDetail() {
   const c = useC();
@@ -21,6 +22,7 @@ export default function ExperienceDetail() {
   if (!e) return <NotFound title="Experience" />;
   const cook = COOKS[e.cook];
   const includes = ['All ingredients & equipment', 'Hands-on guidance from your host', 'A full meal to enjoy', 'Recipes to take home'];
+  const [viewer, setViewer] = useState(false);
 
   const reserve = () => {
     toast(`Seat reserved for ${e.title} ✨`, 'check', true);
@@ -30,14 +32,21 @@ export default function ExperienceDetail() {
   return (
     <Screen bg={c.surface}>
       <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={{ paddingBottom: 120 }}>
-        <GradBox grad={e.grad} style={{ height: 280 }}>
+        <GradBox grad={e.grad} img={e.img} style={{ height: 280 }}>
+          {e.img ? <Pressable onPress={() => setViewer(true)} accessibilityLabel={`View photo of ${e.title}`} style={{ position: 'absolute', top: 0, left: 0, right: 0, bottom: 0 }} /> : null}
           <HeroTopBar topInset={insets.top} onBack={() => router.back()} right={
             <HeroBtn icon="share" onPress={() => toast('Share — demo', 'share')} />
           } />
-          <View style={{ position: 'absolute', bottom: 38, left: 18, height: 24, borderRadius: radius.pill, paddingHorizontal: 9, flexDirection: 'row', alignItems: 'center', gap: 4, backgroundColor: c.purple }}>
+          <View pointerEvents="none" style={{ position: 'absolute', bottom: 38, left: 18, height: 24, borderRadius: radius.pill, paddingHorizontal: 9, flexDirection: 'row', alignItems: 'center', gap: 4, backgroundColor: c.purple }}>
             <Icon name={e.ico} size={11} color="#fff" />
             <Text style={[type(10, 900), { color: '#fff', textTransform: 'uppercase', letterSpacing: 0.3 }]}>{e.tag}</Text>
           </View>
+          {e.img ? (
+            <View pointerEvents="none" style={{ position: 'absolute', bottom: 34, right: 16, height: 32, paddingHorizontal: 11, borderRadius: 16, backgroundColor: 'rgba(0,0,0,.45)', flexDirection: 'row', alignItems: 'center', gap: 5 }}>
+              <Icon name="search" size={14} color="#fff" />
+              <Text style={[type(12, 800), { color: '#fff' }]}>View photo</Text>
+            </View>
+          ) : null}
         </GradBox>
 
         <View style={{ backgroundColor: c.surface, borderTopLeftRadius: radius.sheet, borderTopRightRadius: radius.sheet, marginTop: -26, padding: 18, paddingTop: 22 }}>
@@ -88,6 +97,7 @@ export default function ExperienceDetail() {
         <DockTotal label="Per seat" value={money(e.price)} />
         <Btn label="Reserve a seat" icon="ticket" flex={1} onPress={reserve} />
       </Dock>
+      <ImageViewer uri={e.img} caption={e.title} visible={viewer} onClose={() => setViewer(false)} />
     </Screen>
   );
 }
