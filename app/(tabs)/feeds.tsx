@@ -11,11 +11,13 @@ import { shareAndNotify, SITE } from '../../src/lib/share';
 
 export default function Feeds() {
   const [h, setH] = useState(0);
+  const { reels } = useStore();
+  const items = [...reels, ...FEED];
   return (
     <View style={{ flex: 1, backgroundColor: '#000' }} onLayout={(e) => setH(e.nativeEvent.layout.height)}>
       {h > 0 ? (
         <FlatList
-          data={FEED}
+          data={items}
           keyExtractor={(f) => f.id}
           renderItem={({ item }) => <Reel f={item} height={h} />}
           pagingEnabled

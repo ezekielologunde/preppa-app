@@ -2,7 +2,7 @@ import React, { createContext, useContext, useState, useEffect, useCallback, use
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import {
   GradKey, CookId, Subscription, ServiceRequest, SEED_REQUESTS, genQuotes,
-  NOTIFS, CONVERSATIONS, Notif, Conversation,
+  NOTIFS, CONVERSATIONS, Notif, Conversation, FeedItem,
 } from '../data/data';
 import { ME } from '../data/cook';
 import { computeTotals } from '../data/totals';
@@ -131,6 +131,9 @@ interface Store {
   addRequest: (r: ServiceRequest) => void;
   acceptQuote: (id: string, q: any) => void;
 
+  reels: FeedItem[]; // prepper-posted reels, newest first (Phase 1: photo cover, no real video)
+  postReel: (r: FeedItem) => void;
+
   // prepper "My Hub"
   avail: boolean;
   toggleAvail: () => void;
@@ -175,6 +178,7 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
   const [orders, setOrders] = useState<CustomerOrder[]>(SEED_ORDERS);
   const [subscription, setSubscription] = useState<Subscription | null>(null);
   const [requests, setRequests] = useState<ServiceRequest[]>(SEED_REQUESTS);
+  const [reels, setReels] = useState<FeedItem[]>([]);
   const [avail, setAvail] = useState(true);
   const [acted, setActed] = useState<string[]>([]);
   const [notifs, setNotifs] = useState<Notif[]>(NOTIFS);
@@ -207,6 +211,7 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
           if (Array.isArray(s.orders)) setOrders(s.orders);
           if (s.subscription) setSubscription(s.subscription);
           if (Array.isArray(s.requests)) setRequests(s.requests);
+          if (Array.isArray(s.reels)) setReels(s.reels);
           if (typeof s.avail === 'boolean') setAvail(s.avail);
         }
       } catch {}
@@ -220,9 +225,9 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
     if (!hydrated.current) return;
     AsyncStorage.setItem(
       LS,
-      JSON.stringify({ onboarded, darkMode, cart, tip, mode, location, fav: [...fav], prepperStatus, addresses, addressId, cards, cardId, lastOrder, orders, subscription, requests, avail }),
+      JSON.stringify({ onboarded, darkMode, cart, tip, mode, location, fav: [...fav], prepperStatus, addresses, addressId, cards, cardId, lastOrder, orders, subscription, requests, avail, reels }),
     ).catch(() => {});
-  }, [onboarded, darkMode, cart, tip, mode, location, fav, prepperStatus, addresses, addressId, cards, cardId, lastOrder, orders, subscription, requests, avail]);
+  }, [onboarded, darkMode, cart, tip, mode, location, fav, prepperStatus, addresses, addressId, cards, cardId, lastOrder, orders, subscription, requests, avail, reels]);
 
   const toast = useCallback((msg: string, icon = 'check', green = false) => {
     const id = toastSeq++;
@@ -352,6 +357,7 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
     setSubscription(null);
     setOrders(SEED_ORDERS);
     setRequests(SEED_REQUESTS);
+    setReels([]);
     setLastOrder(null);
     setTip(2);
     setMode('delivery');
@@ -369,6 +375,8 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
   }, [isMine, toast]);
   const updateSub = useCallback((patch: Partial<Subscription>) => setSubscription((s) => (s ? { ...s, ...patch } : s)), []);
   const cancelSub = useCallback(() => setSubscription(null), []);
+
+  const postReel = useCallback((r: FeedItem) => setReels((rs) => [r, ...rs]), []);
 
   const addRequest = useCallback(
     (req: ServiceRequest) => {
@@ -459,6 +467,8 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
     cancelSub,
     requests,
     addRequest,
+    reels,
+    postReel,
     acceptQuote,
     avail,
     toggleAvail,
