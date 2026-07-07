@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { View, Text, ScrollView, Pressable, useWindowDimensions } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { LinearGradient } from 'expo-linear-gradient';
@@ -10,6 +10,7 @@ import { useStore } from '../../src/store/store';
 import { Icon, Press } from '../../src/ui';
 import { HeroDrop, MealGrid, ExpRail, SectionHeader } from '../../src/components/cards';
 import { ModeToggle } from '../../src/components/ModeToggle';
+import { LocationPicker } from '../../src/components/LocationPicker';
 
 function greetWord() {
   const h = new Date().getHours();
@@ -20,9 +21,10 @@ export default function HomeScreen() {
   const c = useC();
   const insets = useSafeAreaInsets();
   const router = useRouter();
-  const { mode, cartCount, notifCount, toast } = useStore();
+  const { mode, location, cartCount, notifCount, toast } = useStore();
   const { width } = useWindowDimensions();
   const wide = width >= 700; // logo + actions live in the SideRail on wide screens
+  const [locPicker, setLocPicker] = useState(false);
   const dropId = dailyDropId();
   const picks = MEALS.filter((m) => m.id !== dropId).slice(0, 4);
 
@@ -51,11 +53,11 @@ export default function HomeScreen() {
             </View>
           ) : null}
 
-          <Press scale={0.98} onPress={() => toast('Change location coming soon', 'pin')} style={{ marginTop: wide ? 0 : 14, alignSelf: 'flex-start' }}>
+          <Press scale={0.98} onPress={() => setLocPicker(true)} label="Change location" style={{ marginTop: wide ? 0 : 14, alignSelf: 'flex-start' }}>
             <Text style={[type(11, 700), { color: c.muted, textTransform: 'uppercase', letterSpacing: 0.6 }]}>{mode === 'pickup' ? 'Pick up in' : 'Deliver to'}</Text>
             <View style={{ flexDirection: 'row', alignItems: 'center', gap: 5, marginTop: 3 }}>
               <Icon name="pin" size={15} color={c.ink} />
-              <Text style={[type(16, 800), { color: c.ink, letterSpacing: -0.3 }]}>Atlanta, GA</Text>
+              <Text style={[type(16, 800), { color: c.ink, letterSpacing: -0.3 }]}>{location}</Text>
               <Icon name="chevDown" size={15} color={c.muted} />
             </View>
           </Press>
@@ -94,6 +96,7 @@ export default function HomeScreen() {
         <ShortcutCard icon="chefhat" grad={['#FF8A4C', c.primary]} title="Cook at My Place" body="A private chef in your kitchen — compare fixed quotes" onPress={() => router.push('/request/cookhome')} />
         <ShortcutCard icon="repeat" grad={['#A855F7', c.purple]} title="Weekly meal plans" body="Subscribe to a cook’s box — pause or swap anytime" onPress={() => router.push('/plans')} />
       </ScrollView>
+      <LocationPicker visible={locPicker} onClose={() => setLocPicker(false)} />
     </View>
   );
 }

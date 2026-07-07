@@ -1,16 +1,28 @@
 import React, { useState } from 'react';
-import { View, Text, ScrollView, TextInput } from 'react-native';
+import { View, Text, ScrollView, TextInput, Modal, Pressable } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
 import { MEALS, COOKS } from '../src/data/data';
 import { useC } from '../src/theme/ThemeContext';
 import { type, radius, shadow } from '../src/theme/theme';
 import { useStore } from '../src/store/store';
-import { Icon, Press } from '../src/ui';
+import { Icon, Press, Btn } from '../src/ui';
 import { Screen, Empty } from '../src/ui/layout';
 import { MealGrid } from '../src/components/cards';
 
 const CATS = ['All', 'Comfort', 'Healthy', 'Halal', 'Mexican', 'Seafood', 'Soul food'];
+const ALL_TAGS = Array.from(new Set(MEALS.flatMap((m) => m.tags)));
+const PRICES: { label: string; test: (p: number) => boolean }[] = [
+  { label: 'Under $10', test: (p) => p < 10 },
+  { label: '$10–$15', test: (p) => p >= 10 && p <= 15 },
+  { label: 'Over $15', test: (p) => p > 15 },
+];
+type SortKey = 'rating' | 'price' | 'time';
+const SORTS: { key: SortKey; label: string }[] = [
+  { key: 'rating', label: 'Top rated' },
+  { key: 'price', label: 'Price: low to high' },
+  { key: 'time', label: 'Fastest' },
+];
 
 export default function Explore() {
   const c = useC();
@@ -19,12 +31,24 @@ export default function Explore() {
   const { toast } = useStore();
   const [q, setQ] = useState('');
   const [cat, setCat] = useState('All');
+  const [tags, setTags] = useState<string[]>([]);
+  const [price, setPrice] = useState<string | null>(null);
+  const [sort, setSort] = useState<SortKey | null>(null);
+  const [filterOpen, setFilterOpen] = useState(false);
+  const activeCount = tags.length + (price ? 1 : 0) + (sort ? 1 : 0);
+  const toggleTag = (t: string) => setTags((p) => (p.includes(t) ? p.filter((x) => x !== t) : [...p, t]));
+  const clearFilters = () => { setTags([]); setPrice(null); setSort(null); };
 
-  const list = MEALS.filter((m) => {
+  let list = MEALS.filter((m) => {
     const okCat = cat === 'All' || m.tags.some((t) => t.toLowerCase().includes(cat.toLowerCase()));
     const okQ = !q || m.name.toLowerCase().includes(q.toLowerCase()) || COOKS[m.cook].name.toLowerCase().includes(q.toLowerCase());
-    return okCat && okQ;
+    const okTags = tags.length === 0 || m.tags.some((t) => tags.includes(t));
+    const okPrice = !price || PRICES.find((b) => b.label === price)!.test(m.price);
+    return okCat && okQ && okTags && okPrice;
   });
+  if (sort === 'rating') list = [...list].sort((a, b) => b.rating - a.rating);
+  else if (sort === 'price') list = [...list].sort((a, b) => a.price - b.price);
+  else if (sort === 'time') list = [...list].sort((a, b) => parseInt(a.time) - parseInt(b.time));
 
   return (
     <Screen max={960}>
@@ -36,9 +60,14 @@ export default function Explore() {
             </View>
           </Press>
           <Text style={[type(24, 900), { color: c.ink, letterSpacing: -0.7, flex: 1 }]}>Explore</Text>
-          <Press scale={0.9} onPress={() => toast('Filters coming soon', 'sliders')}>
-            <View style={{ width: 44, height: 44, borderRadius: 14, backgroundColor: c.bg2, alignItems: 'center', justifyContent: 'center' }}>
-              <Icon name="sliders" size={18} color={c.ink2} />
+          <Press scale={0.9} onPress={() => setFilterOpen(true)} label="Filters">
+            <View style={{ width: 44, height: 44, borderRadius: 14, backgroundColor: activeCount ? c.primary : c.bg2, alignItems: 'center', justifyContent: 'center' }}>
+              <Icon name="sliders" size={18} color={activeCount ? '#fff' : c.ink2} />
+              {activeCount ? (
+                <View style={{ position: 'absolute', top: -4, right: -4, minWidth: 18, height: 18, borderRadius: 9, paddingHorizontal: 4, backgroundColor: c.ink, alignItems: 'center', justifyContent: 'center', borderWidth: 2, borderColor: c.surface }}>
+                  <Text style={[type(10, 900), { color: '#fff' }]}>{activeCount}</Text>
+                </View>
+              ) : null}
             </View>
           </Press>
         </View>
@@ -73,11 +102,57 @@ export default function Explore() {
         </View>
 
         {list.length === 0 ? (
-          <Empty icon="search" title="No matches" body="Try another cuisine or clear your search." />
+          <Empty icon="search" title="No matches" body="Try another cuisine, clear filters, or search again." />
         ) : (
           <MealGrid meals={list} showMatch px={16} />
         )}
       </ScrollView>
+
+      <Modal visible={filterOpen} transparent animationType="slide" onRequestClose={() => setFilterOpen(false)} statusBarTranslucent>
+        <Pressable onPress={() => setFilterOpen(false)} style={{ flex: 1, backgroundColor: 'rgba(0,0,0,.4)', justifyContent: 'flex-end' }}>
+          <Pressable onPress={() => {}} style={{ backgroundColor: c.surface, borderTopLeftRadius: radius.sheet, borderTopRightRadius: radius.sheet, paddingTop: 10, paddingBottom: insets.bottom + 16, maxHeight: '82%' }}>
+            <View style={{ width: 40, height: 5, borderRadius: 3, backgroundColor: c.border, alignSelf: 'center', marginBottom: 10 }} />
+            <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: 20, paddingBottom: 6 }}>
+              <Text style={[type(19, 900), { color: c.ink, letterSpacing: -0.4 }]}>Filters</Text>
+              {activeCount ? <Press scale={0.95} onPress={clearFilters} label="Clear filters"><Text style={[type(14, 800), { color: c.primary }]}>Clear all</Text></Press> : null}
+            </View>
+            <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={{ paddingHorizontal: 20, paddingBottom: 10 }}>
+              <FSec title="Sort by">
+                {SORTS.map((s) => <Chip key={s.key} label={s.label} on={sort === s.key} onPress={() => setSort(sort === s.key ? null : s.key)} />)}
+              </FSec>
+              <FSec title="Price">
+                {PRICES.map((p) => <Chip key={p.label} label={p.label} on={price === p.label} onPress={() => setPrice(price === p.label ? null : p.label)} />)}
+              </FSec>
+              <FSec title="Tags">
+                {ALL_TAGS.map((t) => <Chip key={t} label={t} on={tags.includes(t)} onPress={() => toggleTag(t)} />)}
+              </FSec>
+            </ScrollView>
+            <View style={{ paddingHorizontal: 20, paddingTop: 8 }}>
+              <Btn label={`Show ${list.length} result${list.length !== 1 ? 's' : ''}`} block onPress={() => setFilterOpen(false)} />
+            </View>
+          </Pressable>
+        </Pressable>
+      </Modal>
     </Screen>
+  );
+}
+
+function FSec({ title, children }: { title: string; children: React.ReactNode }) {
+  const c = useC();
+  return (
+    <View style={{ marginTop: 16 }}>
+      <Text style={[type(13, 900), { color: c.muted, textTransform: 'uppercase', letterSpacing: 0.4, marginBottom: 10 }]}>{title}</Text>
+      <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 8 }}>{children}</View>
+    </View>
+  );
+}
+function Chip({ label, on, onPress }: { label: string; on: boolean; onPress: () => void }) {
+  const c = useC();
+  return (
+    <Press scale={0.95} onPress={onPress}>
+      <View style={{ height: 38, paddingHorizontal: 15, borderRadius: radius.pill, backgroundColor: on ? c.primary : c.bg2, borderWidth: 1, borderColor: on ? c.primary : c.border, alignItems: 'center', justifyContent: 'center' }}>
+        <Text style={[type(13.5, 700), { color: on ? '#fff' : c.soft }]}>{label}</Text>
+      </View>
+    </Press>
   );
 }

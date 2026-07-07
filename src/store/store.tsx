@@ -90,6 +90,8 @@ interface Store {
   setTip: (n: number) => void;
   mode: 'delivery' | 'pickup';
   setMode: (m: 'delivery' | 'pickup') => void;
+  location: string;
+  setLocation: (l: string) => void;
 
   addresses: Address[];
   address: Address | null; // currently selected
@@ -162,6 +164,7 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
   const [cart, setCart] = useState<CartLine[]>([]);
   const [tip, setTip] = useState(2);
   const [mode, setMode] = useState<'delivery' | 'pickup'>('delivery');
+  const [location, setLocation] = useState('Atlanta, GA');
   const [fav, setFav] = useState<Set<string>>(new Set());
   const [prepperStatus, setPrepperStatus] = useState<PrepperStatus>('none');
   const [addresses, setAddresses] = useState<Address[]>(SEED_ADDRESSES);
@@ -193,6 +196,7 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
           if (Array.isArray(s.cart)) setCart(s.cart);
           if (typeof s.tip === 'number') setTip(s.tip);
           if (s.mode) setMode(s.mode);
+          if (typeof s.location === 'string') setLocation(s.location);
           if (Array.isArray(s.fav)) setFav(new Set(s.fav));
           if (s.prepperStatus) setPrepperStatus(s.prepperStatus);
           if (Array.isArray(s.addresses)) setAddresses(s.addresses);
@@ -216,9 +220,9 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
     if (!hydrated.current) return;
     AsyncStorage.setItem(
       LS,
-      JSON.stringify({ onboarded, darkMode, cart, tip, mode, fav: [...fav], prepperStatus, addresses, addressId, cards, cardId, lastOrder, orders, subscription, requests, avail }),
+      JSON.stringify({ onboarded, darkMode, cart, tip, mode, location, fav: [...fav], prepperStatus, addresses, addressId, cards, cardId, lastOrder, orders, subscription, requests, avail }),
     ).catch(() => {});
-  }, [onboarded, darkMode, cart, tip, mode, fav, prepperStatus, addresses, addressId, cards, cardId, lastOrder, orders, subscription, requests, avail]);
+  }, [onboarded, darkMode, cart, tip, mode, location, fav, prepperStatus, addresses, addressId, cards, cardId, lastOrder, orders, subscription, requests, avail]);
 
   const toast = useCallback((msg: string, icon = 'check', green = false) => {
     const id = toastSeq++;
@@ -351,6 +355,7 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
     setLastOrder(null);
     setTip(2);
     setMode('delivery');
+    setLocation('Atlanta, GA');
     setDarkModeState(false);
     setAvail(true);
     setActed([]);
@@ -423,6 +428,8 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
     setTip,
     mode,
     setMode,
+    location,
+    setLocation,
     addresses,
     address,
     addressId,
