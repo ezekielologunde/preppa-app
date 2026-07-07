@@ -16,6 +16,9 @@ export const GRAD = {
 export type GradKey = keyof typeof GRAD;
 
 export type CookId = 'maria' | 'david' | 'amara' | 'denise' | 'lucia' | 'sana';
+/** In-home credentials a prepper has SUBMITTED. Illustrative only — Preppa's own
+ *  independent verification is REQUIRES-SERVER; never render these as vouched. */
+export interface InHomeCreds { idVerified: boolean; backgroundCheck: boolean; foodSafety: string | null; insured: boolean; }
 export interface Cook {
   name: string;
   kitchen: string;
@@ -27,15 +30,16 @@ export interface Cook {
   dist: string;
   verified: boolean;
   prepscore: number;
+  inhome: InHomeCreds;
 }
 
 export const COOKS: Record<CookId, Cook> = {
-  maria: { name: 'Chef Maria', kitchen: "Maria's Kitchen", initial: 'M', grad: 'g4', cuisine: 'Italian comfort', rating: 4.9, reviews: 312, dist: '1.2 km', verified: true, prepscore: 98 },
-  david: { name: 'Chef David', kitchen: "David's Table", initial: 'D', grad: 'g3', cuisine: 'Healthy & seafood', rating: 4.8, reviews: 204, dist: '0.8 km', verified: true, prepscore: 95 },
-  amara: { name: 'Amara O.', kitchen: "Amara's Kitchen", initial: 'A', grad: 'g1', cuisine: 'West African', rating: 4.9, reviews: 412, dist: '0.6 km', verified: true, prepscore: 97 },
-  denise: { name: 'Denise R.', kitchen: "Denise's Soul Food", initial: 'D', grad: 'g6', cuisine: 'Soul food', rating: 4.9, reviews: 540, dist: '1.6 km', verified: true, prepscore: 99 },
-  lucia: { name: 'Lucia R.', kitchen: 'Cocina de Lucia', initial: 'L', grad: 'g7', cuisine: 'Oaxacan', rating: 4.7, reviews: 198, dist: '2.1 km', verified: true, prepscore: 94 },
-  sana: { name: 'Sana K.', kitchen: "Sana's Halal Home", initial: 'S', grad: 'g8', cuisine: 'Halal & Desi', rating: 4.8, reviews: 276, dist: '1.4 km', verified: true, prepscore: 96 },
+  maria: { name: 'Chef Maria', kitchen: "Maria's Kitchen", initial: 'M', grad: 'g4', cuisine: 'Italian comfort', rating: 4.9, reviews: 312, dist: '1.2 km', verified: true, prepscore: 98, inhome: { idVerified: true, backgroundCheck: true, foodSafety: 'ServSafe', insured: true } },
+  david: { name: 'Chef David', kitchen: "David's Table", initial: 'D', grad: 'g3', cuisine: 'Healthy & seafood', rating: 4.8, reviews: 204, dist: '0.8 km', verified: true, prepscore: 95, inhome: { idVerified: true, backgroundCheck: true, foodSafety: 'ServSafe', insured: true } },
+  amara: { name: 'Amara O.', kitchen: "Amara's Kitchen", initial: 'A', grad: 'g1', cuisine: 'West African', rating: 4.9, reviews: 412, dist: '0.6 km', verified: true, prepscore: 97, inhome: { idVerified: true, backgroundCheck: true, foodSafety: null, insured: true } },
+  denise: { name: 'Denise R.', kitchen: "Denise's Soul Food", initial: 'D', grad: 'g6', cuisine: 'Soul food', rating: 4.9, reviews: 540, dist: '1.6 km', verified: true, prepscore: 99, inhome: { idVerified: true, backgroundCheck: true, foodSafety: 'ServSafe', insured: true } },
+  lucia: { name: 'Lucia R.', kitchen: 'Cocina de Lucia', initial: 'L', grad: 'g7', cuisine: 'Oaxacan', rating: 4.7, reviews: 198, dist: '2.1 km', verified: true, prepscore: 94, inhome: { idVerified: true, backgroundCheck: true, foodSafety: 'ServSafe', insured: false } },
+  sana: { name: 'Sana K.', kitchen: "Sana's Halal Home", initial: 'S', grad: 'g8', cuisine: 'Halal & Desi', rating: 4.8, reviews: 276, dist: '1.4 km', verified: true, prepscore: 96, inhome: { idVerified: true, backgroundCheck: true, foodSafety: 'Halal-certified', insured: true } },
 };
 
 export interface Meal {
