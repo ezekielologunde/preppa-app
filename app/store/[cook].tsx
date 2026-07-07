@@ -38,7 +38,7 @@ export default function CookStoreScreen() {
         {/* hero */}
         <GradBox grad={cd.grad} style={{ height: 172 }}>
           <HeroTopBar topInset={insets.top} onBack={() => router.back()} right={<HeroBtn icon="share" onPress={() => toast('Share kitchen — demo', 'share')} />} />
-          <View style={{ position: 'absolute', left: 18, bottom: 16, height: 26, paddingHorizontal: 11, borderRadius: radius.pill, flexDirection: 'row', alignItems: 'center', gap: 6, backgroundColor: 'rgba(0,0,0,.45)' }}>
+          <View style={{ position: 'absolute', right: 18, bottom: 16, height: 26, paddingHorizontal: 11, borderRadius: radius.pill, flexDirection: 'row', alignItems: 'center', gap: 6, backgroundColor: 'rgba(0,0,0,.45)' }}>
             <View style={{ width: 7, height: 7, borderRadius: 4, backgroundColor: c.green2 }} />
             <Text style={[type(11.5, 800), { color: '#fff' }]}>Open now · closes 9 PM</Text>
           </View>

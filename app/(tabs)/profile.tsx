@@ -7,8 +7,10 @@ import { useC } from '../../src/theme/ThemeContext';
 import { type, radius, shadow, WARM_GRAD } from '../../src/theme/theme';
 import { useStore } from '../../src/store/store';
 import { Icon, Press, Switch } from '../../src/ui';
+import { SectionLabel } from '../../src/ui/layout';
 
 type Tone = '' | 'amber' | 'purple' | 'blue' | 'pink' | 'green';
+interface Row { ico: string; cls: Tone; t: string; act: () => void }
 
 export default function Profile() {
   const c = useC();
@@ -27,16 +29,24 @@ export default function Profile() {
     );
   };
 
-  const rows: { ico: string; cls: Tone; t: string; act: () => void }[] = [
+  // grouped so the screen reads as clear sections instead of one long list
+  const activity: Row[] = [
     { ico: 'ticket', cls: 'amber', t: 'Your orders', act: () => router.push('/orders') },
     { ico: 'heart', cls: 'pink', t: 'Favorites', act: () => router.push('/favorites') },
-    { ico: 'repeat', cls: 'amber', t: 'Meal plans & subscriptions', act: () => router.push('/plans') },
     { ico: 'calendar', cls: 'purple', t: 'Your experiences', act: () => router.push('/experiences') },
+  ];
+  const wallet: Row[] = [
     { ico: 'pin', cls: 'blue', t: 'Addresses', act: () => router.push('/addresses') },
     { ico: 'card', cls: 'pink', t: 'Payment methods', act: () => router.push('/payments') },
+  ];
+  const perks: Row[] = [
+    { ico: 'repeat', cls: 'amber', t: 'Meal plans & subscriptions', act: () => router.push('/plans') },
     { ico: 'gift', cls: 'green', t: 'Rewards & referrals', act: () => router.push('/rewards') },
     { ico: 'shield', cls: 'purple', t: 'PrepPlus membership', act: () => router.push('/prepplus') },
+  ];
+  const prefs: Row[] = [
     { ico: 'help', cls: '', t: 'Help & safety', act: () => toast('Help center — demo') },
+    { ico: 'repeat', cls: '', t: 'Replay onboarding', act: resetOnboarding },
   ];
 
   return (
@@ -45,7 +55,7 @@ export default function Profile() {
         {/* hero */}
         <View style={{ backgroundColor: c.surface, paddingTop: insets.top + 8, paddingBottom: 20, paddingHorizontal: 16, alignItems: 'center', borderBottomWidth: 1, borderBottomColor: c.border2 }}>
           <View style={{ flexDirection: 'row', justifyContent: 'flex-end', width: '100%' }}>
-            <Press scale={0.9} onPress={() => toast('Settings — demo', 'settings')}>
+            <Press scale={0.9} onPress={() => toast('Settings — demo', 'settings')} label="Settings">
               <View style={[{ width: 42, height: 42, borderRadius: 21, backgroundColor: c.surface, alignItems: 'center', justifyContent: 'center' }, shadow.soft]}><Icon name="settings" size={18} color={c.ink} /></View>
             </Press>
           </View>
@@ -80,45 +90,39 @@ export default function Profile() {
             <Text style={[type(16, 900), { color: '#1C1C1E' }]}>Become a Preppa</Text>
             <Text style={[type(12.5, 600), { color: '#5A5A66', marginTop: 2 }]}>Cook for your neighbors and keep 85% — 0% fees for 60 days.</Text>
           </View>
-          <Press scale={0.9} onPress={() => toast('Apply to cook — demo 👩‍🍳')}>
+          <Press scale={0.9} onPress={() => toast('Apply to cook — demo 👩‍🍳')} label="Apply to cook">
             <View style={{ width: 42, height: 42, borderRadius: 21, backgroundColor: '#fff', alignItems: 'center', justifyContent: 'center', ...shadow.soft }}><Icon name="arrow" size={18} color="#0E0E10" /></View>
           </Press>
         </LinearGradient>
 
-        {/* appearance */}
-        <View style={{ backgroundColor: c.surface, borderRadius: radius.card, marginHorizontal: 16, marginTop: 16, borderWidth: 1, borderColor: c.border2, overflow: 'hidden' }}>
-          <Pressable onPress={() => setDarkMode(!darkMode)} style={{ flexDirection: 'row', alignItems: 'center', gap: 13, paddingVertical: 15, paddingHorizontal: 16 }}>
+        <Group label="Activity">
+          {activity.map((r, i) => <RowItem key={r.t} {...r} last={i === activity.length - 1} />)}
+        </Group>
+
+        <Group label="Payment & delivery">
+          {wallet.map((r, i) => <RowItem key={r.t} {...r} last={i === wallet.length - 1} />)}
+        </Group>
+
+        <Group label="Rewards & membership">
+          {perks.map((r, i) => <RowItem key={r.t} {...r} last={i === perks.length - 1} />)}
+        </Group>
+
+        <Group label="Preferences">
+          <Pressable onPress={() => setDarkMode(!darkMode)} style={rowStyle(c, false)}>
             <IconWell ico={darkMode ? 'bolt' : 'settings'} tone="purple" />
             <Text style={[type(15, 700), { color: c.ink, flex: 1 }]}>Dark mode</Text>
             <Switch on={darkMode} />
           </Pressable>
-        </View>
+          {prefs.map((r, i) => <RowItem key={r.t} {...r} last={i === prefs.length - 1} />)}
+        </Group>
 
-        {/* rows */}
-        <View style={{ backgroundColor: c.surface, borderRadius: radius.card, marginHorizontal: 16, marginTop: 16, borderWidth: 1, borderColor: c.border2, overflow: 'hidden' }}>
-          {rows.map((r, i) => (
-            <Pressable key={i} onPress={r.act} style={{ flexDirection: 'row', alignItems: 'center', gap: 13, paddingVertical: 15, paddingHorizontal: 16, borderBottomWidth: i < rows.length - 1 ? 1 : 0, borderBottomColor: c.border2 }}>
-              <IconWell ico={r.ico} tone={r.cls} />
-              <Text style={[type(15, 700), { color: c.ink, flex: 1 }]}>{r.t}</Text>
-              <Icon name="chevRight" size={18} color={c.muted} />
-            </Pressable>
-          ))}
-        </View>
-
-        <Press scale={0.98} onPress={resetOnboarding} style={{ marginHorizontal: 16, marginTop: 12 }}>
-          <View style={{ flexDirection: 'row', alignItems: 'center', gap: 13, paddingVertical: 15, paddingHorizontal: 16, borderRadius: radius.card, borderWidth: 1, borderColor: c.border2, backgroundColor: c.surface }}>
-            <IconWell ico="repeat" tone="" />
-            <Text style={[type(15, 700), { color: c.soft, flex: 1 }]}>Replay onboarding</Text>
-            <Icon name="chevRight" size={18} color={c.muted} />
-          </View>
-        </Press>
-
-        <View style={{ backgroundColor: c.surface, borderRadius: radius.card, marginHorizontal: 16, marginTop: 16, borderWidth: 1, borderColor: c.border2, overflow: 'hidden' }}>
-          <Pressable onPress={logout} style={{ flexDirection: 'row', alignItems: 'center', gap: 13, paddingVertical: 15, paddingHorizontal: 16, borderBottomWidth: 1, borderBottomColor: c.border2 }}>
+        <View style={{ height: 12 }} />
+        <View style={{ backgroundColor: c.surface, borderRadius: radius.card, marginHorizontal: 16, borderWidth: 1, borderColor: c.border2, overflow: 'hidden' }}>
+          <Pressable onPress={logout} style={rowStyle(c, false)}>
             <IconWell ico="logout" tone="" />
             <Text style={[type(15, 700), { color: c.ink, flex: 1 }]}>Log out</Text>
           </Pressable>
-          <Pressable onPress={confirmDelete} style={{ flexDirection: 'row', alignItems: 'center', gap: 13, paddingVertical: 15, paddingHorizontal: 16 }}>
+          <Pressable onPress={confirmDelete} style={rowStyle(c, true)}>
             <View style={{ width: 36, height: 36, borderRadius: 11, backgroundColor: c.pinkL, alignItems: 'center', justifyContent: 'center' }}>
               <Icon name="x" size={19} color={c.red} />
             </View>
@@ -129,6 +133,33 @@ export default function Profile() {
         <Text style={[type(12, 700), { color: c.muted, textAlign: 'center', padding: 20 }]}>preppa · v1.0</Text>
       </ScrollView>
     </View>
+  );
+}
+
+function rowStyle(c: any, last: boolean) {
+  return { flexDirection: 'row' as const, alignItems: 'center' as const, gap: 13, paddingVertical: 15, paddingHorizontal: 16, borderBottomWidth: last ? 0 : 1, borderBottomColor: c.border2 };
+}
+
+function Group({ label, children }: { label: string; children: React.ReactNode }) {
+  const c = useC();
+  return (
+    <>
+      <SectionLabel style={{ marginLeft: 20, marginRight: 20, marginTop: 20, marginBottom: 8 }}>{label}</SectionLabel>
+      <View style={{ backgroundColor: c.surface, borderRadius: radius.card, marginHorizontal: 16, borderWidth: 1, borderColor: c.border2, overflow: 'hidden' }}>
+        {children}
+      </View>
+    </>
+  );
+}
+
+function RowItem({ ico, cls, t, act, last }: Row & { last?: boolean }) {
+  const c = useC();
+  return (
+    <Pressable onPress={act} style={rowStyle(c, !!last)}>
+      <IconWell ico={ico} tone={cls} />
+      <Text style={[type(15, 700), { color: c.ink, flex: 1 }]}>{t}</Text>
+      <Icon name="chevRight" size={18} color={c.muted} />
+    </Pressable>
   );
 }
 
