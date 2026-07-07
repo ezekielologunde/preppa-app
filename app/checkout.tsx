@@ -1,33 +1,48 @@
 import React, { useState } from 'react';
 import { View, Text, ScrollView } from 'react-native';
-import { useRouter } from 'expo-router';
-import { money } from '../src/data/data';
+import { useLocalSearchParams, useRouter } from 'expo-router';
+import { COOKS, CookId, money } from '../src/data/data';
 import { useC } from '../src/theme/ThemeContext';
 import { type, radius } from '../src/theme/theme';
 import { useStore } from '../src/store/store';
 import { Icon, Press, Btn } from '../src/ui';
-import { Screen, TopBar, Dock, DockTotal, Block, MiniTag } from '../src/ui/layout';
+import { Screen, TopBar, Dock, DockTotal, Block, MiniTag, Empty } from '../src/ui/layout';
 import { useTotals, Summary } from '../src/components/shared';
 import { ModeToggle } from '../src/components/ModeToggle';
+
+const TIPS = [0, 2, 3, 5];
 
 export default function Checkout() {
   const c = useC();
   const router = useRouter();
-  const { cart, tip, mode, placeOrder, address, card, toast } = useStore();
-  const t = useTotals(cart, tip, mode);
+  const { cook } = useLocalSearchParams<{ cook?: string }>();
+  const ck = (cook || undefined) as CookId | undefined;
+  const { cart, tip, setTip, mode, placeOrder, address, card } = useStore();
+  const lines = ck ? cart.filter((l) => l.cook === ck) : cart;
+  const t = useTotals(lines, tip, mode);
   const [pay, setPay] = useState<'online' | 'cod'>('online');
   const [busy, setBusy] = useState(false);
+  const theCook = COOKS[ck ?? lines[0]?.cook ?? 'maria'];
+
+  if (lines.length === 0) {
+    return (
+      <Screen>
+        <TopBar title="Checkout" />
+        <Empty icon="cart" title="Nothing to check out" body="This kitchen’s items are no longer in your cart." action={<Btn label="Back to cart" onPress={() => router.replace('/cart')} />} />
+      </Screen>
+    );
+  }
 
   const place = () => {
     if (busy) return; // guard against double-fire / double-order
     setBusy(true);
-    if (pay === 'cod') router.push('/cod');
-    else { placeOrder('paid'); router.replace('/track?flow=paid'); }
+    if (pay === 'cod') router.push(`/cod?cook=${ck ?? ''}`);
+    else { placeOrder('paid', ck); router.replace(`/track?flow=paid&cook=${ck ?? ''}`); }
   };
 
   return (
     <Screen>
-      <TopBar title="Checkout" />
+      <TopBar title="Checkout" sub={`From ${theCook.name}`} />
       <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={{ paddingBottom: 120 }}>
         <Block title={mode === 'pickup' ? 'Pick up from' : 'Deliver to'}>
           <View style={{ marginBottom: 14 }}><ModeToggle sm /></View>
@@ -35,7 +50,7 @@ export default function Checkout() {
             <View style={{ width: 40, height: 40, borderRadius: 12, backgroundColor: c.primaryL, alignItems: 'center', justifyContent: 'center' }}><Icon name="pin" size={20} color={c.primary} /></View>
             <View style={{ flex: 1 }}>
               {mode === 'pickup' ? (
-                <><Text style={[type(14.5, 800), { color: c.ink }]}>Maria’s Kitchen</Text><Text style={[type(13, 500), { color: c.soft, marginTop: 2 }]}>Pick up · 412 Elm St · ready ~25 min</Text></>
+                <><Text style={[type(14.5, 800), { color: c.ink }]}>{theCook.kitchen}</Text><Text style={[type(13, 500), { color: c.soft, marginTop: 2 }]}>Pick up · {theCook.dist} away · ready ~25 min</Text></>
               ) : address ? (
                 <><Text numberOfLines={1} style={[type(14.5, 800), { color: c.ink }]}>{address.label} · {address.line1}</Text>{address.line2 ? <Text numberOfLines={1} style={[type(13, 500), { color: c.soft, marginTop: 2 }]}>{address.line2}</Text> : null}</>
               ) : (
@@ -68,6 +83,21 @@ export default function Checkout() {
             <Text style={[type(12.5, 700), { color: c.purple, flex: 1, lineHeight: 18 }]}>At handoff, you and your cook scan a QR and match a 6-digit code so the cash amount is confirmed by both sides.</Text>
           </View>
         ) : null}
+
+        <Block title="Add a tip · goes 100% to the cook">
+          <View style={{ flexDirection: 'row', gap: 8 }}>
+            {TIPS.map((v) => {
+              const on = tip === v;
+              return (
+                <Press key={v} scale={0.95} onPress={() => setTip(v)} style={{ flex: 1 }}>
+                  <View style={{ height: 44, borderRadius: radius.sm, borderWidth: 1.5, borderColor: on ? c.primary : c.border, backgroundColor: on ? c.primaryL : c.surface, alignItems: 'center', justifyContent: 'center' }}>
+                    <Text style={[type(14, 800), { color: on ? c.primaryD : c.soft }]}>{v === 0 ? 'None' : money(v)}</Text>
+                  </View>
+                </Press>
+              );
+            })}
+          </View>
+        </Block>
 
         <Summary t={t} mode={mode} />
       </ScrollView>

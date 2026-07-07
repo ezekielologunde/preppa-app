@@ -118,7 +118,7 @@ interface Store {
   toggleFav: (id: string) => void;
 
   lastOrder: OrderFlow | null;
-  placeOrder: (flow: OrderFlow) => void;
+  placeOrder: (flow: OrderFlow, cook?: CookId) => void;
   orders: CustomerOrder[];
   reorder: (id: string) => void;
 
@@ -313,29 +313,30 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
   }, []);
   const card = cards.find((c) => c.id === cardId) ?? cards[0] ?? null;
 
-  const placeOrder = useCallback((flow: OrderFlow) => {
-    if (cart.length > 0) {
-      const t = computeTotals(cart, tip, mode); // single source of truth — matches the cart UI
-      const id = 'PR-' + (Date.now().toString(36) + Math.floor(Math.random() * 46656).toString(36)).slice(-6).toUpperCase();
-      const order: CustomerOrder = {
-        id,
-        cook: cart[0].cook,
-        lines: cart,
-        subtotal: t.subtotal,
-        service: t.service,
-        tax: t.tax,
-        delivery: t.delivery,
-        tip: t.tip,
-        total: t.total,
-        mode,
-        flow,
-        status: flow === 'cod' ? 'completed' : 'preparing',
-        when: 'Just now',
-      };
-      setOrders((os) => [order, ...os]);
-    }
+  // Multi-cart: one order PER cook. `cook` scopes checkout to a single cook's lines
+  // (and removes only those from the cart); without it, every cook in the cart becomes
+  // its own order. Fixes the old bug where a mixed-cook cart collapsed into one order.
+  const placeOrder = useCallback((flow: OrderFlow, cook?: CookId) => {
+    const targetCooks = cook ? [cook] : Array.from(new Set(cart.map((l) => l.cook)));
+    const stamp = Date.now().toString(36) + Math.floor(Math.random() * 46656).toString(36);
+    const newOrders = targetCooks
+      .map((ck, idx): CustomerOrder | null => {
+        const lines = cart.filter((l) => l.cook === ck);
+        if (!lines.length) return null;
+        const t = computeTotals(lines, tip, mode); // per-cook totals
+        return {
+          id: 'PR-' + (stamp + idx).slice(-6).toUpperCase(),
+          cook: ck, lines,
+          subtotal: t.subtotal, service: t.service, tax: t.tax, delivery: t.delivery, tip: t.tip, total: t.total,
+          mode, flow,
+          status: flow === 'cod' ? 'completed' : 'preparing',
+          when: 'Just now',
+        };
+      })
+      .filter((o): o is CustomerOrder => o !== null);
+    if (newOrders.length) setOrders((os) => [...newOrders, ...os]);
+    setCart((cs) => (cook ? cs.filter((l) => l.cook !== cook) : []));
     setLastOrder(flow);
-    setCart([]);
     setTip(2);
   }, [cart, tip, mode]);
   const reorder = useCallback((id: string) => {

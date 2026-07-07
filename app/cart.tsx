@@ -1,22 +1,18 @@
 import React from 'react';
 import { View, Text, ScrollView } from 'react-native';
 import { useRouter } from 'expo-router';
-import { COOKS, money } from '../src/data/data';
+import { COOKS, CookId, money } from '../src/data/data';
 import { useC } from '../src/theme/ThemeContext';
 import { type, radius } from '../src/theme/theme';
 import { useStore } from '../src/store/store';
-import { Icon, Press, GradBox, Stepper, Btn } from '../src/ui';
-import { Screen, TopBar, Dock, DockTotal, Block, Empty } from '../src/ui/layout';
-import { useTotals, Summary } from '../src/components/shared';
+import { Icon, Press, GradBox, Avatar, Stepper, Btn } from '../src/ui';
+import { Screen, TopBar, Empty } from '../src/ui/layout';
 import { ModeToggle } from '../src/components/ModeToggle';
-
-const TIPS = [0, 2, 3, 5];
 
 export default function Cart() {
   const c = useC();
   const router = useRouter();
-  const { cart, cartCount, setQty, removeLine, tip, setTip, mode } = useStore();
-  const t = useTotals(cart, tip, mode);
+  const { cart, cartCount, setQty, removeLine } = useStore();
 
   if (cart.length === 0) {
     return (
@@ -27,64 +23,63 @@ export default function Cart() {
     );
   }
 
+  const cooks = Array.from(new Set(cart.map((l) => l.cook))) as CookId[];
+
   return (
     <Screen>
-      <TopBar title="Your cart" sub={`${cartCount} item${cartCount !== 1 ? 's' : ''}`} />
-      <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={{ paddingBottom: 120 }}>
-        <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: 16, paddingTop: 14, paddingBottom: 6 }}>
+      <TopBar title="Your cart" sub={`${cartCount} item${cartCount !== 1 ? 's' : ''} · ${cooks.length} kitchen${cooks.length !== 1 ? 's' : ''}`} />
+      <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={{ paddingBottom: 40 }}>
+        <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: 16, paddingTop: 14 }}>
           <Text style={[type(13, 800), { color: c.soft }]}>How you’ll get it</Text>
           <ModeToggle sm />
         </View>
-        {cart.map((l) => (
-          <View key={l.key} style={{ flexDirection: 'row', alignItems: 'center', gap: 12, paddingVertical: 14, paddingHorizontal: 16, backgroundColor: c.surface, borderBottomWidth: 1, borderBottomColor: c.border2 }}>
-            <GradBox grad={l.grad} style={{ width: 64, height: 64, borderRadius: radius.md }} />
-            <View style={{ flex: 1 }}>
-              <Text style={[type(14, 800), { color: c.ink }]}>{l.name}</Text>
-              <Text style={[type(11.5, 600), { color: c.soft, marginTop: 1 }]}>by {COOKS[l.cook].name}</Text>
-              <Text style={[type(14, 900), { color: c.primary, marginTop: 6 }]}>{money(l.price * l.qty)}</Text>
-            </View>
-            {l.qty <= 1 ? (
-              <Press scale={0.9} onPress={() => removeLine(l.key)} label="Remove item" hitSlop={8}>
-                <View style={{ width: 34, height: 34, borderRadius: 17, alignItems: 'center', justifyContent: 'center' }}>
-                  <Icon name="x" size={16} color={c.muted} />
+
+        {cooks.map((ck) => {
+          const lines = cart.filter((l) => l.cook === ck);
+          const subtotal = lines.reduce((s, l) => s + l.price * l.qty, 0);
+          const cook = COOKS[ck];
+          return (
+            <View key={ck} style={{ marginHorizontal: 16, marginTop: 14, borderWidth: 1, borderColor: c.border2, borderRadius: radius.card, backgroundColor: c.surface, overflow: 'hidden' }}>
+              <Press scale={0.99} onPress={() => router.push(`/store/${ck}`)} label={`${cook.name}'s kitchen`}>
+                <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10, padding: 14, borderBottomWidth: 1, borderBottomColor: c.border2 }}>
+                  <Avatar cook={ck} size={34} rad={11} />
+                  <Text style={[type(14.5, 900), { color: c.ink, flex: 1, letterSpacing: -0.2 }]}>{cook.name}</Text>
+                  <Text style={[type(13, 700), { color: c.soft }]}>{lines.length} item{lines.length !== 1 ? 's' : ''}</Text>
                 </View>
               </Press>
-            ) : (
-              <Stepper sm value={l.qty} onDec={() => setQty(l.key, l.qty - 1)} onInc={() => setQty(l.key, l.qty + 1)} />
-            )}
-          </View>
-        ))}
-
-        <View style={{ height: 12 }} />
-        {t.hasFounder ? (
-          <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10, marginHorizontal: 16, paddingVertical: 12, paddingHorizontal: 14, borderRadius: radius.md, backgroundColor: c.greenL, borderWidth: 1, borderColor: c.green }}>
-            <Icon name="shield" size={20} color={c.green} />
-            <Text style={[type(12.5, 700), { color: c.green, flex: 1, lineHeight: 18 }]}>Your order includes a founding cook — their service fee is waived for 60 days.</Text>
-          </View>
-        ) : null}
-
-        <Block title="Add a tip · goes 100% to the cook">
-          <View style={{ flexDirection: 'row', gap: 8 }}>
-            {TIPS.map((v) => {
-              const on = tip === v;
-              return (
-                <Press key={v} scale={0.95} onPress={() => setTip(v)} style={{ flex: 1 }}>
-                  <View style={{ height: 44, borderRadius: radius.sm, borderWidth: 1.5, borderColor: on ? c.primary : c.border, backgroundColor: on ? c.primaryL : c.surface, alignItems: 'center', justifyContent: 'center' }}>
-                    <Text style={[type(14, 800), { color: on ? c.primaryD : c.soft }]}>{v === 0 ? 'None' : money(v)}</Text>
+              {lines.map((l) => (
+                <View key={l.key} style={{ flexDirection: 'row', alignItems: 'center', gap: 12, paddingVertical: 12, paddingHorizontal: 14, borderBottomWidth: 1, borderBottomColor: c.border2 }}>
+                  <GradBox grad={l.grad} style={{ width: 52, height: 52, borderRadius: radius.md }} />
+                  <View style={{ flex: 1 }}>
+                    <Text style={[type(14, 800), { color: c.ink }]}>{l.name}</Text>
+                    <Text style={[type(14, 900), { color: c.primary, marginTop: 4 }]}>{money(l.price * l.qty)}</Text>
                   </View>
-                </Press>
-              );
-            })}
-          </View>
-        </Block>
+                  {l.qty <= 1 ? (
+                    <Press scale={0.9} onPress={() => removeLine(l.key)} label="Remove item" hitSlop={8}>
+                      <View style={{ width: 34, height: 34, borderRadius: 17, alignItems: 'center', justifyContent: 'center' }}>
+                        <Icon name="x" size={16} color={c.muted} />
+                      </View>
+                    </Press>
+                  ) : (
+                    <Stepper sm value={l.qty} onDec={() => setQty(l.key, l.qty - 1)} onInc={() => setQty(l.key, l.qty + 1)} />
+                  )}
+                </View>
+              ))}
+              <View style={{ flexDirection: 'row', alignItems: 'center', gap: 12, padding: 14 }}>
+                <View style={{ flex: 1 }}>
+                  <Text style={[type(11.5, 700), { color: c.muted }]}>Subtotal</Text>
+                  <Text style={[type(16, 900), { color: c.ink }]}>{money(subtotal)}</Text>
+                </View>
+                <Btn label="Checkout" iconRight="arrow" onPress={() => router.push(`/checkout?cook=${ck}`)} />
+              </View>
+            </View>
+          );
+        })}
 
-        <Summary t={t} mode={mode} />
+        {cooks.length > 1 ? (
+          <Text style={[type(12, 600), { color: c.muted, textAlign: 'center', marginTop: 16, marginHorizontal: 32, lineHeight: 18 }]}>Ordering from more than one kitchen? Each checks out separately.</Text>
+        ) : null}
       </ScrollView>
-
-      <Dock>
-        <DockTotal label="Total" value={money(t.total)} />
-        <Btn label="Checkout" iconRight="arrow" flex={1} onPress={() => router.push('/checkout')} />
-      </Dock>
     </Screen>
   );
 }

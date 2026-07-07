@@ -2,7 +2,7 @@ import React from 'react';
 import { View, Text, ScrollView } from 'react-native';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import Svg, { Line } from 'react-native-svg';
-import { COOKS } from '../src/data/data';
+import { COOKS, CookId } from '../src/data/data';
 import { useC } from '../src/theme/ThemeContext';
 import { type, radius } from '../src/theme/theme';
 import { useStore } from '../src/store/store';
@@ -12,14 +12,16 @@ import { Screen, TopBar } from '../src/ui/layout';
 export default function Track() {
   const c = useC();
   const router = useRouter();
-  const { flow } = useLocalSearchParams<{ flow: string }>();
+  const { flow, cook } = useLocalSearchParams<{ flow: string; cook?: string }>();
   const { mode, toast } = useStore();
   const cod = flow === 'cod';
+  const ck = ((cook || 'maria') as CookId);
+  const theCook = COOKS[ck];
 
   const STEPS = [
-    { t: 'Order confirmed', p: 'Maria accepted your order', st: 'done' },
+    { t: 'Order confirmed', p: `${theCook.name} accepted your order`, st: 'done' },
     { t: 'Cooking now', p: 'Fresh on the stove', st: cod ? 'done' : 'active' },
-    { t: mode === 'pickup' ? 'Ready for pickup' : 'Out for delivery', p: mode === 'pickup' ? 'Head to Maria’s Kitchen' : 'On the way to you', st: cod ? 'done' : 'pending' },
+    { t: mode === 'pickup' ? 'Ready for pickup' : 'Out for delivery', p: mode === 'pickup' ? `Head to ${theCook.kitchen}` : 'On the way to you', st: cod ? 'done' : 'pending' },
     { t: cod ? 'Handed off · paid in cash' : 'Delivered', p: cod ? 'Confirmed by QR + code' : 'Leave a review to earn points', st: cod ? 'done' : 'pending' },
   ];
 
@@ -71,25 +73,25 @@ export default function Track() {
             ))}
           </View>
 
-          <Press scale={0.98} onPress={() => router.push('/chat/maria')}>
+          <Press scale={0.98} onPress={() => router.push(`/chat/${ck}`)}>
             <View style={{ flexDirection: 'row', alignItems: 'center', gap: 12, padding: 13, borderRadius: radius.lg, backgroundColor: c.bg, borderWidth: 1, borderColor: c.border }}>
-              <Avatar cook="maria" size={46} />
+              <Avatar cook={ck} size={46} />
               <View style={{ flex: 1 }}>
-                <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}><Text style={[type(15, 900), { color: c.ink }]}>{COOKS.maria.name}</Text><Icon name="shield" size={15} color={c.green} /></View>
+                <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}><Text style={[type(15, 900), { color: c.ink }]}>{theCook.name}</Text><Icon name="shield" size={15} color={c.green} /></View>
                 <Text style={[type(12, 600), { color: c.soft, marginTop: 2 }]}>Your cook · usually replies in minutes</Text>
               </View>
               <View style={{ width: 34, height: 34, borderRadius: 17, backgroundColor: c.surface, borderWidth: 1, borderColor: c.border, alignItems: 'center', justifyContent: 'center' }}><Icon name="chat" size={16} color={c.soft} /></View>
             </View>
           </Press>
 
-          <Press scale={0.98} onPress={() => router.push('/plan/weeknight')} style={{ marginTop: 14 }}>
+          <Press scale={0.98} onPress={() => router.push('/plans')} style={{ marginTop: 14 }}>
             <View style={{ flexDirection: 'row', alignItems: 'center', gap: 12, padding: 14, borderRadius: radius.lg, backgroundColor: c.primaryL, borderWidth: 1, borderColor: c.primary }}>
               <View style={{ width: 42, height: 42, borderRadius: 13, backgroundColor: c.primary, alignItems: 'center', justifyContent: 'center' }}>
                 <Icon name="repeat" size={20} color="#fff" />
               </View>
               <View style={{ flex: 1 }}>
                 <Text style={[type(14.5, 900), { color: c.ink, letterSpacing: -0.2 }]}>Loved it? Get this every week</Text>
-                <Text style={[type(12.5, 600), { color: c.soft, marginTop: 2 }]}>Reserve a weekly box from {COOKS.maria.name} — launching soon</Text>
+                <Text style={[type(12.5, 600), { color: c.soft, marginTop: 2 }]}>Reserve a weekly box from {theCook.name} — launching soon</Text>
               </View>
               <Icon name="chevRight" size={18} color={c.primary} />
             </View>
@@ -104,7 +106,7 @@ export default function Track() {
                 </Text>
               </View>
               <View style={{ marginTop: 12 }}>
-                <Btn icon="qr" label={mode === 'pickup' ? 'Show pickup code' : 'Show handoff code'} block onPress={() => router.push(`/handoff?mode=${mode}&cook=maria`)} />
+                <Btn icon="qr" label={mode === 'pickup' ? 'Show pickup code' : 'Show handoff code'} block onPress={() => router.push(`/handoff?mode=${mode}&cook=${ck}`)} />
               </View>
             </View>
           ) : null}
