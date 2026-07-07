@@ -19,16 +19,16 @@ export default function PlansScreen() {
 
   return (
     <Screen>
-      <TopBar title="Meal plans" sub={`${totalSubs} subscribers`} onBack={() => router.back()} />
+      <TopBar title="Meal plans" sub={`${totalSubs} reserved`} onBack={() => router.back()} />
       <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={{ paddingTop: 16, paddingBottom: 40 }}>
         <View style={{ marginHorizontal: 20, padding: 18, borderRadius: 22, backgroundColor: c.feature, overflow: 'hidden' }}>
           <View style={{ position: 'absolute', right: -50, top: -50, width: 170, height: 170, borderRadius: 85, backgroundColor: 'rgba(242,107,29,.28)' }} />
-          <Text style={[type(12, 800), { color: 'rgba(255,255,255,.6)', letterSpacing: 0.5, textTransform: 'uppercase' }]}>Recurring revenue · monthly</Text>
+          <Text style={[type(12, 800), { color: 'rgba(255,255,255,.6)', letterSpacing: 0.5, textTransform: 'uppercase' }]}>Reserved revenue · monthly, when live</Text>
           <Text style={[type(34, 900), { color: '#fff', letterSpacing: -1.2, marginTop: 5 }]}>${Math.round(mrr * 4.3).toLocaleString()}</Text>
           <View style={{ flexDirection: 'row', gap: 18, marginTop: 14 }}>
             <View>
               <Text style={[type(15, 900), { color: '#fff', letterSpacing: -0.3 }]}>{totalSubs}</Text>
-              <Text style={[type(11.5, 700), { color: 'rgba(255,255,255,.6)', marginTop: 2 }]}>Active subscribers</Text>
+              <Text style={[type(11.5, 700), { color: 'rgba(255,255,255,.6)', marginTop: 2 }]}>Reservations</Text>
             </View>
             <View>
               <Text style={[type(15, 900), { color: '#fff', letterSpacing: -0.3 }]}>{MY_PLANS.length}</Text>

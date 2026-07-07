@@ -176,7 +176,9 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
   const [cardId, setCardId] = useState('visa4242');
   const [lastOrder, setLastOrder] = useState<OrderFlow | null>(null);
   const [orders, setOrders] = useState<CustomerOrder[]>(SEED_ORDERS);
-  const [subscription, setSubscription] = useState<Subscription | null>(null);
+  // Stored as a list constrained to length 1 for MVP (one active plan). Modeling it
+  // as an array means "add a second plan" later is a config flip, not a rewrite.
+  const [subs, setSubs] = useState<Subscription[]>([]);
   const [requests, setRequests] = useState<ServiceRequest[]>(SEED_REQUESTS);
   const [reels, setReels] = useState<FeedItem[]>([]);
   const [avail, setAvail] = useState(true);
@@ -209,7 +211,8 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
           if (typeof s.cardId === 'string') setCardId(s.cardId);
           if (s.lastOrder) setLastOrder(s.lastOrder);
           if (Array.isArray(s.orders)) setOrders(s.orders);
-          if (s.subscription) setSubscription(s.subscription);
+          if (Array.isArray(s.subs)) setSubs(s.subs);
+          else if (s.subscription) setSubs([s.subscription]); // migrate old single-object shape
           if (Array.isArray(s.requests)) setRequests(s.requests);
           if (Array.isArray(s.reels)) setReels(s.reels);
           if (typeof s.avail === 'boolean') setAvail(s.avail);
@@ -225,9 +228,9 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
     if (!hydrated.current) return;
     AsyncStorage.setItem(
       LS,
-      JSON.stringify({ onboarded, darkMode, cart, tip, mode, location, fav: [...fav], prepperStatus, addresses, addressId, cards, cardId, lastOrder, orders, subscription, requests, avail, reels }),
+      JSON.stringify({ onboarded, darkMode, cart, tip, mode, location, fav: [...fav], prepperStatus, addresses, addressId, cards, cardId, lastOrder, orders, subs, requests, avail, reels }),
     ).catch(() => {});
-  }, [onboarded, darkMode, cart, tip, mode, location, fav, prepperStatus, addresses, addressId, cards, cardId, lastOrder, orders, subscription, requests, avail, reels]);
+  }, [onboarded, darkMode, cart, tip, mode, location, fav, prepperStatus, addresses, addressId, cards, cardId, lastOrder, orders, subs, requests, avail, reels]);
 
   const toast = useCallback((msg: string, icon = 'check', green = false) => {
     const id = toastSeq++;
@@ -292,6 +295,7 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
     });
   }, []);
   const address = addresses.find((a) => a.id === addressId) ?? addresses[0] ?? null;
+  const subscription = subs[0] ?? null; // MVP exposes the single active plan
 
   // --- payment cards ---
   const addCard = useCallback((cd: Omit<Card, 'id'>) => {
@@ -354,7 +358,7 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
     setAddressId('home');
     setCards(SEED_CARDS);
     setCardId('visa4242');
-    setSubscription(null);
+    setSubs([]);
     setOrders(SEED_ORDERS);
     setRequests(SEED_REQUESTS);
     setReels([]);
@@ -370,11 +374,11 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
   }, []);
 
   const subscribe = useCallback((s: Subscription) => {
-    if (s.cook && isMine(s.cook)) { toast('You can’t subscribe to your own plan', 'info'); return; }
-    setSubscription(s);
+    if (s.cook && isMine(s.cook)) { toast('You can’t reserve your own plan', 'info'); return; }
+    setSubs([s]);
   }, [isMine, toast]);
-  const updateSub = useCallback((patch: Partial<Subscription>) => setSubscription((s) => (s ? { ...s, ...patch } : s)), []);
-  const cancelSub = useCallback(() => setSubscription(null), []);
+  const updateSub = useCallback((patch: Partial<Subscription>) => setSubs((a) => (a[0] ? [{ ...a[0], ...patch }] : a)), []);
+  const cancelSub = useCallback(() => setSubs([]), []);
 
   const postReel = useCallback((r: FeedItem) => setReels((rs) => [r, ...rs]), []);
 

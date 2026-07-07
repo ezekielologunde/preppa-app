@@ -33,9 +33,9 @@ export default function PlanDetailScreen() {
     return (
       <Screen bg={c.surface}>
         <Burst
-          title="You’re subscribed!"
-          body={<>First <Text style={type(15, 800)}>{p.name}</Text> arrives <Text style={type(15, 800)}>{day}</Text>, 5–7 PM. Pause, skip or swap meals anytime — no lock-in.</>}
-          actionLabel="Manage my plan"
+          title="You’re on the list!"
+          body={<>You’ve reserved <Text style={type(15, 800)}>{p.name}</Text> with <Text style={type(15, 800)}>{cook.name}</Text>. Weekly plans are launching soon — we’ll message you the moment they go live in your area.</>}
+          actionLabel="View my reservation"
           onAction={() => router.replace('/plans')}
         />
       </Screen>
@@ -45,28 +45,29 @@ export default function PlanDetailScreen() {
   if (stage === 'pay') {
     return (
       <Screen>
-        <TopBar title="Confirm subscription" onBack={() => setStage('info')} />
+        <TopBar title="Reserve your plan" onBack={() => setStage('info')} />
         <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={{ paddingBottom: 130 }}>
           <Block title={`${p.name} · every ${day}`}>
             <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 7 }}>
               <Fact icon="chefhat" text={cook.name} />
               <Fact icon="repeat" text={`${mealsLbl}/week`} />
-              <Fact icon="truck" text={`${day} · 5–7 PM`} />
+              <Fact icon="truck" text={`Prefers ${day}`} />
             </View>
           </Block>
-          <Block title="Payment"><PayRow /></Block>
           <View style={{ backgroundColor: c.surface, borderRadius: radius.card, margin: 16, padding: 16, borderWidth: 1, borderColor: c.border2 }}>
-            <SumRow label="Weekly box" value={money(p.price)} />
-            <SumRow label="Delivery" value="Free for subscribers" free />
-            <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', borderTopWidth: 1, borderTopColor: c.border, borderStyle: 'dashed', marginTop: 8, paddingTop: 14 }}>
-              <Text style={[type(17, 900), { color: c.ink }]}>Per week</Text>
+            <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }}>
+              <Text style={[type(15, 800), { color: c.ink }]}>Weekly box · when it launches</Text>
               <Text style={[type(19, 900), { color: c.ink }]}>{money(p.price)}</Text>
+            </View>
+            <View style={{ flexDirection: 'row', alignItems: 'flex-start', gap: 10, marginTop: 14, paddingTop: 14, borderTopWidth: 1, borderTopColor: c.border, borderStyle: 'dashed' }}>
+              <Icon name="shield" size={17} color={c.primary} />
+              <Text style={[type(12.5, 600), { color: c.ink2, flex: 1, lineHeight: 18 }]}>No charge today — you’re reserving your spot with {cook.name}. Weekly billing starts only when plans go live in your area.</Text>
             </View>
           </View>
         </ScrollView>
         <Dock>
-          <DockTotal label="Per week" value={money(p.price)} />
-          <Btn label={`Subscribe · ${money(p.price)}/wk`} flex={1} onPress={() => { subscribe({ name: p.name, cook: p.cook, price: p.price, per: 'week', items: p.items, day, status: 'active', skipNext: false }); setStage('done'); }} />
+          <DockTotal label="When live" value={`${money(p.price)}/wk`} />
+          <Btn label="Reserve my spot" flex={1} onPress={() => { subscribe({ name: p.name, cook: p.cook, price: p.price, per: 'week', items: p.items, day, status: 'active', skipNext: false }); setStage('done'); }} />
         </Dock>
       </Screen>
     );
@@ -119,7 +120,7 @@ export default function PlanDetailScreen() {
           <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 7 }}>
             {PLAN_DAYS.map((d) => <DayChip key={d} label={d} on={day === d} onPress={() => setDay(d)} />)}
           </View>
-          <Text style={[type(12.5, 600), { color: c.muted, marginTop: 16, lineHeight: 19 }]}>Pause, skip a week, or swap meals anytime. No commitment — cancel whenever.</Text>
+          <Text style={[type(12.5, 600), { color: c.muted, marginTop: 16, lineHeight: 19 }]}>Once it’s live you’ll be able to pause, skip a week, or swap meals anytime — no lock-in.</Text>
         </View>
       </ScrollView>
 
@@ -128,8 +129,8 @@ export default function PlanDetailScreen() {
           <Btn label="Manage in My Hub" icon="chefhat" variant="ghost" block onPress={() => router.push('/hub/plans')} />
         ) : (
           <>
-            <DockTotal label="Per week" value={money(p.price)} />
-            <Btn label="Subscribe" iconRight="arrow" flex={1} onPress={() => setStage('pay')} />
+            <DockTotal label="When live" value={`${money(p.price)}/wk`} />
+            <Btn label="Reserve this plan" iconRight="arrow" flex={1} onPress={() => setStage('pay')} />
           </>
         )}
       </Dock>
@@ -144,34 +145,6 @@ function Fact({ icon, text }: { icon: string; text: string }) {
     <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6, height: 28, paddingHorizontal: 11, borderRadius: radius.pill, backgroundColor: c.bg2 }}>
       <Icon name={icon} size={14} color={c.muted} />
       <Text style={[type(12, 700), { color: c.ink2 }]}>{text}</Text>
-    </View>
-  );
-}
-
-function SumRow({ label, value, free }: { label: string; value: string; free?: boolean }) {
-  const c = useC();
-  return (
-    <View style={{ flexDirection: 'row', justifyContent: 'space-between', paddingVertical: 6 }}>
-      <Text style={[type(14, 600), { color: c.soft }]}>{label}</Text>
-      <Text style={[type(14, 800), { color: free ? c.green : c.ink }]}>{value}</Text>
-    </View>
-  );
-}
-
-function PayRow() {
-  const c = useC();
-  return (
-    <View style={{ flexDirection: 'row', alignItems: 'center', gap: 12, padding: 14, borderWidth: 1.5, borderColor: c.primary, backgroundColor: c.primaryL, borderRadius: radius.md }}>
-      <View style={{ width: 42, height: 42, borderRadius: 11, backgroundColor: c.surface, alignItems: 'center', justifyContent: 'center' }}>
-        <Icon name="card" size={20} color={c.primary} />
-      </View>
-      <View style={{ flex: 1 }}>
-        <Text style={[type(14.5, 800), { color: c.ink }]}>Visa •••• 4242</Text>
-        <Text style={[type(12, 500), { color: c.soft, marginTop: 3 }]}>Billed weekly · cancel anytime</Text>
-      </View>
-      <View style={{ width: 22, height: 22, borderRadius: 11, borderWidth: 2, borderColor: c.primary, alignItems: 'center', justifyContent: 'center' }}>
-        <View style={{ width: 11, height: 11, borderRadius: 6, backgroundColor: c.primary }} />
-      </View>
     </View>
   );
 }

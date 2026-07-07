@@ -82,6 +82,19 @@ export default function Track() {
             </View>
           </Press>
 
+          <Press scale={0.98} onPress={() => router.push('/plan/weeknight')} style={{ marginTop: 14 }}>
+            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 12, padding: 14, borderRadius: radius.lg, backgroundColor: c.primaryL, borderWidth: 1, borderColor: c.primary }}>
+              <View style={{ width: 42, height: 42, borderRadius: 13, backgroundColor: c.primary, alignItems: 'center', justifyContent: 'center' }}>
+                <Icon name="repeat" size={20} color="#fff" />
+              </View>
+              <View style={{ flex: 1 }}>
+                <Text style={[type(14.5, 900), { color: c.ink, letterSpacing: -0.2 }]}>Loved it? Get this every week</Text>
+                <Text style={[type(12.5, 600), { color: c.soft, marginTop: 2 }]}>Reserve a weekly box from {COOKS.maria.name} — launching soon</Text>
+              </View>
+              <Icon name="chevRight" size={18} color={c.primary} />
+            </View>
+          </Press>
+
           {!cod ? (
             <View style={{ marginTop: 14, padding: 14, borderRadius: radius.lg, backgroundColor: c.purpleL, borderWidth: 1, borderColor: c.purple }}>
               <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10 }}>

@@ -80,8 +80,8 @@ export default function AnalyticsScreen() {
             <StatTile ic="star" tone="ic-blue" value={String(A.rating)} label={`Rating · ${ME.reviews}`} />
           </View>
           <View style={{ flexDirection: 'row', gap: 12 }}>
-            <StatTile ic="repeat" tone="ic-green" value={money(recurring)} label="Recurring · weekly" />
-            <StatTile ic="users" tone="ic-amber" value={String(subs)} label="Plan subscribers" />
+            <StatTile ic="repeat" tone="ic-green" value={money(recurring)} label="Reserved · weekly" />
+            <StatTile ic="users" tone="ic-amber" value={String(subs)} label="Plan reservations" />
           </View>
         </View>
 

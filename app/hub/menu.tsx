@@ -59,7 +59,7 @@ export default function MenuScreen() {
             </GradBox>
             <View style={{ flex: 1, minWidth: 0 }}>
               <Text style={[type(15, 900), { color: c.ink, letterSpacing: -0.2 }]}>{pl.name}</Text>
-              <Text style={[type(12.5, 600), { color: c.soft, marginTop: 2 }]}>{pl.meals} · {pl.subs} subscribers</Text>
+              <Text style={[type(12.5, 600), { color: c.soft, marginTop: 2 }]}>{pl.meals} · {pl.subs} reserved</Text>
             </View>
             <View style={{ alignItems: 'flex-end' }}>
               <Text style={[type(16, 900), { color: c.ink, letterSpacing: -0.3 }]}>{money(pl.price)}</Text>

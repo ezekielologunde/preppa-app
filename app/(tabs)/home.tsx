@@ -94,7 +94,7 @@ export default function HomeScreen() {
 
         <View style={{ height: 8 }} />
         <ShortcutCard icon="chefhat" grad={['#FF8A4C', c.primary]} title="Cook at My Place" body="A private chef in your kitchen — compare fixed quotes" onPress={() => router.push('/request/cookhome')} />
-        <ShortcutCard icon="repeat" grad={['#A855F7', c.purple]} title="Weekly meal plans" body="Subscribe to a cook’s box — pause or swap anytime" onPress={() => router.push('/plans')} />
+        <ShortcutCard icon="repeat" grad={['#A855F7', c.purple]} title="Weekly meal plans" body="Reserve a cook’s weekly box — launching soon" onPress={() => router.push('/plans')} />
       </ScrollView>
       <LocationPicker visible={locPicker} onClose={() => setLocPicker(false)} />
     </View>

@@ -28,7 +28,7 @@ export default function CreatePlanFlow() {
   if (done) {
     return (
       <Screen bg={c.surface}>
-        <Burst title="Plan created" body={`${name} is live. Customers can subscribe and you’ll earn ${money(Number(price) || 0)} per ${cadence}, automatically.`} actionLabel="Back to plans" onAction={() => router.back()} />
+        <Burst title="Plan created" body={`${name} is live to reserve. Customers can lock in a spot now — you’ll earn ${money(Number(price) || 0)} per ${cadence} once weekly plans go live.`} actionLabel="Back to plans" onAction={() => router.back()} />
       </Screen>
     );
   }
@@ -39,7 +39,7 @@ export default function CreatePlanFlow() {
       <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={{ paddingHorizontal: 20, paddingBottom: 130 }}>
         <View style={{ marginTop: 20 }}><PhotoPick grad={grad} setGrad={setGrad} /></View>
         <KField label="Plan name"><KInput value={name} onChange={setName} placeholder="e.g. Weeknight Italian Box" /></KField>
-        <KField label="What subscribers get"><KInput value={desc} onChange={setDesc} placeholder="Three chef-cooked dinners delivered every week, rotating menu…" multiline /></KField>
+        <KField label="What’s in the box"><KInput value={desc} onChange={setDesc} placeholder="Three chef-cooked dinners delivered every week, rotating menu…" multiline /></KField>
         <View style={{ flexDirection: 'row', gap: 12 }}>
           <View style={{ flex: 1 }}>
             <KField label="Price"><MoneyInput value={price} onChange={setPrice} /></KField>

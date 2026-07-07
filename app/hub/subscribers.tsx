@@ -41,17 +41,17 @@ export default function SubscribersScreen() {
 
   return (
     <Screen>
-      <TopBar title="Subscribers" sub={`${active} active`} onBack={() => router.back()} />
+      <TopBar title="Reservations" sub={`${active} reserved`} onBack={() => router.back()} />
       <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={{ paddingTop: 16, paddingBottom: 40 }}>
         <View style={{ marginHorizontal: 20, backgroundColor: c.surface, borderWidth: 1, borderColor: c.border2, borderRadius: 20, padding: 16 }}>
-          <Text style={[type(13, 900), { color: c.ink, marginBottom: 4 }]}>This week’s prep</Text>
+          <Text style={[type(13, 900), { color: c.ink, marginBottom: 4 }]}>Reserved demand · when you go live</Text>
           <BreakRow ic="box" tone="ic-amber" label="Thu · Weeknight Italian" value="24 boxes · 72 meals" />
           <BreakRow ic="utensils" tone="ic-purple" label="Sun · Family Sunday Tray" value="11 trays" />
-          <BreakRow ic="wallet" tone="ic-green" label="Recurring · weekly" value={money(mrr)} last />
-          <Text style={[type(12.5, 600), { color: c.primaryD, lineHeight: 20, marginTop: 12, padding: 13, backgroundColor: c.primaryL, borderRadius: 12 }]}>2 subscribers skipped next week — prep 22 boxes for Thursday, not 24.</Text>
+          <BreakRow ic="wallet" tone="ic-green" label="Reserved weekly value" value={money(mrr)} last />
+          <Text style={[type(12.5, 600), { color: c.primaryD, lineHeight: 20, marginTop: 12, padding: 13, backgroundColor: c.primaryL, borderRadius: 12 }]}>Weekly plans are launching soon — these are customers who’ve reserved a box with you. Billing starts when plans go live.</Text>
         </View>
 
-        <KSec title="Subscribers" />
+        <KSec title="Reservations" />
         <View style={{ marginHorizontal: 20, borderWidth: 1, borderColor: c.border2, borderRadius: 18, overflow: 'hidden' }}>
           {SUBSCRIBERS.map((s, i) => {
             const ch = chip(c, s);
@@ -60,7 +60,7 @@ export default function SubscribersScreen() {
                 <GradAvatar grad={s.grad} letter={s.name[0]} size={40} rad={13} />
                 <View style={{ flex: 1, minWidth: 0 }}>
                   <Text style={[type(14.5, 800), { color: c.ink, letterSpacing: -0.2 }]}>{s.name}</Text>
-                  <Text numberOfLines={1} style={[type(12.5, 600), { color: c.soft, marginTop: 2 }]}>{s.plan} · since {s.since}</Text>
+                  <Text numberOfLines={1} style={[type(12.5, 600), { color: c.soft, marginTop: 2 }]}>{s.plan} · reserved {s.since}</Text>
                 </View>
                 <Text style={[type(11.5, 800), { color: ch.fg, backgroundColor: ch.bg, paddingHorizontal: 10, paddingVertical: 4, borderRadius: 999, overflow: 'hidden' }]}>{ch.label}</Text>
               </View>
@@ -68,7 +68,7 @@ export default function SubscribersScreen() {
           })}
         </View>
         <View style={{ paddingHorizontal: 20, paddingTop: 14 }}>
-          <KBtn label="Message all subscribers" variant="ghost" block icon="mega" onPress={() => toast('Message all subscribers — demo', 'mega')} />
+          <KBtn label="Message everyone" variant="ghost" block icon="mega" onPress={() => toast('Message all reservations — demo', 'mega')} />
         </View>
       </ScrollView>
     </Screen>
