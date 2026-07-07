@@ -8,6 +8,7 @@ import { useStore } from '../src/store/store';
 import { Icon, Press, GradBox, Stepper, Btn } from '../src/ui';
 import { Screen, TopBar, Dock, DockTotal, Block, Empty } from '../src/ui/layout';
 import { useTotals, Summary } from '../src/components/shared';
+import { ModeToggle } from '../src/components/ModeToggle';
 
 const TIPS = [0, 2, 3, 5];
 
@@ -30,6 +31,10 @@ export default function Cart() {
     <Screen>
       <TopBar title="Your cart" sub={`${cartCount} item${cartCount !== 1 ? 's' : ''}`} />
       <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={{ paddingBottom: 120 }}>
+        <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: 16, paddingTop: 14, paddingBottom: 6 }}>
+          <Text style={[type(13, 800), { color: c.soft }]}>How you’ll get it</Text>
+          <ModeToggle sm />
+        </View>
         {cart.map((l) => (
           <View key={l.key} style={{ flexDirection: 'row', alignItems: 'center', gap: 12, paddingVertical: 14, paddingHorizontal: 16, backgroundColor: c.surface, borderBottomWidth: 1, borderBottomColor: c.border2 }}>
             <GradBox grad={l.grad} style={{ width: 64, height: 64, borderRadius: radius.md }} />

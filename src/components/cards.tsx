@@ -57,13 +57,13 @@ export function MealGrid({ meals, showMatch, px = 20 }: { meals: Meal[]; showMat
 export const MealCardLg = React.memo(function MealCardLg({ m, showMatch, width }: { m: Meal; showMatch?: boolean; width?: number }) {
   const c = useC();
   const router = useRouter();
-  const { fav, toggleFav, addToCart, toast, isMine } = useStore();
+  const { fav, toggleFav, addToCart, showFlash, isMine } = useStore();
   const cook = COOKS[m.cook];
   const isFav = fav.has(m.id);
   const mine = isMine(m.cook);
   const quickAdd = () => {
     addToCart({ key: m.id, name: m.name, cook: m.cook, price: m.price, grad: m.grad }, 1);
-    toast(`Added ${m.name}`, 'check', true);
+    showFlash({ name: m.name, grad: m.grad });
   };
   return (
     <Press scale={0.97} onPress={() => router.push(`/meal/${m.id}`)} style={{ width }}>
@@ -119,14 +119,14 @@ export const MealCardLg = React.memo(function MealCardLg({ m, showMatch, width }
 export const HeroDrop = React.memo(function HeroDrop({ id }: { id: string }) {
   const c = useC();
   const router = useRouter();
-  const { fav, toggleFav, addToCart, toast, isMine } = useStore();
+  const { fav, toggleFav, addToCart, showFlash, isMine } = useStore();
   const m = mealById(id)!;
   const cook = COOKS[m.cook];
   const isFav = fav.has(m.id);
   const mine = isMine(m.cook);
   const add = () => {
     addToCart({ key: m.id, name: m.name, cook: m.cook, price: m.price, grad: m.grad }, 1);
-    toast(`Added ${m.name}`, 'check', true);
+    showFlash({ name: m.name, grad: m.grad });
   };
   return (
     <Press scale={0.985} onPress={() => router.push(`/meal/${m.id}`)} style={{ marginHorizontal: 20 }}>

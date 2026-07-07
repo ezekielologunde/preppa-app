@@ -9,22 +9,18 @@ import { type, radius, shadow } from '../../src/theme/theme';
 import { useStore } from '../../src/store/store';
 import { Icon, Press } from '../../src/ui';
 import { HeroDrop, MealGrid, ExpRail, SectionHeader } from '../../src/components/cards';
+import { ModeToggle } from '../../src/components/ModeToggle';
 
 function greetWord() {
   const h = new Date().getHours();
   return h < 12 ? 'Good morning' : h < 18 ? 'Good afternoon' : 'Good evening';
 }
 
-const MODES: { id: 'delivery' | 'pickup'; t: string; ico: string }[] = [
-  { id: 'delivery', t: 'Delivery', ico: 'truck' },
-  { id: 'pickup', t: 'Pickup', ico: 'bag' },
-];
-
 export default function HomeScreen() {
   const c = useC();
   const insets = useSafeAreaInsets();
   const router = useRouter();
-  const { mode, setMode, cartCount, notifCount, toast } = useStore();
+  const { mode, cartCount, notifCount, toast } = useStore();
   const { width } = useWindowDimensions();
   const wide = width >= 700; // logo + actions live in the SideRail on wide screens
   const dropId = dailyDropId();
@@ -71,17 +67,7 @@ export default function HomeScreen() {
             <Text style={[type(15.5, 500), { color: c.soft, marginTop: 7 }]}>What sounds good tonight?</Text>
           </View>
 
-          <View style={{ flexDirection: 'row', alignSelf: 'flex-start', backgroundColor: c.bg2, padding: 4, borderRadius: 13, marginTop: 14, gap: 4 }}>
-            {MODES.map((m) => {
-              const on = mode === m.id;
-              return (
-                <Pressable key={m.id} onPress={() => setMode(m.id)} style={[{ height: 36, paddingHorizontal: 18, borderRadius: 10, flexDirection: 'row', alignItems: 'center', gap: 6 }, on ? { backgroundColor: c.surface, ...shadow.soft } : null]}>
-                  <Icon name={m.ico} size={15} color={on ? c.ink : c.soft} />
-                  <Text style={[type(13.5, 700), { color: on ? c.ink : c.soft }]}>{m.t}</Text>
-                </Pressable>
-              );
-            })}
-          </View>
+          <View style={{ marginTop: 14 }}><ModeToggle /></View>
         </LinearGradient>
 
         {/* [1] sticky search */}

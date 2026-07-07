@@ -16,7 +16,7 @@ export default function MealDetail() {
   const insets = useSafeAreaInsets();
   const router = useRouter();
   const { id } = useLocalSearchParams<{ id: string }>();
-  const { fav, toggleFav, addToCart, toast, isMine } = useStore();
+  const { fav, toggleFav, addToCart, toast, showFlash, isMine } = useStore();
   const m = mealById(id!);
   const [qty, setQty] = useState(1);
   const [adds, setAdds] = useState<string[]>([]);
@@ -30,7 +30,7 @@ export default function MealDetail() {
   const add = () => {
     addToCart({ key: m.id, name: m.name, cook: m.cook, price: m.price, grad: m.grad }, qty);
     adds.forEach((k) => { const a = ADDONS.find((x) => x.key === k)!; addToCart(a, 1); });
-    toast(`Added ${qty} × ${m.name}`, 'check', true);
+    showFlash({ name: m.name, grad: m.grad });
     router.back();
   };
 

@@ -13,6 +13,7 @@ import {
 import { StoreProvider, useStore } from '../src/store/store';
 import { ThemeProvider, useIsDark } from '../src/theme/ThemeContext';
 import { ToastHost } from '../src/ui';
+import { CartFlash } from '../src/components/CartFlash';
 import { SplashOverlay } from '../src/components/Splash';
 import { OnboardingFlow } from '../src/components/Onboarding';
 import { SideRail } from '../src/components/SideRail';
@@ -76,6 +77,7 @@ function AppShell() {
         </View>
       </ErrorBoundary>
       <ToastHost />
+      <CartFlash />
       {ready && !onboarded ? <OnboardingFlow /> : null}
       {showSplash ? <SplashOverlay /> : null}
     </View>

@@ -8,6 +8,7 @@ import { useStore } from '../src/store/store';
 import { Icon, Press, Btn } from '../src/ui';
 import { Screen, TopBar, Dock, DockTotal, Block, MiniTag } from '../src/ui/layout';
 import { useTotals, Summary } from '../src/components/shared';
+import { ModeToggle } from '../src/components/ModeToggle';
 
 export default function Checkout() {
   const c = useC();
@@ -29,6 +30,7 @@ export default function Checkout() {
       <TopBar title="Checkout" />
       <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={{ paddingBottom: 120 }}>
         <Block title={mode === 'pickup' ? 'Pick up from' : 'Deliver to'}>
+          <View style={{ marginBottom: 14 }}><ModeToggle sm /></View>
           <View style={{ flexDirection: 'row', gap: 12, alignItems: 'flex-start' }}>
             <View style={{ width: 40, height: 40, borderRadius: 12, backgroundColor: c.primaryL, alignItems: 'center', justifyContent: 'center' }}><Icon name="pin" size={20} color={c.primary} /></View>
             <View style={{ flex: 1 }}>

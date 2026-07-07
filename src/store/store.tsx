@@ -138,6 +138,10 @@ interface Store {
   toasts: Toast[];
   toast: (msg: string, icon?: string, green?: boolean) => void;
 
+  flash: { name: string; grad: GradKey } | null; // "added to cart" overlay
+  showFlash: (item: { name: string; grad: GradKey }) => void;
+  dismissFlash: () => void;
+
   notifs: Notif[];
   conversations: Conversation[];
   markNotifRead: (id: string) => void;
@@ -172,6 +176,8 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
   const [acted, setActed] = useState<string[]>([]);
   const [notifs, setNotifs] = useState<Notif[]>(NOTIFS);
   const [conversations, setConversations] = useState<Conversation[]>(CONVERSATIONS);
+  const [flash, setFlash] = useState<{ name: string; grad: GradKey } | null>(null);
+  const flashTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const [toasts, setToasts] = useState<Toast[]>([]);
   const hydrated = useRef(false);
 
@@ -381,6 +387,16 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
   }, [toast]);
   const acceptOrder = useCallback((id: string) => setActed((a) => [...a, id]), []);
 
+  const showFlash = useCallback((item: { name: string; grad: GradKey }) => {
+    setFlash(item);
+    if (flashTimer.current) clearTimeout(flashTimer.current);
+    flashTimer.current = setTimeout(() => setFlash(null), 3500);
+  }, []);
+  const dismissFlash = useCallback(() => {
+    if (flashTimer.current) clearTimeout(flashTimer.current);
+    setFlash(null);
+  }, []);
+
   const markNotifRead = useCallback((id: string) => setNotifs((ns) => ns.map((n) => (n.id === id ? { ...n, unread: false } : n))), []);
   const markConvRead = useCallback((cook: CookId) => setConversations((cs) => cs.map((cv) => (cv.cook === cook ? { ...cv, unread: 0 } : cv))), []);
   const markAllRead = useCallback(() => {
@@ -443,6 +459,9 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
     acceptOrder,
     toasts,
     toast,
+    flash,
+    showFlash,
+    dismissFlash,
     notifs,
     conversations,
     markNotifRead,
