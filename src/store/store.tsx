@@ -51,7 +51,6 @@ const SEED_ADDRESSES: Address[] = [
   { id: 'home', label: 'Home', line1: '88 Highland Ave NE, Apt 4', line2: 'Atlanta, GA 30312' },
   { id: 'work', label: 'Work', line1: '1100 Peachtree St NE', line2: 'Atlanta, GA 30309' },
 ];
-const SEED_SLOTS = ['Mon-Evening', 'Tue-Evening', 'Wed-Evening', 'Thu-Evening', 'Fri-Evening', 'Sat-Morning', 'Sat-Afternoon', 'Sat-Evening', 'Sun-Morning', 'Sun-Afternoon'];
 
 export interface Card {
   id: string;
@@ -135,10 +134,6 @@ interface Store {
   // prepper "My Hub"
   avail: boolean;
   toggleAvail: () => void;
-  availSlots: string[]; // in-home weekly availability, keys like 'Mon-Evening'
-  toggleSlot: (k: string) => void;
-  radius: number; // in-home service radius in miles
-  setRadius: (n: number) => void;
   acted: string[];
   acceptOrder: (id: string) => void;
 
@@ -181,8 +176,6 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
   const [subscription, setSubscription] = useState<Subscription | null>(null);
   const [requests, setRequests] = useState<ServiceRequest[]>(SEED_REQUESTS);
   const [avail, setAvail] = useState(true);
-  const [availSlots, setAvailSlots] = useState<string[]>(SEED_SLOTS);
-  const [radius, setRadius] = useState(5);
   const [acted, setActed] = useState<string[]>([]);
   const [notifs, setNotifs] = useState<Notif[]>(NOTIFS);
   const [conversations, setConversations] = useState<Conversation[]>(CONVERSATIONS);
@@ -215,8 +208,6 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
           if (s.subscription) setSubscription(s.subscription);
           if (Array.isArray(s.requests)) setRequests(s.requests);
           if (typeof s.avail === 'boolean') setAvail(s.avail);
-          if (Array.isArray(s.availSlots)) setAvailSlots(s.availSlots);
-          if (typeof s.radius === 'number') setRadius(s.radius);
         }
       } catch {}
       hydrated.current = true;
@@ -229,9 +220,9 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
     if (!hydrated.current) return;
     AsyncStorage.setItem(
       LS,
-      JSON.stringify({ onboarded, darkMode, cart, tip, mode, location, fav: [...fav], prepperStatus, addresses, addressId, cards, cardId, lastOrder, orders, subscription, requests, avail, availSlots, radius }),
+      JSON.stringify({ onboarded, darkMode, cart, tip, mode, location, fav: [...fav], prepperStatus, addresses, addressId, cards, cardId, lastOrder, orders, subscription, requests, avail }),
     ).catch(() => {});
-  }, [onboarded, darkMode, cart, tip, mode, location, fav, prepperStatus, addresses, addressId, cards, cardId, lastOrder, orders, subscription, requests, avail, availSlots, radius]);
+  }, [onboarded, darkMode, cart, tip, mode, location, fav, prepperStatus, addresses, addressId, cards, cardId, lastOrder, orders, subscription, requests, avail]);
 
   const toast = useCallback((msg: string, icon = 'check', green = false) => {
     const id = toastSeq++;
@@ -367,8 +358,6 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
     setLocation('Atlanta, GA');
     setDarkModeState(false);
     setAvail(true);
-    setAvailSlots(SEED_SLOTS);
-    setRadius(5);
     setActed([]);
     setPrepperStatus('none');
     setOnboardedState(false);
@@ -394,8 +383,6 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
   const acceptQuote = useCallback((id: string, q: any) => {
     setRequests((rs) => rs.map((r) => (r.id === id ? { ...r, status: 'booked', booked: q } : r)));
   }, []);
-
-  const toggleSlot = useCallback((k: string) => setAvailSlots((p) => (p.includes(k) ? p.filter((x) => x !== k) : [...p, k])), []);
 
   const toggleAvail = useCallback(() => {
     setAvail((a) => {
@@ -475,10 +462,6 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
     acceptQuote,
     avail,
     toggleAvail,
-    availSlots,
-    toggleSlot,
-    radius,
-    setRadius,
     acted,
     acceptOrder,
     toasts,

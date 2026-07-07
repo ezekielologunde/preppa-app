@@ -10,7 +10,6 @@ import { Screen, TopBar, Dock, DockTotal, Block } from '../../src/ui/layout';
 import { CookRow, Burst } from '../../src/components/shared';
 import { SectionHeader } from '../../src/components/cards';
 import { NotFound } from '../../src/components/NotFound';
-import { InHomeTrust } from '../../src/components/InHomeTrust';
 import { ReqStatusChip } from '../(tabs)/experiences';
 
 const FEE = 4.99;
@@ -163,7 +162,6 @@ export default function RequestQuotesScreen() {
                       <Text style={[type(10.5, 700), { color: c.muted }]}>fixed</Text>
                     </View>
                   </View>
-                  {r.svc === 'cookhome' || r.svc === 'catering' ? <InHomeTrust cook={q.cook} compact /> : null}
                   <View style={{ marginTop: 11, padding: 12, backgroundColor: c.bg2, borderRadius: radius.sm }}>
                     <Text style={[type(13, 500), { color: c.ink2, lineHeight: 20 }]}>“{q.note}”</Text>
                   </View>

@@ -12,7 +12,6 @@ import { HeroTopBar, HeroBtn } from '../../src/components/shared';
 import { MealGrid, ExpRail, SectionHeader } from '../../src/components/cards';
 import { NotFound } from '../../src/components/NotFound';
 import { shareAndNotify, SITE } from '../../src/lib/share';
-import { InHomeTrust } from '../../src/components/InHomeTrust';
 
 export default function CookStoreScreen() {
   const c = useC();
@@ -87,8 +86,6 @@ export default function CookStoreScreen() {
             )}
           </View>
         </View>
-
-        <InHomeTrust cook={id} />
 
         {meals.length > 0 ? (
           <>
