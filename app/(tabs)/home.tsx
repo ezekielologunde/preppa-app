@@ -3,14 +3,16 @@ import { View, Text, ScrollView, Pressable, useWindowDimensions } from 'react-na
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useRouter } from 'expo-router';
-import { MEALS, EXPERIENCES, dailyDropId } from '../../src/data/data';
+import { MEALS, COOKS, CookId, EXPERIENCES, dailyDropId } from '../../src/data/data';
 import { useC } from '../../src/theme/ThemeContext';
 import { type, radius, shadow } from '../../src/theme/theme';
 import { useStore } from '../../src/store/store';
 import { Icon, Press } from '../../src/ui';
-import { HeroDrop, MealGrid, ExpRail, SectionHeader } from '../../src/components/cards';
+import { HeroDrop, MealGrid, ExpRail, SectionHeader, CookRail } from '../../src/components/cards';
 import { ModeToggle } from '../../src/components/ModeToggle';
 import { LocationPicker } from '../../src/components/LocationPicker';
+
+const CUISINES = ['Comfort', 'Healthy', 'Halal', 'Mexican', 'Seafood', 'Soul food'];
 
 function greetWord() {
   const h = new Date().getHours();
@@ -21,12 +23,13 @@ export default function HomeScreen() {
   const c = useC();
   const insets = useSafeAreaInsets();
   const router = useRouter();
-  const { mode, location, cartCount, notifCount, toast } = useStore();
+  const { mode, location, cartCount, notifCount, fav, toast } = useStore();
   const { width } = useWindowDimensions();
   const wide = width >= 700; // logo + actions live in the SideRail on wide screens
   const [locPicker, setLocPicker] = useState(false);
   const dropId = dailyDropId();
   const picks = MEALS.filter((m) => m.id !== dropId).slice(0, 4);
+  const favMeals = MEALS.filter((m) => fav.has(m.id));
 
   return (
     <View style={{ flex: 1, backgroundColor: c.primaryL, paddingTop: insets.top }}>
@@ -83,11 +86,31 @@ export default function HomeScreen() {
         </View>
 
         {/* [2+] content */}
+        <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ gap: 8, paddingHorizontal: 20, paddingTop: 14, paddingBottom: 2 }}>
+          {CUISINES.map((x) => (
+            <Press key={x} scale={0.94} onPress={() => router.push(`/explore?cat=${encodeURIComponent(x)}`)}>
+              <View style={{ height: 36, paddingHorizontal: 15, borderRadius: radius.pill, backgroundColor: c.surface, borderWidth: 1, borderColor: c.border, alignItems: 'center', justifyContent: 'center' }}>
+                <Text style={[type(13, 700), { color: c.soft }]}>{x}</Text>
+              </View>
+            </Press>
+          ))}
+        </ScrollView>
+
         <SectionHeader title="Today’s drop" />
         <HeroDrop id={dropId} />
 
         <SectionHeader title="Fresh near you" action="See all" onAction={() => router.push('/explore')} />
         <MealGrid meals={picks} />
+
+        <SectionHeader title="New preppers near you" action="See all" onAction={() => router.push('/experiences')} />
+        <CookRail cooks={Object.keys(COOKS) as CookId[]} />
+
+        {favMeals.length > 0 ? (
+          <>
+            <SectionHeader title="Your favorites" action="See all" onAction={() => router.push('/favorites')} />
+            <MealGrid meals={favMeals} />
+          </>
+        ) : null}
 
         <SectionHeader title="Prep experiences" action="See all" onAction={() => router.push('/experiences')} />
         <ExpRail exps={EXPERIENCES.slice(0, 4)} />

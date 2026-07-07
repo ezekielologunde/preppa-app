@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { View, Text, ScrollView, TextInput, Modal, Pressable } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { useRouter } from 'expo-router';
+import { useLocalSearchParams, useRouter } from 'expo-router';
 import { MEALS, COOKS, Meal } from '../src/data/data';
 import { useC } from '../src/theme/ThemeContext';
 import { type, radius, shadow } from '../src/theme/theme';
@@ -37,7 +37,8 @@ export default function Explore() {
   const router = useRouter();
   const { toast } = useStore();
   const [q, setQ] = useState('');
-  const [cat, setCat] = useState('All');
+  const { cat: catParam } = useLocalSearchParams<{ cat?: string }>();
+  const [cat, setCat] = useState(typeof catParam === 'string' && catParam ? catParam : 'All');
   const [tags, setTags] = useState<string[]>([]);
   const [price, setPrice] = useState<string | null>(null);
   const [goal, setGoal] = useState<string | null>(null);

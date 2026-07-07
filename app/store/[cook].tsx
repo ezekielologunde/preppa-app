@@ -2,14 +2,14 @@ import React, { useState } from 'react';
 import { View, Text, ScrollView } from 'react-native';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { COOKS, CookId, MEALS, MARKET_PLANS, EXPERIENCES, STORE_REVIEWS, STORE_SPECIALTIES, money } from '../../src/data/data';
+import { COOKS, CookId, MEALS, MARKET_PLANS, EXPERIENCES, STORE_SPECIALTIES, money } from '../../src/data/data';
 import { useC } from '../../src/theme/ThemeContext';
 import { type, radius, shadow } from '../../src/theme/theme';
 import { useStore } from '../../src/store/store';
-import { Icon, Press, GradBox, GradAvatar, Stars, Btn } from '../../src/ui';
+import { Icon, Press, GradBox, Btn } from '../../src/ui';
 import { Screen } from '../../src/ui/layout';
 import { HeroTopBar, HeroBtn } from '../../src/components/shared';
-import { MealGrid, ExpRail, SectionHeader } from '../../src/components/cards';
+import { MealGrid, ExpRail, SectionHeader, ReviewsBlock } from '../../src/components/cards';
 import { NotFound } from '../../src/components/NotFound';
 import { shareAndNotify, SITE } from '../../src/lib/share';
 
@@ -126,19 +126,7 @@ export default function CookStoreScreen() {
         ) : null}
 
         <SectionHeader title="Reviews" right={<Text style={[type(13, 800), { color: c.primary }]}>See all {cd.reviews}</Text>} />
-        {STORE_REVIEWS.map((rv, i) => (
-          <View key={i} style={{ marginHorizontal: 16, marginBottom: 10, padding: 16, paddingVertical: 14, backgroundColor: c.surface, borderWidth: 1, borderColor: c.border2, borderRadius: radius.card }}>
-            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 11 }}>
-              <GradAvatar grad={rv.grad} letter={rv.name[0]} size={36} rad={12} />
-              <View style={{ flex: 1 }}>
-                <Text style={[type(13.5, 800), { color: c.ink }]}>{rv.name}</Text>
-                <Text style={[type(11.5, 600), { color: c.muted, marginTop: 1 }]}>{rv.time}</Text>
-              </View>
-              <Stars n={rv.stars} size={13} />
-            </View>
-            <Text style={[type(13.5, 500), { color: c.ink2, lineHeight: 21, marginTop: 10 }]}>{rv.text}</Text>
-          </View>
-        ))}
+        <ReviewsBlock rating={cd.rating} count={cd.reviews} />
 
         {!isMine(id) ? (
         <Press scale={0.985} onPress={() => router.push('/request/cookhome')} style={{ marginHorizontal: 16, marginTop: 14 }}>

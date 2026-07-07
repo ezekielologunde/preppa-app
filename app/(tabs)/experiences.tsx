@@ -7,7 +7,7 @@ import { useC } from '../../src/theme/ThemeContext';
 import { Palette, type, radius, shadow } from '../../src/theme/theme';
 import { useStore } from '../../src/store/store';
 import { Icon, Press, GradBox, Avatar } from '../../src/ui';
-import { ExpRail, SectionHeader, useColumns } from '../../src/components/cards';
+import { ExpRail, SectionHeader, useColumns, CookRail } from '../../src/components/cards';
 
 /** Tinted service-card palette per Service.cls (exp.css .xsvc t-* + .ico gradients). */
 function svcTint(c: Palette): Record<string, { bg: string; g: [string, string] }> {
@@ -144,24 +144,7 @@ export default function ExperiencesScreen() {
         <SvcGrid />
 
         <SectionHeader title="Cooks near you" action="See all" onAction={() => router.push('/explore')} />
-        <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ gap: 12, paddingHorizontal: 16, paddingVertical: 4 }}>
-          {(Object.keys(COOKS) as CookId[]).map((id) => {
-            const cook = COOKS[id];
-            return (
-              <Press key={id} scale={0.97} onPress={() => router.push(`/store/${id}`)} label={`${cook.name}'s kitchen`}>
-                <View style={{ width: 150, backgroundColor: c.surface, borderWidth: 1, borderColor: c.border2, borderRadius: radius.card, padding: 14, alignItems: 'center', ...shadow.card }}>
-                  <Avatar cook={id} size={54} rad={17} />
-                  <Text numberOfLines={1} style={[type(14, 900), { color: c.ink, marginTop: 10 }]}>{cook.name}</Text>
-                  <Text numberOfLines={1} style={[type(11.5, 600), { color: c.soft, marginTop: 2 }]}>{cook.cuisine}</Text>
-                  <View style={{ flexDirection: 'row', alignItems: 'center', gap: 4, marginTop: 6 }}>
-                    <Icon name="star" size={12} color={c.star} />
-                    <Text style={[type(11.5, 800), { color: c.ink }]}>{cook.rating} · {cook.dist}</Text>
-                  </View>
-                </View>
-              </Press>
-            );
-          })}
-        </ScrollView>
+        <CookRail cooks={Object.keys(COOKS) as CookId[]} />
 
         <SectionHeader title="Classes & supper clubs" />
         <ExpRail exps={EXPERIENCES} />

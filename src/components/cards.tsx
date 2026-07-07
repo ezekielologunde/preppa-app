@@ -1,11 +1,11 @@
 import React, { useRef, useState } from 'react';
 import { View, Text, ScrollView, Pressable, Animated, StyleSheet, LayoutChangeEvent, StyleProp, ViewStyle } from 'react-native';
 import { useRouter } from 'expo-router';
-import { COOKS, MEALS, mealById, Meal, Experience, PlanGoal, money } from '../data/data';
+import { COOKS, CookId, MEALS, mealById, Meal, Experience, PlanGoal, STORE_REVIEWS, money } from '../data/data';
 import { useC } from '../theme/ThemeContext';
 import { type, radius, shadow } from '../theme/theme';
 import { useStore } from '../store/store';
-import { Press, GradBox, Icon } from '../ui';
+import { Press, GradBox, Icon, Avatar, Stars, GradAvatar } from '../ui';
 import { useReducedMotion } from '../ui/useReducedMotion';
 
 /**
@@ -33,6 +33,77 @@ function useCardScale(scale = 0.97) {
 export function VChk({ size = 13, color }: { size?: number; color?: string }) {
   const c = useC();
   return <Icon name="shield" size={size} color={color ?? c.green} />;
+}
+
+/** Horizontal rail of cook/kitchen cards — shared by Home and Experiences. */
+export function CookRail({ cooks }: { cooks: CookId[] }) {
+  const c = useC();
+  const router = useRouter();
+  return (
+    <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ gap: 12, paddingHorizontal: 20, paddingVertical: 4 }}>
+      {cooks.map((id) => {
+        const cook = COOKS[id];
+        return (
+          <Press key={id} scale={0.97} onPress={() => router.push(`/store/${id}`)} label={`${cook.name}'s kitchen`}>
+            <View style={{ width: 150, backgroundColor: c.surface, borderWidth: 1, borderColor: c.border2, borderRadius: radius.card, padding: 14, alignItems: 'center', ...shadow.card }}>
+              <Avatar cook={id} size={54} rad={17} />
+              <Text numberOfLines={1} style={[type(14, 900), { color: c.ink, marginTop: 10 }]}>{cook.name}</Text>
+              <Text numberOfLines={1} style={[type(11.5, 600), { color: c.soft, marginTop: 2 }]}>{cook.cuisine}</Text>
+              <View style={{ flexDirection: 'row', alignItems: 'center', gap: 4, marginTop: 6 }}>
+                <Icon name="star" size={12} color={c.star} />
+                <Text style={[type(11.5, 800), { color: c.ink }]}>{cook.rating} · {cook.dist}</Text>
+              </View>
+            </View>
+          </Press>
+        );
+      })}
+    </ScrollView>
+  );
+}
+
+/** A plausible star distribution derived from an aggregate rating (illustrative). */
+function ratingBars(r: number): { star: number; pct: number }[] {
+  const base = r >= 4.85 ? [88, 9, 2, 1, 0] : r >= 4.7 ? [78, 15, 4, 2, 1] : [66, 22, 7, 3, 2];
+  return [5, 4, 3, 2, 1].map((star, i) => ({ star, pct: base[i] }));
+}
+
+/** Ratings breakdown + review cards — shared by cook storefront and meal detail. */
+export function ReviewsBlock({ rating, count }: { rating: number; count: number }) {
+  const c = useC();
+  return (
+    <>
+      <View style={{ flexDirection: 'row', gap: 20, marginHorizontal: 16, marginTop: 4, marginBottom: 14, alignItems: 'center' }}>
+        <View style={{ alignItems: 'center' }}>
+          <Text style={[type(38, 900), { color: c.ink, letterSpacing: -1.5 }]}>{rating.toFixed(1)}</Text>
+          <Stars n={Math.round(rating)} size={13} />
+          <Text style={[type(11.5, 600), { color: c.muted, marginTop: 4 }]}>{count} reviews</Text>
+        </View>
+        <View style={{ flex: 1, gap: 6 }}>
+          {ratingBars(rating).map((d) => (
+            <View key={d.star} style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
+              <Text style={[type(11, 700), { color: c.soft, width: 9 }]}>{d.star}</Text>
+              <View style={{ flex: 1, height: 6, borderRadius: 3, backgroundColor: c.bg2, overflow: 'hidden' }}>
+                <View style={{ width: `${d.pct}%`, height: 6, borderRadius: 3, backgroundColor: c.star }} />
+              </View>
+            </View>
+          ))}
+        </View>
+      </View>
+      {STORE_REVIEWS.map((rv, i) => (
+        <View key={i} style={{ marginHorizontal: 16, marginBottom: 10, padding: 16, backgroundColor: c.surface, borderWidth: 1, borderColor: c.border2, borderRadius: radius.card }}>
+          <View style={{ flexDirection: 'row', alignItems: 'center', gap: 11 }}>
+            <GradAvatar grad={rv.grad} letter={rv.name[0]} size={36} rad={12} />
+            <View style={{ flex: 1 }}>
+              <Text style={[type(14, 800), { color: c.ink }]}>{rv.name}</Text>
+              <Text style={[type(11.5, 600), { color: c.muted, marginTop: 1 }]}>{rv.time}</Text>
+            </View>
+            <Stars n={rv.stars} size={13} />
+          </View>
+          <Text style={[type(13.5, 500), { color: c.ink2, marginTop: 10, lineHeight: 20 }]}>{rv.text}</Text>
+        </View>
+      ))}
+    </>
+  );
 }
 
 /** Cut / Bulk / Maintain pill for goal-based meal plans. */

@@ -11,6 +11,7 @@ import { Screen, Dock, DockTotal, SectionLabel } from '../../src/ui/layout';
 import { CookRow, HeroTopBar, HeroBtn } from '../../src/components/shared';
 import { NotFound } from '../../src/components/NotFound';
 import { ImageViewer } from '../../src/components/ImageViewer';
+import { SectionHeader, ReviewsBlock } from '../../src/components/cards';
 import { shareAndNotify, SITE } from '../../src/lib/share';
 
 export default function MealDetail() {
@@ -101,6 +102,9 @@ export default function MealDetail() {
             <Stepper value={qty} onDec={() => setQty(Math.max(1, qty - 1))} onInc={() => setQty(qty + 1)} />
           </View>
         </View>
+
+        <SectionHeader title="Reviews" />
+        <ReviewsBlock rating={m.rating} count={m.reviews} />
       </ScrollView>
 
       <Dock>
