@@ -30,7 +30,8 @@ export default function BidFlow() {
   const [amount, setAmount] = useState('');
   const [msg, setMsg] = useState('');
   const [done, setDone] = useState(false);
-  const valid = !!amount;
+  const valid = Number(amount) > 0;
+  const submit = () => (valid ? setDone(true) : toast('Enter your quote amount', 'info'));
   const host0 = r.host.split('·')[0].split(' ')[0];
 
   if (done) {
@@ -67,7 +68,7 @@ export default function BidFlow() {
       </ScrollView>
       <Dock>
         <DockTotal label="Your quote" value={money(Number(amount) || 0)} />
-        <KBtn label="Send quote" variant="pri" flex={1} height={48} onPress={() => valid && setDone(true)} style={{ opacity: valid ? 1 : 0.5 }} />
+        <KBtn label="Send quote" variant="pri" flex={1} height={48} onPress={submit} style={{ opacity: valid ? 1 : 0.5 }} />
       </Dock>
     </Screen>
   );

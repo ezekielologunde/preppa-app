@@ -3,6 +3,7 @@ import { View, Text, ScrollView } from 'react-native';
 import { useRouter } from 'expo-router';
 import { useC } from '../../src/theme/ThemeContext';
 import { type, GradKey } from '../../src/theme/theme';
+import { useStore } from '../../src/store/store';
 import { Icon, Stepper } from '../../src/ui';
 import { Screen, TopBar, Dock, DockTotal } from '../../src/ui/layout';
 import { Burst } from '../../src/components/shared';
@@ -12,6 +13,7 @@ import { PhotoPick, KField, KInput, MoneyInput, KSeg, KBtn } from '../(tabs)/my-
 export default function CreatePlanFlow() {
   const c = useC();
   const router = useRouter();
+  const { toast } = useStore();
   const [grad, setGrad] = useState<GradKey | null>(null);
   const [name, setName] = useState('');
   const [desc, setDesc] = useState('');
@@ -19,7 +21,9 @@ export default function CreatePlanFlow() {
   const [count, setCount] = useState(3);
   const [cadence, setCadence] = useState('week');
   const [done, setDone] = useState(false);
-  const valid = !!name.trim() && !!price;
+  const valid = !!name.trim() && Number(price) > 0;
+  const reason = !name.trim() ? 'Add a plan name' : 'Set a price above $0';
+  const submit = () => (valid ? setDone(true) : toast(reason, 'info'));
 
   if (done) {
     return (
@@ -59,7 +63,7 @@ export default function CreatePlanFlow() {
       </ScrollView>
       <Dock>
         <DockTotal label={`Per ${cadence}`} value={money(Number(price) || 0)} />
-        <KBtn label="Publish plan" variant="pri" flex={1} height={48} onPress={() => valid && setDone(true)} style={{ opacity: valid ? 1 : 0.5 }} />
+        <KBtn label="Publish plan" variant="pri" flex={1} height={48} onPress={submit} style={{ opacity: valid ? 1 : 0.5 }} />
       </Dock>
     </Screen>
   );

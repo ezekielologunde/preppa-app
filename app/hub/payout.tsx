@@ -3,6 +3,7 @@ import { View, Text, ScrollView } from 'react-native';
 import { useRouter } from 'expo-router';
 import { useC } from '../../src/theme/ThemeContext';
 import { type } from '../../src/theme/theme';
+import { useStore } from '../../src/store/store';
 import { Icon } from '../../src/ui';
 import { Screen, TopBar, Dock } from '../../src/ui/layout';
 import { Burst } from '../../src/components/shared';
@@ -13,9 +14,12 @@ import { KField, MoneyInput, KBtn } from '../(tabs)/my-hub';
 export default function PayoutFlow() {
   const c = useC();
   const router = useRouter();
+  const { toast } = useStore();
   const [amount, setAmount] = useState(BALANCE.available.toFixed(2));
   const [done, setDone] = useState(false);
   const valid = Number(amount) > 0 && Number(amount) <= BALANCE.available;
+  const reason = Number(amount) <= 0 ? 'Enter an amount to pay out' : 'Amount exceeds your available balance';
+  const submit = () => (valid ? setDone(true) : toast(reason, 'info'));
 
   if (done) {
     return (
@@ -61,7 +65,7 @@ export default function PayoutFlow() {
         </KField>
       </ScrollView>
       <Dock>
-        <KBtn label={`Request ${money(Number(amount) || 0)}`} variant="pri" block onPress={() => valid && setDone(true)} style={{ opacity: valid ? 1 : 0.5 }} />
+        <KBtn label={`Request ${money(Number(amount) || 0)}`} variant="pri" block onPress={submit} style={{ opacity: valid ? 1 : 0.5 }} />
       </Dock>
     </Screen>
   );
