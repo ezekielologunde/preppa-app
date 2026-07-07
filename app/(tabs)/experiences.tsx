@@ -6,7 +6,7 @@ import { SERVICES, EXPERIENCES, Service, ServiceRequest, svcById, COOKS, CookId 
 import { useC } from '../../src/theme/ThemeContext';
 import { Palette, type, radius, shadow } from '../../src/theme/theme';
 import { useStore } from '../../src/store/store';
-import { Icon, Press, GradBox, Avatar } from '../../src/ui';
+import { Icon, Press, GradBox } from '../../src/ui';
 import { ExpRail, SectionHeader, useColumns, CookRail } from '../../src/components/cards';
 
 /** Tinted service-card palette per Service.cls (exp.css .xsvc t-* + .ico gradients). */

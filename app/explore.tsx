@@ -5,7 +5,6 @@ import { useLocalSearchParams, useRouter } from 'expo-router';
 import { MEALS, COOKS, Meal } from '../src/data/data';
 import { useC } from '../src/theme/ThemeContext';
 import { type, radius, shadow } from '../src/theme/theme';
-import { useStore } from '../src/store/store';
 import { Icon, Press, Btn } from '../src/ui';
 import { Screen, Empty } from '../src/ui/layout';
 import { MealGrid } from '../src/components/cards';
@@ -35,7 +34,6 @@ export default function Explore() {
   const c = useC();
   const insets = useSafeAreaInsets();
   const router = useRouter();
-  const { toast } = useStore();
   const [q, setQ] = useState('');
   const { cat: catParam } = useLocalSearchParams<{ cat?: string }>();
   const [cat, setCat] = useState(typeof catParam === 'string' && catParam ? catParam : 'All');
