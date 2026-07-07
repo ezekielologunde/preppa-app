@@ -1,62 +1,95 @@
 import React, { useState } from 'react';
 import { View, Text, ScrollView } from 'react-native';
 import { useRouter } from 'expo-router';
-import { NOTIFS, CONVERSATIONS, COOKS } from '../src/data/data';
+import { COOKS, NotifTarget } from '../src/data/data';
 import { useC } from '../src/theme/ThemeContext';
 import { type, radius } from '../src/theme/theme';
+import { useStore } from '../src/store/store';
 import { Icon, Press, Avatar } from '../src/ui';
-import { Screen, TopBar } from '../src/ui/layout';
+import { Screen, TopBar, Empty } from '../src/ui/layout';
 
 type Tone = '' | 'amber' | 'purple' | 'blue' | 'pink' | 'green';
+
+/** Resolve a notification's target to an in-app route ([param] routes fall back to Not-found if stale). */
+function notifRoute(t?: NotifTarget): string | null {
+  if (!t) return null;
+  switch (t.screen) {
+    case 'track': return '/track';
+    case 'meal': return `/meal/${t.param}`;
+    case 'store': return `/store/${t.param}`;
+    case 'review': return `/review/${t.param}`;
+    case 'rewards': return '/rewards';
+    default: return null;
+  }
+}
 
 export default function Notifications() {
   const c = useC();
   const router = useRouter();
+  const { notifs, conversations, markNotifRead, markConvRead, markAllRead, notifCount } = useStore();
   const [tab, setTab] = useState<'alerts' | 'messages'>('alerts');
-  const unreadAlerts = NOTIFS.filter((n) => n.unread).length;
-  const unreadMsgs = CONVERSATIONS.reduce((s, cv) => s + (cv.unread ? 1 : 0), 0);
+  const unreadAlerts = notifs.filter((n) => n.unread).length;
+  const unreadMsgs = conversations.reduce((s, cv) => s + (cv.unread ? 1 : 0), 0);
+
+  const openAlert = (id: string, target?: NotifTarget) => {
+    markNotifRead(id);
+    const route = notifRoute(target);
+    if (route) router.push(route as any);
+  };
 
   return (
     <Screen>
-      <TopBar title="Notifications" />
+      <TopBar title="Notifications" right={notifCount > 0 ? (
+        <Press scale={0.95} onPress={markAllRead} label="Mark all read"><Text style={[type(13, 800), { color: c.primary }]}>Mark all read</Text></Press>
+      ) : undefined} />
       <View style={{ backgroundColor: c.surface, borderBottomWidth: 1, borderBottomColor: c.border2, flexDirection: 'row', gap: 8, paddingHorizontal: 16, paddingBottom: 12 }}>
         <Seg label="Alerts" count={unreadAlerts} on={tab === 'alerts'} onPress={() => setTab('alerts')} />
         <Seg label="Messages" count={unreadMsgs} on={tab === 'messages'} onPress={() => setTab('messages')} />
       </View>
       <ScrollView showsVerticalScrollIndicator={false}>
-        {tab === 'alerts'
-          ? NOTIFS.map((n, i) => (
-              <View key={i} style={{ flexDirection: 'row', alignItems: 'flex-start', gap: 13, paddingVertical: 15, paddingHorizontal: 16, backgroundColor: n.unread ? c.unread : c.surface, borderBottomWidth: 1, borderBottomColor: c.border2 }}>
-                <IconWell ico={n.ico} tone={n.cls as Tone} />
-                <View style={{ flex: 1 }}>
-                  <Text style={[type(14.5, 800), { color: c.ink }]}>{n.title}</Text>
-                  <Text style={[type(13, 500), { color: c.soft, marginTop: 2, lineHeight: 18 }]}>{n.body}</Text>
-                </View>
-                <Text style={[type(11, 700), { color: c.muted }]}>{n.time}</Text>
-                {n.unread ? <View style={{ width: 9, height: 9, borderRadius: 5, backgroundColor: c.primary, marginTop: 4 }} /> : null}
-              </View>
-            ))
-          : CONVERSATIONS.map((cv, i) => {
-              const cook = COOKS[cv.cook];
-              return (
-                <Press key={i} scale={0.99} onPress={() => router.push(`/chat/${cv.cook}`)}>
-                  <View style={{ flexDirection: 'row', alignItems: 'center', gap: 12, paddingVertical: 14, paddingHorizontal: 16, backgroundColor: c.surface, borderBottomWidth: 1, borderBottomColor: c.border2 }}>
-                    <View>
-                      <Avatar cook={cv.cook} size={50} rad={16} />
-                      {cv.online ? <View style={{ position: 'absolute', right: -2, bottom: -2, width: 14, height: 14, borderRadius: 7, backgroundColor: c.green2, borderWidth: 2.5, borderColor: c.surface }} /> : null}
-                    </View>
-                    <View style={{ flex: 1 }}>
-                      <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'baseline' }}>
-                        <Text style={[type(15, 800), { color: c.ink }]}>{cook.name}</Text>
-                        <Text style={[type(11, 600), { color: c.muted }]}>{cv.time}</Text>
-                      </View>
-                      <Text numberOfLines={1} style={[type(13, cv.unread ? 700 : 500), { color: cv.unread ? c.ink : c.soft, marginTop: 2 }]}>{cv.msg}</Text>
-                    </View>
-                    {cv.unread ? <View style={{ width: 9, height: 9, borderRadius: 5, backgroundColor: c.primary }} /> : null}
+        {tab === 'alerts' ? (
+          notifs.length === 0 ? (
+            <Empty icon="bell" title="No alerts" body="Order updates and drops from cooks near you show up here." />
+          ) : (
+            notifs.map((n) => (
+              <Press key={n.id} scale={0.99} onPress={() => openAlert(n.id, n.target)} label={n.title}>
+                <View style={{ flexDirection: 'row', alignItems: 'flex-start', gap: 13, paddingVertical: 15, paddingHorizontal: 16, backgroundColor: n.unread ? c.unread : c.surface, borderBottomWidth: 1, borderBottomColor: c.border2 }}>
+                  <IconWell ico={n.ico} tone={n.cls as Tone} />
+                  <View style={{ flex: 1 }}>
+                    <Text style={[type(14.5, 800), { color: c.ink }]}>{n.title}</Text>
+                    <Text style={[type(13, 500), { color: c.soft, marginTop: 2, lineHeight: 18 }]}>{n.body}</Text>
                   </View>
-                </Press>
-              );
-            })}
+                  <Text style={[type(11, 700), { color: c.muted }]}>{n.time}</Text>
+                  {n.unread ? <View style={{ width: 9, height: 9, borderRadius: 5, backgroundColor: c.primary, marginTop: 4 }} /> : null}
+                </View>
+              </Press>
+            ))
+          )
+        ) : conversations.length === 0 ? (
+          <Empty icon="chat" title="No messages" body="Chats with your cooks appear here after you order." />
+        ) : (
+          conversations.map((cv) => {
+            const cook = COOKS[cv.cook];
+            return (
+              <Press key={cv.cook} scale={0.99} onPress={() => { markConvRead(cv.cook); router.push(`/chat/${cv.cook}`); }} label={`Chat with ${cook.name}`}>
+                <View style={{ flexDirection: 'row', alignItems: 'center', gap: 12, paddingVertical: 14, paddingHorizontal: 16, backgroundColor: c.surface, borderBottomWidth: 1, borderBottomColor: c.border2 }}>
+                  <View>
+                    <Avatar cook={cv.cook} size={50} rad={16} />
+                    {cv.online ? <View style={{ position: 'absolute', right: -2, bottom: -2, width: 14, height: 14, borderRadius: 7, backgroundColor: c.green2, borderWidth: 2.5, borderColor: c.surface }} /> : null}
+                  </View>
+                  <View style={{ flex: 1 }}>
+                    <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'baseline' }}>
+                      <Text style={[type(15, 800), { color: c.ink }]}>{cook.name}</Text>
+                      <Text style={[type(11, 600), { color: c.muted }]}>{cv.time}</Text>
+                    </View>
+                    <Text numberOfLines={1} style={[type(13, cv.unread ? 700 : 500), { color: cv.unread ? c.ink : c.soft, marginTop: 2 }]}>{cv.msg}</Text>
+                  </View>
+                  {cv.unread ? <View style={{ width: 9, height: 9, borderRadius: 5, backgroundColor: c.primary }} /> : null}
+                </View>
+              </Press>
+            );
+          })
+        )}
         <Text style={[type(12.5, 600), { color: c.muted, textAlign: 'center', paddingVertical: 24, paddingHorizontal: 16 }]}>Messages are kept on Preppa for your safety.</Text>
       </ScrollView>
     </Screen>

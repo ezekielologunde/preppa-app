@@ -104,13 +104,15 @@ export const FEED: FeedItem[] = [
   { id: 'f5', cook: 'lucia', meal: 'tacos', grad: 'g7', live: false, caption: 'Mole negro from scratch — 20 ingredients ✨', likes: '1.7k', comments: 288, tag: 'Reel' },
 ];
 
-export interface Notif { ico: string; cls: string; title: string; body: string; time: string; unread: boolean; }
+/** Where a notification takes you when tapped (validated against real data at render). */
+export interface NotifTarget { screen: 'track' | 'meal' | 'store' | 'rewards' | 'review'; param?: string; }
+export interface Notif { id: string; ico: string; cls: string; title: string; body: string; time: string; unread: boolean; target?: NotifTarget; }
 export const NOTIFS: Notif[] = [
-  { ico: 'chefhat', cls: 'amber', title: 'Maria is cooking your order', body: 'Family Lasagna Tray · ready ~5:30 PM', time: '2m', unread: true },
-  { ico: 'bolt', cls: 'purple', title: 'New drop near you', body: 'Amara just listed Smoky Jollof — selling fast', time: '18m', unread: true },
-  { ico: 'gift', cls: 'green', title: 'You earned 40 points', body: 'Thanks for reviewing Honey Garlic Salmon', time: '1h', unread: false },
-  { ico: 'ticket', cls: 'amber', title: 'Free delivery unlocked', body: 'Your next order ships free 🎉', time: '3h', unread: false },
-  { ico: 'star', cls: '', title: 'Rate your last order', body: 'How was Chef David’s poke bowl?', time: '1d', unread: false },
+  { id: 'n1', ico: 'chefhat', cls: 'amber', title: 'Maria is cooking your order', body: 'Family Lasagna Tray · ready ~5:30 PM', time: '2m', unread: true, target: { screen: 'track' } },
+  { id: 'n2', ico: 'bolt', cls: 'purple', title: 'New drop near you', body: 'Amara just listed Smoky Jollof — selling fast', time: '18m', unread: true, target: { screen: 'meal', param: 'jollof' } },
+  { id: 'n3', ico: 'gift', cls: 'green', title: 'You earned 40 points', body: 'Thanks for reviewing Honey Garlic Salmon', time: '1h', unread: false, target: { screen: 'rewards' } },
+  { id: 'n4', ico: 'ticket', cls: 'amber', title: 'Free delivery unlocked', body: 'Your next order ships free 🎉', time: '3h', unread: false, target: { screen: 'rewards' } },
+  { id: 'n5', ico: 'star', cls: '', title: 'Rate your last order', body: 'How was your Slow-Braised Short Rib?', time: '1d', unread: false, target: { screen: 'review', param: 'PR-2045' } },
 ];
 
 /* ---------------- experiences: services + requests + quotes ---------------- */

@@ -33,11 +33,18 @@ export default function Chat() {
         <Press scale={0.9} onPress={() => router.back()}>
           <View style={[{ width: 42, height: 42, borderRadius: 21, backgroundColor: c.surface, alignItems: 'center', justifyContent: 'center' }, shadow.soft]}><Icon name="chevLeft" size={20} color={c.ink} /></View>
         </Press>
-        <Avatar cook={cook as CookId} size={36} rad={12} />
-        <View style={{ flex: 1 }}>
-          <Text style={[type(16, 900), { color: c.ink }]}>{cd.name}</Text>
-          <Text style={[type(12, 700), { color: c.green }]}>● Online now</Text>
-        </View>
+        <Press scale={0.97} onPress={() => router.push(`/store/${cook}`)} label={`View ${cd.name}'s kitchen`} style={{ flex: 1 }}>
+          <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10 }}>
+            <Avatar cook={cook as CookId} size={36} rad={12} />
+            <View style={{ flex: 1 }}>
+              <View style={{ flexDirection: 'row', alignItems: 'center', gap: 4 }}>
+                <Text style={[type(16, 900), { color: c.ink }]}>{cd.name}</Text>
+                <Icon name="chevRight" size={15} color={c.muted} />
+              </View>
+              <Text style={[type(12, 700), { color: c.green }]}>● Online now</Text>
+            </View>
+          </View>
+        </Press>
         <Press scale={0.9} onPress={() => toast('Calling… (demo)', 'phone')}>
           <View style={[{ width: 42, height: 42, borderRadius: 21, backgroundColor: c.surface, alignItems: 'center', justifyContent: 'center' }, shadow.soft]}><Icon name="phone" size={18} color={c.ink} /></View>
         </Press>

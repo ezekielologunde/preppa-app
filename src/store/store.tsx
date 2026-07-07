@@ -2,7 +2,7 @@ import React, { createContext, useContext, useState, useEffect, useCallback, use
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import {
   GradKey, CookId, Subscription, ServiceRequest, SEED_REQUESTS, genQuotes,
-  NOTIFS, CONVERSATIONS,
+  NOTIFS, CONVERSATIONS, Notif, Conversation,
 } from '../data/data';
 import { ME } from '../data/cook';
 import { computeTotals } from '../data/totals';
@@ -138,6 +138,11 @@ interface Store {
   toasts: Toast[];
   toast: (msg: string, icon?: string, green?: boolean) => void;
 
+  notifs: Notif[];
+  conversations: Conversation[];
+  markNotifRead: (id: string) => void;
+  markConvRead: (cook: CookId) => void;
+  markAllRead: () => void;
   notifCount: number;
 }
 
@@ -165,6 +170,8 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
   const [requests, setRequests] = useState<ServiceRequest[]>(SEED_REQUESTS);
   const [avail, setAvail] = useState(true);
   const [acted, setActed] = useState<string[]>([]);
+  const [notifs, setNotifs] = useState<Notif[]>(NOTIFS);
+  const [conversations, setConversations] = useState<Conversation[]>(CONVERSATIONS);
   const [toasts, setToasts] = useState<Toast[]>([]);
   const hydrated = useRef(false);
 
@@ -374,7 +381,13 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
   }, [toast]);
   const acceptOrder = useCallback((id: string) => setActed((a) => [...a, id]), []);
 
-  const notifCount = NOTIFS.filter((n) => n.unread).length + CONVERSATIONS.reduce((s, c) => s + (c.unread ? 1 : 0), 0);
+  const markNotifRead = useCallback((id: string) => setNotifs((ns) => ns.map((n) => (n.id === id ? { ...n, unread: false } : n))), []);
+  const markConvRead = useCallback((cook: CookId) => setConversations((cs) => cs.map((cv) => (cv.cook === cook ? { ...cv, unread: 0 } : cv))), []);
+  const markAllRead = useCallback(() => {
+    setNotifs((ns) => ns.map((n) => ({ ...n, unread: false })));
+    setConversations((cs) => cs.map((cv) => ({ ...cv, unread: 0 })));
+  }, []);
+  const notifCount = notifs.filter((n) => n.unread).length + conversations.reduce((s, cv) => s + (cv.unread ? 1 : 0), 0);
 
   const value: Store = {
     ready,
@@ -430,6 +443,11 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
     acceptOrder,
     toasts,
     toast,
+    notifs,
+    conversations,
+    markNotifRead,
+    markConvRead,
+    markAllRead,
     notifCount,
   };
   return <StoreContext.Provider value={value}>{children}</StoreContext.Provider>;
