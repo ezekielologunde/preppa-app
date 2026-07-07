@@ -11,6 +11,7 @@ import { Screen } from '../../src/ui/layout';
 import { HeroTopBar, HeroBtn } from '../../src/components/shared';
 import { MealGrid, ExpRail, SectionHeader } from '../../src/components/cards';
 import { NotFound } from '../../src/components/NotFound';
+import { shareAndNotify, SITE } from '../../src/lib/share';
 
 export default function CookStoreScreen() {
   const c = useC();
@@ -38,7 +39,7 @@ export default function CookStoreScreen() {
       <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={{ paddingBottom: 40 }}>
         {/* hero */}
         <GradBox grad={cd.grad} style={{ height: 172 }}>
-          <HeroTopBar topInset={insets.top} onBack={() => router.back()} right={<HeroBtn icon="share" onPress={() => toast('Share kitchen — demo', 'share')} />} />
+          <HeroTopBar topInset={insets.top} onBack={() => router.back()} right={<HeroBtn icon="share" onPress={() => shareAndNotify(toast, { title: `${cd.name} on Preppa`, url: `${SITE}/store/${id}` })} />} />
           <View style={{ position: 'absolute', right: 18, bottom: 16, height: 26, paddingHorizontal: 11, borderRadius: radius.pill, flexDirection: 'row', alignItems: 'center', gap: 6, backgroundColor: 'rgba(0,0,0,.45)' }}>
             <View style={{ width: 7, height: 7, borderRadius: 4, backgroundColor: c.green2 }} />
             <Text style={[type(11.5, 800), { color: '#fff' }]}>Open now · closes 9 PM</Text>

@@ -1,11 +1,33 @@
-import React, { useState } from 'react';
-import { View, Text, ScrollView, LayoutChangeEvent, StyleProp, ViewStyle } from 'react-native';
+import React, { useRef, useState } from 'react';
+import { View, Text, ScrollView, Pressable, Animated, StyleSheet, LayoutChangeEvent, StyleProp, ViewStyle } from 'react-native';
 import { useRouter } from 'expo-router';
 import { COOKS, MEALS, mealById, Meal, Experience, money } from '../data/data';
 import { useC } from '../theme/ThemeContext';
 import { type, radius, shadow } from '../theme/theme';
 import { useStore } from '../store/store';
 import { Press, GradBox, Icon } from '../ui';
+import { useReducedMotion } from '../ui/useReducedMotion';
+
+/**
+ * Whole-card press-scale for the "navigation layer" pattern. The card wraps its
+ * visual content in the returned Animated.View while a sibling absolute-fill
+ * Pressable drives the scale via onPressIn/onPressOut — so action buttons
+ * (heart, quick-add, CTA) can sit as DOM siblings of the nav layer instead of
+ * nested inside it (which renders an invalid <button> inside <button> on web).
+ */
+function useCardScale(scale = 0.97) {
+  const a = useRef(new Animated.Value(1)).current;
+  const reduced = useReducedMotion();
+  const to = (v: number) => {
+    if (reduced) { a.setValue(1); return; }
+    Animated.spring(a, { toValue: v, useNativeDriver: true, speed: 40, bounciness: 6 }).start();
+  };
+  return {
+    scaleStyle: { transform: [{ scale: a }] },
+    onPressIn: () => to(scale),
+    onPressOut: () => to(1),
+  };
+}
 
 /** Green verification check (.vchk). */
 export function VChk({ size = 13, color }: { size?: number; color?: string }) {
@@ -65,53 +87,72 @@ export const MealCardLg = React.memo(function MealCardLg({ m, showMatch, width }
     addToCart({ key: m.id, name: m.name, cook: m.cook, price: m.price, grad: m.grad }, 1);
     showFlash({ name: m.name, grad: m.grad });
   };
+  const press = useCardScale(0.97);
   return (
-    <Press scale={0.97} onPress={() => router.push(`/meal/${m.id}`)} style={{ width }}>
-      <View style={{ backgroundColor: c.surface, borderRadius: radius.card, borderWidth: 1, borderColor: c.border2, overflow: 'hidden', ...shadow.card }}>
-        <GradBox grad={m.grad} img={m.img} style={{ height: 150 }}>
-          {showMatch && m.match ? (
-            <View style={{ position: 'absolute', top: 8, left: 8, height: 22, borderRadius: radius.pill, paddingHorizontal: 8, flexDirection: 'row', alignItems: 'center', gap: 3, backgroundColor: c.green }}>
-              <Icon name="check" size={11} color="#fff" />
-              <Text style={[type(10, 900), { color: '#fff', textTransform: 'uppercase' }]}>Match</Text>
+    <View style={{ width }}>
+      {/* Visual content — non-interactive; scales with the nav layer's press. */}
+      <Animated.View style={press.scaleStyle}>
+        <View style={{ backgroundColor: c.surface, borderRadius: radius.card, borderWidth: 1, borderColor: c.border2, overflow: 'hidden', ...shadow.card }}>
+          <GradBox grad={m.grad} img={m.img} style={{ height: 150 }}>
+            {showMatch && m.match ? (
+              <View style={{ position: 'absolute', top: 8, left: 8, height: 22, borderRadius: radius.pill, paddingHorizontal: 8, flexDirection: 'row', alignItems: 'center', gap: 3, backgroundColor: c.green }}>
+                <Icon name="check" size={11} color="#fff" />
+                <Text style={[type(10, 900), { color: '#fff', textTransform: 'uppercase' }]}>Match</Text>
+              </View>
+            ) : null}
+            {mine ? (
+              <View style={{ position: 'absolute', bottom: 9, right: 9, height: 22, borderRadius: radius.pill, paddingHorizontal: 9, flexDirection: 'row', alignItems: 'center', gap: 4, backgroundColor: 'rgba(255,255,255,.92)', ...shadow.soft }}>
+                <Icon name="chefhat" size={12} color={c.ink} />
+                <Text style={[type(10, 900), { color: c.ink, textTransform: 'uppercase' }]}>Yours</Text>
+              </View>
+            ) : null}
+          </GradBox>
+          <View style={{ padding: 12 }}>
+            <Text numberOfLines={2} style={[type(15, 800), { color: c.ink, letterSpacing: -0.2 }]}>{m.name}</Text>
+            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 7, marginTop: 8 }}>
+              <GradBox grad={cook.grad} style={{ width: 22, height: 22, borderRadius: 7, alignItems: 'center', justifyContent: 'center' }}>
+                <Text style={[type(11, 900), { color: '#fff' }]}>{cook.initial}</Text>
+              </GradBox>
+              <Text numberOfLines={1} style={[type(12, 700), { color: c.soft, flex: 1 }]}>{cook.name}</Text>
+              <VChk />
             </View>
-          ) : null}
-          <Press scale={0.85} onPress={() => toggleFav(m.id)} label={isFav ? `Remove ${m.name} from favorites` : `Save ${m.name} to favorites`} style={{ position: 'absolute', top: 8, right: 8 }} hitSlop={8}>
-            <View style={{ width: 28, height: 28, borderRadius: 14, backgroundColor: 'rgba(255,255,255,.92)', alignItems: 'center', justifyContent: 'center', ...shadow.soft }}>
-              <Icon name={isFav ? 'heartFill' : 'heart'} size={15} color={isFav ? c.primary : c.soft} />
+            <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginTop: 10 }}>
+              <Text style={[type(17, 900), { color: c.primary }]}>{money(m.price)}</Text>
+              <View style={{ flexDirection: 'row', alignItems: 'center', gap: 4 }}>
+                <Icon name="star" size={13} color={c.star} />
+                <Text style={[type(12.5, 800), { color: c.ink }]}>{m.rating} · {m.time}</Text>
+              </View>
             </View>
-          </Press>
-          {mine ? (
-            <View style={{ position: 'absolute', bottom: 9, right: 9, height: 22, borderRadius: radius.pill, paddingHorizontal: 9, flexDirection: 'row', alignItems: 'center', gap: 4, backgroundColor: 'rgba(255,255,255,.92)', ...shadow.soft }}>
-              <Icon name="chefhat" size={12} color={c.ink} />
-              <Text style={[type(10, 900), { color: c.ink, textTransform: 'uppercase' }]}>Yours</Text>
-            </View>
-          ) : (
-          <Press scale={0.85} onPress={quickAdd} label={`Quick add ${m.name} to cart`} style={{ position: 'absolute', bottom: 9, right: 9 }} hitSlop={8}>
+          </View>
+        </View>
+      </Animated.View>
+
+      {/* Navigation layer — a sibling of the action buttons, so no button nests another. */}
+      <Pressable
+        onPress={() => router.push(`/meal/${m.id}`)}
+        onPressIn={press.onPressIn}
+        onPressOut={press.onPressOut}
+        accessibilityRole="button"
+        accessibilityLabel={m.name}
+        style={StyleSheet.absoluteFill}
+      />
+      <View style={{ position: 'absolute', top: 8, right: 8 }}>
+        <Press scale={0.85} onPress={() => toggleFav(m.id)} label={isFav ? `Remove ${m.name} from favorites` : `Save ${m.name} to favorites`} hitSlop={8}>
+          <View style={{ width: 28, height: 28, borderRadius: 14, backgroundColor: 'rgba(255,255,255,.92)', alignItems: 'center', justifyContent: 'center', ...shadow.soft }}>
+            <Icon name={isFav ? 'heartFill' : 'heart'} size={15} color={isFav ? c.primary : c.soft} />
+          </View>
+        </Press>
+      </View>
+      {!mine ? (
+        <View style={{ position: 'absolute', top: 107, right: 9 }}>
+          <Press scale={0.85} onPress={quickAdd} label={`Quick add ${m.name} to cart`} hitSlop={8}>
             <View style={{ width: 34, height: 34, borderRadius: 12, backgroundColor: c.primary, alignItems: 'center', justifyContent: 'center', ...shadow.brand }}>
               <Icon name="plus" size={18} color="#fff" />
             </View>
           </Press>
-          )}
-        </GradBox>
-        <View style={{ padding: 12 }}>
-          <Text numberOfLines={2} style={[type(15, 800), { color: c.ink, letterSpacing: -0.2 }]}>{m.name}</Text>
-          <View style={{ flexDirection: 'row', alignItems: 'center', gap: 7, marginTop: 8 }}>
-            <GradBox grad={cook.grad} style={{ width: 22, height: 22, borderRadius: 7, alignItems: 'center', justifyContent: 'center' }}>
-              <Text style={[type(11, 900), { color: '#fff' }]}>{cook.initial}</Text>
-            </GradBox>
-            <Text numberOfLines={1} style={[type(12, 700), { color: c.soft, flex: 1 }]}>{cook.name}</Text>
-            <VChk />
-          </View>
-          <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginTop: 10 }}>
-            <Text style={[type(17, 900), { color: c.primary }]}>{money(m.price)}</Text>
-            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 4 }}>
-              <Icon name="star" size={13} color={c.star} />
-              <Text style={[type(12.5, 800), { color: c.ink }]}>{m.rating} · {m.time}</Text>
-            </View>
-          </View>
         </View>
-      </View>
-    </Press>
+      ) : null}
+    </View>
   );
 });
 
@@ -128,34 +169,43 @@ export const HeroDrop = React.memo(function HeroDrop({ id }: { id: string }) {
     addToCart({ key: m.id, name: m.name, cook: m.cook, price: m.price, grad: m.grad }, 1);
     showFlash({ name: m.name, grad: m.grad });
   };
+  const press = useCardScale(0.985);
+  const goMeal = () => router.push(`/meal/${m.id}`);
   return (
-    <Press scale={0.985} onPress={() => router.push(`/meal/${m.id}`)} style={{ marginHorizontal: 20 }}>
+    <Animated.View style={[{ marginHorizontal: 20 }, press.scaleStyle]}>
       <View style={{ backgroundColor: c.surface, borderWidth: 1, borderColor: c.border2, borderRadius: radius.hero, overflow: 'hidden', ...shadow.card }}>
         <GradBox grad={m.grad} img={m.img} style={{ height: 210 }}>
-          <View style={{ position: 'absolute', top: 14, left: 14, height: 30, borderRadius: radius.pill, paddingHorizontal: 13, flexDirection: 'row', alignItems: 'center', gap: 6, backgroundColor: 'rgba(255,255,255,.94)' }}>
+          <View pointerEvents="none" style={{ position: 'absolute', top: 14, left: 14, height: 30, borderRadius: radius.pill, paddingHorizontal: 13, flexDirection: 'row', alignItems: 'center', gap: 6, backgroundColor: 'rgba(255,255,255,.94)' }}>
             <Icon name="bolt" size={13} color={c.primary} />
             <Text style={[type(11, 900), { color: c.ink, textTransform: 'uppercase' }]}>Today’s drop</Text>
           </View>
-          <Press scale={0.85} onPress={() => toggleFav(m.id)} style={{ position: 'absolute', top: 13, right: 13 }} hitSlop={8}>
-            <View style={{ width: 28, height: 28, borderRadius: 14, backgroundColor: 'rgba(255,255,255,.92)', alignItems: 'center', justifyContent: 'center', ...shadow.soft }}>
-              <Icon name={isFav ? 'heartFill' : 'heart'} size={15} color={isFav ? c.primary : c.soft} />
-            </View>
-          </Press>
+          {/* Nav layer over the photo — sibling of the heart, so no nested <button>. */}
+          <Pressable onPress={goMeal} onPressIn={press.onPressIn} onPressOut={press.onPressOut} accessibilityRole="button" accessibilityLabel={m.name} style={StyleSheet.absoluteFill} />
+          <View style={{ position: 'absolute', top: 13, right: 13 }}>
+            <Press scale={0.85} onPress={() => toggleFav(m.id)} label={isFav ? `Remove ${m.name} from favorites` : `Save ${m.name} to favorites`} hitSlop={8}>
+              <View style={{ width: 28, height: 28, borderRadius: 14, backgroundColor: 'rgba(255,255,255,.92)', alignItems: 'center', justifyContent: 'center', ...shadow.soft }}>
+                <Icon name={isFav ? 'heartFill' : 'heart'} size={15} color={isFav ? c.primary : c.soft} />
+              </View>
+            </Press>
+          </View>
         </GradBox>
         <View style={{ padding: 18 }}>
-          <Text style={[type(21, 900), { color: c.ink, letterSpacing: -0.6 }]}>{m.name}</Text>
-          <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8, marginTop: 10 }}>
-            <GradBox grad={cook.grad} style={{ width: 24, height: 24, borderRadius: 8, alignItems: 'center', justifyContent: 'center' }}>
-              <Text style={[type(12, 900), { color: '#fff' }]}>{cook.initial}</Text>
-            </GradBox>
-            <Text style={[type(13.5, 700), { color: c.soft }]}>{cook.kitchen}</Text>
-            <VChk />
-          </View>
-          <View style={{ flexDirection: 'row', gap: 16, marginTop: 12 }}>
-            <Meta icon="star" text={String(m.rating)} starColor />
-            <Meta icon="walk" text={m.dist} />
-            <Meta icon="clock" text={m.time} />
-          </View>
+          {/* Text block is its own nav button (sibling of the CTA below). */}
+          <Press scale={0.995} onPress={goMeal} label={m.name}>
+            <Text style={[type(21, 900), { color: c.ink, letterSpacing: -0.6 }]}>{m.name}</Text>
+            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8, marginTop: 10 }}>
+              <GradBox grad={cook.grad} style={{ width: 24, height: 24, borderRadius: 8, alignItems: 'center', justifyContent: 'center' }}>
+                <Text style={[type(12, 900), { color: '#fff' }]}>{cook.initial}</Text>
+              </GradBox>
+              <Text style={[type(13.5, 700), { color: c.soft }]}>{cook.kitchen}</Text>
+              <VChk />
+            </View>
+            <View style={{ flexDirection: 'row', gap: 16, marginTop: 12 }}>
+              <Meta icon="star" text={String(m.rating)} starColor />
+              <Meta icon="walk" text={m.dist} />
+              <Meta icon="clock" text={m.time} />
+            </View>
+          </Press>
           <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginTop: 18 }}>
             <Text style={[type(23, 900), { color: c.primary }]}>{money(m.price)}</Text>
             {mine ? (
@@ -176,7 +226,7 @@ export const HeroDrop = React.memo(function HeroDrop({ id }: { id: string }) {
           </View>
         </View>
       </View>
-    </Press>
+    </Animated.View>
   );
 });
 

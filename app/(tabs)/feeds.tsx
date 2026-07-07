@@ -7,6 +7,7 @@ import { FEED, COOKS, mealById, money } from '../../src/data/data';
 import { type, radius } from '../../src/theme/theme';
 import { useStore } from '../../src/store/store';
 import { Icon, Press, GradBox } from '../../src/ui';
+import { shareAndNotify, SITE } from '../../src/lib/share';
 
 export default function Feeds() {
   const [h, setH] = useState(0);
@@ -64,7 +65,7 @@ const Reel = React.memo(function Reel({ f, height }: { f: (typeof FEED)[number];
       <View style={{ position: 'absolute', right: 12, bottom: 40, alignItems: 'center', gap: 20 }}>
         <RailBtn icon={liked ? 'heartFill' : 'heart'} label={f.likes} active={liked} onPress={() => setLiked((v) => !v)} />
         <RailBtn icon="comment" label={String(f.comments)} onPress={() => toast('Comments — demo', 'comment')} />
-        <RailBtn icon="share" label="Share" onPress={() => toast('Shared (demo)', 'share')} />
+        <RailBtn icon="share" label="Share" onPress={() => shareAndNotify(toast, meal ? { title: meal.name, url: `${SITE}/meal/${meal.id}` } : { title: `${cook.name} on Preppa`, url: `${SITE}/store/${f.cook}` })} />
         <RailBtn icon={saved ? 'bookmarkFill' : 'bookmark'} label={saved ? 'Saved' : 'Save'} active={saved} onPress={() => { setSaved((v) => !v); toast(saved ? 'Removed from saved' : 'Saved to your list', 'bookmark', !saved); }} />
       </View>
 

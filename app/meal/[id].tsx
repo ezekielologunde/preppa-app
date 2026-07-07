@@ -11,6 +11,7 @@ import { Screen, Dock, DockTotal, SectionLabel } from '../../src/ui/layout';
 import { CookRow, HeroTopBar, HeroBtn } from '../../src/components/shared';
 import { NotFound } from '../../src/components/NotFound';
 import { ImageViewer } from '../../src/components/ImageViewer';
+import { shareAndNotify, SITE } from '../../src/lib/share';
 
 export default function MealDetail() {
   const c = useC();
@@ -43,7 +44,7 @@ export default function MealDetail() {
           {m.img ? <Pressable onPress={() => setViewer(true)} accessibilityLabel={`View photo of ${m.name}`} style={{ position: 'absolute', top: 0, left: 0, right: 0, bottom: 0 }} /> : null}
           <HeroTopBar topInset={insets.top} onBack={() => router.back()} right={
             <View style={{ flexDirection: 'row', gap: 10 }}>
-              <HeroBtn icon="share" onPress={() => toast('Share — demo', 'share')} />
+              <HeroBtn icon="share" onPress={() => shareAndNotify(toast, { title: m.name, url: `${SITE}/meal/${m.id}` })} />
               <HeroBtn icon={isFav ? 'heartFill' : 'heart'} color={isFav ? c.primary : c.ink} onPress={() => toggleFav(m.id)} />
             </View>
           } />

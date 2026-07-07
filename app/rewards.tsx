@@ -6,12 +6,19 @@ import { type, radius, shadow, WARM_GRAD } from '../src/theme/theme';
 import { useStore } from '../src/store/store';
 import { Icon, Press, Btn } from '../src/ui';
 import { Screen, TopBar, Block } from '../src/ui/layout';
+import { shareAndNotify, copyText, SITE } from '../src/lib/share';
 
 type Tone = 'amber' | 'purple' | 'blue' | 'pink' | 'green';
+
+const REFERRAL_CODE = 'JORDAN-PREPPA';
 
 export default function Rewards() {
   const c = useC();
   const { toast } = useStore();
+  const copyCode = async () => {
+    const ok = await copyText(REFERRAL_CODE);
+    toast(ok ? 'Code copied' : 'Copy not available on this device', ok ? 'check' : 'info', ok);
+  };
 
   const earn: { ico: string; tone: Tone; t: string; s: string }[] = [
     { ico: 'gift', tone: 'green', t: 'Refer a friend', s: 'You both get $10 in credit' },
@@ -65,9 +72,9 @@ export default function Rewards() {
           <Text style={[type(13, 600), { color: c.soft, marginBottom: 12, lineHeight: 19 }]}>Share your code — when a friend places their first order, you both get $10 in credit.</Text>
           <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10 }}>
             <View style={{ flex: 1, backgroundColor: c.bg2, borderRadius: radius.md, borderWidth: 1, borderColor: c.border, borderStyle: 'dashed', paddingVertical: 14, paddingHorizontal: 14, alignItems: 'center' }}>
-              <Text style={[type(16, 900), { color: c.ink, letterSpacing: 1 }]}>JORDAN-PREPPA</Text>
+              <Text style={[type(16, 900), { color: c.ink, letterSpacing: 1 }]}>{REFERRAL_CODE}</Text>
             </View>
-            <Press scale={0.94} onPress={() => toast('Code copied', 'check', true)}>
+            <Press scale={0.94} onPress={copyCode}>
               <View style={{ height: 48, paddingHorizontal: 16, borderRadius: radius.md, backgroundColor: c.primaryL, alignItems: 'center', justifyContent: 'center', flexDirection: 'row', gap: 6 }}>
                 <Icon name="card" size={16} color={c.primary} />
                 <Text style={[type(13.5, 800), { color: c.primary }]}>Copy</Text>
@@ -75,7 +82,7 @@ export default function Rewards() {
             </Press>
           </View>
           <View style={{ height: 12 }} />
-          <Btn label="Share your invite" icon="share" block onPress={() => toast('Invite shared — you both get $10', 'gift', true)} />
+          <Btn label="Share your invite" icon="share" block onPress={() => shareAndNotify(toast, { title: 'Join me on Preppa', url: `${SITE}/?ref=${REFERRAL_CODE}` })} />
         </Block>
 
         {/* points history */}

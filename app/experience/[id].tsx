@@ -11,6 +11,7 @@ import { Screen, Dock, DockTotal, SectionLabel } from '../../src/ui/layout';
 import { HeroTopBar, HeroBtn } from '../../src/components/shared';
 import { NotFound } from '../../src/components/NotFound';
 import { ImageViewer } from '../../src/components/ImageViewer';
+import { shareAndNotify, SITE } from '../../src/lib/share';
 
 export default function ExperienceDetail() {
   const c = useC();
@@ -35,7 +36,7 @@ export default function ExperienceDetail() {
         <GradBox grad={e.grad} img={e.img} style={{ height: 280 }}>
           {e.img ? <Pressable onPress={() => setViewer(true)} accessibilityLabel={`View photo of ${e.title}`} style={{ position: 'absolute', top: 0, left: 0, right: 0, bottom: 0 }} /> : null}
           <HeroTopBar topInset={insets.top} onBack={() => router.back()} right={
-            <HeroBtn icon="share" onPress={() => toast('Share — demo', 'share')} />
+            <HeroBtn icon="share" onPress={() => shareAndNotify(toast, { title: e.title, url: `${SITE}/experience/${e.id}` })} />
           } />
           <View pointerEvents="none" style={{ position: 'absolute', bottom: 38, left: 18, height: 24, borderRadius: radius.pill, paddingHorizontal: 9, flexDirection: 'row', alignItems: 'center', gap: 4, backgroundColor: c.purple }}>
             <Icon name={e.ico} size={11} color="#fff" />
