@@ -125,7 +125,7 @@ export interface Service {
 }
 export const SERVICES: Service[] = [
   { id: 'cookhome', name: 'Cook at My Place', sub: 'A private chef cooks in your kitchen', ico: 'chefhat', cls: 'amber', premium: true, sizeLbl: 'Guests', notesPh: 'Tell them about the occasion, cuisine you love, dietary needs…', budgets: ['$150–250', '$250–400', '$400+'] },
-  { id: 'catering', name: 'Catering & Events', sub: 'Parties, offices, celebrations', ico: 'users', cls: 'purple', sizeLbl: 'Guests', notesPh: 'Describe the event — plated or buffet, cuisines, timing…', budgets: ['$300–600', '$600–1,200', '$1,200+'] },
+  { id: 'catering', name: 'Catering & Events', sub: 'Parties, offices, celebrations', ico: 'users', cls: 'purple', premium: true, sizeLbl: 'Guests', notesPh: 'Describe the event — plated or buffet, cuisines, timing…', budgets: ['$300–600', '$600–1,200', '$1,200+'] },
   { id: 'grocery', name: 'Grocery Run', sub: 'A Preppa shops & delivers your list', ico: 'bag', cls: 'green', notesPh: 'Paste your grocery list here — brands and swaps welcome…', budgets: ['Under $50', '$50–120', '$120+'] },
   { id: 'bulk', name: 'Bulk & Meal Prep', sub: 'Trays & weekly prep at scale', ico: 'grid', cls: 'blue', sizeLbl: 'Portions', notesPh: 'What do you need cooked, how many portions, packaging…', budgets: ['$100–250', '$250–500', '$500+'] },
   { id: 'errand', name: 'Quick Errands', sub: 'Pickups, drop-offs & market runs', ico: 'bolt', cls: 'red', notesPh: 'What needs picking up or dropping off, and where…', budgets: ['Under $25', '$25–50', '$50+'] },

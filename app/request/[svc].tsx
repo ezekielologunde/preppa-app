@@ -20,6 +20,7 @@ export default function ServiceRequestFlow() {
   const [size, setSize] = useState(svc === 'bulk' ? 20 : 2);
   const [budget, setBudget] = useState<string | null>(null);
   const [notes, setNotes] = useState('');
+  const [joined, setJoined] = useState(false);
   const [done, setDone] = useState<ServiceRequest | null>(null);
   if (!s) return <NotFound title="Request" />;
   const valid = !!when.trim() && !!budget;
@@ -52,6 +53,37 @@ export default function ServiceRequestFlow() {
           secondaryLabel="Done"
           onSecondary={() => router.back()}
         />
+      </Screen>
+    );
+  }
+
+  // Premium services (in-home chef, catering) gate on real verification + protected
+  // payment, which don't exist yet — so they run as an early-access waitlist, not a
+  // live escrow booking. Demand is never gated; supply/launch is.
+  if (s.premium) {
+    return (
+      <Screen bg={c.surface}>
+        <TopBar title={s.name} onBack={() => router.back()} />
+        <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={{ paddingHorizontal: 20, paddingBottom: 40 }}>
+          <View style={{ alignItems: 'center', marginTop: 26 }}>
+            <View style={{ width: 66, height: 66, borderRadius: 21, backgroundColor: c.primaryL, alignItems: 'center', justifyContent: 'center' }}>
+              <Icon name={s.ico} size={30} color={c.primary} />
+            </View>
+            <View style={{ height: 24, marginTop: 14, paddingHorizontal: 12, borderRadius: radius.pill, backgroundColor: c.primary, alignItems: 'center', justifyContent: 'center' }}>
+              <Text style={[type(10.5, 900), { color: '#fff', textTransform: 'uppercase', letterSpacing: 0.5 }]}>Premium · early access</Text>
+            </View>
+            <Text style={[type(22, 900), { color: c.ink, letterSpacing: -0.6, marginTop: 16, textAlign: 'center' }]}>{s.name}</Text>
+            <Text style={[type(14, 600), { color: c.soft, marginTop: 8, textAlign: 'center', lineHeight: 21 }]}>{s.sub}. This one runs on real trust, so we’re opening it with background-checked, verified cooks and protected payments first. Join the list and we’ll reach out when it’s live in your area.</Text>
+          </View>
+          <View style={{ marginTop: 24, gap: 12 }}>
+            <WLRow icon="shield" text="Background-checked, verified cooks only" />
+            <WLRow icon="card" text="Payment protected end-to-end" />
+            <WLRow icon="star" text="Fixed quotes — no haggling, no surprises" />
+          </View>
+        </ScrollView>
+        <Dock>
+          <Btn label={joined ? 'You’re on the list ✓' : 'Request early access'} flex={1} disabled={joined} onPress={() => { setJoined(true); toast('You’re on the early-access list — we’ll be in touch', 'check', true); }} />
+        </Dock>
       </Screen>
     );
   }
@@ -117,7 +149,7 @@ export default function ServiceRequestFlow() {
 
         <View style={{ flexDirection: 'row', alignItems: 'flex-start', gap: 11, marginHorizontal: 16, marginTop: 14, padding: 14, borderRadius: radius.md, backgroundColor: c.primaryL }}>
           <Icon name="shield" size={20} color={c.primary} />
-          <Text style={[type(12.5, 600), { color: c.ink2, flex: 1, lineHeight: 18 }]}>Quotes are <Text style={type(12.5, 800)}>fixed prices</Text> from verified Preppas — no haggling, no surprises. Payment is held by Preppa until the job is done.</Text>
+          <Text style={[type(12.5, 600), { color: c.ink2, flex: 1, lineHeight: 18 }]}>Quotes are <Text style={type(12.5, 800)}>fixed prices</Text> from verified Preppas — no haggling, no surprises. You arrange payment with your Preppa once you pick.</Text>
         </View>
       </ScrollView>
 
@@ -136,5 +168,17 @@ function DayChip({ label, on, onPress }: { label: string; on: boolean; onPress: 
         <Text style={[type(13, 800), { color: on ? '#fff' : c.soft }]}>{label}</Text>
       </View>
     </Press>
+  );
+}
+
+function WLRow({ icon, text }: { icon: string; text: string }) {
+  const c = useC();
+  return (
+    <View style={{ flexDirection: 'row', alignItems: 'center', gap: 12, padding: 14, borderRadius: radius.md, backgroundColor: c.bg2 }}>
+      <View style={{ width: 34, height: 34, borderRadius: 11, backgroundColor: c.primaryL, alignItems: 'center', justifyContent: 'center' }}>
+        <Icon name={icon} size={17} color={c.primary} />
+      </View>
+      <Text style={[type(14, 700), { color: c.ink, flex: 1 }]}>{text}</Text>
+    </View>
   );
 }

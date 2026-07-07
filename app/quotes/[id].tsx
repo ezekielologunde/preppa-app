@@ -12,7 +12,6 @@ import { SectionHeader } from '../../src/components/cards';
 import { NotFound } from '../../src/components/NotFound';
 import { ReqStatusChip } from '../(tabs)/experiences';
 
-const FEE = 4.99;
 
 export default function RequestQuotesScreen() {
   const c = useC();
@@ -32,7 +31,7 @@ export default function RequestQuotesScreen() {
       <Screen bg={c.surface}>
         <Burst
           title="You’re booked!"
-          body={<><Text style={type(15, 800)}>{cook.name}</Text> is confirmed for {r.when} — <Text style={type(15, 800)}>{money(sel.amount + FEE)}</Text> paid and held until the job’s done. We’ve opened a chat to plan details.</>}
+          body={<><Text style={type(15, 800)}>{cook.name}</Text> is confirmed for {r.when} — <Text style={type(15, 800)}>{money(sel.amount)}</Text> agreed. We’ve opened a chat to sort out the details and payment.</>}
           actionLabel="Open chat"
           onAction={() => router.replace(`/chat/${sel.cook}`)}
           secondaryLabel="Done"
@@ -45,7 +44,6 @@ export default function RequestQuotesScreen() {
   // ---- stage: confirm booking ----
   if (sel) {
     const cook = COOKS[sel.cook];
-    const total = sel.amount + FEE;
     return (
       <Screen>
         <TopBar title="Confirm booking" onBack={() => setSel(null)} />
@@ -62,21 +60,21 @@ export default function RequestQuotesScreen() {
             </View>
           </Block>
 
-          <Block title="Payment"><PayRow /></Block>
-
           <View style={{ backgroundColor: c.surface, borderRadius: radius.card, margin: 16, padding: 16, borderWidth: 1, borderColor: c.border2 }}>
-            <SumRow label={`${cook.name}’s fixed quote`} value={money(sel.amount)} />
-            <SumRow label="Booking & protection fee" value={money(FEE)} />
-            <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', borderTopWidth: 1, borderTopColor: c.border, borderStyle: 'dashed', marginTop: 8, paddingTop: 14 }}>
-              <Text style={[type(17, 900), { color: c.ink }]}>Total</Text>
-              <Text style={[type(19, 900), { color: c.ink }]}>{money(total)}</Text>
+            <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }}>
+              <Text style={[type(15, 800), { color: c.ink }]}>{cook.name}’s fixed quote</Text>
+              <Text style={[type(19, 900), { color: c.ink }]}>{money(sel.amount)}</Text>
+            </View>
+            <View style={{ flexDirection: 'row', alignItems: 'flex-start', gap: 10, marginTop: 14, paddingTop: 14, borderTopWidth: 1, borderTopColor: c.border, borderStyle: 'dashed' }}>
+              <Icon name="shield" size={17} color={c.primary} />
+              <Text style={[type(12.5, 600), { color: c.ink2, flex: 1, lineHeight: 18 }]}>You’ll arrange the {money(sel.amount)} directly with {cook.name}. Preppa keeps your quote fixed — in-app payments are coming soon.</Text>
             </View>
           </View>
         </ScrollView>
 
         <Dock>
-          <DockTotal label="Total" value={money(total)} />
-          <Btn label={`Pay ${money(total)}`} flex={1} onPress={() => { acceptQuote(r.id, sel); setPaid(true); }} />
+          <DockTotal label="Agreed" value={money(sel.amount)} />
+          <Btn label="Confirm booking" flex={1} onPress={() => { acceptQuote(r.id, sel); setPaid(true); }} />
         </Dock>
       </Screen>
     );
@@ -84,7 +82,9 @@ export default function RequestQuotesScreen() {
 
   // ---- stage: request + quotes list ----
   const booked = r.status === 'booked' && r.booked ? r.booked : null;
-  const sorted = [...r.quotes].sort((a, b) => a.amount - b.amount);
+  // Best-fit first (rating, then PrepScore) — NOT cheapest-first, which would race
+  // cook pay to the bottom and drain supply. Price is shown as one attribute.
+  const sorted = [...r.quotes].sort((a, b) => COOKS[b.cook].rating - COOKS[a.cook].rating || COOKS[b.cook].prepscore - COOKS[a.cook].prepscore);
 
   return (
     <Screen>
@@ -118,11 +118,11 @@ export default function RequestQuotesScreen() {
                     <Text style={[type(14.5, 900), { color: c.ink, letterSpacing: -0.2 }]}>{COOKS[booked.cook].name}</Text>
                     <Icon name="shield" size={14} color={c.green} />
                   </View>
-                  <Text style={[type(12, 600), { color: c.soft, marginTop: 1 }]}>Confirmed · paid & protected</Text>
+                  <Text style={[type(12, 600), { color: c.soft, marginTop: 1 }]}>Confirmed · details in chat</Text>
                 </View>
                 <View style={{ alignItems: 'flex-end' }}>
-                  <Text style={[type(19, 900), { color: c.ink, letterSpacing: -0.5 }]}>{money(booked.amount + FEE)}</Text>
-                  <Text style={[type(10.5, 700), { color: c.muted }]}>paid</Text>
+                  <Text style={[type(19, 900), { color: c.ink, letterSpacing: -0.5 }]}>{money(booked.amount)}</Text>
+                  <Text style={[type(10.5, 700), { color: c.muted }]}>agreed</Text>
                 </View>
               </View>
               <View style={{ flexDirection: 'row', gap: 9, marginTop: 12 }}>
@@ -140,7 +140,7 @@ export default function RequestQuotesScreen() {
           </View>
         ) : (
           <>
-            <SectionHeader title="Quotes" right={<Text style={[type(12.5, 700), { color: c.muted }]}>Fixed prices · you pick</Text>} />
+            <SectionHeader title="Quotes" right={<Text style={[type(12.5, 700), { color: c.muted }]}>Best matches · you pick</Text>} />
             {sorted.map((q) => {
               const cook = COOKS[q.cook];
               return (
@@ -172,7 +172,7 @@ export default function RequestQuotesScreen() {
                 </View>
               );
             })}
-            <Text style={[type(12, 600), { color: c.muted, textAlign: 'center', marginHorizontal: 32, marginTop: 6, lineHeight: 18 }]}>Prices are final — Preppas quote once, you choose. Payment is protected until the job is done.</Text>
+            <Text style={[type(12, 600), { color: c.muted, textAlign: 'center', marginHorizontal: 32, marginTop: 6, lineHeight: 18 }]}>Prices are final — each Preppa quotes once, you choose. You arrange payment directly when you book.</Text>
           </>
         )}
       </ScrollView>
@@ -190,30 +190,3 @@ function Fact({ icon, text }: { icon: string; text: string }) {
   );
 }
 
-function SumRow({ label, value }: { label: string; value: string }) {
-  const c = useC();
-  return (
-    <View style={{ flexDirection: 'row', justifyContent: 'space-between', paddingVertical: 6 }}>
-      <Text style={[type(14, 600), { color: c.soft }]}>{label}</Text>
-      <Text style={[type(14, 800), { color: c.ink }]}>{value}</Text>
-    </View>
-  );
-}
-
-function PayRow() {
-  const c = useC();
-  return (
-    <View style={{ flexDirection: 'row', alignItems: 'center', gap: 12, padding: 14, borderWidth: 1.5, borderColor: c.primary, backgroundColor: c.primaryL, borderRadius: radius.md }}>
-      <View style={{ width: 42, height: 42, borderRadius: 11, backgroundColor: c.surface, alignItems: 'center', justifyContent: 'center' }}>
-        <Icon name="card" size={20} color={c.primary} />
-      </View>
-      <View style={{ flex: 1 }}>
-        <Text style={[type(14.5, 800), { color: c.ink }]}>Visa •••• 4242</Text>
-        <Text style={[type(12, 500), { color: c.soft, marginTop: 3 }]}>Held securely · released when the job is done</Text>
-      </View>
-      <View style={{ width: 22, height: 22, borderRadius: 11, borderWidth: 2, borderColor: c.primary, alignItems: 'center', justifyContent: 'center' }}>
-        <View style={{ width: 11, height: 11, borderRadius: 6, backgroundColor: c.primary }} />
-      </View>
-    </View>
-  );
-}

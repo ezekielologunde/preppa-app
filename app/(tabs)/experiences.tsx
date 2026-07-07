@@ -50,15 +50,20 @@ const chip = { flexDirection: 'row' as const, alignItems: 'center' as const, gap
 
 /** Service tiles — 2 col on phone, 3 tablet, 4 desktop. Measures a padding-free
  *  inner row so `cardW` fills exactly and never over-wraps. */
+// MVP service menu — the coherent "Book a cook" set. Grocery/errand/class are
+// a different job (logistics / low-stakes) and stay off-menu until later.
+const MVP_SVCS = ['cookhome', 'catering', 'bulk'];
+
 function SvcGrid() {
   const [w, setW] = useState(0);
   const cols = useColumns(w);
   const gap = 12;
   const cardW = w > 0 ? (w - gap * (cols - 1)) / cols : 0;
+  const svcs = SERVICES.filter((s) => MVP_SVCS.includes(s.id));
   return (
     <View style={{ paddingHorizontal: 16 }}>
       <View onLayout={(e: LayoutChangeEvent) => setW(e.nativeEvent.layout.width)} style={{ flexDirection: 'row', flexWrap: 'wrap', gap }}>
-        {w > 0 && SERVICES.map((s) => <SvcCard key={s.id} s={s} width={cardW} />)}
+        {w > 0 && svcs.map((s) => <SvcCard key={s.id} s={s} width={cardW} />)}
       </View>
     </View>
   );
@@ -124,7 +129,7 @@ export default function ExperiencesScreen() {
             </View>
           </Press>
         </View>
-        <Text style={[type(14, 500), { color: c.soft, marginTop: 10, lineHeight: 20 }]}>Your local cooks, beyond dinner. Post a request, compare fixed quotes, pick your Preppa.</Text>
+        <Text style={[type(14, 500), { color: c.soft, marginTop: 10, lineHeight: 20 }]}>Your local cooks, beyond dinner. Tell them what you need, get fixed quotes back, pick your Preppa.</Text>
       </View>
 
       <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={{ paddingBottom: 40, maxWidth: 1040, alignSelf: 'center', width: '100%' }}>
@@ -135,7 +140,7 @@ export default function ExperiencesScreen() {
           </>
         ) : null}
 
-        <SectionHeader title="Book a service" />
+        <SectionHeader title="Book a cook" />
         <SvcGrid />
 
         <SectionHeader title="Cooks near you" action="See all" onAction={() => router.push('/explore')} />
