@@ -133,6 +133,25 @@ export default function ExperiencesScreen() {
       </View>
 
       <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={{ paddingBottom: 40, maxWidth: 1040, alignSelf: 'center', width: '100%' }}>
+        <Press scale={0.98} onPress={() => router.push('/plans')} style={{ marginHorizontal: 16, marginTop: 16 }} label="Weekly meal plans">
+          <GradBox grad={['#A855F7', c.purple]} style={{ borderRadius: radius.xl, padding: 18, overflow: 'hidden' }}>
+            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 14 }}>
+              <View style={{ width: 52, height: 52, borderRadius: 15, backgroundColor: 'rgba(255,255,255,.18)', alignItems: 'center', justifyContent: 'center' }}>
+                <Icon name="repeat" size={26} color="#fff" />
+              </View>
+              <View style={{ flex: 1 }}>
+                <Text style={[type(18, 900), { color: '#fff', letterSpacing: -0.4 }]}>Weekly meal plans</Text>
+                <Text style={[type(12.5, 600), { color: 'rgba(255,255,255,.82)', marginTop: 3, lineHeight: 17 }]}>Subscribe to a cook’s box — or build your own from several cooks.</Text>
+              </View>
+              <Icon name="chevRight" size={20} color="#fff" />
+            </View>
+            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6, marginTop: 14, alignSelf: 'flex-start', height: 26, paddingHorizontal: 12, borderRadius: radius.pill, backgroundColor: 'rgba(255,255,255,.92)' }}>
+              <Icon name="bolt" size={13} color={c.purple} />
+              <Text style={[type(11.5, 900), { color: c.purple, textTransform: 'uppercase', letterSpacing: 0.3 }]}>Reserve · launching soon</Text>
+            </View>
+          </GradBox>
+        </Press>
+
         {requests.length > 0 ? (
           <>
             <SectionHeader title="Your requests" />
