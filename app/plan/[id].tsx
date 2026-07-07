@@ -9,6 +9,7 @@ import { useStore } from '../../src/store/store';
 import { Icon, Press, GradBox, Btn } from '../../src/ui';
 import { Screen, TopBar, Dock, DockTotal, Block, SectionLabel } from '../../src/ui/layout';
 import { CookRow, HeroTopBar, Burst } from '../../src/components/shared';
+import { NotFound } from '../../src/components/NotFound';
 
 type Stage = 'info' | 'pay' | 'done';
 
@@ -17,11 +18,11 @@ export default function PlanDetailScreen() {
   const insets = useSafeAreaInsets();
   const router = useRouter();
   const { id } = useLocalSearchParams<{ id: string }>();
-  const { subscribe } = useStore();
+  const { subscribe, isMine } = useStore();
   const p = marketPlanById(id!);
   const [day, setDay] = useState('Thu');
   const [stage, setStage] = useState<Stage>('info');
-  if (!p) return <Screen><View /></Screen>;
+  if (!p) return <NotFound title="Meal plan" />;
   const cook = COOKS[p.cook];
   const mealsLbl = `${p.meals} meal${p.meals !== 1 ? 's' : ''}`;
 
@@ -110,8 +111,14 @@ export default function PlanDetailScreen() {
       </ScrollView>
 
       <Dock>
-        <DockTotal label="Per week" value={money(p.price)} />
-        <Btn label="Subscribe" iconRight="arrow" flex={1} onPress={() => setStage('pay')} />
+        {isMine(p.cook) ? (
+          <Btn label="Manage in My Hub" icon="chefhat" variant="ghost" block onPress={() => router.push('/hub/plans')} />
+        ) : (
+          <>
+            <DockTotal label="Per week" value={money(p.price)} />
+            <Btn label="Subscribe" iconRight="arrow" flex={1} onPress={() => setStage('pay')} />
+          </>
+        )}
       </Dock>
     </Screen>
   );

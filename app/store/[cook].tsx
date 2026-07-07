@@ -10,17 +10,18 @@ import { Icon, Press, GradBox, GradAvatar, Stars, Btn } from '../../src/ui';
 import { Screen } from '../../src/ui/layout';
 import { HeroTopBar, HeroBtn } from '../../src/components/shared';
 import { MealGrid, ExpRail, SectionHeader } from '../../src/components/cards';
+import { NotFound } from '../../src/components/NotFound';
 
 export default function CookStoreScreen() {
   const c = useC();
   const insets = useSafeAreaInsets();
   const router = useRouter();
   const { cook } = useLocalSearchParams<{ cook: string }>();
-  const { toast } = useStore();
+  const { toast, isMine } = useStore();
   const [following, setFollowing] = useState(false);
 
   const cd = COOKS[cook as CookId];
-  if (!cd) return <Screen><View /></Screen>;
+  if (!cd) return <NotFound title="Kitchen" />;
   const id = cook as CookId;
   const meals = MEALS.filter((m) => m.cook === id);
   const plans = MARKET_PLANS.filter((p) => p.cook === id);
@@ -74,8 +75,14 @@ export default function CookStoreScreen() {
           </View>
 
           <View style={{ flexDirection: 'row', gap: 10, marginTop: 14 }}>
-            <Btn label={following ? 'Following' : 'Follow'} icon={following ? 'check' : 'plus'} variant={following ? 'ghost' : 'pri'} flex={1} height={46} onPress={follow} />
-            <Btn label="Message" icon="chat" variant="ghost" flex={1} height={46} onPress={() => router.push(`/chat/${id}`)} />
+            {isMine(id) ? (
+              <Btn label="Manage kitchen" icon="chefhat" variant="dark" block height={46} onPress={() => router.push('/my-hub')} />
+            ) : (
+              <>
+                <Btn label={following ? 'Following' : 'Follow'} icon={following ? 'check' : 'plus'} variant={following ? 'ghost' : 'pri'} flex={1} height={46} onPress={follow} />
+                <Btn label="Message" icon="chat" variant="ghost" flex={1} height={46} onPress={() => router.push(`/chat/${id}`)} />
+              </>
+            )}
           </View>
         </View>
 
@@ -132,6 +139,7 @@ export default function CookStoreScreen() {
           </View>
         ))}
 
+        {!isMine(id) ? (
         <Press scale={0.985} onPress={() => router.push('/request/cookhome')} style={{ marginHorizontal: 16, marginTop: 14 }}>
           <View style={{ flexDirection: 'row', alignItems: 'center', gap: 14, backgroundColor: c.surface, borderWidth: 1, borderColor: c.border2, borderRadius: radius.xl, padding: 16 }}>
             <View style={{ width: 46, height: 46, borderRadius: 14, backgroundColor: c.primary, alignItems: 'center', justifyContent: 'center', ...shadow.brand }}>
@@ -144,6 +152,7 @@ export default function CookStoreScreen() {
             <Icon name="chevRight" size={18} color={c.muted} />
           </View>
         </Press>
+        ) : null}
       </ScrollView>
     </Screen>
   );

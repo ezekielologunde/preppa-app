@@ -57,9 +57,10 @@ export function MealGrid({ meals, showMatch, px = 20 }: { meals: Meal[]; showMat
 export const MealCardLg = React.memo(function MealCardLg({ m, showMatch, width }: { m: Meal; showMatch?: boolean; width?: number }) {
   const c = useC();
   const router = useRouter();
-  const { fav, toggleFav, addToCart, toast } = useStore();
+  const { fav, toggleFav, addToCart, toast, isMine } = useStore();
   const cook = COOKS[m.cook];
   const isFav = fav.has(m.id);
+  const mine = isMine(m.cook);
   const quickAdd = () => {
     addToCart({ key: m.id, name: m.name, cook: m.cook, price: m.price, grad: m.grad }, 1);
     toast(`Added ${m.name}`, 'check', true);
@@ -79,11 +80,18 @@ export const MealCardLg = React.memo(function MealCardLg({ m, showMatch, width }
               <Icon name={isFav ? 'heartFill' : 'heart'} size={15} color={isFav ? c.primary : c.soft} />
             </View>
           </Press>
+          {mine ? (
+            <View style={{ position: 'absolute', bottom: 9, right: 9, height: 22, borderRadius: radius.pill, paddingHorizontal: 9, flexDirection: 'row', alignItems: 'center', gap: 4, backgroundColor: 'rgba(255,255,255,.92)', ...shadow.soft }}>
+              <Icon name="chefhat" size={12} color={c.ink} />
+              <Text style={[type(10, 900), { color: c.ink, textTransform: 'uppercase' }]}>Yours</Text>
+            </View>
+          ) : (
           <Press scale={0.85} onPress={quickAdd} label={`Quick add ${m.name} to cart`} style={{ position: 'absolute', bottom: 9, right: 9 }} hitSlop={8}>
             <View style={{ width: 34, height: 34, borderRadius: 12, backgroundColor: c.primary, alignItems: 'center', justifyContent: 'center', ...shadow.brand }}>
               <Icon name="plus" size={18} color="#fff" />
             </View>
           </Press>
+          )}
         </GradBox>
         <View style={{ padding: 12 }}>
           <Text numberOfLines={2} style={[type(15, 800), { color: c.ink, letterSpacing: -0.2 }]}>{m.name}</Text>
@@ -111,10 +119,11 @@ export const MealCardLg = React.memo(function MealCardLg({ m, showMatch, width }
 export const HeroDrop = React.memo(function HeroDrop({ id }: { id: string }) {
   const c = useC();
   const router = useRouter();
-  const { fav, toggleFav, addToCart, toast } = useStore();
+  const { fav, toggleFav, addToCart, toast, isMine } = useStore();
   const m = mealById(id)!;
   const cook = COOKS[m.cook];
   const isFav = fav.has(m.id);
+  const mine = isMine(m.cook);
   const add = () => {
     addToCart({ key: m.id, name: m.name, cook: m.cook, price: m.price, grad: m.grad }, 1);
     toast(`Added ${m.name}`, 'check', true);
@@ -149,12 +158,21 @@ export const HeroDrop = React.memo(function HeroDrop({ id }: { id: string }) {
           </View>
           <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginTop: 18 }}>
             <Text style={[type(23, 900), { color: c.primary }]}>{money(m.price)}</Text>
+            {mine ? (
+              <Press scale={0.94} onPress={() => router.push('/hub/menu')}>
+                <View style={{ height: 46, borderRadius: radius.pill, paddingHorizontal: 20, flexDirection: 'row', alignItems: 'center', gap: 6, backgroundColor: c.bg2 }}>
+                  <Icon name="chefhat" size={16} color={c.ink} />
+                  <Text style={[type(15, 800), { color: c.ink }]}>Your listing</Text>
+                </View>
+              </Press>
+            ) : (
             <Press scale={0.94} onPress={add}>
               <View style={{ height: 46, borderRadius: radius.pill, paddingHorizontal: 22, flexDirection: 'row', alignItems: 'center', gap: 6, backgroundColor: c.primary, ...shadow.brand }}>
                 <Icon name="plus" size={17} color="#fff" />
                 <Text style={[type(15, 800), { color: '#fff' }]}>Add to bag</Text>
               </View>
             </Press>
+            )}
           </View>
         </View>
       </View>

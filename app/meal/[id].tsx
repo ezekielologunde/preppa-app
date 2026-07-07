@@ -9,17 +9,18 @@ import { useStore } from '../../src/store/store';
 import { Icon, Press, GradBox, Stepper, Btn } from '../../src/ui';
 import { Screen, Dock, DockTotal, SectionLabel } from '../../src/ui/layout';
 import { CookRow, HeroTopBar, HeroBtn } from '../../src/components/shared';
+import { NotFound } from '../../src/components/NotFound';
 
 export default function MealDetail() {
   const c = useC();
   const insets = useSafeAreaInsets();
   const router = useRouter();
   const { id } = useLocalSearchParams<{ id: string }>();
-  const { fav, toggleFav, addToCart, toast } = useStore();
+  const { fav, toggleFav, addToCart, toast, isMine } = useStore();
   const m = mealById(id!);
   const [qty, setQty] = useState(1);
   const [adds, setAdds] = useState<string[]>([]);
-  if (!m) return <Screen><View /></Screen>;
+  if (!m) return <NotFound title="Meal" />;
   const cook = COOKS[m.cook];
   const toggleAdd = (k: string) => setAdds((p) => (p.includes(k) ? p.filter((x) => x !== k) : [...p, k]));
   const addPrice = adds.reduce((s, k) => s + ADDONS.find((a) => a.key === k)!.price, 0);
@@ -93,8 +94,14 @@ export default function MealDetail() {
       </ScrollView>
 
       <Dock>
-        <DockTotal label="Total" value={money(lineTotal)} />
-        <Btn label="Add to cart" icon="cart" flex={1} onPress={add} />
+        {isMine(m.cook) ? (
+          <Btn label="Manage in My Hub" icon="chefhat" variant="ghost" block onPress={() => router.push('/hub/menu')} />
+        ) : (
+          <>
+            <DockTotal label="Total" value={money(lineTotal)} />
+            <Btn label="Add to cart" icon="cart" flex={1} onPress={add} />
+          </>
+        )}
       </Dock>
     </Screen>
   );

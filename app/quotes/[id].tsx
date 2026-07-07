@@ -9,6 +9,7 @@ import { Icon, Press, Avatar, Btn } from '../../src/ui';
 import { Screen, TopBar, Dock, DockTotal, Block } from '../../src/ui/layout';
 import { CookRow, Burst } from '../../src/components/shared';
 import { SectionHeader } from '../../src/components/cards';
+import { NotFound } from '../../src/components/NotFound';
 import { ReqStatusChip } from '../(tabs)/experiences';
 
 const FEE = 4.99;
@@ -21,7 +22,7 @@ export default function RequestQuotesScreen() {
   const [sel, setSel] = useState<Quote | null>(null);
   const [paid, setPaid] = useState(false);
   const r = requests.find((x) => x.id === id);
-  if (!r) return <Screen><View /></Screen>;
+  if (!r) return <NotFound title="Request" />;
   const s = svcById(r.svc);
 
   // ---- stage: booked confirmation ----

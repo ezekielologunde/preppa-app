@@ -4,7 +4,10 @@ import {
   GradKey, CookId, Subscription, ServiceRequest, SEED_REQUESTS, genQuotes,
   NOTIFS, CONVERSATIONS,
 } from '../data/data';
+import { ME } from '../data/cook';
 import { computeTotals } from '../data/totals';
+
+export type PrepperStatus = 'none' | 'pending' | 'approved';
 
 const LS = 'preppa.v1';
 
@@ -102,6 +105,13 @@ interface Store {
   selectCard: (id: string) => void;
   removeCard: (id: string) => void;
 
+  // role / prepper lifecycle (client-simulated for this UI round; real approval must be server-side)
+  prepperStatus: PrepperStatus;
+  role: 'customer' | 'prepper';
+  applyToPrepper: () => void;
+  approvePrepper: () => void; // dev/instant approve
+  isMine: (cook: CookId) => boolean; // true only for an approved prepper viewing their own listing
+
   fav: Set<string>;
   toggleFav: (id: string) => void;
 
@@ -144,6 +154,7 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
   const [tip, setTip] = useState(2);
   const [mode, setMode] = useState<'delivery' | 'pickup'>('delivery');
   const [fav, setFav] = useState<Set<string>>(new Set());
+  const [prepperStatus, setPrepperStatus] = useState<PrepperStatus>('none');
   const [addresses, setAddresses] = useState<Address[]>(SEED_ADDRESSES);
   const [addressId, setAddressId] = useState('home');
   const [cards, setCards] = useState<Card[]>(SEED_CARDS);
@@ -170,6 +181,7 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
           if (typeof s.tip === 'number') setTip(s.tip);
           if (s.mode) setMode(s.mode);
           if (Array.isArray(s.fav)) setFav(new Set(s.fav));
+          if (s.prepperStatus) setPrepperStatus(s.prepperStatus);
           if (Array.isArray(s.addresses)) setAddresses(s.addresses);
           if (typeof s.addressId === 'string') setAddressId(s.addressId);
           if (Array.isArray(s.cards)) setCards(s.cards);
@@ -191,9 +203,9 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
     if (!hydrated.current) return;
     AsyncStorage.setItem(
       LS,
-      JSON.stringify({ onboarded, darkMode, cart, tip, mode, fav: [...fav], addresses, addressId, cards, cardId, lastOrder, orders, subscription, requests, avail }),
+      JSON.stringify({ onboarded, darkMode, cart, tip, mode, fav: [...fav], prepperStatus, addresses, addressId, cards, cardId, lastOrder, orders, subscription, requests, avail }),
     ).catch(() => {});
-  }, [onboarded, darkMode, cart, tip, mode, fav, addresses, addressId, cards, cardId, lastOrder, orders, subscription, requests, avail]);
+  }, [onboarded, darkMode, cart, tip, mode, fav, prepperStatus, addresses, addressId, cards, cardId, lastOrder, orders, subscription, requests, avail]);
 
   const toast = useCallback((msg: string, icon = 'check', green = false) => {
     const id = toastSeq++;
@@ -201,7 +213,24 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
     setTimeout(() => setToasts((t) => t.filter((x) => x.id !== id)), 2600);
   }, []);
 
+  // --- role / prepper lifecycle (client-simulated; real approval must be server-side) ---
+  const role: 'customer' | 'prepper' = prepperStatus === 'approved' ? 'prepper' : 'customer';
+  const isMine = useCallback((cook: CookId) => prepperStatus === 'approved' && cook === ME.id, [prepperStatus]);
+  const applyToPrepper = useCallback(() => {
+    setPrepperStatus((s) => (s === 'approved' ? s : 'pending'));
+    toast('Application received — under review', 'chefhat');
+    setTimeout(() => {
+      setPrepperStatus('approved');
+      toast('You’re approved to cook! My Hub unlocked 👩‍🍳', 'chefhat', true);
+    }, 5000);
+  }, [toast]);
+  const approvePrepper = useCallback(() => {
+    setPrepperStatus('approved');
+    toast('My Hub unlocked 👩‍🍳', 'chefhat', true);
+  }, [toast]);
+
   const addToCart = useCallback((line: Omit<CartLine, 'qty'>, qty = 1) => {
+    if (isMine(line.cook)) { toast('You can’t order from your own kitchen', 'info'); return; }
     setCart((c) => {
       const i = c.findIndex((l) => l.key === line.key);
       if (i >= 0) {
@@ -211,7 +240,7 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
       }
       return [...c, { ...line, qty }];
     });
-  }, []);
+  }, [isMine, toast]);
   const setQtyFn = useCallback((key: string, q: number) => {
     setCart((c) => (q <= 0 ? c.filter((l) => l.key !== key) : c.map((l) => (l.key === key ? { ...l, qty: q } : l))));
   }, []);
@@ -286,12 +315,14 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
   const reorder = useCallback((id: string) => {
     const o = orders.find((x) => x.id === id);
     if (!o) return;
-    o.lines.forEach((l) => addToCart({ key: l.key, name: l.name, cook: l.cook, price: l.price, grad: l.grad }, l.qty));
-    toast(`Added to cart · ${o.lines.length} item${o.lines.length !== 1 ? 's' : ''}`, 'cart', true);
-  }, [orders, addToCart, toast]);
+    const lines = o.lines.filter((l) => !isMine(l.cook)); // never re-buy your own listing
+    if (lines.length === 0) { toast('That order is from your own kitchen', 'info'); return; }
+    lines.forEach((l) => addToCart({ key: l.key, name: l.name, cook: l.cook, price: l.price, grad: l.grad }, l.qty));
+    toast(`Added to cart · ${lines.length} item${lines.length !== 1 ? 's' : ''}`, 'cart', true);
+  }, [orders, addToCart, toast, isMine]);
 
   const resetOnboarding = useCallback(() => setOnboardedState(false), []);
-  const logout = useCallback(() => setOnboardedState(false), []);
+  const logout = useCallback(() => { setPrepperStatus('none'); setOnboardedState(false); }, []);
   const deleteAccount = useCallback(() => {
     // Apple 5.1.1(v): account-deletion path. (On a real backend this also calls the server.)
     AsyncStorage.removeItem(LS).catch(() => {});
@@ -310,10 +341,14 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
     setDarkModeState(false);
     setAvail(true);
     setActed([]);
+    setPrepperStatus('none');
     setOnboardedState(false);
   }, []);
 
-  const subscribe = useCallback((s: Subscription) => setSubscription(s), []);
+  const subscribe = useCallback((s: Subscription) => {
+    if (s.cook && isMine(s.cook)) { toast('You can’t subscribe to your own plan', 'info'); return; }
+    setSubscription(s);
+  }, [isMine, toast]);
   const updateSub = useCallback((patch: Partial<Subscription>) => setSubscription((s) => (s ? { ...s, ...patch } : s)), []);
   const cancelSub = useCallback(() => setSubscription(null), []);
 
@@ -371,6 +406,11 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
     addCard,
     selectCard,
     removeCard,
+    prepperStatus,
+    role,
+    applyToPrepper,
+    approvePrepper,
+    isMine,
     fav,
     toggleFav,
     lastOrder,

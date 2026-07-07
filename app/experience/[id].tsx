@@ -9,6 +9,7 @@ import { useStore } from '../../src/store/store';
 import { Icon, Press, GradBox, Avatar, Btn } from '../../src/ui';
 import { Screen, Dock, DockTotal, SectionLabel } from '../../src/ui/layout';
 import { HeroTopBar, HeroBtn } from '../../src/components/shared';
+import { NotFound } from '../../src/components/NotFound';
 
 export default function ExperienceDetail() {
   const c = useC();
@@ -17,7 +18,7 @@ export default function ExperienceDetail() {
   const { id } = useLocalSearchParams<{ id: string }>();
   const { toast } = useStore();
   const e = expById(id!);
-  if (!e) return <Screen><View /></Screen>;
+  if (!e) return <NotFound title="Experience" />;
   const cook = COOKS[e.cook];
   const includes = ['All ingredients & equipment', 'Hands-on guidance from your host', 'A full meal to enjoy', 'Recipes to take home'];
 

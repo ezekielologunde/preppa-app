@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { View, Text, ScrollView, StyleProp, ViewStyle, TextInput, LayoutChangeEvent } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { useRouter } from 'expo-router';
+import { useRouter, Redirect } from 'expo-router';
 import { useC } from '../../src/theme/ThemeContext';
 import { Palette, GradKey, type, radius, shadow } from '../../src/theme/theme';
 import { useStore } from '../../src/store/store';
@@ -357,8 +357,9 @@ function ShortcutsGrid() {
 export default function MyHub() {
   const c = useC();
   const router = useRouter();
-  const { avail, toggleAvail, acted, acceptOrder, toast } = useStore();
+  const { ready, avail, toggleAvail, acted, acceptOrder, toast, prepperStatus } = useStore();
   const [dir, setDir] = useState<'focus' | 'brief'>('focus');
+  if (ready && prepperStatus !== 'approved') return <Redirect href="/(tabs)/home" />; // prepper-only
 
   const queue: QItem[] = [];
   if (!avail) {

@@ -8,6 +8,7 @@ import { type, radius, shadow } from '../../src/theme/theme';
 import { useStore } from '../../src/store/store';
 import { Icon, Press, Avatar } from '../../src/ui';
 import { Screen } from '../../src/ui/layout';
+import { NotFound } from '../../src/components/NotFound';
 
 const BUBBLES = [
   { me: false, t: 'Hi! Your order is in the oven now 🔥' },
@@ -23,7 +24,7 @@ export default function Chat() {
   const { cook } = useLocalSearchParams<{ cook: string }>();
   const { toast } = useStore();
   const cd = COOKS[cook as CookId];
-  if (!cd) return <Screen><View /></Screen>;
+  if (!cd) return <NotFound title="Chat" />;
   const first = cd.name.split(' ')[0];
 
   return (

@@ -16,7 +16,7 @@ export default function Profile() {
   const c = useC();
   const insets = useSafeAreaInsets();
   const router = useRouter();
-  const { resetOnboarding, darkMode, setDarkMode, logout, deleteAccount, toast } = useStore();
+  const { resetOnboarding, darkMode, setDarkMode, logout, deleteAccount, toast, prepperStatus, applyToPrepper, approvePrepper } = useStore();
 
   const confirmDelete = () => {
     Alert.alert(
@@ -83,16 +83,42 @@ export default function Profile() {
         </LinearGradient>
         </Press>
 
-        {/* become a preppa */}
+        {/* become a preppa — state-aware */}
         <LinearGradient colors={['#FFF1E6', '#FFE0CC']} style={{ marginHorizontal: 16, borderRadius: radius.xl, padding: 18, flexDirection: 'row', alignItems: 'center', gap: 14, borderWidth: 1, borderColor: '#FFD9BD' }}>
-          <LinearGradient colors={['#FF8A4C', '#F26B1D']} start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }} style={{ width: 52, height: 52, borderRadius: 16, alignItems: 'center', justifyContent: 'center', ...shadow.brand }}><Icon name="chefhat" size={26} color="#fff" /></LinearGradient>
+          <LinearGradient colors={['#FF8A4C', '#F26B1D']} start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }} style={{ width: 52, height: 52, borderRadius: 16, alignItems: 'center', justifyContent: 'center', ...shadow.brand }}>
+            <Icon name={prepperStatus === 'pending' ? 'clock' : 'chefhat'} size={26} color="#fff" />
+          </LinearGradient>
           <View style={{ flex: 1 }}>
-            <Text style={[type(16, 900), { color: '#1C1C1E' }]}>Become a Preppa</Text>
-            <Text style={[type(12.5, 600), { color: '#5A5A66', marginTop: 2 }]}>Cook for your neighbors and keep 85% — 0% fees for 60 days.</Text>
+            {prepperStatus === 'approved' ? (
+              <>
+                <Text style={[type(16, 900), { color: '#1C1C1E' }]}>You’re a Preppa</Text>
+                <Text style={[type(12.5, 600), { color: '#5A5A66', marginTop: 2 }]}>Manage orders, your menu & earnings in My Hub.</Text>
+              </>
+            ) : prepperStatus === 'pending' ? (
+              <>
+                <Text style={[type(16, 900), { color: '#1C1C1E' }]}>Application under review</Text>
+                <Text style={[type(12.5, 600), { color: '#5A5A66', marginTop: 2 }]}>We’re verifying your kitchen — My Hub unlocks once approved.</Text>
+              </>
+            ) : (
+              <>
+                <Text style={[type(16, 900), { color: '#1C1C1E' }]}>Become a Preppa</Text>
+                <Text style={[type(12.5, 600), { color: '#5A5A66', marginTop: 2 }]}>Cook for your neighbors and keep 85% — 0% fees for 60 days.</Text>
+              </>
+            )}
           </View>
-          <Press scale={0.9} onPress={() => toast('Apply to cook — demo 👩‍🍳')} label="Apply to cook">
-            <View style={{ width: 42, height: 42, borderRadius: 21, backgroundColor: '#fff', alignItems: 'center', justifyContent: 'center', ...shadow.soft }}><Icon name="arrow" size={18} color="#0E0E10" /></View>
-          </Press>
+          {prepperStatus === 'approved' ? (
+            <Press scale={0.9} onPress={() => router.push('/my-hub')} label="Open My Hub">
+              <View style={{ width: 42, height: 42, borderRadius: 21, backgroundColor: '#fff', alignItems: 'center', justifyContent: 'center', ...shadow.soft }}><Icon name="arrow" size={18} color="#0E0E10" /></View>
+            </Press>
+          ) : prepperStatus === 'pending' ? (
+            <Press scale={0.9} onPress={approvePrepper} label="Approve (demo)">
+              <View style={{ height: 30, paddingHorizontal: 12, borderRadius: 15, backgroundColor: '#fff', alignItems: 'center', justifyContent: 'center', ...shadow.soft }}><Text style={[type(11.5, 800), { color: '#0E0E10' }]}>Approve</Text></View>
+            </Press>
+          ) : (
+            <Press scale={0.9} onPress={applyToPrepper} label="Apply to cook">
+              <View style={{ width: 42, height: 42, borderRadius: 21, backgroundColor: '#fff', alignItems: 'center', justifyContent: 'center', ...shadow.soft }}><Icon name="arrow" size={18} color="#0E0E10" /></View>
+            </Press>
+          )}
         </LinearGradient>
 
         <Group label="Activity">

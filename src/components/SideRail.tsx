@@ -19,8 +19,9 @@ export function SideRail({ width }: { width: number }) {
   const c = useC();
   const router = useRouter();
   const pathname = usePathname();
-  const { cartCount, notifCount } = useStore();
+  const { cartCount, notifCount, prepperStatus } = useStore();
   const labeled = width >= 200;
+  const items = ITEMS.filter((it) => it.id !== 'my-hub' || prepperStatus === 'approved'); // My Hub is prepper-only
   const activeId = ITEMS.find((it) => pathname === it.path || pathname.startsWith(it.path + '/'))?.id ?? (pathname === '/' ? 'home' : undefined);
 
   const Item = ({ id, ico, lbl, onPress, badge }: { id?: string; ico: string; lbl: string; onPress: () => void; badge?: number }) => {
@@ -51,7 +52,7 @@ export function SideRail({ width }: { width: number }) {
         {labeled ? <Text style={[type(19, 900), { color: c.ink, letterSpacing: -0.7 }]}>preppa</Text> : null}
       </View>
 
-      {ITEMS.map((it) => (
+      {items.map((it) => (
         <Item key={it.id} id={it.id} ico={it.ico} lbl={it.lbl} onPress={() => router.navigate(it.path as any)} />
       ))}
       <Item ico="bell" lbl="Notifications" badge={notifCount} onPress={() => router.push('/notifications')} />

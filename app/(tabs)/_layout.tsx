@@ -5,6 +5,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Icon } from '../../src/ui/Icon';
 import { useC } from '../../src/theme/ThemeContext';
 import { type } from '../../src/theme/theme';
+import { useStore } from '../../src/store/store';
 
 const TABS: Record<string, { ico: string; lbl: string }> = {
   home: { ico: 'home', lbl: 'Home' },
@@ -18,6 +19,7 @@ function BottomNav({ state, navigation }: any) {
   const c = useC();
   const insets = useSafeAreaInsets();
   const { width } = useWindowDimensions();
+  const { prepperStatus } = useStore();
   if (width >= 700) return null; // wide screens use the persistent SideRail instead
   return (
     <View
@@ -34,6 +36,7 @@ function BottomNav({ state, navigation }: any) {
       {state.routes.map((route: any, i: number) => {
         const meta = TABS[route.name];
         if (!meta) return null;
+        if (route.name === 'my-hub' && prepperStatus !== 'approved') return null; // My Hub is prepper-only
         const focused = state.index === i;
         const onPress = () => {
           const event = navigation.emit({ type: 'tabPress', target: route.key, canPreventDefault: true });
@@ -51,12 +54,14 @@ function BottomNav({ state, navigation }: any) {
 }
 
 export default function TabsLayout() {
+  const { prepperStatus } = useStore();
+  const hubApproved = prepperStatus === 'approved';
   return (
     <Tabs screenOptions={{ headerShown: false }} tabBar={(props) => <BottomNav {...props} />}>
       <Tabs.Screen name="home" />
       <Tabs.Screen name="experiences" />
       <Tabs.Screen name="feeds" />
-      <Tabs.Screen name="my-hub" />
+      <Tabs.Screen name="my-hub" options={{ href: hubApproved ? undefined : null }} />
       <Tabs.Screen name="profile" />
     </Tabs>
   );

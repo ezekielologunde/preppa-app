@@ -8,6 +8,7 @@ import { useStore } from '../../src/store/store';
 import { Icon, Press, Stepper, Btn } from '../../src/ui';
 import { Screen, TopBar, Dock, Block } from '../../src/ui/layout';
 import { Burst } from '../../src/components/shared';
+import { NotFound } from '../../src/components/NotFound';
 
 export default function ServiceRequestFlow() {
   const c = useC();
@@ -20,12 +21,12 @@ export default function ServiceRequestFlow() {
   const [budget, setBudget] = useState<string | null>(null);
   const [notes, setNotes] = useState('');
   const [done, setDone] = useState<ServiceRequest | null>(null);
-  if (!s) return <Screen><View /></Screen>;
+  if (!s) return <NotFound title="Request" />;
   const valid = !!when.trim() && !!budget;
 
   const post = () => {
     const req: ServiceRequest = {
-      id: 'REQ-' + (200 + Math.floor(Math.random() * 700)),
+      id: 'REQ-' + (Date.now().toString(36) + Math.floor(Math.random() * 1296).toString(36)).slice(-5).toUpperCase(),
       svc: s.id,
       title: s.sizeLbl ? `${s.name} · ${size} ${s.sizeLbl.toLowerCase()}` : s.name,
       when,
