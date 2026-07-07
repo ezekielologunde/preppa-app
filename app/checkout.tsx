@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
-import { View, Text, ScrollView } from 'react-native';
+import { View, Text, ScrollView, Platform } from 'react-native';
 import { useLocalSearchParams, useRouter } from 'expo-router';
+import { payWithCard } from '../src/lib/payments';
 import { COOKS, CookId, money } from '../src/data/data';
 import { useC } from '../src/theme/ThemeContext';
 import { type, radius } from '../src/theme/theme';
@@ -44,11 +45,20 @@ export default function Checkout() {
       : null;
   const effectivePay: 'online' | 'cod' = pay === 'cod' && !codBlockedReason ? 'cod' : 'online';
 
-  const place = () => {
+  const place = async () => {
     if (busy) return; // guard against double-fire / double-order
     setBusy(true);
-    if (effectivePay === 'cod') router.push(`/cod?cook=${ck ?? ''}`);
-    else { placeOrder('paid', ck); router.replace(`/track?flow=paid&cook=${ck ?? ''}`); }
+    if (effectivePay === 'cod') { router.push(`/cod?cook=${ck ?? ''}`); return; }
+    // Real (test-mode) card charge via Supabase create-order + Stripe. Falls back to the
+    // mock on any failure (native, unmapped item, or backend not fully configured yet).
+    const cookId = (ck ?? lines[0]?.cook) as string;
+    try {
+      await payWithCard({ cook: cookId, lines, mode, tipDollars: tip, idempotencyKey: `${cookId}-${Date.now()}` });
+    } catch (e) {
+      if (Platform.OS === 'web') console.warn('[pay] real charge unavailable, mock fallback:', (e as any)?.message);
+    }
+    placeOrder('paid', ck); // mirror into local order history for the app's Track/Orders UI
+    router.replace(`/track?flow=paid&cook=${ck ?? ''}`);
   };
 
   return (
