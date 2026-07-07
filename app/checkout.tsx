@@ -17,7 +17,7 @@ export default function Checkout() {
   const router = useRouter();
   const { cook } = useLocalSearchParams<{ cook?: string }>();
   const ck = (cook || undefined) as CookId | undefined;
-  const { cart, tip, setTip, mode, placeOrder, address, card } = useStore();
+  const { cart, tip, setTip, mode, placeOrder, address, card, orders } = useStore();
   const lines = ck ? cart.filter((l) => l.cook === ck) : cart;
   const t = useTotals(lines, tip, mode);
   const [pay, setPay] = useState<'online' | 'cod'>('online');
@@ -33,10 +33,21 @@ export default function Checkout() {
     );
   }
 
+  // COD guardrails (council): cook opts in, and a first-order cash ceiling bounds the
+  // fake-order tail. No held cards / deposits / KYC — those need a real payments backend.
+  const COD_CEILING = 40;
+  const overCeiling = orders.length === 0 && t.total > COD_CEILING;
+  const codBlockedReason = !theCook.acceptsCod
+    ? `${theCook.name} takes card only`
+    : overCeiling
+      ? `Cash is capped at ${money(COD_CEILING)} on your first order`
+      : null;
+  const effectivePay: 'online' | 'cod' = pay === 'cod' && !codBlockedReason ? 'cod' : 'online';
+
   const place = () => {
     if (busy) return; // guard against double-fire / double-order
     setBusy(true);
-    if (pay === 'cod') router.push(`/cod?cook=${ck ?? ''}`);
+    if (effectivePay === 'cod') router.push(`/cod?cook=${ck ?? ''}`);
     else { placeOrder('paid', ck); router.replace(`/track?flow=paid&cook=${ck ?? ''}`); }
   };
 
@@ -64,8 +75,8 @@ export default function Checkout() {
         </Block>
 
         <Block title="Payment">
-          <PayOption on={pay === 'online'} onPress={() => setPay('online')} icon="card" title="Pay online" tag="Stripe" tagTone="green" body={card ? `${card.brand} •••• ${card.last4} · secure checkout` : 'Add a card to pay online'} />
-          {pay === 'online' ? (
+          <PayOption on={effectivePay === 'online'} onPress={() => setPay('online')} icon="card" title="Pay online" tag="Stripe" tagTone="green" body={card ? `${card.brand} •••• ${card.last4} · secure checkout` : 'Add a card to pay online'} />
+          {effectivePay === 'online' ? (
             <Press scale={0.98} onPress={() => router.push('/payments?select=1')} label="Change payment card">
               <View style={{ flexDirection: 'row', alignItems: 'center', gap: 5, alignSelf: 'flex-start', marginTop: 8, marginLeft: 2 }}>
                 <Text style={[type(13, 800), { color: c.primary }]}>{card ? 'Change card' : 'Add a card'}</Text>
@@ -74,13 +85,13 @@ export default function Checkout() {
             </Press>
           ) : null}
           <View style={{ height: 10 }} />
-          <PayOption on={pay === 'cod'} onPress={() => setPay('cod')} icon="cash" title="Cash on delivery" tag="QR verified" tagTone="purple" body="Confirm exact amount with a QR + 6-digit code" />
+          <PayOption on={effectivePay === 'cod'} disabled={!!codBlockedReason} onPress={() => setPay('cod')} icon="cash" title="Cash on delivery" tag={codBlockedReason ? 'Unavailable' : 'In person'} tagTone="purple" body={codBlockedReason ?? 'Confirm the amount together at handoff'} />
         </Block>
 
-        {pay === 'cod' ? (
+        {effectivePay === 'cod' ? (
           <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10, marginHorizontal: 16, marginTop: 14, paddingVertical: 12, paddingHorizontal: 14, borderRadius: radius.md, backgroundColor: c.purpleL, borderWidth: 1, borderColor: c.purple }}>
             <Icon name="qr" size={20} color={c.purple} />
-            <Text style={[type(12.5, 700), { color: c.purple, flex: 1, lineHeight: 18 }]}>At handoff, you and your cook scan a QR and match a 6-digit code so the cash amount is confirmed by both sides.</Text>
+            <Text style={[type(12.5, 700), { color: c.purple, flex: 1, lineHeight: 18 }]}>You and your cook confirm the cash amount together at handoff — on both phones. Preppa isn’t holding your money; you pay the cook directly.</Text>
           </View>
         ) : null}
 
@@ -104,23 +115,27 @@ export default function Checkout() {
 
       <Dock>
         <DockTotal label="Total" value={money(t.total)} />
-        <Btn label={pay === 'cod' ? 'Place order' : `Pay ${money(t.total)}`} flex={1} loading={busy && pay !== 'cod'} onPress={place} />
+        <Btn label={effectivePay === 'cod' ? 'Place order' : `Pay ${money(t.total)}`} flex={1} loading={busy && effectivePay !== 'cod'} onPress={place} />
       </Dock>
     </Screen>
   );
 }
 
-function PayOption({ on, onPress, icon, title, tag, tagTone, body }: { on: boolean; onPress: () => void; icon: string; title: string; tag: string; tagTone: 'green' | 'purple'; body: string }) {
+function PayOption({ on, onPress, icon, title, tag, tagTone, body, disabled }: { on: boolean; onPress: () => void; icon: string; title: string; tag: string; tagTone: 'green' | 'purple'; body: string; disabled?: boolean }) {
   const c = useC();
   return (
-    <Press scale={0.99} onPress={onPress}>
-      <View style={{ flexDirection: 'row', alignItems: 'center', gap: 12, padding: 14, borderWidth: 1.5, borderColor: on ? c.primary : c.border, backgroundColor: on ? c.primaryL : c.surface, borderRadius: radius.md }}>
+    <Press scale={disabled ? 1 : 0.99} onPress={disabled ? () => {} : onPress}>
+      <View style={{ flexDirection: 'row', alignItems: 'center', gap: 12, padding: 14, borderWidth: 1.5, borderColor: on ? c.primary : c.border, backgroundColor: on ? c.primaryL : c.surface, borderRadius: radius.md, opacity: disabled ? 0.55 : 1 }}>
         <View style={{ width: 42, height: 42, borderRadius: 11, backgroundColor: on ? c.surface : c.bg2, alignItems: 'center', justifyContent: 'center' }}><Icon name={icon} size={20} color={on ? c.primary : c.ink} /></View>
         <View style={{ flex: 1 }}>
           <View style={{ flexDirection: 'row', alignItems: 'center', gap: 7 }}><Text style={[type(14.5, 800), { color: c.ink }]}>{title}</Text><MiniTag label={tag} tone={tagTone} /></View>
           <Text style={[type(12, 500), { color: c.soft, marginTop: 3 }]}>{body}</Text>
         </View>
-        <View style={{ width: 22, height: 22, borderRadius: 11, borderWidth: 2, borderColor: on ? c.primary : c.border, alignItems: 'center', justifyContent: 'center' }}>{on ? <View style={{ width: 11, height: 11, borderRadius: 6, backgroundColor: c.primary }} /> : null}</View>
+        {disabled ? (
+          <Icon name="lock" size={16} color={c.muted} />
+        ) : (
+          <View style={{ width: 22, height: 22, borderRadius: 11, borderWidth: 2, borderColor: on ? c.primary : c.border, alignItems: 'center', justifyContent: 'center' }}>{on ? <View style={{ width: 11, height: 11, borderRadius: 6, backgroundColor: c.primary }} /> : null}</View>
+        )}
       </View>
     </Press>
   );

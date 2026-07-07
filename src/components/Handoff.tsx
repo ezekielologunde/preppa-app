@@ -41,7 +41,8 @@ function FauxQR({ dark }: { dark: string }) {
 export const genCode = () => Array.from({ length: 6 }, () => String(Math.floor(Math.random() * 10)));
 
 /**
- * The QR + 6-digit verified-handoff pane. Same design serves three contexts:
+ * The QR + 6-digit handoff pane — a mutual-confirmation ritual (both phones agree),
+ * NOT a verification/escrow control. Same design serves three contexts:
  *  - `cod`     — cash: shows the amount, confirms cash changed hands.
  *  - `pickup`  — prepaid pickup meetup: show the code to the cook when collecting.
  *  - `delivery`— prepaid delivery meetup: show the code at the door.
