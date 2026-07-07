@@ -9,7 +9,7 @@ import { type, radius, shadow } from '../../src/theme/theme';
 import { useStore } from '../../src/store/store';
 import { Icon, Press } from '../../src/ui';
 import { HeroDrop, MealGrid, ExpRail, SectionHeader } from '../../src/components/cards';
-import { FulfillmentChooser } from '../../src/components/FulfillmentChooser';
+import { ModeToggle } from '../../src/components/ModeToggle';
 import { LocationPicker } from '../../src/components/LocationPicker';
 
 function greetWord() {
@@ -69,7 +69,7 @@ export default function HomeScreen() {
             <Text style={[type(15.5, 500), { color: c.soft, marginTop: 7 }]}>What sounds good tonight?</Text>
           </View>
 
-          <View style={{ marginTop: 18 }}><FulfillmentChooser /></View>
+          <View style={{ marginTop: 14 }}><ModeToggle /></View>
         </LinearGradient>
 
         {/* [1] sticky search */}
@@ -93,6 +93,7 @@ export default function HomeScreen() {
         <ExpRail exps={EXPERIENCES.slice(0, 4)} />
 
         <View style={{ height: 8 }} />
+        <ShortcutCard icon="chefhat" grad={['#FF8A4C', c.primary]} title="Cook at My Place" body="A private chef in your kitchen — compare fixed quotes" onPress={() => router.push('/request/cookhome')} />
         <ShortcutCard icon="repeat" grad={['#A855F7', c.purple]} title="Weekly meal plans" body="Subscribe to a cook’s box — pause or swap anytime" onPress={() => router.push('/plans')} />
       </ScrollView>
       <LocationPicker visible={locPicker} onClose={() => setLocPicker(false)} />

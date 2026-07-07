@@ -1,6 +1,5 @@
 import React, { useState } from 'react';
-import { View, Text, ScrollView, TextInput, Modal, Pressable } from 'react-native';
-import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { View, Text, ScrollView, TextInput } from 'react-native';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { svcById, ServiceRequest, Quote } from '../../src/data/data';
 import { useC } from '../../src/theme/ThemeContext';
@@ -15,21 +14,15 @@ export default function ServiceRequestFlow() {
   const c = useC();
   const router = useRouter();
   const { svc } = useLocalSearchParams<{ svc: string }>();
-  const insets = useSafeAreaInsets();
-  const { addRequest, address, addresses, selectAddress } = useStore();
+  const { addRequest, toast } = useStore();
   const s = svcById(svc!);
-  const [day, setDay] = useState<string | null>(null);
-  const [slot, setSlot] = useState<string | null>(null);
+  const [when, setWhen] = useState('');
   const [size, setSize] = useState(svc === 'bulk' ? 20 : 2);
   const [budget, setBudget] = useState<string | null>(null);
   const [notes, setNotes] = useState('');
-  const [addrOpen, setAddrOpen] = useState(false);
   const [done, setDone] = useState<ServiceRequest | null>(null);
   if (!s) return <NotFound title="Request" />;
-  const DAYS = nextDays();
-  const SLOTS = ['Morning', 'Afternoon', 'Evening'];
-  const when = day && slot ? `${day} · ${slot}` : '';
-  const valid = !!when && !!budget;
+  const valid = !!when.trim() && !!budget;
 
   const post = () => {
     const req: ServiceRequest = {
@@ -37,7 +30,7 @@ export default function ServiceRequestFlow() {
       svc: s.id,
       title: s.sizeLbl ? `${s.name} · ${size} ${s.sizeLbl.toLowerCase()}` : s.name,
       when,
-      loc: address ? `${address.label} · ${address.line1}` : 'Home',
+      loc: 'Home · 88 Highland Ave NE',
       size: s.sizeLbl ? `${size} ${s.sizeLbl.toLowerCase()}` : null,
       budget: budget!,
       notes,
@@ -70,12 +63,13 @@ export default function ServiceRequestFlow() {
       <TopBar title={s.name} />
       <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={{ paddingBottom: 120 }}>
         <Block title="When">
-          <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ flexDirection: 'row', gap: 7, paddingRight: 4 }}>
-            {DAYS.map((d) => <DayChip key={d} label={d} on={day === d} onPress={() => setDay(d)} />)}
-          </ScrollView>
-          <View style={{ flexDirection: 'row', gap: 7, marginTop: 10 }}>
-            {SLOTS.map((sl) => <DayChip key={sl} label={sl} on={slot === sl} onPress={() => setSlot(sl)} />)}
-          </View>
+          <TextInput
+            value={when}
+            onChangeText={setWhen}
+            placeholder={svc === 'grocery' || svc === 'errand' ? 'e.g. Today, before 5 PM' : 'e.g. Sat, Jul 12 · 7:00 PM'}
+            placeholderTextColor={c.muted}
+            style={kinput}
+          />
         </Block>
 
         {s.sizeLbl ? (
@@ -94,18 +88,20 @@ export default function ServiceRequestFlow() {
         </Block>
 
         <Block title="Where">
-          <Press scale={0.99} onPress={() => setAddrOpen(true)} label="Change address">
-            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 12 }}>
-              <View style={{ width: 40, height: 40, borderRadius: 12, backgroundColor: c.primaryL, alignItems: 'center', justifyContent: 'center' }}>
-                <Icon name="pin" size={20} color={c.primary} />
-              </View>
-              <View style={{ flex: 1 }}>
-                <Text style={[type(14.5, 800), { color: c.ink }]}>{address ? `${address.label} · ${address.line1}` : 'Add an address'}</Text>
-                {address ? <Text style={[type(13, 500), { color: c.soft, marginTop: 2 }]}>{address.line2}</Text> : null}
-              </View>
-              <Icon name="chevRight" size={16} color={c.muted} />
+          <View style={{ flexDirection: 'row', alignItems: 'center', gap: 12 }}>
+            <View style={{ width: 40, height: 40, borderRadius: 12, backgroundColor: c.primaryL, alignItems: 'center', justifyContent: 'center' }}>
+              <Icon name="pin" size={20} color={c.primary} />
             </View>
-          </Press>
+            <View style={{ flex: 1 }}>
+              <Text style={[type(14.5, 800), { color: c.ink }]}>Home · 88 Highland Ave NE</Text>
+              <Text style={[type(13, 500), { color: c.soft, marginTop: 2 }]}>Apt 4 · Atlanta, GA 30312</Text>
+            </View>
+            <Press scale={0.9} onPress={() => toast('Edit address — demo')}>
+              <View style={{ width: 34, height: 34, alignItems: 'center', justifyContent: 'center' }}>
+                <Icon name="chevRight" size={16} color={c.muted} />
+              </View>
+            </Press>
+          </View>
         </Block>
 
         <Block title="Details">
@@ -128,45 +124,8 @@ export default function ServiceRequestFlow() {
       <Dock>
         <Btn label="Post request" flex={1} disabled={!valid} onPress={post} />
       </Dock>
-
-      <Modal visible={addrOpen} transparent animationType="slide" onRequestClose={() => setAddrOpen(false)} statusBarTranslucent>
-        <Pressable onPress={() => setAddrOpen(false)} style={{ flex: 1, backgroundColor: 'rgba(0,0,0,.4)', justifyContent: 'flex-end' }}>
-          <Pressable onPress={() => {}} style={{ backgroundColor: c.surface, borderTopLeftRadius: radius.sheet, borderTopRightRadius: radius.sheet, paddingTop: 10, paddingBottom: insets.bottom + 16, paddingHorizontal: 16 }}>
-            <View style={{ width: 40, height: 5, borderRadius: 3, backgroundColor: c.border, alignSelf: 'center', marginBottom: 12 }} />
-            <Text style={[type(18, 900), { color: c.ink, letterSpacing: -0.4, marginBottom: 8, paddingHorizontal: 4 }]}>Where should they cook?</Text>
-            {addresses.map((a) => {
-              const on = address?.id === a.id;
-              return (
-                <Press key={a.id} scale={0.99} onPress={() => { selectAddress(a.id); setAddrOpen(false); }} label={a.label}>
-                  <View style={{ flexDirection: 'row', alignItems: 'center', gap: 12, paddingVertical: 14, paddingHorizontal: 12, borderRadius: radius.md, backgroundColor: on ? c.primaryL : 'transparent' }}>
-                    <Icon name="pin" size={18} color={on ? c.primary : c.soft} />
-                    <View style={{ flex: 1 }}>
-                      <Text style={[type(15, on ? 800 : 700), { color: c.ink }]}>{a.label} · {a.line1}</Text>
-                      <Text style={[type(12.5, 500), { color: c.soft, marginTop: 1 }]}>{a.line2}</Text>
-                    </View>
-                    {on ? <Icon name="check" size={18} color={c.primary} /> : null}
-                  </View>
-                </Press>
-              );
-            })}
-          </Pressable>
-        </Pressable>
-      </Modal>
     </Screen>
   );
-}
-
-/** The next 7 days as friendly labels — "Today", "Tomorrow", then "Wed Jul 9". */
-function nextDays(): string[] {
-  const wd = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
-  const mo = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
-  const now = new Date();
-  const out: string[] = [];
-  for (let i = 0; i < 7; i++) {
-    const d = new Date(now.getFullYear(), now.getMonth(), now.getDate() + i);
-    out.push(i === 0 ? 'Today' : i === 1 ? 'Tomorrow' : `${wd[d.getDay()]} ${mo[d.getMonth()]} ${d.getDate()}`);
-  }
-  return out;
 }
 
 function DayChip({ label, on, onPress }: { label: string; on: boolean; onPress: () => void }) {
