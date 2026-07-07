@@ -126,6 +126,7 @@ export const SERVICES: Service[] = [
   { id: 'grocery', name: 'Grocery Run', sub: 'A Preppa shops & delivers your list', ico: 'bag', cls: 'green', notesPh: 'Paste your grocery list here — brands and swaps welcome…', budgets: ['Under $50', '$50–120', '$120+'] },
   { id: 'bulk', name: 'Bulk & Meal Prep', sub: 'Trays & weekly prep at scale', ico: 'grid', cls: 'blue', sizeLbl: 'Portions', notesPh: 'What do you need cooked, how many portions, packaging…', budgets: ['$100–250', '$250–500', '$500+'] },
   { id: 'errand', name: 'Quick Errands', sub: 'Pickups, drop-offs & market runs', ico: 'bolt', cls: 'red', notesPh: 'What needs picking up or dropping off, and where…', budgets: ['Under $25', '$25–50', '$50+'] },
+  { id: 'class', name: 'Private Class or Lesson', sub: 'Learn a dish — solo, date night, or group', ico: 'chefhat', cls: 'purple', sizeLbl: 'Guests', notesPh: 'What would you love to learn — pasta, jollof, sushi? Skill level & preferred date…', budgets: ['$60–120', '$120–250', '$250+'] },
 ];
 export const svcById = (id: string) => SERVICES.find((s) => s.id === id);
 
@@ -149,7 +150,7 @@ export const SEED_REQUESTS: ServiceRequest[] = [
 ];
 const QUOTE_POOL: Record<string, CookId[]> = {
   cookhome: ['denise', 'maria', 'lucia'], catering: ['maria', 'amara'], grocery: ['david', 'sana'],
-  bulk: ['amara', 'denise'], errand: ['david', 'sana'],
+  bulk: ['amara', 'denise'], errand: ['david', 'sana'], class: ['maria', 'lucia'],
 };
 const QUOTE_NOTES: Record<string, string[]> = {
   cookhome: ['I’d love to cook for you — menu tailored to the occasion, and I handle all the shopping.', 'Happy to take this on! I’ll send a sample menu once we chat.'],
@@ -157,11 +158,12 @@ const QUOTE_NOTES: Record<string, string[]> = {
   grocery: ['I shop at the Freedom Farmers Market every morning — can add your list to my run.', 'I can have this shopped and dropped within 2 hours.'],
   bulk: ['I batch-cook trays every week — can scale to your count with labeled packaging.', 'Happy to do this as a weekly standing order too, if useful.'],
   errand: ['I’m out on runs every afternoon — easy add.', 'Can do this today between my lunch and dinner windows.'],
+  class: ['I host hands-on classes — we cook together and eat what we make.', 'Love teaching! I’ll bring everything and tailor it to your skill level.'],
 };
 export function genQuotes(req: ServiceRequest): Quote[] {
   const pool = QUOTE_POOL[req.svc] || ['maria', 'david'];
   const base =
-    ({ 'Under $25': 20, '$25–50': 38, 'Under $50': 42, '$50–120': 85, '$120+': 140, '$50+': 60, '$100–250': 180, '$250–500': 360, '$500+': 560, '$150–250': 210, '$250–400': 300, '$400+': 450, '$300–600': 480, '$600–1,200': 900, '$1,200+': 1400 } as Record<string, number>)[req.budget] || 120;
+    ({ 'Under $25': 20, '$25–50': 38, 'Under $50': 42, '$50–120': 85, '$120+': 140, '$50+': 60, '$100–250': 180, '$250–500': 360, '$500+': 560, '$150–250': 210, '$250–400': 300, '$400+': 450, '$300–600': 480, '$600–1,200': 900, '$1,200+': 1400, '$60–120': 90, '$120–250': 180, '$250+': 320 } as Record<string, number>)[req.budget] || 120;
   return pool.slice(0, 2).map((c, i) => ({ cook: c, amount: Math.round(base * (0.9 + i * 0.18)), note: QUOTE_NOTES[req.svc][i] }));
 }
 

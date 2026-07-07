@@ -43,8 +43,9 @@ export default function COD() {
   const router = useRouter();
   const { cart, tip, mode, placeOrder } = useStore();
   const t = useTotals(cart, tip, mode);
+  const cook = COOKS[cart[0]?.cook ?? 'maria']; // the order's cook — not hardcoded
   const [stage, setStage] = useState(0);
-  const code = ['4', '8', '1', '2', '0', '6'];
+  const [code] = useState(() => Array.from({ length: 6 }, () => String(Math.floor(Math.random() * 10)))); // a fresh code per handoff
   const scan = useRef(new Animated.Value(0)).current;
   const reduced = useReducedMotion();
 
@@ -63,7 +64,7 @@ export default function COD() {
       <Screen bg={c.surface}>
         <Burst
           title="Handoff confirmed"
-          body={<>You and {COOKS.maria.name} both confirmed <Text style={{ fontFamily: type(15, 800).fontFamily }}>{money(t.total)}</Text> in cash. Enjoy your meal! 🍽️</>}
+          body={<>You and {cook.name} both confirmed <Text style={{ fontFamily: type(15, 800).fontFamily }}>{money(t.total)}</Text> in cash. Enjoy your meal! 🍽️</>}
           actionLabel="View order"
           onAction={() => { placeOrder('cod'); router.replace('/track?flow=cod'); }}
         />
@@ -91,7 +92,7 @@ export default function COD() {
         </View>
 
         <Text style={[type(13.5, 600), { color: c.soft, textAlign: 'center', marginTop: 14, maxWidth: 280, lineHeight: 20 }]}>
-          {stage === 0 ? <>Show this QR to <Text style={{ color: c.ink, fontFamily: type(13.5, 700).fontFamily }}>{COOKS.maria.name}</Text>. They scan it to lock the exact amount.</> : 'Amount matched on both phones. Hand over the cash to complete your order.'}
+          {stage === 0 ? <>Show this QR to <Text style={{ color: c.ink, fontFamily: type(13.5, 700).fontFamily }}>{cook.name}</Text>. They scan it to lock the exact amount.</> : 'Amount matched on both phones. Hand over the cash to complete your order.'}
         </Text>
 
         <View style={{ marginTop: 22, alignItems: 'center' }}>
