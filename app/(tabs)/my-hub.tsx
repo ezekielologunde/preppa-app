@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { View, Text, ScrollView, StyleProp, ViewStyle, TextInput } from 'react-native';
+import { View, Text, ScrollView, StyleProp, ViewStyle, TextInput, LayoutChangeEvent } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
 import { useC } from '../../src/theme/ThemeContext';
@@ -130,7 +130,7 @@ export function KPill({ label, bg, fg, dot }: { label: string; bg: string; fg: s
 export function KBtn({ label, variant = 'pri', sm, block, icon, onPress, flex, style, height }: { label: string; variant?: 'pri' | 'dark' | 'ghost'; sm?: boolean; block?: boolean; icon?: string; onPress?: () => void; flex?: number; style?: StyleProp<ViewStyle>; height?: number }) {
   const c = useC();
   const bg = variant === 'pri' ? c.primary : variant === 'dark' ? c.ink : c.bg2;
-  const fg = variant === 'ghost' ? c.ink : '#fff';
+  const fg = variant === 'ghost' ? c.ink : variant === 'dark' ? c.surface : '#fff';
   const h = height ?? (block ? 48 : sm ? 32 : 36);
   return (
     <Press scale={0.94} onPress={onPress} style={[block ? { width: '100%' } : null, flex ? { flex } : null, style]}>
@@ -147,7 +147,7 @@ export function BalanceStrip() {
   const c = useC();
   const router = useRouter();
   return (
-    <View style={{ marginHorizontal: 20, marginTop: 18, padding: 18, borderRadius: 22, backgroundColor: c.ink, overflow: 'hidden' }}>
+    <View style={{ marginHorizontal: 20, marginTop: 18, padding: 18, borderRadius: 22, backgroundColor: c.feature, overflow: 'hidden' }}>
       <View style={{ position: 'absolute', right: -50, top: -50, width: 170, height: 170, borderRadius: 85, backgroundColor: 'rgba(242,107,29,.28)' }} />
       <Press scale={0.93} onPress={() => router.push('/hub/payout')} style={{ position: 'absolute', right: 18, top: 18, zIndex: 2 }}>
         <View style={{ height: 36, paddingHorizontal: 16, borderRadius: radius.pill, backgroundColor: c.primary, flexDirection: 'row', alignItems: 'center', gap: 6, ...shadow.brand }}>
@@ -182,8 +182,8 @@ export function StatTile({ ic, tone, value, label, delta, deltaDir, onPress }: {
         <View style={{ width: 34, height: 34, borderRadius: 11, backgroundColor: bg, alignItems: 'center', justifyContent: 'center', marginBottom: 11 }}>
           <Icon name={ic} size={18} color={fg} />
         </View>
-        <Text style={[type(23, 900), { color: c.ink, letterSpacing: -0.8 }]}>{value}</Text>
-        <Text style={[type(12.5, 700), { color: c.soft, marginTop: 5 }]}>{label}</Text>
+        <Text numberOfLines={1} style={[type(23, 900), { color: c.ink, letterSpacing: -0.8 }]}>{value}</Text>
+        <Text numberOfLines={1} style={[type(12.5, 700), { color: c.soft, marginTop: 5 }]}>{label}</Text>
         {delta ? <Text style={[type(11.5, 800), { color: dc, marginTop: 7 }]}>{delta}</Text> : null}
       </View>
     </Press>
@@ -324,6 +324,36 @@ const SHORTCUTS: { route: string; ic: string; tone: Tone; l: string }[] = [
   { route: '/hub/analytics', ic: 'bars', tone: 'ic-blue', l: 'Analytics' },
 ];
 
+/** Shortcut tiles — measured pixel widths (3 col phone / 4 tablet / 6 desktop).
+ *  Pixel width on a Press resolves correctly; a percentage width would collapse. */
+function ShortcutsGrid() {
+  const c = useC();
+  const router = useRouter();
+  const [w, setW] = useState(0);
+  const cols = w >= 1000 ? 6 : w >= 700 ? 4 : 3;
+  const gap = 11;
+  const cardW = w > 0 ? (w - gap * (cols - 1)) / cols : 0;
+  return (
+    <View style={{ paddingHorizontal: 20 }}>
+      <View onLayout={(e: LayoutChangeEvent) => setW(e.nativeEvent.layout.width)} style={{ flexDirection: 'row', flexWrap: 'wrap', gap }}>
+        {w > 0 && SHORTCUTS.map((s) => {
+          const [bg, fg] = well(c, s.tone);
+          return (
+            <Press key={s.route} scale={0.96} onPress={() => router.push(s.route as any)} style={{ width: cardW }}>
+              <View style={{ backgroundColor: c.surface, borderWidth: 1, borderColor: c.border2, borderRadius: 18, paddingVertical: 15, paddingHorizontal: 12, gap: 10 }}>
+                <View style={{ width: 38, height: 38, borderRadius: 12, backgroundColor: bg, alignItems: 'center', justifyContent: 'center' }}>
+                  <Icon name={s.ic} size={19} color={fg} />
+                </View>
+                <Text numberOfLines={1} style={[type(13, 800), { color: c.ink, letterSpacing: -0.3 }]}>{s.l}</Text>
+              </View>
+            </Press>
+          );
+        })}
+      </View>
+    </View>
+  );
+}
+
 export default function MyHub() {
   const c = useC();
   const router = useRouter();
@@ -386,28 +416,14 @@ export default function MyHub() {
   const shortcutsBlock = (
     <>
       <KSec title="Shortcuts" />
-      <View style={{ flexDirection: 'row', flexWrap: 'wrap', paddingHorizontal: 20, gap: 11 }}>
-        {SHORTCUTS.map((s) => {
-          const [bg, fg] = well(c, s.tone);
-          return (
-            <Press key={s.route} scale={0.96} onPress={() => router.push(s.route as any)} style={{ width: '31.5%' }}>
-              <View style={{ backgroundColor: c.surface, borderWidth: 1, borderColor: c.border2, borderRadius: 18, paddingVertical: 15, paddingHorizontal: 12, gap: 10 }}>
-                <View style={{ width: 38, height: 38, borderRadius: 12, backgroundColor: bg, alignItems: 'center', justifyContent: 'center' }}>
-                  <Icon name={s.ic} size={19} color={fg} />
-                </View>
-                <Text style={[type(13, 800), { color: c.ink, letterSpacing: -0.3 }]}>{s.l}</Text>
-              </View>
-            </Press>
-          );
-        })}
-      </View>
+      <ShortcutsGrid />
     </>
   );
 
   return (
     <View style={{ flex: 1, backgroundColor: c.bg }}>
       <HubHeader name={ME.kitchen} showBell below={<KSeg options={[{ key: 'focus', label: 'Focus' }, { key: 'brief', label: 'Dashboard' }]} value={dir} onChange={(k) => setDir(k as 'focus' | 'brief')} />} />
-      <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={{ paddingBottom: 40 }}>
+      <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={{ paddingBottom: 40, maxWidth: 1040, alignSelf: 'center', width: '100%' }}>
         <BalanceStrip />
 
         {dir === 'focus' ? (

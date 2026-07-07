@@ -5,13 +5,14 @@ import { MARKET_PLANS, COOKS, MEALS, PLAN_DAYS, money } from '../src/data/data';
 import { useC } from '../src/theme/ThemeContext';
 import { type, radius, shadow } from '../src/theme/theme';
 import { useStore } from '../src/store/store';
-import { Icon, Press, GradBox, Avatar } from '../src/ui';
+import { Icon, Press, GradBox, Avatar, Switch } from '../src/ui';
 import { Screen, TopBar } from '../src/ui/layout';
+import { SectionHeader } from '../src/components/cards';
 
 export default function MealPlansScreen() {
   const c = useC();
   const router = useRouter();
-  const { subscription: sub, updateSub, cancelSub, toast } = useStore();
+  const { subscription: sub, updateSub, cancelSub, card, toast } = useStore();
   const [swapping, setSwapping] = useState(false);
   const paused = !!sub && sub.status === 'paused';
 
@@ -21,7 +22,7 @@ export default function MealPlansScreen() {
       <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={{ paddingBottom: 40 }}>
         {sub ? (
           <>
-            <View style={{ marginHorizontal: 16, marginTop: 16, padding: 18, borderRadius: radius.xxl, backgroundColor: c.ink, overflow: 'hidden' }}>
+            <View style={{ marginHorizontal: 16, marginTop: 16, padding: 18, borderRadius: radius.xxl, backgroundColor: c.feature, overflow: 'hidden' }}>
               <View style={{ flexDirection: 'row', alignItems: 'flex-start', justifyContent: 'space-between' }}>
                 <View style={{ flex: 1 }}>
                   <Text style={[type(11, 800), { color: 'rgba(255,255,255,.55)', textTransform: 'uppercase', letterSpacing: 0.8 }]}>Your plan</Text>
@@ -40,7 +41,7 @@ export default function MealPlansScreen() {
               </View>
             </View>
 
-            <SectionH title="This week’s meals" />
+            <SectionHeader title="This week’s meals" />
             <MList>
               {sub.items.map((it, i) => (
                 <MRow key={i} icon="chefhat" title={it} last={i === sub.items.length - 1} right={
@@ -59,7 +60,7 @@ export default function MealPlansScreen() {
               ))}
             </MList>
 
-            <SectionH title="Manage" />
+            <SectionHeader title="Manage" />
             <MList>
               <MRow icon={paused ? 'repeat' : 'clock'} title={paused ? 'Resume plan' : 'Pause plan'} sub={paused ? 'Pick up right where you left off' : 'Stop deliveries & billing anytime'}
                 onPress={() => { updateSub({ status: paused ? 'active' : 'paused' }); toast(paused ? 'Plan resumed' : 'Plan paused — no charges while paused', paused ? 'check' : 'pause', paused); }}
@@ -72,7 +73,7 @@ export default function MealPlansScreen() {
                 right={<Icon name="chevRight" size={17} color={c.muted} />} />
             </MList>
 
-            <SectionH title="Delivery & billing" />
+            <SectionHeader title="Delivery & billing" />
             <MList>
               <View style={{ padding: 14 }}>
                 <View style={{ flexDirection: 'row', alignItems: 'center', gap: 13 }}>
@@ -86,12 +87,12 @@ export default function MealPlansScreen() {
                 </View>
                 <View style={{ height: 1, backgroundColor: c.border2, marginTop: 14, marginHorizontal: -14 }} />
               </View>
-              <MRow icon="card" title="Visa •••• 4242" sub={paused ? 'No upcoming charge' : 'Next charge: ' + (sub.skipNext ? 'in 2 weeks' : 'Mon') + ' · ' + money(sub.price)}
-                onPress={() => toast('Payment methods — demo', 'card')} right={<Icon name="chevRight" size={17} color={c.muted} />} />
+              <MRow icon="card" title={card ? `${card.brand} •••• ${card.last4}` : 'Add a payment method'} sub={paused ? 'No upcoming charge' : 'Next charge: ' + (sub.skipNext ? 'in 2 weeks' : 'Mon') + ' · ' + money(sub.price)}
+                onPress={() => router.push('/payments')} right={<Icon name="chevRight" size={17} color={c.muted} />} />
               <MRow icon="x" iconColor={c.red} title="Cancel plan" titleColor={c.red} last onPress={() => { cancelSub(); toast('Plan cancelled — we’ll miss you', 'x'); }} />
             </MList>
 
-            <SectionH title="More plans near you" />
+            <SectionHeader title="More plans near you" />
           </>
         ) : (
           <>
@@ -99,7 +100,7 @@ export default function MealPlansScreen() {
               <Text style={[type(24, 900), { color: c.ink, letterSpacing: -0.8 }]}>Dinner on autopilot</Text>
               <Text style={[type(14, 600), { color: c.soft, marginTop: 6, lineHeight: 21 }]}>Subscribe to a weekly box from a cook you love — or build your own. Pause, skip or swap anytime.</Text>
             </View>
-            <SectionH title="Plans from cooks near you" />
+            <SectionHeader title="Plans from cooks near you" />
           </>
         )}
 
@@ -146,15 +147,6 @@ export default function MealPlansScreen() {
   );
 }
 
-function Switch({ on }: { on: boolean }) {
-  const c = useC();
-  return (
-    <View style={{ width: 46, height: 28, borderRadius: radius.pill, backgroundColor: on ? c.green : c.bg2, justifyContent: 'center' }}>
-      <View style={{ width: 22, height: 22, borderRadius: 11, backgroundColor: '#fff', marginLeft: 3, transform: [{ translateX: on ? 18 : 0 }], ...shadow.soft }} />
-    </View>
-  );
-}
-
 function MList({ children }: { children: React.ReactNode }) {
   const c = useC();
   return <View style={{ marginHorizontal: 16, borderRadius: radius.card, overflow: 'hidden', borderWidth: 1, borderColor: c.border2 }}>{children}</View>;
@@ -186,14 +178,5 @@ function DayChip({ label, on, onPress }: { label: string; on: boolean; onPress: 
         <Text style={[type(13, 800), { color: on ? '#fff' : c.soft }]}>{label}</Text>
       </View>
     </Press>
-  );
-}
-
-function SectionH({ title }: { title: string }) {
-  const c = useC();
-  return (
-    <View style={{ paddingHorizontal: 20, paddingTop: 26, paddingBottom: 12 }}>
-      <Text style={[type(18, 900), { color: c.ink, letterSpacing: -0.5 }]}>{title}</Text>
-    </View>
   );
 }

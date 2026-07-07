@@ -60,7 +60,7 @@ export default function OrdersScreen() {
         onBack={() => router.back()}
         below={<KSeg options={[{ key: 'active', label: `Active · ${active.length}` }, { key: 'past', label: 'History' }]} value={seg} onChange={setSeg} />}
       />
-      <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={{ paddingTop: 14, paddingBottom: 40 }}>
+      <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={{ paddingTop: 14, paddingBottom: 40, maxWidth: 1040, alignSelf: 'center', width: '100%' }}>
         {list.length === 0 ? (
           <View style={{ alignItems: 'center', paddingHorizontal: 24, paddingTop: 60 }}>
             <View style={{ width: 64, height: 64, borderRadius: 20, backgroundColor: c.bg2, alignItems: 'center', justifyContent: 'center', marginBottom: 14 }}>

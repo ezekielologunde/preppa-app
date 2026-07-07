@@ -39,7 +39,7 @@ export default function Cart() {
               <Text style={[type(14, 900), { color: c.primary, marginTop: 6 }]}>{money(l.price * l.qty)}</Text>
             </View>
             {l.qty <= 1 ? (
-              <Press scale={0.9} onPress={() => removeLine(l.key)}>
+              <Press scale={0.9} onPress={() => removeLine(l.key)} label="Remove item" hitSlop={8}>
                 <View style={{ width: 34, height: 34, borderRadius: 17, alignItems: 'center', justifyContent: 'center' }}>
                   <Icon name="x" size={16} color={c.muted} />
                 </View>

@@ -26,7 +26,7 @@ export default function MenuScreen() {
   return (
     <View style={{ flex: 1, backgroundColor: c.bg }}>
       <HubHeader eyebrow="My Hub" name="My menu" onBack={() => router.back()} noAvail right={<KBtn label="Add meal" icon="plus" onPress={() => router.push('/hub/create-meal')} />} />
-      <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={{ paddingTop: 14, paddingBottom: 40 }}>
+      <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={{ paddingTop: 14, paddingBottom: 40, maxWidth: 1040, alignSelf: 'center', width: '100%' }}>
         <Text style={[type(13, 600), { color: c.soft, paddingHorizontal: 20, paddingBottom: 8 }]}>{live} live · {meals.length} total dishes</Text>
         {meals.map((m) => {
           const p = statusPill(c, m.status);

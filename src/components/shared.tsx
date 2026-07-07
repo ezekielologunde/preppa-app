@@ -96,7 +96,7 @@ export function HeroTopBar({ topInset, right, onBack }: { topInset: number; righ
 }
 export function HeroBtn({ icon, onPress, color }: { icon: string; onPress?: () => void; color?: string }) {
   return (
-    <Press scale={0.9} onPress={onPress}>
+    <Press scale={0.9} onPress={onPress} hitSlop={6}>
       <View style={{ width: 42, height: 42, borderRadius: 21, backgroundColor: 'rgba(255,255,255,.92)', alignItems: 'center', justifyContent: 'center' }}>
         <Icon name={icon} size={18} color={color ?? '#0E0E10'} />
       </View>

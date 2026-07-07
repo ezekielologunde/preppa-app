@@ -1,56 +1,112 @@
 import React, { useState } from 'react';
-import { View, Text, ScrollView } from 'react-native';
+import { View, Text, ScrollView, TextInput } from 'react-native';
+import { useLocalSearchParams, useRouter } from 'expo-router';
 import { useC } from '../src/theme/ThemeContext';
 import { type, radius } from '../src/theme/theme';
 import { useStore } from '../src/store/store';
 import { Icon, Press, Btn } from '../src/ui';
-import { Screen, TopBar, MiniTag } from '../src/ui/layout';
-
-interface Addr { id: string; label: string; title: string; sub: string; }
-
-const ADDRESSES: Addr[] = [
-  { id: 'home', label: 'Home', title: '88 Highland Ave NE, Apt 4', sub: 'Atlanta, GA 30312' },
-  { id: 'work', label: 'Work', title: '1100 Peachtree St NE', sub: 'Atlanta, GA 30309' },
-];
+import { Screen, TopBar, MiniTag, Empty } from '../src/ui/layout';
 
 export default function Addresses() {
   const c = useC();
-  const { toast } = useStore();
-  const [selected, setSelected] = useState('home');
+  const router = useRouter();
+  const { select } = useLocalSearchParams<{ select?: string }>();
+  const selecting = select === '1';
+  const { addresses, addressId, selectAddress, removeAddress, addAddress, toast } = useStore();
+
+  const [adding, setAdding] = useState(false);
+  const [label, setLabel] = useState('');
+  const [line1, setLine1] = useState('');
+  const [line2, setLine2] = useState('');
+
+  const pick = (id: string) => {
+    selectAddress(id);
+    if (selecting) {
+      toast('Delivery address updated', 'pin', true);
+      router.back();
+    }
+  };
+
+  const save = () => {
+    if (!label.trim() || !line1.trim()) {
+      toast('Add a label and street address', 'info');
+      return;
+    }
+    addAddress({ label: label.trim(), line1: line1.trim(), line2: line2.trim() });
+    setLabel(''); setLine1(''); setLine2(''); setAdding(false);
+    toast('Address added', 'pin', true);
+  };
 
   return (
     <Screen>
-      <TopBar title="Addresses" />
+      <TopBar title="Addresses" sub={selecting ? 'Pick one' : undefined} />
       <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={{ padding: 16, paddingBottom: 40, gap: 12 }}>
-        {ADDRESSES.map((a) => {
-          const on = a.id === selected;
+        {addresses.length === 0 && !adding ? (
+          <Empty icon="pin" title="No addresses yet" body="Add a delivery address to check out." />
+        ) : null}
+
+        {addresses.map((a) => {
+          const on = a.id === addressId;
           return (
-            <Press key={a.id} scale={0.99} onPress={() => { setSelected(a.id); toast('Delivery address updated', 'pin', true); }}>
+            <Press key={a.id} scale={0.99} onPress={() => pick(a.id)} label={`Use ${a.label} address`}>
               <View style={{ flexDirection: 'row', alignItems: 'center', gap: 12, padding: 14, borderWidth: 1.5, borderColor: on ? c.primary : c.border, backgroundColor: on ? c.primaryL : c.surface, borderRadius: radius.card }}>
                 <View style={{ width: 40, height: 40, borderRadius: 12, backgroundColor: on ? c.surface : c.bg2, alignItems: 'center', justifyContent: 'center' }}>
                   <Icon name="pin" size={20} color={on ? c.primary : c.ink} />
                 </View>
-                <View style={{ flex: 1 }}>
+                <View style={{ flex: 1, minWidth: 0 }}>
                   <View style={{ flexDirection: 'row', alignItems: 'center', gap: 7 }}>
                     <Text style={[type(14.5, 800), { color: c.ink }]}>{a.label}</Text>
-                    <MiniTag label={a.label} tone={on ? 'green' : 'purple'} />
+                    {on ? <MiniTag label="Selected" tone="green" /> : null}
                   </View>
-                  <Text style={[type(13, 500), { color: c.soft, marginTop: 3 }]}>{a.title}</Text>
-                  <Text style={[type(12.5, 500), { color: c.muted, marginTop: 1 }]}>{a.sub}</Text>
+                  <Text numberOfLines={1} style={[type(13, 500), { color: c.soft, marginTop: 3 }]}>{a.line1}</Text>
+                  {a.line2 ? <Text numberOfLines={1} style={[type(12.5, 500), { color: c.muted, marginTop: 1 }]}>{a.line2}</Text> : null}
                 </View>
-                <Press scale={0.9} onPress={() => toast('Edit address — demo')} hitSlop={8}>
-                  <View style={{ width: 34, height: 34, alignItems: 'center', justifyContent: 'center' }}>
-                    <Icon name="chevRight" size={18} color={c.muted} />
+                <View style={{ flexDirection: 'row', alignItems: 'center', gap: 4 }}>
+                  <View style={{ width: 22, height: 22, borderRadius: 11, borderWidth: 2, borderColor: on ? c.primary : c.border, alignItems: 'center', justifyContent: 'center' }}>
+                    {on ? <View style={{ width: 11, height: 11, borderRadius: 6, backgroundColor: c.primary }} /> : null}
                   </View>
-                </Press>
+                  <Press scale={0.9} onPress={() => { removeAddress(a.id); toast('Address removed', 'x'); }} label={`Remove ${a.label} address`} hitSlop={8}>
+                    <View style={{ width: 34, height: 34, alignItems: 'center', justifyContent: 'center' }}>
+                      <Icon name="x" size={16} color={c.muted} />
+                    </View>
+                  </Press>
+                </View>
               </View>
             </Press>
           );
         })}
 
         <View style={{ height: 4 }} />
-        <Btn label="Add a new address" icon="plus" variant="ghost" block onPress={() => toast('Add address — demo')} />
+        {adding ? (
+          <View style={{ padding: 16, borderRadius: radius.card, borderWidth: 1, borderColor: c.border2, backgroundColor: c.surface, gap: 10 }}>
+            <Text style={[type(14, 900), { color: c.ink }]}>New address</Text>
+            <Field c={c} value={label} onChange={setLabel} placeholder="Label (e.g. Home, Work)" />
+            <Field c={c} value={line1} onChange={setLine1} placeholder="Street address, apt/unit" />
+            <Field c={c} value={line2} onChange={setLine2} placeholder="City, state ZIP" />
+            <View style={{ flexDirection: 'row', gap: 10, marginTop: 2 }}>
+              <Btn label="Cancel" variant="ghost" flex={1} onPress={() => { setAdding(false); setLabel(''); setLine1(''); setLine2(''); }} />
+              <Btn label="Save address" icon="check" flex={1} onPress={save} />
+            </View>
+          </View>
+        ) : (
+          <Btn label="Add a new address" icon="plus" variant="ghost" block onPress={() => setAdding(true)} />
+        )}
       </ScrollView>
     </Screen>
+  );
+}
+
+function Field({ c, value, onChange, placeholder }: { c: any; value: string; onChange: (t: string) => void; placeholder: string }) {
+  const [f, setF] = useState(false);
+  return (
+    <TextInput
+      value={value}
+      onChangeText={onChange}
+      placeholder={placeholder}
+      placeholderTextColor={c.muted}
+      onFocus={() => setF(true)}
+      onBlur={() => setF(false)}
+      style={[type(15, 600), { color: c.ink, backgroundColor: f ? c.surface : c.bg2, borderWidth: 1.5, borderColor: f ? c.primary : 'transparent', borderRadius: 13, height: 50, paddingHorizontal: 15 }]}
+    />
   );
 }

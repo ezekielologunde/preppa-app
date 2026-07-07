@@ -33,7 +33,7 @@ export default function CookStoreScreen() {
   };
 
   return (
-    <Screen>
+    <Screen max={960}>
       <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={{ paddingBottom: 40 }}>
         {/* hero */}
         <GradBox grad={cd.grad} style={{ height: 172 }}>

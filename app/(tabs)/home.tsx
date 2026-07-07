@@ -35,7 +35,7 @@ export default function HomeScreen() {
       <ScrollView
         stickyHeaderIndices={[1]}
         showsVerticalScrollIndicator={false}
-        contentContainerStyle={{ paddingBottom: 40 }}
+        contentContainerStyle={{ paddingBottom: 40, maxWidth: 1040, alignSelf: 'center', width: '100%' }}
         style={{ backgroundColor: c.bg }}
       >
         {/* [0] header wash */}

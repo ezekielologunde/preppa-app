@@ -27,7 +27,7 @@ export default function Explore() {
   });
 
   return (
-    <Screen>
+    <Screen max={960}>
       <View style={{ backgroundColor: c.surface, paddingTop: insets.top + 8, paddingBottom: 12, paddingHorizontal: 16, borderBottomWidth: 1, borderBottomColor: c.border2 }}>
         <View style={{ flexDirection: 'row', alignItems: 'center', gap: 12 }}>
           <Press scale={0.9} onPress={() => router.back()}>

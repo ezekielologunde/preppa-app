@@ -78,7 +78,7 @@ export default function CateringScreen() {
         onBack={() => router.back()}
         below={<KSeg options={[{ key: 'open', label: 'Open' }, { key: 'incoming', label: `Requests · ${CATER_INCOMING.length}` }, { key: 'bids', label: 'My quotes' }]} value={seg} onChange={setSeg} />}
       />
-      <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={{ paddingTop: 16, paddingBottom: 40 }}>
+      <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={{ paddingTop: 16, paddingBottom: 40, maxWidth: 1040, alignSelf: 'center', width: '100%' }}>
         {seg === 'open' ? (
           <>
             <Text style={[type(13, 600), { color: c.soft, paddingHorizontal: 20, paddingBottom: 8 }]}>Open requests near you — send one fixed quote. The customer picks.</Text>

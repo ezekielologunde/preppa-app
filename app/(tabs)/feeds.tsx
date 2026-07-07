@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { View, Text, ScrollView } from 'react-native';
+import { View, Text, FlatList } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
 import { LinearGradient } from 'expo-linear-gradient';
@@ -13,15 +13,24 @@ export default function Feeds() {
   return (
     <View style={{ flex: 1, backgroundColor: '#000' }} onLayout={(e) => setH(e.nativeEvent.layout.height)}>
       {h > 0 ? (
-        <ScrollView pagingEnabled showsVerticalScrollIndicator={false} snapToInterval={h} decelerationRate="fast">
-          {FEED.map((f) => <Reel key={f.id} f={f} height={h} />)}
-        </ScrollView>
+        <FlatList
+          data={FEED}
+          keyExtractor={(f) => f.id}
+          renderItem={({ item }) => <Reel f={item} height={h} />}
+          pagingEnabled
+          decelerationRate="fast"
+          showsVerticalScrollIndicator={false}
+          getItemLayout={(_, i) => ({ length: h, offset: h * i, index: i })}
+          initialNumToRender={1}
+          windowSize={3}
+          maxToRenderPerBatch={2}
+        />
       ) : null}
     </View>
   );
 }
 
-function Reel({ f, height }: { f: (typeof FEED)[number]; height: number }) {
+const Reel = React.memo(function Reel({ f, height }: { f: (typeof FEED)[number]; height: number }) {
   const insets = useSafeAreaInsets();
   const router = useRouter();
   const { toast } = useStore();
@@ -96,7 +105,7 @@ function Reel({ f, height }: { f: (typeof FEED)[number]; height: number }) {
       </View>
     </View>
   );
-}
+});
 
 function RailBtn({ icon, label, active, onPress }: { icon: string; label: string; active?: boolean; onPress: () => void }) {
   return (

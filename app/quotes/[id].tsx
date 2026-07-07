@@ -8,6 +8,7 @@ import { useStore } from '../../src/store/store';
 import { Icon, Press, Avatar, Btn } from '../../src/ui';
 import { Screen, TopBar, Dock, DockTotal, Block } from '../../src/ui/layout';
 import { CookRow, Burst } from '../../src/components/shared';
+import { SectionHeader } from '../../src/components/cards';
 import { ReqStatusChip } from '../(tabs)/experiences';
 
 const FEE = 4.99;
@@ -107,7 +108,7 @@ export default function RequestQuotesScreen() {
 
         {booked ? (
           <>
-            <SectionH title="Your booking" />
+            <SectionHeader title="Your booking" />
             <View style={{ marginHorizontal: 16, padding: 16, backgroundColor: c.surface, borderWidth: 1.5, borderColor: c.green, borderRadius: radius.xl }}>
               <View style={{ flexDirection: 'row', alignItems: 'center', gap: 11 }}>
                 <Press scale={0.9} onPress={() => router.push(`/store/${booked.cook}`)}><Avatar cook={booked.cook} size={44} /></Press>
@@ -138,7 +139,7 @@ export default function RequestQuotesScreen() {
           </View>
         ) : (
           <>
-            <SectionH title="Quotes" right="Fixed prices · you pick" />
+            <SectionHeader title="Quotes" right={<Text style={[type(12.5, 700), { color: c.muted }]}>Fixed prices · you pick</Text>} />
             {sorted.map((q) => {
               const cook = COOKS[q.cook];
               return (
@@ -212,16 +213,6 @@ function PayRow() {
       <View style={{ width: 22, height: 22, borderRadius: 11, borderWidth: 2, borderColor: c.primary, alignItems: 'center', justifyContent: 'center' }}>
         <View style={{ width: 11, height: 11, borderRadius: 6, backgroundColor: c.primary }} />
       </View>
-    </View>
-  );
-}
-
-function SectionH({ title, right }: { title: string; right?: string }) {
-  const c = useC();
-  return (
-    <View style={{ flexDirection: 'row', alignItems: 'flex-end', justifyContent: 'space-between', paddingHorizontal: 20, paddingTop: 24, paddingBottom: 12 }}>
-      <Text style={[type(18, 900), { color: c.ink, letterSpacing: -0.5 }]}>{title}</Text>
-      {right ? <Text style={[type(12.5, 700), { color: c.muted }]}>{right}</Text> : null}
     </View>
   );
 }

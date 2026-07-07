@@ -38,6 +38,27 @@ const SEED_ORDERS: CustomerOrder[] = [
   { id: 'PR-2041', cook: 'amara', lines: [{ key: 'jollof', name: 'Smoky Jollof & Chicken', cook: 'amara', price: 12, grad: 'g1', qty: 2 }], subtotal: 24, service: 0, tax: 2.14, delivery: 0, tip: 2, total: 28.14, mode: 'pickup', flow: 'cod', status: 'completed', when: 'Mon' },
 ];
 
+export interface Address {
+  id: string;
+  label: string;
+  line1: string;
+  line2: string;
+}
+const SEED_ADDRESSES: Address[] = [
+  { id: 'home', label: 'Home', line1: '88 Highland Ave NE, Apt 4', line2: 'Atlanta, GA 30312' },
+  { id: 'work', label: 'Work', line1: '1100 Peachtree St NE', line2: 'Atlanta, GA 30309' },
+];
+
+export interface Card {
+  id: string;
+  brand: string;
+  last4: string;
+  exp: string;
+}
+const SEED_CARDS: Card[] = [
+  { id: 'visa4242', brand: 'Visa', last4: '4242', exp: '08/27' },
+];
+
 export interface Toast {
   id: number;
   msg: string;
@@ -66,6 +87,20 @@ interface Store {
   setTip: (n: number) => void;
   mode: 'delivery' | 'pickup';
   setMode: (m: 'delivery' | 'pickup') => void;
+
+  addresses: Address[];
+  address: Address | null; // currently selected
+  addressId: string;
+  addAddress: (a: Omit<Address, 'id'>) => void;
+  selectAddress: (id: string) => void;
+  removeAddress: (id: string) => void;
+
+  cards: Card[];
+  card: Card | null; // currently selected
+  cardId: string;
+  addCard: (c: Omit<Card, 'id'>) => void;
+  selectCard: (id: string) => void;
+  removeCard: (id: string) => void;
 
   fav: Set<string>;
   toggleFav: (id: string) => void;
@@ -109,6 +144,10 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
   const [tip, setTip] = useState(2);
   const [mode, setMode] = useState<'delivery' | 'pickup'>('delivery');
   const [fav, setFav] = useState<Set<string>>(new Set());
+  const [addresses, setAddresses] = useState<Address[]>(SEED_ADDRESSES);
+  const [addressId, setAddressId] = useState('home');
+  const [cards, setCards] = useState<Card[]>(SEED_CARDS);
+  const [cardId, setCardId] = useState('visa4242');
   const [lastOrder, setLastOrder] = useState<OrderFlow | null>(null);
   const [orders, setOrders] = useState<CustomerOrder[]>(SEED_ORDERS);
   const [subscription, setSubscription] = useState<Subscription | null>(null);
@@ -131,6 +170,10 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
           if (typeof s.tip === 'number') setTip(s.tip);
           if (s.mode) setMode(s.mode);
           if (Array.isArray(s.fav)) setFav(new Set(s.fav));
+          if (Array.isArray(s.addresses)) setAddresses(s.addresses);
+          if (typeof s.addressId === 'string') setAddressId(s.addressId);
+          if (Array.isArray(s.cards)) setCards(s.cards);
+          if (typeof s.cardId === 'string') setCardId(s.cardId);
           if (s.lastOrder) setLastOrder(s.lastOrder);
           if (Array.isArray(s.orders)) setOrders(s.orders);
           if (s.subscription) setSubscription(s.subscription);
@@ -148,9 +191,9 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
     if (!hydrated.current) return;
     AsyncStorage.setItem(
       LS,
-      JSON.stringify({ onboarded, darkMode, cart, tip, mode, fav: [...fav], lastOrder, orders, subscription, requests, avail }),
+      JSON.stringify({ onboarded, darkMode, cart, tip, mode, fav: [...fav], addresses, addressId, cards, cardId, lastOrder, orders, subscription, requests, avail }),
     ).catch(() => {});
-  }, [onboarded, darkMode, cart, tip, mode, fav, lastOrder, orders, subscription, requests, avail]);
+  }, [onboarded, darkMode, cart, tip, mode, fav, addresses, addressId, cards, cardId, lastOrder, orders, subscription, requests, avail]);
 
   const toast = useCallback((msg: string, icon = 'check', green = false) => {
     const id = toastSeq++;
@@ -182,6 +225,38 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
       return n;
     });
   }, []);
+
+  // --- addresses ---
+  const addAddress = useCallback((a: Omit<Address, 'id'>) => {
+    const id = 'addr-' + (Date.now().toString(36) + Math.floor(Math.random() * 1296).toString(36)).slice(-5);
+    setAddresses((xs) => [...xs, { ...a, id }]);
+    setAddressId(id); // newly added becomes the selected one
+  }, []);
+  const selectAddress = useCallback((id: string) => setAddressId(id), []);
+  const removeAddress = useCallback((id: string) => {
+    setAddresses((xs) => {
+      const n = xs.filter((a) => a.id !== id);
+      setAddressId((cur) => (cur === id ? n[0]?.id ?? '' : cur));
+      return n;
+    });
+  }, []);
+  const address = addresses.find((a) => a.id === addressId) ?? addresses[0] ?? null;
+
+  // --- payment cards ---
+  const addCard = useCallback((cd: Omit<Card, 'id'>) => {
+    const id = 'card-' + (Date.now().toString(36) + Math.floor(Math.random() * 1296).toString(36)).slice(-5);
+    setCards((xs) => [...xs, { ...cd, id }]);
+    setCardId(id);
+  }, []);
+  const selectCard = useCallback((id: string) => setCardId(id), []);
+  const removeCard = useCallback((id: string) => {
+    setCards((xs) => {
+      const n = xs.filter((c) => c.id !== id);
+      setCardId((cur) => (cur === id ? n[0]?.id ?? '' : cur));
+      return n;
+    });
+  }, []);
+  const card = cards.find((c) => c.id === cardId) ?? cards[0] ?? null;
 
   const placeOrder = useCallback((flow: OrderFlow) => {
     if (cart.length > 0) {
@@ -222,6 +297,10 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
     AsyncStorage.removeItem(LS).catch(() => {});
     setCart([]);
     setFav(new Set());
+    setAddresses(SEED_ADDRESSES);
+    setAddressId('home');
+    setCards(SEED_CARDS);
+    setCardId('visa4242');
     setSubscription(null);
     setOrders(SEED_ORDERS);
     setRequests(SEED_REQUESTS);
@@ -280,6 +359,18 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
     setTip,
     mode,
     setMode,
+    addresses,
+    address,
+    addressId,
+    addAddress,
+    selectAddress,
+    removeAddress,
+    cards,
+    card,
+    cardId,
+    addCard,
+    selectCard,
+    removeCard,
     fav,
     toggleFav,
     lastOrder,

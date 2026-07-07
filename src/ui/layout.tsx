@@ -1,5 +1,5 @@
 import React from 'react';
-import { View, Text, StyleProp, ViewStyle } from 'react-native';
+import { View, Text, StyleProp, ViewStyle, useWindowDimensions } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
 import { useC } from '../theme/ThemeContext';
@@ -8,10 +8,25 @@ import { useStore } from '../store/store';
 import { Icon } from './Icon';
 import { Press } from './primitives';
 
-/** Full-bleed screen background. */
-export function Screen({ children, bg, style }: { children: React.ReactNode; bg?: string; style?: StyleProp<ViewStyle> }) {
+/**
+ * Screen background. On wide viewports (>=700) the content is bounded to `max`
+ * (default 600) and centered, so single-column detail screens read as a card
+ * instead of stretching edge-to-edge. Because RN/Yoga makes every View the
+ * containing block for its absolute children, bounding here also bounds the
+ * absolute Dock, the TopBar, and full-bleed heroes — all in one place. Below
+ * 700 it renders exactly as a plain full-bleed background (phone unchanged).
+ */
+export function Screen({ children, bg, style, max = 600 }: { children: React.ReactNode; bg?: string; style?: StyleProp<ViewStyle>; max?: number }) {
   const c = useC();
-  return <View style={[{ flex: 1, backgroundColor: bg ?? c.bg }, style]}>{children}</View>;
+  const { width } = useWindowDimensions();
+  if (width < 700) {
+    return <View style={[{ flex: 1, backgroundColor: bg ?? c.bg }, style]}>{children}</View>;
+  }
+  return (
+    <View style={{ flex: 1, backgroundColor: c.bg, alignItems: 'center' }}>
+      <View style={[{ flex: 1, width: '100%', maxWidth: max, backgroundColor: bg ?? c.bg }, style]}>{children}</View>
+    </View>
+  );
 }
 
 /** .thdr — pushed-screen title header with a back chevron. */
@@ -22,7 +37,7 @@ export function TopBar({ title, sub, right, onBack }: { title: string; sub?: str
   const back = onBack ?? (() => router.back());
   return (
     <View style={{ backgroundColor: c.surface, paddingTop: insets.top + 12, paddingBottom: 12, paddingHorizontal: 14, flexDirection: 'row', alignItems: 'center', gap: 12, borderBottomWidth: 1, borderBottomColor: c.border2 }}>
-      <Press scale={0.9} onPress={back} label="Go back">
+      <Press scale={0.9} onPress={back} label="Go back" hitSlop={6}>
         <View style={[{ width: 42, height: 42, borderRadius: 21, backgroundColor: c.surface, alignItems: 'center', justifyContent: 'center' }, shadow.soft]}>
           <Icon name="chevLeft" size={20} color={c.ink} />
         </View>

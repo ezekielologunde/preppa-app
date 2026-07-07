@@ -6,7 +6,7 @@ import { LinearGradient } from 'expo-linear-gradient';
 import { useC } from '../../src/theme/ThemeContext';
 import { type, radius, shadow, WARM_GRAD } from '../../src/theme/theme';
 import { useStore } from '../../src/store/store';
-import { Icon, Press } from '../../src/ui';
+import { Icon, Press, Switch } from '../../src/ui';
 
 type Tone = '' | 'amber' | 'purple' | 'blue' | 'pink' | 'green';
 
@@ -41,7 +41,7 @@ export default function Profile() {
 
   return (
     <View style={{ flex: 1, backgroundColor: c.bg }}>
-      <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={{ paddingBottom: 40 }}>
+      <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={{ paddingBottom: 40, maxWidth: 1040, alignSelf: 'center', width: '100%' }}>
         {/* hero */}
         <View style={{ backgroundColor: c.surface, paddingTop: insets.top + 8, paddingBottom: 20, paddingHorizontal: 16, alignItems: 'center', borderBottomWidth: 1, borderBottomColor: c.border2 }}>
           <View style={{ flexDirection: 'row', justifyContent: 'flex-end', width: '100%' }}>
@@ -146,15 +146,6 @@ function IconWell({ ico, tone }: { ico: string; tone: Tone }) {
   return (
     <View style={{ width: 36, height: 36, borderRadius: 11, backgroundColor: bg, alignItems: 'center', justifyContent: 'center' }}>
       <Icon name={ico} size={19} color={fg} />
-    </View>
-  );
-}
-
-export function Switch({ on }: { on: boolean }) {
-  const c = useC();
-  return (
-    <View style={{ width: 46, height: 28, borderRadius: radius.pill, backgroundColor: on ? c.green : c.bg2, justifyContent: 'center', padding: 3 }}>
-      <View style={{ width: 22, height: 22, borderRadius: 11, backgroundColor: '#fff', transform: [{ translateX: on ? 18 : 0 }], ...shadow.soft }} />
     </View>
   );
 }

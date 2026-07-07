@@ -34,7 +34,7 @@ export default function PayoutFlow() {
     <Screen bg={c.surface}>
       <TopBar title="Request payout" onBack={() => router.back()} />
       <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={{ paddingHorizontal: 20, paddingBottom: 130 }}>
-        <View style={{ marginTop: 18, padding: 18, borderRadius: 22, backgroundColor: c.ink, overflow: 'hidden' }}>
+        <View style={{ marginTop: 18, padding: 18, borderRadius: 22, backgroundColor: c.feature, overflow: 'hidden' }}>
           <View style={{ position: 'absolute', right: -50, top: -50, width: 170, height: 170, borderRadius: 85, backgroundColor: 'rgba(242,107,29,.28)' }} />
           <Text style={[type(12, 800), { color: 'rgba(255,255,255,.6)', letterSpacing: 0.5, textTransform: 'uppercase' }]}>Available to pay out</Text>
           <Text style={[type(34, 900), { color: '#fff', letterSpacing: -1.2, marginTop: 5 }]}>{money(BALANCE.available)}</Text>

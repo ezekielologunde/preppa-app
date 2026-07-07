@@ -1,5 +1,5 @@
 import React, { useRef } from 'react';
-import { Animated, Pressable, View, Text, ActivityIndicator, StyleProp, ViewStyle, TextStyle, PressableProps } from 'react-native';
+import { Animated, Pressable, StyleSheet, View, Text, ActivityIndicator, StyleProp, ViewStyle, TextStyle, PressableProps } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { GRAD, GradKey, radius, type, shadow, tnum } from '../theme/theme';
 import { useC } from '../theme/ThemeContext';
@@ -39,8 +39,21 @@ export function Press({
     if (reduced) { a.setValue(1); return; } // no scale motion when Reduce Motion is on
     Animated.spring(a, { toValue: v, useNativeDriver: true, speed: 40, bounciness: 6 }).start();
   };
+  // Sizing/placement props must live on the Pressable itself so `flex`/`alignSelf`
+  // actually stretch the touchable (e.g. equal-width segmented controls, tip chips).
+  // The visual box + scale transform stay on the inner view so the press feedback
+  // animates the button, not its layout slot.
+  const flat = StyleSheet.flatten(style) || {};
+  const { flex, flexGrow, flexShrink, flexBasis, alignSelf, ...box } = flat as any;
+  const outer: ViewStyle = {};
+  if (flex !== undefined) outer.flex = flex;
+  if (flexGrow !== undefined) outer.flexGrow = flexGrow;
+  if (flexShrink !== undefined) outer.flexShrink = flexShrink;
+  if (flexBasis !== undefined) outer.flexBasis = flexBasis;
+  if (alignSelf !== undefined) outer.alignSelf = alignSelf;
   return (
     <Pressable
+      style={outer}
       onPress={onPress}
       disabled={disabled}
       hitSlop={hitSlop}
@@ -50,7 +63,7 @@ export function Press({
       onPressIn={() => to(scale)}
       onPressOut={() => to(1)}
     >
-      <Animated.View style={[{ transform: [{ scale: a }] }, style]}>{children}</Animated.View>
+      <Animated.View style={[{ transform: [{ scale: a }] }, box]}>{children}</Animated.View>
     </Pressable>
   );
 }
@@ -117,6 +130,16 @@ export function Stepper({ value, onDec, onInc, sm }: { value: number; onDec: () 
   );
 }
 
+/** iOS-style on/off toggle (visual only — the caller owns the state). */
+export function Switch({ on }: { on: boolean }) {
+  const c = useC();
+  return (
+    <View style={{ width: 46, height: 28, borderRadius: radius.pill, backgroundColor: on ? c.green : c.bg2, justifyContent: 'center', padding: 3 }}>
+      <View style={{ width: 22, height: 22, borderRadius: 11, backgroundColor: '#fff', transform: [{ translateX: on ? 18 : 0 }], ...shadow.soft }} />
+    </View>
+  );
+}
+
 export function Stars({ n = 5, size = 15 }: { n?: number; size?: number }) {
   const c = useC();
   return (
@@ -160,7 +183,7 @@ export function Btn({
   const c = useC();
   const h = height ?? (lg ? 56 : 52);
   const bg = variant === 'pri' ? c.primary : variant === 'dark' ? c.ink : c.surface;
-  const fg = variant === 'ghost' ? c.ink : '#fff';
+  const fg = variant === 'ghost' ? c.ink : variant === 'dark' ? c.surface : '#fff';
   const blocked = disabled || loading;
   const base: ViewStyle = {
     height: h,

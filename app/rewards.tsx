@@ -32,7 +32,7 @@ export default function Rewards() {
       <TopBar title="Rewards & referrals" />
       <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={{ paddingBottom: 40 }}>
         {/* rewards hero */}
-        <View style={{ backgroundColor: c.ink, margin: 16, borderRadius: radius.xl, padding: 18, overflow: 'hidden', ...shadow.hero }}>
+        <View style={{ backgroundColor: c.feature, margin: 16, borderRadius: radius.xl, padding: 18, overflow: 'hidden', ...shadow.hero }}>
           <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-start' }}>
             <View>
               <Text style={[type(11, 800), { color: 'rgba(255,255,255,.6)', textTransform: 'uppercase', letterSpacing: 0.4 }]}>Preppa Rewards</Text>

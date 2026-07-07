@@ -28,29 +28,33 @@ export function SectionHeader({ title, action, onAction, right }: { title: strin
   );
 }
 
-function useColumns(width: number) {
+/** Responsive column count from a measured width (2 phone / 3 tablet / 4 desktop). */
+export function useColumns(width: number) {
   if (width >= 1000) return 4;
   if (width >= 700) return 3;
   return 2;
 }
 
-/** Responsive meal grid (2 col phone, 3 tablet, 4 desktop). */
+/** Responsive meal grid (2 col phone, 3 tablet, 4 desktop). Measures a
+ *  padding-free inner row so cards fill exactly and never over-wrap. */
 export function MealGrid({ meals, showMatch, px = 20 }: { meals: Meal[]; showMatch?: boolean; px?: number }) {
   const [w, setW] = useState(0);
   const cols = useColumns(w);
   const gap = 14;
   const cardW = w > 0 ? (w - gap * (cols - 1)) / cols : 0;
   return (
-    <View
-      onLayout={(e: LayoutChangeEvent) => setW(e.nativeEvent.layout.width)}
-      style={{ flexDirection: 'row', flexWrap: 'wrap', gap, paddingHorizontal: px }}
-    >
-      {w > 0 && meals.map((m) => <MealCardLg key={m.id} m={m} showMatch={showMatch} width={cardW} />)}
+    <View style={{ paddingHorizontal: px }}>
+      <View
+        onLayout={(e: LayoutChangeEvent) => setW(e.nativeEvent.layout.width)}
+        style={{ flexDirection: 'row', flexWrap: 'wrap', gap }}
+      >
+        {w > 0 && meals.map((m) => <MealCardLg key={m.id} m={m} showMatch={showMatch} width={cardW} />)}
+      </View>
     </View>
   );
 }
 
-export function MealCardLg({ m, showMatch, width }: { m: Meal; showMatch?: boolean; width?: number }) {
+export const MealCardLg = React.memo(function MealCardLg({ m, showMatch, width }: { m: Meal; showMatch?: boolean; width?: number }) {
   const c = useC();
   const router = useRouter();
   const { fav, toggleFav, addToCart, toast } = useStore();
@@ -101,10 +105,10 @@ export function MealCardLg({ m, showMatch, width }: { m: Meal; showMatch?: boole
       </View>
     </Press>
   );
-}
+});
 
 /** Today's drop — the calm white hero card on Home. */
-export function HeroDrop({ id }: { id: string }) {
+export const HeroDrop = React.memo(function HeroDrop({ id }: { id: string }) {
   const c = useC();
   const router = useRouter();
   const { fav, toggleFav, addToCart, toast } = useStore();
@@ -156,7 +160,7 @@ export function HeroDrop({ id }: { id: string }) {
       </View>
     </Press>
   );
-}
+});
 
 function Meta({ icon, text, starColor }: { icon: string; text: string; starColor?: boolean }) {
   const c = useC();
@@ -184,7 +188,7 @@ export function ExpRail({ exps, wrap }: { exps: Experience[]; wrap?: boolean }) 
   );
 }
 
-export function ExpCard({ e, style }: { e: Experience; style?: StyleProp<ViewStyle> }) {
+export const ExpCard = React.memo(function ExpCard({ e, style }: { e: Experience; style?: StyleProp<ViewStyle> }) {
   const c = useC();
   const router = useRouter();
   const cook = COOKS[e.cook];
@@ -218,4 +222,4 @@ export function ExpCard({ e, style }: { e: Experience; style?: StyleProp<ViewSty
       </View>
     </Press>
   );
-}
+});

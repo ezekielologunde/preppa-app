@@ -15,13 +15,13 @@ function BreakRow({ ic, tone, label, value, last }: { ic: string; tone: Tone; la
   const [bg, fg] = well(c, tone);
   return (
     <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingVertical: 13, borderBottomWidth: last ? 0 : 1, borderBottomColor: c.border2 }}>
-      <View style={{ flexDirection: 'row', alignItems: 'center', gap: 9 }}>
+      <View style={{ flexDirection: 'row', alignItems: 'center', gap: 9, flex: 1, minWidth: 0 }}>
         <View style={{ width: 30, height: 30, borderRadius: 9, backgroundColor: bg, alignItems: 'center', justifyContent: 'center' }}>
           <Icon name={ic} size={15} color={fg} />
         </View>
-        <Text style={[type(13.5, 700), { color: c.soft }]}>{label}</Text>
+        <Text numberOfLines={1} style={[type(13.5, 700), { color: c.soft, flex: 1 }]}>{label}</Text>
       </View>
-      <Text style={[type(15, 900), { color: c.ink, letterSpacing: -0.3 }]}>{value}</Text>
+      <Text numberOfLines={1} style={[type(15, 900), { color: c.ink, letterSpacing: -0.3, marginLeft: 12 }]}>{value}</Text>
     </View>
   );
 }

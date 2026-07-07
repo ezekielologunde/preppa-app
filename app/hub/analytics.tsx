@@ -10,11 +10,11 @@ import { ANALYTICS, MY_PLANS, ME } from '../../src/data/cook';
 import { StatTile, well, Tone } from '../(tabs)/my-hub';
 
 function Bars({ data }: { data: number[] }) {
-  const max = Math.max(...data);
+  const max = Math.max(1, ...data); // guard: empty/all-zero data must not yield NaN/Infinity heights
   return (
     <View style={{ flexDirection: 'row', alignItems: 'flex-end', gap: 8, height: 120, marginTop: 18 }}>
       {data.map((v, i) => {
-        const pct = Math.max(6, (v / max) * 100);
+        const pct = Math.min(100, Math.max(6, (v / max) * 100));
         const last = i === data.length - 1;
         return (
           <GradBox key={i} grad={last ? ['#F26B1D', '#C0560F'] : ['#FFB37A', '#F26B1D']} style={{ flex: 1, height: `${pct}%`, borderTopLeftRadius: 7, borderTopRightRadius: 7, borderBottomLeftRadius: 3, borderBottomRightRadius: 3 }} />
@@ -29,13 +29,13 @@ function BreakRow({ ic, tone, label, value, last }: { ic: string; tone: Tone; la
   const [bg, fg] = well(c, tone);
   return (
     <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingVertical: 13, borderBottomWidth: last ? 0 : 1, borderBottomColor: c.border2 }}>
-      <View style={{ flexDirection: 'row', alignItems: 'center', gap: 9 }}>
+      <View style={{ flexDirection: 'row', alignItems: 'center', gap: 9, flex: 1, minWidth: 0 }}>
         <View style={{ width: 30, height: 30, borderRadius: 9, backgroundColor: bg, alignItems: 'center', justifyContent: 'center' }}>
           <Icon name={ic} size={15} color={fg} />
         </View>
-        <Text style={[type(13.5, 700), { color: c.soft }]}>{label}</Text>
+        <Text numberOfLines={1} style={[type(13.5, 700), { color: c.soft, flex: 1 }]}>{label}</Text>
       </View>
-      <Text style={[type(15, 900), { color: c.ink, letterSpacing: -0.3 }]}>{value}</Text>
+      <Text numberOfLines={1} style={[type(15, 900), { color: c.ink, letterSpacing: -0.3, marginLeft: 12 }]}>{value}</Text>
     </View>
   );
 }
@@ -93,11 +93,11 @@ export default function AnalyticsScreen() {
           {A.top.map((t, i) => (
             <View key={i} style={{ paddingHorizontal: 16, paddingVertical: 13 }}>
               <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }}>
-                <Text style={[type(13.5, 800), { color: c.ink }]}>{t.name}</Text>
-                <Text style={[type(12.5, 700), { color: c.soft }]}>{t.sold} sold</Text>
+                <Text numberOfLines={1} style={[type(13.5, 800), { color: c.ink, flex: 1 }]}>{t.name}</Text>
+                <Text style={[type(12.5, 700), { color: c.soft, marginLeft: 12 }]}>{t.sold} sold</Text>
               </View>
               <View style={{ height: 8, borderRadius: 999, backgroundColor: c.bg2, marginTop: 8, overflow: 'hidden' }}>
-                <GradBox grad={['#FF8A4C', '#F26B1D']} style={{ height: '100%', width: `${t.pct}%`, borderRadius: 999 }} />
+                <GradBox grad={['#FF8A4C', '#F26B1D']} style={{ height: '100%', width: `${Math.min(100, Math.max(0, t.pct))}%`, borderRadius: 999 }} />
               </View>
             </View>
           ))}

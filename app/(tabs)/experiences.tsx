@@ -1,5 +1,5 @@
-import React from 'react';
-import { View, Text, ScrollView } from 'react-native';
+import React, { useState } from 'react';
+import { View, Text, ScrollView, LayoutChangeEvent } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
 import { SERVICES, EXPERIENCES, Service, ServiceRequest, svcById } from '../../src/data/data';
@@ -7,7 +7,7 @@ import { useC } from '../../src/theme/ThemeContext';
 import { Palette, type, radius, shadow } from '../../src/theme/theme';
 import { useStore } from '../../src/store/store';
 import { Icon, Press, GradBox } from '../../src/ui';
-import { ExpRail, SectionHeader } from '../../src/components/cards';
+import { ExpRail, SectionHeader, useColumns } from '../../src/components/cards';
 
 /** Tinted service-card palette per Service.cls (exp.css .xsvc t-* + .ico gradients). */
 function svcTint(c: Palette): Record<string, { bg: string; g: [string, string] }> {
@@ -48,12 +48,28 @@ export function ReqStatusChip({ r }: { r: ServiceRequest }) {
 
 const chip = { flexDirection: 'row' as const, alignItems: 'center' as const, gap: 5, height: 22, paddingHorizontal: 9, borderRadius: radius.pill };
 
-function SvcCard({ s }: { s: Service }) {
+/** Service tiles — 2 col on phone, 3 tablet, 4 desktop. Measures a padding-free
+ *  inner row so `cardW` fills exactly and never over-wraps. */
+function SvcGrid() {
+  const [w, setW] = useState(0);
+  const cols = useColumns(w);
+  const gap = 12;
+  const cardW = w > 0 ? (w - gap * (cols - 1)) / cols : 0;
+  return (
+    <View style={{ paddingHorizontal: 16 }}>
+      <View onLayout={(e: LayoutChangeEvent) => setW(e.nativeEvent.layout.width)} style={{ flexDirection: 'row', flexWrap: 'wrap', gap }}>
+        {w > 0 && SERVICES.map((s) => <SvcCard key={s.id} s={s} width={cardW} />)}
+      </View>
+    </View>
+  );
+}
+
+function SvcCard({ s, width }: { s: Service; width?: number }) {
   const c = useC();
   const router = useRouter();
   const tint = svcTint(c)[s.cls] ?? svcTint(c).amber;
   return (
-    <Press scale={0.97} onPress={() => router.push(`/request/${s.id}`)} style={{ width: '48.5%' }}>
+    <Press scale={0.97} onPress={() => router.push(`/request/${s.id}`)} style={{ width }}>
       <View style={{ backgroundColor: tint.bg, borderRadius: radius.xl, padding: 15, paddingTop: 16 }}>
         {s.premium ? (
           <Text style={[type(9.5, 900), { position: 'absolute', top: 12, right: 12, color: '#fff', backgroundColor: c.primary, textTransform: 'uppercase', letterSpacing: 0.5, paddingHorizontal: 8, paddingVertical: 3, borderRadius: radius.pill, overflow: 'hidden' }]}>Premium</Text>
@@ -111,7 +127,7 @@ export default function ExperiencesScreen() {
         <Text style={[type(14, 500), { color: c.soft, marginTop: 10, lineHeight: 20 }]}>Your local cooks, beyond dinner. Post a request, compare fixed quotes, pick your Preppa.</Text>
       </View>
 
-      <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={{ paddingBottom: 40 }}>
+      <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={{ paddingBottom: 40, maxWidth: 1040, alignSelf: 'center', width: '100%' }}>
         {requests.length > 0 ? (
           <>
             <SectionHeader title="Your requests" />
@@ -120,9 +136,7 @@ export default function ExperiencesScreen() {
         ) : null}
 
         <SectionHeader title="Book a service" />
-        <View style={{ flexDirection: 'row', flexWrap: 'wrap', justifyContent: 'space-between', rowGap: 12, paddingHorizontal: 16 }}>
-          {SERVICES.map((s) => <SvcCard key={s.id} s={s} />)}
-        </View>
+        <SvcGrid />
 
         <SectionHeader title="Classes & supper clubs" />
         <ExpRail exps={EXPERIENCES} />

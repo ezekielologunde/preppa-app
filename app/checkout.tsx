@@ -12,7 +12,7 @@ import { useTotals, Summary } from '../src/components/shared';
 export default function Checkout() {
   const c = useC();
   const router = useRouter();
-  const { cart, tip, mode, placeOrder, toast } = useStore();
+  const { cart, tip, mode, placeOrder, address, card, toast } = useStore();
   const t = useTotals(cart, tip, mode);
   const [pay, setPay] = useState<'online' | 'cod'>('online');
   const [busy, setBusy] = useState(false);
@@ -34,16 +34,28 @@ export default function Checkout() {
             <View style={{ flex: 1 }}>
               {mode === 'pickup' ? (
                 <><Text style={[type(14.5, 800), { color: c.ink }]}>Maria’s Kitchen</Text><Text style={[type(13, 500), { color: c.soft, marginTop: 2 }]}>Pick up · 412 Elm St · ready ~25 min</Text></>
+              ) : address ? (
+                <><Text numberOfLines={1} style={[type(14.5, 800), { color: c.ink }]}>{address.label} · {address.line1}</Text>{address.line2 ? <Text numberOfLines={1} style={[type(13, 500), { color: c.soft, marginTop: 2 }]}>{address.line2}</Text> : null}</>
               ) : (
-                <><Text style={[type(14.5, 800), { color: c.ink }]}>Home · 88 Highland Ave NE</Text><Text style={[type(13, 500), { color: c.soft, marginTop: 2 }]}>Apt 4 · Leave at door · Atlanta, GA 30312</Text></>
+                <Text style={[type(14, 700), { color: c.primary }]}>Add a delivery address</Text>
               )}
             </View>
-            <Press scale={0.9} onPress={() => toast('Edit address — demo')}><View style={{ width: 34, height: 34, alignItems: 'center', justifyContent: 'center' }}><Icon name="chevRight" size={16} color={c.muted} /></View></Press>
+            {mode === 'pickup' ? null : (
+              <Press scale={0.9} onPress={() => router.push('/addresses?select=1')} label="Change delivery address"><View style={{ width: 34, height: 34, alignItems: 'center', justifyContent: 'center' }}><Icon name="chevRight" size={16} color={c.muted} /></View></Press>
+            )}
           </View>
         </Block>
 
         <Block title="Payment">
-          <PayOption on={pay === 'online'} onPress={() => setPay('online')} icon="card" title="Pay online" tag="Stripe" tagTone="green" body="Visa •••• 4242 · secure checkout" />
+          <PayOption on={pay === 'online'} onPress={() => setPay('online')} icon="card" title="Pay online" tag="Stripe" tagTone="green" body={card ? `${card.brand} •••• ${card.last4} · secure checkout` : 'Add a card to pay online'} />
+          {pay === 'online' ? (
+            <Press scale={0.98} onPress={() => router.push('/payments?select=1')} label="Change payment card">
+              <View style={{ flexDirection: 'row', alignItems: 'center', gap: 5, alignSelf: 'flex-start', marginTop: 8, marginLeft: 2 }}>
+                <Text style={[type(13, 800), { color: c.primary }]}>{card ? 'Change card' : 'Add a card'}</Text>
+                <Icon name="chevRight" size={14} color={c.primary} />
+              </View>
+            </Press>
+          ) : null}
           <View style={{ height: 10 }} />
           <PayOption on={pay === 'cod'} onPress={() => setPay('cod')} icon="cash" title="Cash on delivery" tag="QR verified" tagTone="purple" body="Confirm exact amount with a QR + 6-digit code" />
         </Block>

@@ -16,7 +16,7 @@ export default function MoneyScreen() {
   return (
     <View style={{ flex: 1, backgroundColor: c.bg }}>
       <HubHeader eyebrow="My Hub" name="Earnings" onBack={() => router.back()} />
-      <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={{ paddingTop: 4, paddingBottom: 40 }}>
+      <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={{ paddingTop: 4, paddingBottom: 40, maxWidth: 1040, alignSelf: 'center', width: '100%' }}>
         <BalanceStrip />
         <View style={{ flexDirection: 'row', gap: 12, paddingHorizontal: 20, marginTop: 14 }}>
           <StatTile ic="trendUp" tone="ic-green" value={money(BALANCE.week)} label="This week" />
