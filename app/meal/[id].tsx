@@ -76,9 +76,9 @@ export default function MealDetail() {
           <Text style={[type(14.5, 500), { color: c.soft, lineHeight: 23 }]}>{m.desc}</Text>
 
           <View style={{ flexDirection: 'row', gap: 10, marginTop: 14 }}>
+            <Fact b={`${m.protein}g`} s="protein" />
             <Fact b={String(m.kcal)} s="calories" />
             <Fact b={`Serves ${m.serves}`} s="portion" />
-            <Fact b={m.time} s="ready in" />
           </View>
 
           <SectionLabel>Make it a meal</SectionLabel>

@@ -2,7 +2,7 @@ import React, { useState } from 'react';
 import { View, Text, ScrollView, TextInput, Modal, Pressable } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
-import { MEALS, COOKS } from '../src/data/data';
+import { MEALS, COOKS, Meal } from '../src/data/data';
 import { useC } from '../src/theme/ThemeContext';
 import { type, radius, shadow } from '../src/theme/theme';
 import { useStore } from '../src/store/store';
@@ -17,9 +17,16 @@ const PRICES: { label: string; test: (p: number) => boolean }[] = [
   { label: '$10–$15', test: (p) => p >= 10 && p <= 15 },
   { label: 'Over $15', test: (p) => p > 15 },
 ];
-type SortKey = 'rating' | 'price' | 'time';
+const GOALS: { label: string; test: (m: Meal) => boolean }[] = [
+  { label: 'High protein', test: (m) => m.protein >= 35 },
+  { label: 'Lean & light', test: (m) => m.kcal <= 500 },
+  { label: 'Cutting', test: (m) => m.protein >= 35 && m.kcal <= 550 },
+  { label: 'Bulking', test: (m) => m.kcal >= 600 },
+];
+type SortKey = 'rating' | 'price' | 'time' | 'protein';
 const SORTS: { key: SortKey; label: string }[] = [
   { key: 'rating', label: 'Top rated' },
+  { key: 'protein', label: 'Most protein' },
   { key: 'price', label: 'Price: low to high' },
   { key: 'time', label: 'Fastest' },
 ];
@@ -33,20 +40,23 @@ export default function Explore() {
   const [cat, setCat] = useState('All');
   const [tags, setTags] = useState<string[]>([]);
   const [price, setPrice] = useState<string | null>(null);
+  const [goal, setGoal] = useState<string | null>(null);
   const [sort, setSort] = useState<SortKey | null>(null);
   const [filterOpen, setFilterOpen] = useState(false);
-  const activeCount = tags.length + (price ? 1 : 0) + (sort ? 1 : 0);
+  const activeCount = tags.length + (price ? 1 : 0) + (goal ? 1 : 0) + (sort ? 1 : 0);
   const toggleTag = (t: string) => setTags((p) => (p.includes(t) ? p.filter((x) => x !== t) : [...p, t]));
-  const clearFilters = () => { setTags([]); setPrice(null); setSort(null); };
+  const clearFilters = () => { setTags([]); setPrice(null); setGoal(null); setSort(null); };
 
   let list = MEALS.filter((m) => {
     const okCat = cat === 'All' || m.tags.some((t) => t.toLowerCase().includes(cat.toLowerCase()));
     const okQ = !q || m.name.toLowerCase().includes(q.toLowerCase()) || COOKS[m.cook].name.toLowerCase().includes(q.toLowerCase());
     const okTags = tags.length === 0 || m.tags.some((t) => tags.includes(t));
     const okPrice = !price || PRICES.find((b) => b.label === price)!.test(m.price);
-    return okCat && okQ && okTags && okPrice;
+    const okGoal = !goal || GOALS.find((g) => g.label === goal)!.test(m);
+    return okCat && okQ && okTags && okPrice && okGoal;
   });
   if (sort === 'rating') list = [...list].sort((a, b) => b.rating - a.rating);
+  else if (sort === 'protein') list = [...list].sort((a, b) => b.protein - a.protein);
   else if (sort === 'price') list = [...list].sort((a, b) => a.price - b.price);
   else if (sort === 'time') list = [...list].sort((a, b) => parseInt(a.time) - parseInt(b.time));
 
@@ -119,6 +129,9 @@ export default function Explore() {
             <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={{ paddingHorizontal: 20, paddingBottom: 10 }}>
               <FSec title="Sort by">
                 {SORTS.map((s) => <Chip key={s.key} label={s.label} on={sort === s.key} onPress={() => setSort(sort === s.key ? null : s.key)} />)}
+              </FSec>
+              <FSec title="Goals">
+                {GOALS.map((g) => <Chip key={g.label} label={g.label} on={goal === g.label} onPress={() => setGoal(goal === g.label ? null : g.label)} />)}
               </FSec>
               <FSec title="Price">
                 {PRICES.map((p) => <Chip key={p.label} label={p.label} on={price === p.label} onPress={() => setPrice(price === p.label ? null : p.label)} />)}

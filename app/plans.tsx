@@ -7,7 +7,7 @@ import { type, radius, shadow } from '../src/theme/theme';
 import { useStore } from '../src/store/store';
 import { Icon, Press, GradBox, Avatar, Switch } from '../src/ui';
 import { Screen, TopBar } from '../src/ui/layout';
-import { SectionHeader } from '../src/components/cards';
+import { SectionHeader, GoalBadge } from '../src/components/cards';
 
 export default function MealPlansScreen() {
   const c = useC();
@@ -97,8 +97,8 @@ export default function MealPlansScreen() {
         ) : (
           <>
             <View style={{ paddingHorizontal: 16, paddingTop: 20, paddingBottom: 4 }}>
-              <Text style={[type(24, 900), { color: c.ink, letterSpacing: -0.8 }]}>Dinner on autopilot</Text>
-              <Text style={[type(14, 600), { color: c.soft, marginTop: 6, lineHeight: 21 }]}>Subscribe to a weekly box from a cook you love — or build your own. Pause, skip or swap anytime.</Text>
+              <Text style={[type(24, 900), { color: c.ink, letterSpacing: -0.8 }]}>Eat for your goal</Text>
+              <Text style={[type(14, 600), { color: c.soft, marginTop: 6, lineHeight: 21 }]}>Subscribe to a goal-based weekly box — Cut, Bulk or Maintain — from a cook you love. Pause, skip or swap anytime.</Text>
             </View>
             <SectionHeader title="Plans from cooks near you" />
           </>
@@ -113,16 +113,19 @@ export default function MealPlansScreen() {
                 <View style={{ flexDirection: 'row', alignItems: 'center', gap: 12, padding: 14, paddingHorizontal: 16 }}>
                   <Avatar cook={p.cook} size={42} />
                   <View style={{ flex: 1 }}>
-                    <Text style={[type(15.5, 900), { color: c.ink, letterSpacing: -0.3 }]}>{p.name}</Text>
+                    <Text numberOfLines={1} style={[type(15.5, 900), { color: c.ink, letterSpacing: -0.3 }]}>{p.name}</Text>
                     <View style={{ flexDirection: 'row', alignItems: 'center', gap: 4, marginTop: 3 }}>
                       <Text style={[type(12.5, 600), { color: c.soft }]}>{cook.name} · {p.meals} meal{p.meals !== 1 ? 's' : ''}/wk · </Text>
                       <Icon name="star" size={11} color={c.star} />
                       <Text style={[type(12.5, 600), { color: c.soft }]}>{cook.rating}</Text>
                     </View>
                   </View>
-                  <View style={{ alignItems: 'flex-end' }}>
-                    <Text style={[type(18, 900), { color: c.ink, letterSpacing: -0.5 }]}>{money(p.price)}</Text>
-                    <Text style={[type(10.5, 700), { color: c.muted }]}>/{p.per}</Text>
+                  <View style={{ alignItems: 'flex-end', gap: 7 }}>
+                    <GoalBadge goal={p.goal} />
+                    <View style={{ alignItems: 'flex-end' }}>
+                      <Text style={[type(18, 900), { color: c.ink, letterSpacing: -0.5 }]}>{money(p.price)}</Text>
+                      <Text style={[type(10.5, 700), { color: c.muted }]}>/{p.per}</Text>
+                    </View>
                   </View>
                 </View>
               </View>

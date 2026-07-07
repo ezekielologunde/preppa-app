@@ -9,6 +9,7 @@ import { useStore } from '../../src/store/store';
 import { Icon, Press, GradBox, Btn } from '../../src/ui';
 import { Screen, TopBar, Dock, DockTotal, Block, SectionLabel } from '../../src/ui/layout';
 import { CookRow, HeroTopBar, Burst } from '../../src/components/shared';
+import { GoalBadge } from '../../src/components/cards';
 import { NotFound } from '../../src/components/NotFound';
 import { ImageViewer } from '../../src/components/ImageViewer';
 
@@ -90,6 +91,9 @@ export default function PlanDetailScreen() {
         </GradBox>
 
         <View style={{ backgroundColor: c.surface, borderTopLeftRadius: radius.sheet, borderTopRightRadius: radius.sheet, marginTop: -26, padding: 18, paddingTop: 22 }}>
+          <View style={{ flexDirection: 'row', marginBottom: 10 }}>
+            <GoalBadge goal={p.goal} size="md" />
+          </View>
           <Text style={[type(23, 900), { color: c.ink, letterSpacing: -0.8, lineHeight: 27 }]}>{p.name}</Text>
           <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6, marginTop: 10 }}>
             <Icon name="repeat" size={15} color={c.primary} />

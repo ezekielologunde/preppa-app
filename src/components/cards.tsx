@@ -1,7 +1,7 @@
 import React, { useRef, useState } from 'react';
 import { View, Text, ScrollView, Pressable, Animated, StyleSheet, LayoutChangeEvent, StyleProp, ViewStyle } from 'react-native';
 import { useRouter } from 'expo-router';
-import { COOKS, MEALS, mealById, Meal, Experience, money } from '../data/data';
+import { COOKS, MEALS, mealById, Meal, Experience, PlanGoal, money } from '../data/data';
 import { useC } from '../theme/ThemeContext';
 import { type, radius, shadow } from '../theme/theme';
 import { useStore } from '../store/store';
@@ -33,6 +33,19 @@ function useCardScale(scale = 0.97) {
 export function VChk({ size = 13, color }: { size?: number; color?: string }) {
   const c = useC();
   return <Icon name="shield" size={size} color={color ?? c.green} />;
+}
+
+/** Cut / Bulk / Maintain pill for goal-based meal plans. */
+export function GoalBadge({ goal, size = 'sm' }: { goal: PlanGoal; size?: 'sm' | 'md' }) {
+  const c = useC();
+  const meta = { cut: { label: 'Cut', color: c.green }, bulk: { label: 'Bulk', color: c.primary }, maintain: { label: 'Maintain', color: c.purple } }[goal];
+  const md = size === 'md';
+  return (
+    <View style={{ height: md ? 26 : 22, paddingHorizontal: md ? 12 : 10, borderRadius: radius.pill, backgroundColor: meta.color, alignItems: 'center', justifyContent: 'center', flexDirection: 'row', gap: 4 }}>
+      {md ? <Icon name="bolt" size={12} color="#fff" /> : null}
+      <Text style={[type(md ? 11 : 10, 900), { color: '#fff', textTransform: 'uppercase', letterSpacing: 0.3 }]}>{meta.label}</Text>
+    </View>
+  );
 }
 
 /** Section header row (h3 + optional "See all"). */
@@ -123,6 +136,10 @@ export const MealCardLg = React.memo(function MealCardLg({ m, showMatch, width }
                 <Text style={[type(12.5, 800), { color: c.ink }]}>{m.rating} · {m.time}</Text>
               </View>
             </View>
+            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 5, marginTop: 8 }}>
+              <Icon name="bolt" size={12} color={c.soft} />
+              <Text style={[type(11.5, 700), { color: c.soft }]}>{m.protein}g protein · {m.kcal} cal</Text>
+            </View>
           </View>
         </View>
       </Animated.View>
@@ -200,8 +217,9 @@ export const HeroDrop = React.memo(function HeroDrop({ id }: { id: string }) {
               <Text style={[type(13.5, 700), { color: c.soft }]}>{cook.kitchen}</Text>
               <VChk />
             </View>
-            <View style={{ flexDirection: 'row', gap: 16, marginTop: 12 }}>
+            <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 16, marginTop: 12 }}>
               <Meta icon="star" text={String(m.rating)} starColor />
+              <Meta icon="bolt" text={`${m.protein}g protein`} />
               <Meta icon="walk" text={m.dist} />
               <Meta icon="clock" text={m.time} />
             </View>
