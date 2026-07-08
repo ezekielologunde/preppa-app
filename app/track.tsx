@@ -6,14 +6,14 @@ import { COOKS, CookId } from '../src/data/data';
 import { useC } from '../src/theme/ThemeContext';
 import { type, radius } from '../src/theme/theme';
 import { useStore } from '../src/store/store';
-import { Icon, Press, Avatar, Btn } from '../src/ui';
+import { Icon, Avatar, Btn } from '../src/ui';
 import { Screen, TopBar } from '../src/ui/layout';
 
 export default function Track() {
   const c = useC();
   const router = useRouter();
   const { flow, cook } = useLocalSearchParams<{ flow: string; cook?: string }>();
-  const { mode, toast } = useStore();
+  const { mode } = useStore();
   const cod = flow === 'cod';
   const ck = ((cook || 'maria') as CookId);
   const theCook = COOKS[ck];
@@ -73,29 +73,13 @@ export default function Track() {
             ))}
           </View>
 
-          <Press scale={0.98} onPress={() => router.push(`/chat/${ck}`)}>
-            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 12, padding: 13, borderRadius: radius.lg, backgroundColor: c.bg, borderWidth: 1, borderColor: c.border }}>
-              <Avatar cook={ck} size={46} />
-              <View style={{ flex: 1 }}>
-                <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}><Text style={[type(15, 900), { color: c.ink }]}>{theCook.name}</Text><Icon name="shield" size={15} color={c.green} /></View>
-                <Text style={[type(12, 600), { color: c.soft, marginTop: 2 }]}>Your cook · usually replies in minutes</Text>
-              </View>
-              <View style={{ width: 34, height: 34, borderRadius: 17, backgroundColor: c.surface, borderWidth: 1, borderColor: c.border, alignItems: 'center', justifyContent: 'center' }}><Icon name="chat" size={16} color={c.soft} /></View>
+          <View style={{ flexDirection: 'row', alignItems: 'center', gap: 12, padding: 13, borderRadius: radius.lg, backgroundColor: c.bg, borderWidth: 1, borderColor: c.border }}>
+            <Avatar cook={ck} size={46} />
+            <View style={{ flex: 1 }}>
+              <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}><Text style={[type(15, 900), { color: c.ink }]}>{theCook.name}</Text><Icon name="shield" size={15} color={c.green} /></View>
+              <Text style={[type(12, 600), { color: c.soft, marginTop: 2 }]}>Your cook is preparing your order</Text>
             </View>
-          </Press>
-
-          <Press scale={0.98} onPress={() => router.push('/plans')} style={{ marginTop: 14 }}>
-            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 12, padding: 14, borderRadius: radius.lg, backgroundColor: c.primaryL, borderWidth: 1, borderColor: c.primary }}>
-              <View style={{ width: 42, height: 42, borderRadius: 13, backgroundColor: c.primary, alignItems: 'center', justifyContent: 'center' }}>
-                <Icon name="repeat" size={20} color="#fff" />
-              </View>
-              <View style={{ flex: 1 }}>
-                <Text style={[type(14.5, 900), { color: c.ink, letterSpacing: -0.2 }]}>Loved it? Get this every week</Text>
-                <Text style={[type(12.5, 600), { color: c.soft, marginTop: 2 }]}>Reserve a weekly box from {theCook.name} — launching soon</Text>
-              </View>
-              <Icon name="chevRight" size={18} color={c.primary} />
-            </View>
-          </Press>
+          </View>
 
           {!cod ? (
             <View style={{ marginTop: 14, padding: 14, borderRadius: radius.lg, backgroundColor: c.purpleL, borderWidth: 1, borderColor: c.purple }}>
@@ -111,9 +95,8 @@ export default function Track() {
             </View>
           ) : null}
 
-          <View style={{ flexDirection: 'row', gap: 10, marginTop: 14 }}>
-            {!cod ? <Btn variant="ghost" label="Get help" flex={1} onPress={() => toast('Order help — demo', 'help')} /> : null}
-            <Btn label={cod ? 'Back to home' : 'Done'} flex={1} onPress={() => router.replace('/home')} />
+          <View style={{ marginTop: 14 }}>
+            <Btn label={cod ? 'Back to home' : 'Done'} block onPress={() => router.replace('/home')} />
           </View>
         </View>
       </ScrollView>

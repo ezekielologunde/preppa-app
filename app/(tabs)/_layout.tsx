@@ -6,6 +6,7 @@ import { Icon } from '../../src/ui/Icon';
 import { useC } from '../../src/theme/ThemeContext';
 import { type } from '../../src/theme/theme';
 import { useStore } from '../../src/store/store';
+import { FLAGS } from '../../src/config/flags';
 
 const TABS: Record<string, { ico: string; lbl: string }> = {
   home: { ico: 'home', lbl: 'Home' },
@@ -37,6 +38,8 @@ function BottomNav({ state, navigation }: any) {
         const meta = TABS[route.name];
         if (!meta) return null;
         if (route.name === 'my-hub' && prepperStatus !== 'approved') return null; // My Hub is prepper-only
+        if (route.name === 'experiences' && !FLAGS.experiences) return null; // hidden for v1
+        if (route.name === 'feeds' && !FLAGS.feed) return null; // hidden for v1
         const focused = state.index === i;
         const onPress = () => {
           const event = navigation.emit({ type: 'tabPress', target: route.key, canPreventDefault: true });
@@ -59,8 +62,8 @@ export default function TabsLayout() {
   return (
     <Tabs screenOptions={{ headerShown: false }} tabBar={(props) => <BottomNav {...props} />}>
       <Tabs.Screen name="home" />
-      <Tabs.Screen name="experiences" />
-      <Tabs.Screen name="feeds" />
+      <Tabs.Screen name="experiences" options={{ href: FLAGS.experiences ? undefined : null }} />
+      <Tabs.Screen name="feeds" options={{ href: FLAGS.feed ? undefined : null }} />
       <Tabs.Screen name="my-hub" options={{ href: hubApproved ? undefined : null }} />
       <Tabs.Screen name="profile" />
     </Tabs>

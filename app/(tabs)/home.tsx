@@ -3,14 +3,15 @@ import { View, Text, ScrollView, useWindowDimensions } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useRouter } from 'expo-router';
-import { MEALS, COOKS, CookId, EXPERIENCES, dailyDropId } from '../../src/data/data';
+import { MEALS, COOKS, CookId, dailyDropId } from '../../src/data/data';
 import { useC } from '../../src/theme/ThemeContext';
 import { type, radius, shadow } from '../../src/theme/theme';
 import { useStore } from '../../src/store/store';
 import { Icon, Press } from '../../src/ui';
-import { HeroDrop, MealGrid, ExpRail, SectionHeader, CookRail } from '../../src/components/cards';
+import { HeroDrop, MealGrid, SectionHeader, CookRail } from '../../src/components/cards';
 import { ModeToggle } from '../../src/components/ModeToggle';
 import { LocationPicker } from '../../src/components/LocationPicker';
+import { FLAGS } from '../../src/config/flags';
 
 const CUISINES = ['Comfort', 'Healthy', 'Halal', 'Mexican', 'Seafood', 'Soul food'];
 
@@ -50,7 +51,7 @@ export default function HomeScreen() {
                 <Text style={[type(18, 900), { color: c.ink, letterSpacing: -0.7 }]}>preppa</Text>
               </View>
               <View style={{ flexDirection: 'row', gap: 9 }}>
-                <HdrIcon name="bell" dot={notifCount > 0} onPress={() => router.push('/notifications')} />
+                {FLAGS.notifications ? <HdrIcon name="bell" dot={notifCount > 0} onPress={() => router.push('/notifications')} /> : null}
                 <HdrIcon name="cart" dot={cartCount > 0} onPress={() => router.push('/cart')} />
               </View>
             </View>
@@ -102,7 +103,7 @@ export default function HomeScreen() {
         <SectionHeader title="Fresh near you" action="See all" onAction={() => router.push('/explore')} />
         <MealGrid meals={picks} />
 
-        <SectionHeader title="New preppers near you" action="See all" onAction={() => router.push('/experiences')} />
+        <SectionHeader title="New preppers near you" action="See all" onAction={() => router.push('/explore')} />
         <CookRail cooks={Object.keys(COOKS) as CookId[]} />
 
         {favMeals.length > 0 ? (
@@ -112,11 +113,7 @@ export default function HomeScreen() {
           </>
         ) : null}
 
-        <SectionHeader title="Prep experiences" action="See all" onAction={() => router.push('/experiences')} />
-        <ExpRail exps={EXPERIENCES.slice(0, 4)} />
-
         <View style={{ height: 8 }} />
-        <ShortcutCard icon="chefhat" grad={['#FF8A4C', c.primary]} title="Cook at My Place" body="A private chef in your kitchen — compare fixed quotes" onPress={() => router.push('/request/cookhome')} />
       </ScrollView>
       <LocationPicker visible={locPicker} onClose={() => setLocPicker(false)} />
     </View>
@@ -135,20 +132,3 @@ function HdrIcon({ name, dot, onPress }: { name: string; dot?: boolean; onPress:
   );
 }
 
-function ShortcutCard({ icon, grad, title, body, onPress }: { icon: string; grad: readonly string[]; title: string; body: string; onPress: () => void }) {
-  const c = useC();
-  return (
-    <Press scale={0.98} onPress={onPress} style={{ marginHorizontal: 20, marginTop: 10 }}>
-      <View style={{ flexDirection: 'row', alignItems: 'center', gap: 14, padding: 16, borderRadius: radius.card, backgroundColor: c.surface, borderWidth: 1, borderColor: c.border2 }}>
-        <LinearGradient colors={grad as any} start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }} style={{ width: 46, height: 46, borderRadius: 14, alignItems: 'center', justifyContent: 'center', ...shadow.brand }}>
-          <Icon name={icon} size={22} color="#fff" />
-        </LinearGradient>
-        <View style={{ flex: 1 }}>
-          <Text style={[type(15.5, 800), { color: c.ink }]}>{title}</Text>
-          <Text style={[type(12.5, 500), { color: c.soft, marginTop: 2 }]}>{body}</Text>
-        </View>
-        <Icon name="chevRight" size={18} color={c.muted} />
-      </View>
-    </Press>
-  );
-}

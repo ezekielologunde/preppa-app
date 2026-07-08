@@ -5,6 +5,7 @@ import { useC } from '../theme/ThemeContext';
 import { type, radius, shadow } from '../theme/theme';
 import { useStore } from '../store/store';
 import { Icon, Press } from '../ui';
+import { FLAGS } from '../config/flags';
 
 const ITEMS = [
   { id: 'home', ico: 'home', lbl: 'Home', path: '/home' },
@@ -21,7 +22,12 @@ export function SideRail({ width }: { width: number }) {
   const pathname = usePathname();
   const { cartCount, notifCount, prepperStatus } = useStore();
   const labeled = width >= 200;
-  const items = ITEMS.filter((it) => it.id !== 'my-hub' || prepperStatus === 'approved'); // My Hub is prepper-only
+  const items = ITEMS.filter((it) => {
+    if (it.id === 'my-hub') return prepperStatus === 'approved'; // prepper-only
+    if (it.id === 'experiences') return FLAGS.experiences;
+    if (it.id === 'feeds') return FLAGS.feed;
+    return true;
+  });
   const activeId = ITEMS.find((it) => pathname === it.path || pathname.startsWith(it.path + '/'))?.id ?? (pathname === '/' ? 'home' : undefined);
 
   const Item = ({ id, ico, lbl, onPress, badge }: { id?: string; ico: string; lbl: string; onPress: () => void; badge?: number }) => {
@@ -55,7 +61,7 @@ export function SideRail({ width }: { width: number }) {
       {items.map((it) => (
         <Item key={it.id} id={it.id} ico={it.ico} lbl={it.lbl} onPress={() => router.navigate(it.path as any)} />
       ))}
-      <Item ico="bell" lbl="Notifications" badge={notifCount} onPress={() => router.push('/notifications')} />
+      {FLAGS.notifications ? <Item ico="bell" lbl="Notifications" badge={notifCount} onPress={() => router.push('/notifications')} /> : null}
       <Item ico="cart" lbl="Cart" badge={cartCount} onPress={() => router.push('/cart')} />
 
       <View style={{ flex: 1 }} />

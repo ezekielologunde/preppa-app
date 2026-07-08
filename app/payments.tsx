@@ -114,7 +114,7 @@ export default function Payments() {
 
         <View style={{ flexDirection: 'row', alignItems: 'flex-start', gap: 8, marginTop: 6, paddingHorizontal: 4 }}>
           <Icon name="lock" size={14} color={c.muted} />
-          <Text style={[type(12, 500), { color: c.muted, flex: 1, lineHeight: 18 }]}>Card details stay on your device in this demo — Preppa never stores your full card number.</Text>
+          <Text style={[type(12, 500), { color: c.muted, flex: 1, lineHeight: 18 }]}>Payments are processed securely by Stripe — Preppa never stores your full card number.</Text>
         </View>
       </ScrollView>
     </Screen>

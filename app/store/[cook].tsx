@@ -12,6 +12,7 @@ import { HeroTopBar, HeroBtn } from '../../src/components/shared';
 import { MealGrid, ExpRail, SectionHeader, ReviewsBlock } from '../../src/components/cards';
 import { NotFound } from '../../src/components/NotFound';
 import { shareAndNotify, SITE } from '../../src/lib/share';
+import { FLAGS } from '../../src/config/flags';
 
 export default function CookStoreScreen() {
   const c = useC();
@@ -79,10 +80,7 @@ export default function CookStoreScreen() {
             {isMine(id) ? (
               <Btn label="Manage kitchen" icon="chefhat" variant="dark" block height={46} onPress={() => router.push('/my-hub')} />
             ) : (
-              <>
-                <Btn label={following ? 'Following' : 'Follow'} icon={following ? 'check' : 'plus'} variant={following ? 'ghost' : 'pri'} flex={1} height={46} onPress={follow} />
-                <Btn label="Message" icon="chat" variant="ghost" flex={1} height={46} onPress={() => router.push(`/chat/${id}`)} />
-              </>
+              <Btn label={following ? 'Following' : 'Follow'} icon={following ? 'check' : 'plus'} variant={following ? 'ghost' : 'pri'} block height={46} onPress={follow} />
             )}
           </View>
         </View>
@@ -94,7 +92,7 @@ export default function CookStoreScreen() {
           </>
         ) : null}
 
-        {plans.length > 0 ? (
+        {FLAGS.plans && plans.length > 0 ? (
           <>
             <SectionHeader title="Weekly plans" />
             {plans.map((p) => (
@@ -118,7 +116,7 @@ export default function CookStoreScreen() {
           </>
         ) : null}
 
-        {exps.length > 0 ? (
+        {FLAGS.experiences && exps.length > 0 ? (
           <>
             <SectionHeader title="Experiences" />
             <ExpRail exps={exps} />
@@ -128,7 +126,7 @@ export default function CookStoreScreen() {
         <SectionHeader title="Reviews" right={<Text style={[type(13, 800), { color: c.primary }]}>See all {cd.reviews}</Text>} />
         <ReviewsBlock rating={cd.rating} count={cd.reviews} />
 
-        {!isMine(id) ? (
+        {FLAGS.experiences && !isMine(id) ? (
         <Press scale={0.985} onPress={() => router.push('/request/cookhome')} style={{ marginHorizontal: 16, marginTop: 14 }}>
           <View style={{ flexDirection: 'row', alignItems: 'center', gap: 14, backgroundColor: c.surface, borderWidth: 1, borderColor: c.border2, borderRadius: radius.xl, padding: 16 }}>
             <View style={{ width: 46, height: 46, borderRadius: 14, backgroundColor: c.primary, alignItems: 'center', justifyContent: 'center', ...shadow.brand }}>

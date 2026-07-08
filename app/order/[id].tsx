@@ -59,8 +59,6 @@ export default function OrderDetail() {
           </View>
         </Press>
 
-        <Btn variant="ghost" icon="chat" label="Message your cook" block onPress={() => router.push(`/chat/${o.cook}`)} />
-
         {/* steps */}
         {o.status !== 'completed' ? (
           <View style={{ backgroundColor: c.surface, borderRadius: radius.card, borderWidth: 1, borderColor: c.border2, padding: 16 }}>

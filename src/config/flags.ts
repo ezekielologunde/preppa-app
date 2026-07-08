@@ -1,0 +1,16 @@
+/**
+ * v1 feature flags.
+ *
+ * Preppa was built as a broad demo (~48 screens). For the honest v1 pilot we hide the
+ * surfaces that aren't real yet — they return post-launch once actually built. Hiding,
+ * not deleting: flip a flag to true to bring a surface back.
+ */
+export const FLAGS = {
+  experiences: false, // classes / supper clubs / private-chef services — waitlist, not live
+  feed: false, // video reels — demo only
+  plans: false, // weekly meal plans / subscriptions — "launching soon"
+  prepplus: false, // paid membership — not live (and IAP-sensitive)
+  rewards: false, // points / referral rewards — not live
+  chat: false, // 1:1 messaging — read-only demo
+  notifications: false, // in-app notification center — seeded/mock, no real push yet
+} as const;
