@@ -30,6 +30,43 @@ export async function ensureAuth() {
   return signIn.session;
 }
 
+// ---- Real email-OTP auth (Phase 1) --------------------------------------
+// Passwordless: request a 6-digit code, then verify it. `shouldCreateUser`
+// unifies sign-in and sign-up (the `handle_new_user` trigger auto-creates the
+// profile on first sign-in). NB: the Supabase project's email template must
+// include `{{ .Token }}` so the user actually receives the numeric code.
+
+/** Send a 6-digit login code to the email. Throws on failure (e.g. rate limit). */
+export async function sendEmailOtp(email: string) {
+  const { error } = await supabase.auth.signInWithOtp({
+    email,
+    options: { shouldCreateUser: true },
+  });
+  if (error) throw error;
+}
+
+/** Verify the emailed 6-digit code; establishes a real session on success. */
+export async function verifyEmailOtp(email: string, token: string) {
+  const { data, error } = await supabase.auth.verifyOtp({ email, token, type: 'email' });
+  if (error) throw error;
+  return data.session;
+}
+
+/** Sign the current user out of Supabase (clears the persisted session). */
+export async function signOutUser() {
+  try {
+    await supabase.auth.signOut();
+  } catch {
+    // best-effort; local state is cleared by the caller regardless
+  }
+}
+
+/** Currently signed-in Supabase user, or null. */
+export async function currentUser() {
+  const { data } = await supabase.auth.getUser();
+  return data.user ?? null;
+}
+
 /** mock cook id -> seeded kitchen UUID */
 export const KITCHEN_ID: Record<string, string> = {
   maria: 'bbbbbbbb-0000-4000-8000-000000000001',

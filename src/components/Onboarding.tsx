@@ -4,11 +4,11 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import Svg, { Defs, RadialGradient, Stop, Rect } from 'react-native-svg';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useStore } from '../store/store';
+import { sendEmailOtp, verifyEmailOtp } from '../lib/supabase';
 import { Icon } from '../ui/Icon';
 import { Press, GradBox } from '../ui/primitives';
 import { type, GRAD, shadow, FILL } from '../theme/theme';
 
-const DEMO_CODE = '481206';
 const W = (o: number) => `rgba(255,255,255,${o})`;
 
 /* soft brand glow background */
@@ -120,27 +120,26 @@ function Auth({ mode, onNext }: { mode: 'signin' | 'signup'; onNext: (email: str
   const [err, setErr] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
   const shake = useShake();
-  const submit = () => {
+  const submit = async () => {
     if (busy) return;
-    if (!/^\S+@\S+\.\S+$/.test(email.trim())) { setErr('That doesn’t look like an email — check for typos.'); shake.fire(); return; }
+    const addr = email.trim();
+    if (!/^\S+@\S+\.\S+$/.test(addr)) { setErr('That doesn’t look like an email — check for typos.'); shake.fire(); return; }
     setErr(null); setBusy(true);
-    setTimeout(() => { setBusy(false); onNext(email.trim()); }, 1400);
+    try {
+      await sendEmailOtp(addr);
+      setBusy(false);
+      onNext(addr);
+    } catch (e: any) {
+      setBusy(false);
+      setErr(e?.message || 'Couldn’t send your code just now — please try again.');
+      shake.fire();
+    }
   };
-  const social = (addr: string) => { setBusy(true); setTimeout(() => onNext(addr), 1200); };
   return (
     <>
       <Title parts={[mode === 'signin' ? 'Welcome back.' : 'Create your account.']} />
-      <Lead>{mode === 'signin' ? 'Sign in to your kitchen feed.' : 'Sixty seconds, then dinner’s sorted.'}</Lead>
-      <View style={{ marginTop: 26, gap: 10 }}>
-        <ObtnGlass label="Continue with Apple" icon="lock" onPress={() => social('jordan@icloud.com')} />
-        <ObtnGlass label="Continue with Google" icon="globe" onPress={() => social('jordan@gmail.com')} />
-      </View>
-      <View style={{ flexDirection: 'row', alignItems: 'center', gap: 12, marginVertical: 22 }}>
-        <View style={{ flex: 1, height: 1, backgroundColor: W(0.1) }} />
-        <Text style={[type(12, 800), { color: W(0.35) }]}>OR</Text>
-        <View style={{ flex: 1, height: 1, backgroundColor: W(0.1) }} />
-      </View>
-      <Animated.View style={{ transform: [{ translateX: shake.x }] }}>
+      <Lead>{mode === 'signin' ? 'Enter your email and we’ll send a sign-in code.' : 'Enter your email — we’ll send a code to get you cooking.'}</Lead>
+      <Animated.View style={{ marginTop: 26, transform: [{ translateX: shake.x }] }}>
         <Text style={[type(12.5, 800), { color: W(0.55), marginBottom: 8 }]}>Email address</Text>
         <TextInput
           value={email}
@@ -148,6 +147,8 @@ function Auth({ mode, onNext }: { mode: 'signin' | 'signup'; onNext: (email: str
           onSubmitEditing={submit}
           keyboardType="email-address"
           autoCapitalize="none"
+          autoComplete="email"
+          textContentType="emailAddress"
           placeholder="you@example.com"
           placeholderTextColor={W(0.3)}
           style={[stt.input, err ? { borderColor: '#F87171' } : null]}
@@ -172,17 +173,17 @@ function Code({ email, onNext }: { email: string; onNext: () => void }) {
   useEffect(() => { if (cool <= 0) return; const t = setTimeout(() => setCool((c) => c - 1), 1000); return () => clearTimeout(t); }, [cool]);
   useEffect(() => {
     // NB: depend on `code` only. If `busy` were a dep, flipping it in setBusy(true)
-    // would re-run this effect and its cleanup would clearTimeout the verify before it fires.
+    // would re-run this effect and cancel the in-flight verify before it resolves.
     if (code.length !== 6 || busy) return;
     setBusy(true);
-    const t = setTimeout(() => {
-      if (code === DEMO_CODE) onNext();
-      else { setBusy(false); setErr(true); shake.fire(); setCode(''); }
-    }, 1100);
-    return () => clearTimeout(t);
+    let cancelled = false;
+    verifyEmailOtp(email, code)
+      .then(() => { if (!cancelled) onNext(); })
+      .catch(() => { if (!cancelled) { setBusy(false); setErr(true); shake.fire(); setCode(''); } });
+    return () => { cancelled = true; };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [code]);
-  const resend = () => { setCool(24); setResent(true); setErr(false); setTimeout(() => setResent(false), 2400); };
+  const resend = () => { setCool(24); setResent(true); setErr(false); sendEmailOtp(email).catch(() => {}); setTimeout(() => setResent(false), 2400); };
   return (
     <>
       <Title parts={['Check your inbox.']} />
@@ -210,7 +211,6 @@ function Code({ email, onNext }: { email: string; onNext: () => void }) {
       </Animated.View>
       {err ? <View style={{ flexDirection: 'row', alignItems: 'center', gap: 7, marginTop: 12 }}><Icon name="info" size={15} color="#FCA5A5" /><Text style={[type(13, 700), { color: '#FCA5A5' }]}>That code didn’t match. Check the digits and try again.</Text></View> : null}
       {busy ? <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8, marginTop: 12 }}><Spinner size={15} /><Text style={[type(13, 700), { color: W(0.6) }]}>Verifying…</Text></View> : null}
-      <Text style={[type(12.5, 700), { color: W(0.4), marginTop: 14 }]}>Demo hint: the code is {DEMO_CODE}.</Text>
       <View style={{ flex: 1, minHeight: 24 }} />
       <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 6, paddingBottom: 4 }}>
         <Text style={[type(14, 600), { color: W(0.45) }]}>{resent ? 'Code re-sent ✓' : 'Didn’t get it?'}</Text>

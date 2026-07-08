@@ -6,6 +6,7 @@ import {
 } from '../data/data';
 import { ME } from '../data/cook';
 import { computeTotals } from '../data/totals';
+import { signOutUser } from '../lib/supabase';
 
 export type PrepperStatus = 'none' | 'pending' | 'approved';
 
@@ -349,9 +350,12 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
   }, [orders, addToCart, toast, isMine]);
 
   const resetOnboarding = useCallback(() => setOnboardedState(false), []);
-  const logout = useCallback(() => { setPrepperStatus('none'); setOnboardedState(false); }, []);
+  const logout = useCallback(() => { signOutUser(); setPrepperStatus('none'); setOnboardedState(false); }, []);
   const deleteAccount = useCallback(() => {
-    // Apple 5.1.1(v): account-deletion path. (On a real backend this also calls the server.)
+    // Apple 5.1.1(v) / Google Play: account-deletion path. Clears the local session and
+    // signs out of Supabase. TODO(Phase 1): also call a `delete-account` edge function to
+    // remove the auth user + profile server-side (needs service-role; can't be done client-side).
+    signOutUser();
     AsyncStorage.removeItem(LS).catch(() => {});
     setCart([]);
     setFav(new Set());

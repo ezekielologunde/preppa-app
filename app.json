@@ -9,6 +9,8 @@
     "userInterfaceStyle": "automatic",
     "newArchEnabled": true,
     "ios": {
+      "bundleIdentifier": "live.preppa.app",
+      "buildNumber": "1",
       "supportsTablet": true,
       "infoPlist": {
         "NSCameraUsageDescription": "Preppa uses the camera to scan the QR code at cash-on-delivery handoff and to add photos of your dishes.",
@@ -17,6 +19,8 @@
       }
     },
     "android": {
+      "package": "live.preppa.app",
+      "versionCode": 1,
       "adaptiveIcon": {
         "backgroundColor": "#0E0E10",
         "foregroundImage": "./assets/android-icon-foreground.png",
