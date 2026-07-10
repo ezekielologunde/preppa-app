@@ -35,10 +35,12 @@ export function getStripe(): Promise<Stripe | null> {
  * function and return its client secret for confirmation with a real card.
  */
 export async function createRealOrder(opts: OrderOpts): Promise<{ orderId: string; clientSecret: string }> {
-  const kitchenId = KITCHEN_ID[opts.cook];
-  if (!kitchenId) throw new Error(`no kitchen mapping for ${opts.cook}`);
+  // Prefer the real DB UUIDs carried on the cart (Supabase catalog); fall back to
+  // the static key->UUID map only for items without them (add-ons, reordered lines).
+  const kitchenId = opts.lines.find((l) => l.kitchenUuid)?.kitchenUuid ?? KITCHEN_ID[opts.cook];
+  if (!kitchenId) throw new Error(`no kitchen for ${opts.cook}`);
   const items = opts.lines.map((l) => {
-    const mealId = MEAL_ID[l.key];
+    const mealId = l.mealUuid ?? MEAL_ID[l.key];
     if (!mealId) throw new Error(`no meal mapping for ${l.key}`);
     return { mealId, qty: l.qty };
   });

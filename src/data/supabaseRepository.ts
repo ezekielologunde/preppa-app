@@ -17,7 +17,7 @@ const KITCHEN_TO_COOK: Record<string, CookId> = Object.fromEntries(
 ) as Record<string, CookId>;
 
 const MEAL_COLS =
-  'slug,name,kitchen_id,price_cents,grad,rating,review_count,prep_label,dist_label,tags,is_match,kcal,protein_g,serves,description,image_url,photos';
+  'id,slug,name,kitchen_id,price_cents,grad,rating,review_count,prep_label,dist_label,tags,is_match,kcal,protein_g,serves,description,image_url,photos';
 
 function rowToMeal(r: any): Meal {
   return {
@@ -38,6 +38,8 @@ function rowToMeal(r: any): Meal {
     desc: r.description ?? '',
     img: r.image_url ?? undefined,
     photos: r.photos && r.photos.length ? (r.photos as string[]) : undefined,
+    mealUuid: r.id,
+    kitchenUuid: r.kitchen_id,
   };
 }
 

@@ -168,7 +168,7 @@ export const MealCardLg = React.memo(function MealCardLg({ m, showMatch, width }
   const isFav = fav.has(m.id);
   const mine = isMine(m.cook);
   const quickAdd = () => {
-    addToCart({ key: m.id, name: m.name, cook: m.cook, price: m.price, grad: m.grad }, 1);
+    addToCart({ key: m.id, name: m.name, cook: m.cook, price: m.price, grad: m.grad, mealUuid: m.mealUuid, kitchenUuid: m.kitchenUuid }, 1);
     showFlash({ name: m.name, grad: m.grad });
   };
   const press = useCardScale(0.97);
@@ -253,7 +253,7 @@ export const HeroDrop = React.memo(function HeroDrop({ m }: { m: Meal }) {
   const isFav = fav.has(m.id);
   const mine = isMine(m.cook);
   const add = () => {
-    addToCart({ key: m.id, name: m.name, cook: m.cook, price: m.price, grad: m.grad }, 1);
+    addToCart({ key: m.id, name: m.name, cook: m.cook, price: m.price, grad: m.grad, mealUuid: m.mealUuid, kitchenUuid: m.kitchenUuid }, 1);
     showFlash({ name: m.name, grad: m.grad });
   };
   const press = useCardScale(0.985);

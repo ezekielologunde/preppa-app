@@ -57,6 +57,8 @@ export interface Meal {
   desc: string;
   img?: string; // cover photo; the grad is the loading/error fallback
   photos?: string[]; // extra gallery photos (illustrative seed); the carousel shows these when present, else [img]
+  mealUuid?: string; // real DB meals.id (present when sourced from Supabase) — carried to checkout
+  kitchenUuid?: string; // real DB kitchens.id — carried to checkout
 }
 
 const IMG = 'https://www.themealdb.com/images/media/meals/';

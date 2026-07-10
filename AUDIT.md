@@ -198,8 +198,12 @@ splitting · `R11` self-hosted meal images.
   flipped to Supabase; the **entire buyer catalog read path** — Explore, Home, meal detail,
   cook storefront, favorites — reads meals from the DB via `useMeals`/`useMeal`
   (loading/error states). Proven per screen with zero console errors, and a DB price edit
-  reflected live. Remaining R1: carry real meal/kitchen UUIDs through the cart (drop
-  `create-order`'s key→UUID map), and migrate cook profiles + reviews to the DB (R7 — where
+  reflected live.
+- **R1 slice 4 (cart real-UUIDs):** DB meals now carry their real `meals.id`/`kitchen_id`
+  through the cart line; `createRealOrder` uses those directly and falls back to the static
+  key→UUID map only for add-ons/reordered items. So any DB-added meal is orderable, not just
+  the 6 seeded ones. Verified: `create-order` accepts the repository's UUIDs and the order
+  confirms + reconciles. Remaining R1: migrate cook profiles + reviews to the DB (R7 — where
   the seed ratings become real).
 
 ## Next up (recommended order)

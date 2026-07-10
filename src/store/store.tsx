@@ -21,6 +21,8 @@ export interface CartLine {
   price: number;
   grad: GradKey;
   qty: number;
+  mealUuid?: string; // real DB meals.id when the item came from the Supabase catalog
+  kitchenUuid?: string; // real DB kitchens.id
 }
 export type OrderFlow = 'paid' | 'cod';
 
