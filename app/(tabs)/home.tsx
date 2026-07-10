@@ -110,6 +110,20 @@ export default function HomeScreen() {
           ))}
         </ScrollView>
 
+        {/* Modest entry to the event cost estimator (advisory tool — no supply needed) */}
+        <Press scale={0.99} onPress={() => router.push('/event-estimator')} label="Estimate event catering cost" style={{ marginHorizontal: 16, marginTop: 16 }}>
+          <View style={{ flexDirection: 'row', alignItems: 'center', gap: 13, backgroundColor: c.surface, borderWidth: 1, borderColor: c.border2, borderRadius: radius.card, padding: 14, ...shadow.soft }}>
+            <View style={{ width: 44, height: 44, borderRadius: 13, backgroundColor: c.primaryL, alignItems: 'center', justifyContent: 'center' }}>
+              <Icon name="calendar" size={21} color={c.primary} />
+            </View>
+            <View style={{ flex: 1, minWidth: 0 }}>
+              <Text style={[type(15, 900), { color: c.ink, letterSpacing: -0.3 }]}>Planning an event?</Text>
+              <Text numberOfLines={1} style={[type(12.5, 600), { color: c.soft, marginTop: 2 }]}>Free estimate — budget, menu & staffing</Text>
+            </View>
+            <Icon name="chevRight" size={18} color={c.muted} />
+          </View>
+        </Press>
+
         {lastOrder ? (
           <Press scale={0.99} onPress={orderAgain} label={`Order again from ${COOKS[lastOrder.cook].name}`} style={{ marginHorizontal: 16, marginTop: 16 }}>
             <View style={{ flexDirection: 'row', alignItems: 'center', gap: 13, backgroundColor: c.surface, borderWidth: 1, borderColor: c.border2, borderRadius: radius.card, padding: 14, ...shadow.soft }}>
