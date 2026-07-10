@@ -159,12 +159,16 @@ function AppDetail({ kitchenId }: { kitchenId: string }) {
   if (state === 'error' || !d) return <Text style={[type(13, 600), { color: c.red }]}>{err || 'No detail'}</Text>;
   const fs = d.food_safety || {};
   const yn = (b?: boolean) => (b ? '✓' : '—');
+  const svc = (d.service_types || []).map((t) => (t === 'home_chef' ? 'Cook at homes' : 'Homemade meals')).join(' · ') || '—';
   return (
     <View style={{ gap: 8, backgroundColor: c.bg2, borderRadius: radius.md, padding: 12 }}>
+      <DRow c={c} k="Service" v={svc} />
       <DRow c={c} k="Applicant" v={d.applicant_name || '—'} />
       <DRow c={c} k="Phone" v={d.phone || '—'} />
       <DRow c={c} k="Address (private)" v={d.address || '—'} />
       <DRow c={c} k="Neighborhood" v={d.approx_area || '—'} />
+      {d.service_area ? <DRow c={c} k="Travels" v={d.service_area} /> : null}
+      {d.experience ? <DRow c={c} k="Experience" v={d.experience} /> : null}
       <DRow c={c} k="Cuisine" v={d.cuisine || '—'} />
       {d.bio ? <DRow c={c} k="About" v={d.bio} /> : null}
       <DRow c={c} k="Food safety" v={`Refrigeration ${yn(fs.refrigeration)} · Prep ${yn(fs.foodPrep)} · Allergens ${yn(fs.allergens)}`} />

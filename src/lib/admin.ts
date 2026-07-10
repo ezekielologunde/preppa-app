@@ -48,6 +48,9 @@ export interface AdminApplicationDetail {
   food_handler_cert: string | null;
   agreement_version: string | null;
   agreement_accepted_at: string | null;
+  service_types: string[] | null;
+  service_area: string | null;
+  experience: string | null;
 }
 
 function ensureWeb() {

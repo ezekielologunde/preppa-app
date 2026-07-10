@@ -4,7 +4,7 @@
 // before launch. Bump COOK_AGREEMENT_VERSION whenever the terms change so we can
 // record exactly which version each cook accepted.
 
-export const COOK_AGREEMENT_VERSION = '2026-07-draft-1';
+export const COOK_AGREEMENT_VERSION = '2026-07-draft-2';
 
 export const COOK_AGREEMENT_SUMMARY =
   'By applying, you confirm your details are true and you take responsibility for the food you make.';
@@ -47,5 +47,10 @@ your food and are solely responsible for it. By applying to cook on Preppa you a
 8. Payments. Payouts are handled by our payments provider (Stripe). You agree to
    complete any identity/bank verification the provider requires before receiving
    funds.
+
+9. Cooking in someone's home. If you cook at a buyer's home (private-chef or event
+   bookings), you will conduct yourself professionally, respect the household and its
+   property, and follow safe food handling in their kitchen. You are responsible for
+   your own conduct and any equipment you bring.
 
 You confirm you have read and agree to this Cook Agreement and Preppa's Terms.`;

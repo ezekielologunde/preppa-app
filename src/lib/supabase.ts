@@ -130,13 +130,17 @@ export async function updateDisplayName(fullName: string): Promise<{ displayName
   return { displayName: display, firstName: first };
 }
 
+export type ServiceType = 'meals' | 'home_chef';
 export interface ApplicationFields {
+  serviceTypes: ServiceType[]; // sell homemade meals / cook at people's homes
   legalName: string;
   phone: string;
   kitchenName: string;
   cuisine: string;
   address: string; // private
   neighborhood: string; // public
+  serviceArea?: string; // home-chef: how far they'll travel
+  experience?: string; // home-chef: cooking experience
   foodSafety: { refrigeration: boolean; foodPrep: boolean; allergens: boolean; note?: string };
   foodHandlerCert?: string;
   story: string;
@@ -159,6 +163,9 @@ export async function submitPrepperApplication(f: ApplicationFields): Promise<st
     p_food_safety: f.foodSafety,
     p_food_handler_cert: f.foodHandlerCert ?? null,
     p_agreement_version: f.agreementVersion,
+    p_service_types: f.serviceTypes,
+    p_service_area: f.serviceArea ?? null,
+    p_experience: f.experience ?? null,
   });
   if (error) throw error;
   return data as string;
