@@ -37,7 +37,7 @@ export default function Review() {
           <Text style={[type(13, 600), { color: c.soft, marginTop: 2 }]}>How was your order?</Text>
           <View style={{ flexDirection: 'row', gap: 8, marginTop: 16 }}>
             {[1, 2, 3, 4, 5].map((n) => (
-              <Press key={n} scale={0.85} onPress={() => setStars(n)} hitSlop={6}>
+              <Press key={n} scale={0.85} onPress={() => setStars(n)} hitSlop={6} label={`Rate ${n} star${n > 1 ? 's' : ''}`} selected={n <= stars}>
                 <Icon name="star" size={40} color={n <= stars ? c.star : c.border} />
               </Press>
             ))}

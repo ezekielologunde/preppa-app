@@ -80,9 +80,9 @@ export default function Addresses() {
         {adding ? (
           <View style={{ padding: 16, borderRadius: radius.card, borderWidth: 1, borderColor: c.border2, backgroundColor: c.surface, gap: 10 }}>
             <Text style={[type(14, 900), { color: c.ink }]}>New address</Text>
-            <Field c={c} value={label} onChange={setLabel} placeholder="Label (e.g. Home, Work)" />
-            <Field c={c} value={line1} onChange={setLine1} placeholder="Street address, apt/unit" />
-            <Field c={c} value={line2} onChange={setLine2} placeholder="City, state ZIP" />
+            <Field c={c} label="Label" value={label} onChange={setLabel} placeholder="e.g. Home, Work" />
+            <Field c={c} label="Street address" value={line1} onChange={setLine1} placeholder="Street address, apt/unit" autoComplete="street-address" textContentType="fullStreetAddress" />
+            <Field c={c} label="City, state ZIP" value={line2} onChange={setLine2} placeholder="City, state ZIP" autoComplete="postal-address-locality" textContentType="addressCityAndState" />
             <View style={{ flexDirection: 'row', gap: 10, marginTop: 2 }}>
               <Btn label="Cancel" variant="ghost" flex={1} onPress={() => { setAdding(false); setLabel(''); setLine1(''); setLine2(''); }} />
               <Btn label="Save address" icon="check" flex={1} onPress={save} />
@@ -96,17 +96,23 @@ export default function Addresses() {
   );
 }
 
-function Field({ c, value, onChange, placeholder }: { c: any; value: string; onChange: (t: string) => void; placeholder: string }) {
+function Field({ c, label, value, onChange, placeholder, autoComplete, textContentType }: { c: any; label: string; value: string; onChange: (t: string) => void; placeholder: string; autoComplete?: any; textContentType?: any }) {
   const [f, setF] = useState(false);
   return (
-    <TextInput
-      value={value}
-      onChangeText={onChange}
-      placeholder={placeholder}
-      placeholderTextColor={c.muted}
-      onFocus={() => setF(true)}
-      onBlur={() => setF(false)}
-      style={[type(15, 600), { color: c.ink, backgroundColor: f ? c.surface : c.bg2, borderWidth: 1.5, borderColor: f ? c.primary : 'transparent', borderRadius: 13, height: 50, paddingHorizontal: 15 }]}
-    />
+    <View style={{ gap: 6 }}>
+      <Text style={[type(12, 800), { color: c.soft }]}>{label}</Text>
+      <TextInput
+        value={value}
+        onChangeText={onChange}
+        placeholder={placeholder}
+        placeholderTextColor={c.muted}
+        accessibilityLabel={label}
+        autoComplete={autoComplete}
+        textContentType={textContentType}
+        onFocus={() => setF(true)}
+        onBlur={() => setF(false)}
+        style={[type(15, 600), { color: c.ink, backgroundColor: f ? c.surface : c.bg2, borderWidth: 1.5, borderColor: f ? c.primary : 'transparent', borderRadius: 13, height: 50, paddingHorizontal: 15 }]}
+      />
+    </View>
   );
 }

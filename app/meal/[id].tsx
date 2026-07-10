@@ -45,8 +45,8 @@ export default function MealDetail() {
           {m.img ? <Pressable onPress={() => setViewer(true)} accessibilityLabel={`View photo of ${m.name}`} style={{ position: 'absolute', top: 0, left: 0, right: 0, bottom: 0 }} /> : null}
           <HeroTopBar topInset={insets.top} onBack={() => router.back()} right={
             <View style={{ flexDirection: 'row', gap: 10 }}>
-              <HeroBtn icon="share" onPress={() => shareAndNotify(toast, { title: m.name, url: `${SITE}/meal/${m.id}` })} />
-              <HeroBtn icon={isFav ? 'heartFill' : 'heart'} color={isFav ? c.primary : c.ink} onPress={() => toggleFav(m.id)} />
+              <HeroBtn icon="share" label="Share this meal" onPress={() => shareAndNotify(toast, { title: m.name, url: `${SITE}/meal/${m.id}` })} />
+              <HeroBtn icon={isFav ? 'heartFill' : 'heart'} label={isFav ? 'Remove from favorites' : 'Save to favorites'} color={isFav ? c.primary : c.ink} onPress={() => toggleFav(m.id)} />
             </View>
           } />
           {m.img ? (

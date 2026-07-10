@@ -63,7 +63,7 @@ export default function Explore() {
     <Screen max={960}>
       <View style={{ backgroundColor: c.surface, paddingTop: insets.top + 8, paddingBottom: 12, paddingHorizontal: 16, borderBottomWidth: 1, borderBottomColor: c.border2 }}>
         <View style={{ flexDirection: 'row', alignItems: 'center', gap: 12 }}>
-          <Press scale={0.9} onPress={() => router.back()}>
+          <Press scale={0.9} onPress={() => router.back()} label="Go back">
             <View style={[{ width: 42, height: 42, borderRadius: 21, backgroundColor: c.surface, alignItems: 'center', justifyContent: 'center' }, shadow.soft]}>
               <Icon name="chevLeft" size={20} color={c.ink} />
             </View>

@@ -27,9 +27,10 @@ export function Sheet({
   const insets = useSafeAreaInsets();
   return (
     <Modal visible={visible} transparent animationType="slide" statusBarTranslucent onRequestClose={onClose}>
-      <Pressable onPress={onClose} style={{ flex: 1, backgroundColor: 'rgba(0,0,0,.4)', justifyContent: 'flex-end' }}>
+      <Pressable onPress={onClose} accessibilityRole="button" accessibilityLabel="Close" style={{ flex: 1, backgroundColor: 'rgba(0,0,0,.4)', justifyContent: 'flex-end' }}>
         <Pressable
           onPress={() => {}}
+          accessibilityViewIsModal
           style={{
             backgroundColor: c.surface,
             borderTopLeftRadius: radius.sheet,
@@ -73,8 +74,8 @@ export function Dialog({
   const c = useC();
   return (
     <Modal visible={visible} transparent animationType="fade" onRequestClose={onClose}>
-      <Pressable onPress={onClose} style={{ flex: 1, backgroundColor: 'rgba(0,0,0,.45)', justifyContent: 'center', paddingHorizontal: 28 }}>
-        <Pressable onPress={() => {}} style={{ backgroundColor: c.surface, borderRadius: radius.xl, padding: 20, gap: 14, maxWidth: 420, width: '100%', alignSelf: 'center' }}>
+      <Pressable onPress={onClose} accessibilityRole="button" accessibilityLabel="Close" style={{ flex: 1, backgroundColor: 'rgba(0,0,0,.45)', justifyContent: 'center', paddingHorizontal: 28 }}>
+        <Pressable onPress={() => {}} accessibilityViewIsModal style={{ backgroundColor: c.surface, borderRadius: radius.xl, padding: 20, gap: 14, maxWidth: 420, width: '100%', alignSelf: 'center' }}>
           {title ? <Text style={[type(18, 900), { color: c.ink, letterSpacing: -0.4 }]}>{title}</Text> : null}
           {children}
         </Pressable>

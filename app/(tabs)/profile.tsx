@@ -146,7 +146,7 @@ export default function Profile() {
         </Group>
 
         <Group label="Preferences">
-          <Pressable onPress={() => setDarkMode(!darkMode)} style={rowStyle(c, false)}>
+          <Pressable onPress={() => setDarkMode(!darkMode)} style={rowStyle(c, false)} accessibilityRole="switch" accessibilityLabel="Dark mode" accessibilityState={{ checked: darkMode }}>
             <IconWell ico={darkMode ? 'bolt' : 'settings'} tone="purple" />
             <Text style={[type(15, 700), { color: c.ink, flex: 1 }]}>Dark mode</Text>
             <Switch on={darkMode} />
@@ -225,7 +225,7 @@ function IconWell({ ico, tone }: { ico: string; tone: Tone }) {
   const map: Record<Tone, [string, string]> = {
     '': [c.bg2, c.ink2],
     amber: [c.primaryL, c.primary],
-    purple: [c.purpleL, c.purple],
+    purple: [c.purpleL, c.purpleOn],
     blue: [c.blueL, c.blue],
     pink: [c.pinkL, c.pink],
     green: [c.greenL, c.green],

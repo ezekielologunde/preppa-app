@@ -89,14 +89,14 @@ export function CookRow({ cook, meta, goIcon = 'chevRight', onPress }: { cook: C
 export function HeroTopBar({ topInset, right, onBack }: { topInset: number; right?: React.ReactNode; onBack: () => void }) {
   return (
     <View style={{ position: 'absolute', top: topInset + 14, left: 14, right: 14, flexDirection: 'row', justifyContent: 'space-between', zIndex: 2 }}>
-      <HeroBtn icon="chevLeft" onPress={onBack} />
+      <HeroBtn icon="chevLeft" onPress={onBack} label="Go back" />
       {right}
     </View>
   );
 }
-export function HeroBtn({ icon, onPress, color }: { icon: string; onPress?: () => void; color?: string }) {
+export function HeroBtn({ icon, onPress, color, label }: { icon: string; onPress?: () => void; color?: string; label?: string }) {
   return (
-    <Press scale={0.9} onPress={onPress} hitSlop={6}>
+    <Press scale={0.9} onPress={onPress} hitSlop={6} label={label}>
       <View style={{ width: 42, height: 42, borderRadius: 21, backgroundColor: 'rgba(255,255,255,.92)', alignItems: 'center', justifyContent: 'center' }}>
         <Icon name={icon} size={18} color={color ?? '#0E0E10'} />
       </View>

@@ -86,7 +86,7 @@ export default function Payments() {
         {/* cash on delivery — always available */}
         <View style={{ flexDirection: 'row', alignItems: 'center', gap: 12, padding: 14, borderWidth: 1, borderColor: c.border2, backgroundColor: c.surface, borderRadius: radius.card }}>
           <View style={{ width: 40, height: 40, borderRadius: 12, backgroundColor: c.purpleL, alignItems: 'center', justifyContent: 'center' }}>
-            <Icon name="wallet" size={20} color={c.purple} />
+            <Icon name="wallet" size={20} color={c.purpleOn} />
           </View>
           <View style={{ flex: 1 }}>
             <View style={{ flexDirection: 'row', alignItems: 'center', gap: 7 }}>

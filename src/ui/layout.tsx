@@ -90,7 +90,7 @@ export function SectionLabel({ children, style }: { children: React.ReactNode; s
 export function MiniTag({ label, tone = 'purple' }: { label: string; tone?: 'purple' | 'green' }) {
   const c = useC();
   const bg = tone === 'green' ? c.greenL : c.purpleL;
-  const fg = tone === 'green' ? c.green : c.purple;
+  const fg = tone === 'green' ? c.green : c.purpleOn;
   return <Text style={[type(10, 900), { color: fg, backgroundColor: bg, textTransform: 'uppercase', letterSpacing: 0.3, paddingHorizontal: 7, paddingVertical: 2, borderRadius: radius.pill, overflow: 'hidden' }]}>{label}</Text>;
 }
 

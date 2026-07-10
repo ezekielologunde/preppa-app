@@ -7,6 +7,7 @@ import { useStore } from '../store/store';
 import { sendEmailOtp, verifyEmailOtp } from '../lib/supabase';
 import { Icon } from '../ui/Icon';
 import { Press, GradBox } from '../ui/primitives';
+import { useReducedMotion } from '../ui/useReducedMotion';
 import { type, GRAD, shadow, FILL } from '../theme/theme';
 
 const W = (o: number) => `rgba(255,255,255,${o})`;
@@ -33,9 +34,11 @@ function Glow() {
 
 function Spinner({ size = 19 }: { size?: number }) {
   const r = useRef(new Animated.Value(0)).current;
+  const reduced = useReducedMotion();
   useEffect(() => {
+    if (reduced) return;
     Animated.loop(Animated.timing(r, { toValue: 1, duration: 700, easing: Easing.linear, useNativeDriver: true })).start();
-  }, [r]);
+  }, [r, reduced]);
   const spin = r.interpolate({ inputRange: [0, 1], outputRange: ['0deg', '360deg'] });
   return <Animated.View style={{ width: size, height: size, borderRadius: size / 2, borderWidth: 2.5, borderColor: W(0.3), borderTopColor: '#fff', transform: [{ rotate: spin }] }} />;
 }
@@ -97,14 +100,16 @@ function Welcome({ go }: { go: (s: string, m: 'signin' | 'signup') => void }) {
 
 function Orb({ grad, size, style, tag, delay }: { grad: readonly string[]; size: number; style: any; tag: string; delay: number }) {
   const y = useRef(new Animated.Value(0)).current;
+  const reduced = useReducedMotion();
   useEffect(() => {
+    if (reduced) return;
     const loop = Animated.loop(Animated.sequence([
       Animated.timing(y, { toValue: -12, duration: 2500, easing: Easing.inOut(Easing.ease), useNativeDriver: true }),
       Animated.timing(y, { toValue: 0, duration: 2500, easing: Easing.inOut(Easing.ease), useNativeDriver: true }),
     ]));
     const t = setTimeout(() => loop.start(), delay);
     return () => { clearTimeout(t); loop.stop(); };
-  }, [y, delay]);
+  }, [y, delay, reduced]);
   return (
     <Animated.View style={[{ position: 'absolute', transform: [{ translateY: y }] }, style]}>
       <GradBox grad={grad as any} style={{ width: size, height: size, borderRadius: size / 2, ...shadow.float }} />
@@ -347,7 +352,9 @@ function Finish({ onDone }: { onDone: () => void }) {
 
 function useShake() {
   const x = useRef(new Animated.Value(0)).current;
+  const reduced = useReducedMotion();
   const fire = () => {
+    if (reduced) return;
     x.setValue(0);
     Animated.sequence([
       Animated.timing(x, { toValue: -8, duration: 60, useNativeDriver: true }),

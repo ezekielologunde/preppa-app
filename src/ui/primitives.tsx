@@ -23,6 +23,7 @@ export function Press({
   disabled,
   hitSlop,
   label,
+  selected,
 }: {
   children: React.ReactNode;
   onPress?: () => void;
@@ -32,6 +33,8 @@ export function Press({
   hitSlop?: PressableProps['hitSlop'];
   /** Accessibility label — required for icon-only buttons (no readable text child). */
   label?: string;
+  /** Accessibility selected state (e.g. a rating star or a chosen option). */
+  selected?: boolean;
 }) {
   const a = useRef(new Animated.Value(1)).current;
   const reduced = useReducedMotion();
@@ -59,7 +62,7 @@ export function Press({
       hitSlop={hitSlop}
       accessibilityRole={onPress ? 'button' : undefined}
       accessibilityLabel={label}
-      accessibilityState={{ disabled: !!disabled }}
+      accessibilityState={{ disabled: !!disabled, selected }}
       onPressIn={() => to(scale)}
       onPressOut={() => to(1)}
     >

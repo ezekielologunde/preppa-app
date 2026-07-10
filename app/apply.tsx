@@ -146,7 +146,7 @@ export default function Apply() {
           <>
             <Head c={c} title="About you" sub="This stays private — it’s how we reach you and verify you’re real." />
             <Field c={c} label="Legal name" value={legalName} onChange={setLegalName} placeholder="Your full name" autoCapitalize="words" />
-            <Field c={c} label="Phone number" value={phone} onChange={setPhone} placeholder="(555) 123-4567" keyboardType="phone-pad" />
+            <Field c={c} label="Phone number" value={phone} onChange={setPhone} placeholder="(555) 123-4567" keyboardType="phone-pad" autoComplete="tel" textContentType="telephoneNumber" />
           </>
         ) : null}
 
@@ -265,7 +265,7 @@ function Head({ c, title, sub }: { c: any; title: string; sub: string }) {
 function Label({ c, children }: { c: any; children: React.ReactNode }) {
   return <Text style={[type(12.5, 800), { color: c.soft, marginBottom: 8 }]}>{children}</Text>;
 }
-function Field({ c, label, value, onChange, placeholder, keyboardType, autoCapitalize, multiline }: { c: any; label: string; value: string; onChange: (t: string) => void; placeholder: string; keyboardType?: any; autoCapitalize?: any; multiline?: boolean }) {
+function Field({ c, label, value, onChange, placeholder, keyboardType, autoCapitalize, multiline, autoComplete, textContentType }: { c: any; label: string; value: string; onChange: (t: string) => void; placeholder: string; keyboardType?: any; autoCapitalize?: any; multiline?: boolean; autoComplete?: any; textContentType?: any }) {
   const [f, setF] = useState(false);
   return (
     <View>
@@ -275,8 +275,11 @@ function Field({ c, label, value, onChange, placeholder, keyboardType, autoCapit
         onChangeText={onChange}
         placeholder={placeholder}
         placeholderTextColor={c.muted}
+        accessibilityLabel={label}
         keyboardType={keyboardType}
         autoCapitalize={autoCapitalize}
+        autoComplete={autoComplete}
+        textContentType={textContentType}
         multiline={multiline}
         onFocus={() => setF(true)}
         onBlur={() => setF(false)}

@@ -121,8 +121,8 @@ export default function Checkout() {
 
         {effectivePay === 'cod' ? (
           <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10, marginHorizontal: 16, marginTop: 14, paddingVertical: 12, paddingHorizontal: 14, borderRadius: radius.md, backgroundColor: c.purpleL, borderWidth: 1, borderColor: c.purple }}>
-            <Icon name="qr" size={20} color={c.purple} />
-            <Text style={[type(12.5, 700), { color: c.purple, flex: 1, lineHeight: 18 }]}>You and your cook confirm the cash amount together at handoff — on both phones. Preppa isn’t holding your money; you pay the cook directly.</Text>
+            <Icon name="qr" size={20} color={c.purpleOn} />
+            <Text style={[type(12.5, 700), { color: c.purpleOn, flex: 1, lineHeight: 18 }]}>You and your cook confirm the cash amount together at handoff — on both phones. Preppa isn’t holding your money; you pay the cook directly.</Text>
           </View>
         ) : null}
 

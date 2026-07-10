@@ -19,7 +19,7 @@ export const WARM_GRAD = ['#FF8C42', '#EC4899'] as const;
 
 export interface Palette {
   primary: string; primaryD: string; primaryL: string;
-  purple: string; purpleL: string;
+  purple: string; purpleL: string; purpleOn: string; // purpleOn = purple text/icon on purpleL (AA in dark)
   ink: string; ink2: string; soft: string; muted: string;
   surface: string; bg: string; bg2: string; border: string; border2: string;
   /** Stable dark "feature" surface (premium cards / dark buttons) — stays dark in BOTH themes so hard-coded white text remains readable. */
@@ -31,7 +31,7 @@ export interface Palette {
 
 export const light: Palette = {
   primary: '#F26B1D', primaryD: '#C0560F', primaryL: '#FFF1E6',
-  purple: '#7C3AED', purpleL: '#F1EAFE',
+  purple: '#7C3AED', purpleL: '#F1EAFE', purpleOn: '#6D28D9',
   ink: '#0E0E10', ink2: '#1C1C1E', soft: '#5A5A66', muted: '#6E6E78',
   surface: '#FFFFFF', bg: '#F7F7F9', bg2: '#F2F2F5', border: '#E6E6EE', border2: '#EDEDF2',
   feature: '#141210',
@@ -43,7 +43,7 @@ export const light: Palette = {
 /** Warm near-black dark theme. */
 export const dark: Palette = {
   primary: '#F26B1D', primaryD: '#C0560F', primaryL: '#3A2413',
-  purple: '#7C3AED', purpleL: '#2B2138',
+  purple: '#7C3AED', purpleL: '#2B2138', purpleOn: '#C4A5F0',
   ink: '#F6F1EA', ink2: '#EAE3D9', soft: '#B6AB9D', muted: '#9A8F7E',
   surface: '#1F1A15', bg: '#151210', bg2: '#2B241D', border: '#332C23', border2: '#2A241D',
   feature: '#241C15',
