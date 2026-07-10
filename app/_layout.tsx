@@ -56,11 +56,14 @@ function AppShell() {
   const { width } = useWindowDimensions();
   const wide = width >= 700;
   const railW = width >= 1000 ? 240 : 84;
-  const [showSplash, setShowSplash] = useState(true);
+  const [minElapsed, setMinElapsed] = useState(false);
   useEffect(() => {
-    const t = setTimeout(() => setShowSplash(false), 2100);
+    const t = setTimeout(() => setMinElapsed(true), 1400);
     return () => clearTimeout(t);
   }, []);
+  // Hold the (dark) splash until BOTH a min animation time AND store hydration (`ready`)
+  // complete — so a dark-mode user never first-paints the light theme on a slow hydrate.
+  const showSplash = !minElapsed || !ready;
   const bg = isDark ? '#151210' : '#F7F7F9';
   return (
     <View style={{ flex: 1, backgroundColor: bg }}>

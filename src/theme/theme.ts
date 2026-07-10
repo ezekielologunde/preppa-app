@@ -52,6 +52,11 @@ export const dark: Palette = {
   unread: 'rgba(232,97,26,.09)',
 };
 
+// Palettes are per-theme constants; freezing makes the "dark can never mutate light"
+// guarantee enforced at runtime rather than merely conventional.
+Object.freeze(light);
+Object.freeze(dark);
+
 /** Absolute fill (StyleSheet.absoluteFillObject isn't in this RN version's types). */
 export const FILL = { position: 'absolute', top: 0, left: 0, right: 0, bottom: 0 } as const;
 

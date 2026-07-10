@@ -82,44 +82,44 @@ export default function Profile() {
           <Text style={[type(13, 600), { color: c.soft, marginTop: 2 }]}>{location}</Text>
         </View>
 
-        {/* become a preppa — state-aware */}
-        <LinearGradient colors={['#FFF1E6', '#FFE0CC']} style={{ marginHorizontal: 16, borderRadius: radius.xl, padding: 18, flexDirection: 'row', alignItems: 'center', gap: 14, borderWidth: 1, borderColor: '#FFD9BD' }}>
+        {/* become a preppa — state-aware (themed: warm tint that adapts to dark) */}
+        <View style={{ marginHorizontal: 16, borderRadius: radius.xl, padding: 18, flexDirection: 'row', alignItems: 'center', gap: 14, borderWidth: 1, borderColor: c.border2, backgroundColor: c.primaryL }}>
           <LinearGradient colors={['#FF8A4C', '#F26B1D']} start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }} style={{ width: 52, height: 52, borderRadius: 16, alignItems: 'center', justifyContent: 'center', ...shadow.brand }}>
             <Icon name={prepperStatus === 'pending' ? 'clock' : 'chefhat'} size={26} color="#fff" />
           </LinearGradient>
           <View style={{ flex: 1 }}>
             {prepperStatus === 'approved' ? (
               <>
-                <Text style={[type(16, 900), { color: '#1C1C1E' }]}>You’re a Preppa</Text>
-                <Text style={[type(12.5, 600), { color: '#5A5A66', marginTop: 2 }]}>Manage orders, your menu & earnings in My Hub.</Text>
+                <Text style={[type(16, 900), { color: c.ink }]}>You’re a Preppa</Text>
+                <Text style={[type(12.5, 600), { color: c.soft, marginTop: 2 }]}>Manage orders, your menu & earnings in My Hub.</Text>
               </>
             ) : prepperStatus === 'pending' ? (
               <>
-                <Text style={[type(16, 900), { color: '#1C1C1E' }]}>Application under review</Text>
-                <Text style={[type(12.5, 600), { color: '#5A5A66', marginTop: 2 }]}>We’re verifying your kitchen — My Hub unlocks once approved.</Text>
+                <Text style={[type(16, 900), { color: c.ink }]}>Application under review</Text>
+                <Text style={[type(12.5, 600), { color: c.soft, marginTop: 2 }]}>We’re verifying your kitchen — My Hub unlocks once approved.</Text>
               </>
             ) : (
               <>
-                <Text style={[type(16, 900), { color: '#1C1C1E' }]}>Become a Preppa</Text>
-                <Text style={[type(12.5, 600), { color: '#5A5A66', marginTop: 2 }]}>Cook for your neighbors and keep 85% — 0% fees for 60 days.</Text>
+                <Text style={[type(16, 900), { color: c.ink }]}>Become a Preppa</Text>
+                <Text style={[type(12.5, 600), { color: c.soft, marginTop: 2 }]}>Cook for your neighbors and keep 85% — 0% fees for 60 days.</Text>
               </>
             )}
           </View>
           {prepperStatus === 'approved' ? (
             <Press scale={0.9} onPress={() => router.push('/my-hub')} label="Open My Hub">
-              <View style={{ width: 42, height: 42, borderRadius: 21, backgroundColor: '#fff', alignItems: 'center', justifyContent: 'center', ...shadow.soft }}><Icon name="arrow" size={18} color="#0E0E10" /></View>
+              <View style={{ width: 42, height: 42, borderRadius: 21, backgroundColor: c.surface, alignItems: 'center', justifyContent: 'center', ...shadow.soft }}><Icon name="arrow" size={18} color={c.ink} /></View>
             </Press>
           ) : prepperStatus === 'pending' ? (
-            <View style={{ height: 30, paddingHorizontal: 12, borderRadius: 15, backgroundColor: '#fff', flexDirection: 'row', alignItems: 'center', gap: 6, ...shadow.soft }}>
-              <Icon name="clock" size={13} color="#8A8A93" />
-              <Text style={[type(11.5, 800), { color: '#5A5A66' }]}>In review</Text>
+            <View style={{ height: 30, paddingHorizontal: 12, borderRadius: 15, backgroundColor: c.surface, flexDirection: 'row', alignItems: 'center', gap: 6, ...shadow.soft }}>
+              <Icon name="clock" size={13} color={c.muted} />
+              <Text style={[type(11.5, 800), { color: c.soft }]}>In review</Text>
             </View>
           ) : (
             <Press scale={0.9} onPress={() => router.push('/apply')} label="Apply to cook">
-              <View style={{ width: 42, height: 42, borderRadius: 21, backgroundColor: '#fff', alignItems: 'center', justifyContent: 'center', ...shadow.soft }}><Icon name="arrow" size={18} color="#0E0E10" /></View>
+              <View style={{ width: 42, height: 42, borderRadius: 21, backgroundColor: c.surface, alignItems: 'center', justifyContent: 'center', ...shadow.soft }}><Icon name="arrow" size={18} color={c.ink} /></View>
             </Press>
           )}
-        </LinearGradient>
+        </View>
 
         {isAdmin && Platform.OS === 'web' ? (
           <Group label="Admin">

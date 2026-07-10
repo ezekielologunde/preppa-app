@@ -30,13 +30,13 @@ export default function Track() {
       <TopBar title={cod ? 'Order complete' : 'Track order'} sub="#PR-2048" onBack={() => router.replace('/home')} />
       <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={{ paddingBottom: 40 }}>
         {/* map */}
-        <View style={{ height: 180, backgroundColor: '#F3F3F7', overflow: 'hidden' }}>
+        <View style={{ height: 180, backgroundColor: c.bg2, overflow: 'hidden' }}>
           <Svg width="100%" height={180}>
             {Array.from({ length: 20 }).map((_, i) => (
-              <Line key={`v${i}`} x1={i * 28} y1={0} x2={i * 28} y2={180} stroke="#E7E7EF" strokeWidth={1} />
+              <Line key={`v${i}`} x1={i * 28} y1={0} x2={i * 28} y2={180} stroke={c.border} strokeWidth={1} />
             ))}
             {Array.from({ length: 7 }).map((_, i) => (
-              <Line key={`h${i}`} x1={0} y1={i * 28} x2={600} y2={i * 28} stroke="#E7E7EF" strokeWidth={1} />
+              <Line key={`h${i}`} x1={0} y1={i * 28} x2={600} y2={i * 28} stroke={c.border} strokeWidth={1} />
             ))}
             <Line x1={44} y1={70} x2={300} y2={70} stroke={c.primary} strokeWidth={3} strokeDasharray="8 6" strokeLinecap="round" />
           </Svg>
