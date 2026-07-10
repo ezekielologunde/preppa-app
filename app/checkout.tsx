@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { View, Text, ScrollView, Platform } from 'react-native';
 import { useLocalSearchParams, useRouter } from 'expo-router';
-import { payWithCard } from '../src/lib/payments';
+import { createRealOrder } from '../src/lib/payments';
 import { COOKS, CookId, money } from '../src/data/data';
 import { useC } from '../src/theme/ThemeContext';
 import { type, radius } from '../src/theme/theme';
@@ -11,6 +11,7 @@ import { Screen, TopBar, Dock, DockTotal, Block, MiniTag, Empty } from '../src/u
 import { useTotals, Summary } from '../src/components/shared';
 import { ModeToggle } from '../src/components/ModeToggle';
 import { AddressPickerSheet, CardPickerSheet } from '../src/components/PickerSheets';
+import { CardPaymentSheet } from '../src/components/CardPaymentSheet';
 
 const TIPS = [0, 2, 3, 5];
 
@@ -26,6 +27,9 @@ export default function Checkout() {
   const [busy, setBusy] = useState(false);
   const [addrSheet, setAddrSheet] = useState(false);
   const [cardSheet, setCardSheet] = useState(false);
+  const [cardPayOpen, setCardPayOpen] = useState(false);
+  const [cardSecret, setCardSecret] = useState<string | null>(null);
+  const [cardOrderId, setCardOrderId] = useState<string | null>(null);
   const theCook = COOKS[ck ?? lines[0]?.cook ?? 'maria'];
 
   if (lines.length === 0) {
@@ -50,19 +54,31 @@ export default function Checkout() {
 
   const place = async () => {
     if (busy) return; // guard against double-fire / double-order
-    setBusy(true);
-    if (effectivePay === 'cod') { router.push(`/cod?cook=${ck ?? ''}`); return; }
-    // Real (test-mode) card charge via Supabase create-order + Stripe. Falls back to the
-    // mock on any failure (native, unmapped item, or backend not fully configured yet).
+    if (effectivePay === 'cod') { setBusy(true); router.push(`/cod?cook=${ck ?? ''}`); return; }
     const cookId = (ck ?? lines[0]?.cook) as string;
-    let dbId: string | undefined;
-    try {
-      const res = await payWithCard({ cook: cookId, lines, mode, tipDollars: tip, idempotencyKey: `${cookId}-${Date.now()}` });
-      dbId = res?.orderId; // real Supabase orders.id — kept so the order can be reported on
-    } catch (e) {
-      if (Platform.OS === 'web') console.warn('[pay] real charge unavailable, mock fallback:', (e as any)?.message);
+    setBusy(true);
+    // Web: create the real order, then collect a real card in the sheet and confirm.
+    if (Platform.OS === 'web') {
+      try {
+        const { orderId, clientSecret } = await createRealOrder({ cook: cookId, lines, mode, tipDollars: tip, idempotencyKey: `${cookId}-${Date.now()}` });
+        setCardOrderId(orderId);
+        setCardSecret(clientSecret);
+        setCardPayOpen(true);
+        setBusy(false);
+        return;
+      } catch (e) {
+        console.warn('[pay] real order unavailable, mock fallback:', (e as any)?.message);
+      }
     }
-    placeOrder('paid', ck, dbId); // mirror into local order history for the app's Track/Orders UI
+    // Native, or web create-order failure → mock so the demo never breaks.
+    placeOrder('paid', ck);
+    router.replace(`/track?flow=paid&cook=${ck ?? ''}`);
+  };
+
+  // After a real card charge succeeds, mirror into local history + go to tracking.
+  const onCardPaid = () => {
+    setCardPayOpen(false);
+    placeOrder('paid', ck, cardOrderId ?? undefined);
     router.replace(`/track?flow=paid&cook=${ck ?? ''}`);
   };
 
@@ -135,6 +151,7 @@ export default function Checkout() {
 
       <AddressPickerSheet visible={addrSheet} onClose={() => setAddrSheet(false)} />
       <CardPickerSheet visible={cardSheet} onClose={() => setCardSheet(false)} />
+      <CardPaymentSheet visible={cardPayOpen} clientSecret={cardSecret} amountLabel={money(t.total)} onPaid={onCardPaid} onClose={() => setCardPayOpen(false)} />
     </Screen>
   );
 }
