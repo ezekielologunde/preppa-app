@@ -56,16 +56,6 @@ const SEED_ADDRESSES: Address[] = [
   { id: 'work', label: 'Work', line1: '1100 Peachtree St NE', line2: 'Atlanta, GA 30309' },
 ];
 
-export interface Card {
-  id: string;
-  brand: string;
-  last4: string;
-  exp: string;
-}
-const SEED_CARDS: Card[] = [
-  { id: 'visa4242', brand: 'Visa', last4: '4242', exp: '08/27' },
-];
-
 export interface Toast {
   id: number;
   msg: string;
@@ -105,16 +95,10 @@ interface Store {
   addresses: Address[];
   address: Address | null; // currently selected
   addressId: string;
-  addAddress: (a: Omit<Address, 'id'>) => void;
+  addAddress: (a: Omit<Address, 'id'>) => string; // returns the id (existing if a duplicate)
+  updateAddress: (id: string, patch: Omit<Address, 'id'>) => void;
   selectAddress: (id: string) => void;
   removeAddress: (id: string) => void;
-
-  cards: Card[];
-  card: Card | null; // currently selected
-  cardId: string;
-  addCard: (c: Omit<Card, 'id'>) => void;
-  selectCard: (id: string) => void;
-  removeCard: (id: string) => void;
 
   // role / prepper lifecycle. Reconciled from the server for signed-in users;
   // approval is admin-driven (no client-side auto-approve).
@@ -185,8 +169,6 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
   const [isAdmin, setIsAdmin] = useState(false);
   const [addresses, setAddresses] = useState<Address[]>(SEED_ADDRESSES);
   const [addressId, setAddressId] = useState('home');
-  const [cards, setCards] = useState<Card[]>(SEED_CARDS);
-  const [cardId, setCardId] = useState('visa4242');
   const [lastOrder, setLastOrder] = useState<OrderFlow | null>(null);
   const [orders, setOrders] = useState<CustomerOrder[]>(SEED_ORDERS);
   // Stored as a list constrained to length 1 for MVP (one active plan). Modeling it
@@ -222,8 +204,6 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
           if (s.prepperStatus) setPrepperStatus(s.prepperStatus);
           if (Array.isArray(s.addresses)) setAddresses(s.addresses);
           if (typeof s.addressId === 'string') setAddressId(s.addressId);
-          if (Array.isArray(s.cards)) setCards(s.cards);
-          if (typeof s.cardId === 'string') setCardId(s.cardId);
           if (s.lastOrder) setLastOrder(s.lastOrder);
           if (Array.isArray(s.orders)) setOrders(s.orders);
           if (Array.isArray(s.subs)) setSubs(s.subs);
@@ -243,9 +223,9 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
     if (!hydrated.current) return;
     AsyncStorage.setItem(
       LS,
-      JSON.stringify({ onboarded, darkMode, cart, tip, mode, location, name, firstName, fav: [...fav], prepperStatus, addresses, addressId, cards, cardId, lastOrder, orders, subs, requests, avail, reels }),
+      JSON.stringify({ onboarded, darkMode, cart, tip, mode, location, name, firstName, fav: [...fav], prepperStatus, addresses, addressId, lastOrder, orders, subs, requests, avail, reels }),
     ).catch(() => {});
-  }, [onboarded, darkMode, cart, tip, mode, location, name, firstName, fav, prepperStatus, addresses, addressId, cards, cardId, lastOrder, orders, subs, requests, avail, reels]);
+  }, [onboarded, darkMode, cart, tip, mode, location, name, firstName, fav, prepperStatus, addresses, addressId, lastOrder, orders, subs, requests, avail, reels]);
 
   const toast = useCallback((msg: string, icon = 'check', green = false) => {
     const id = toastSeq++;
@@ -326,10 +306,22 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
   }, []);
 
   // --- addresses ---
-  const addAddress = useCallback((a: Omit<Address, 'id'>) => {
+  const norm = (a: Omit<Address, 'id'>) => `${a.label.trim().toLowerCase()}|${a.line1.trim().toLowerCase()}|${a.line2.trim().toLowerCase()}`;
+  const addAddress = useCallback((a: Omit<Address, 'id'>): string => {
+    // Dedup: an identical (label/line1/line2) address returns the existing id
+    // instead of stacking a duplicate row.
+    const dup = addresses.find((x) => norm(x) === norm(a));
+    if (dup) {
+      setAddressId(dup.id);
+      return dup.id;
+    }
     const id = 'addr-' + (Date.now().toString(36) + Math.floor(Math.random() * 1296).toString(36)).slice(-5);
     setAddresses((xs) => [...xs, { ...a, id }]);
     setAddressId(id); // newly added becomes the selected one
+    return id;
+  }, [addresses]);
+  const updateAddress = useCallback((id: string, patch: Omit<Address, 'id'>) => {
+    setAddresses((xs) => xs.map((a) => (a.id === id ? { ...a, ...patch } : a)));
   }, []);
   const selectAddress = useCallback((id: string) => setAddressId(id), []);
   const removeAddress = useCallback((id: string) => {
@@ -339,24 +331,15 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
       return n;
     });
   }, []);
+  // Keep `addressId` pointing at a real row so the picker highlight and the address
+  // checkout actually uses can never diverge (fixes the "default didn't stick" drift).
+  useEffect(() => {
+    if (addresses.length && !addresses.some((a) => a.id === addressId)) {
+      setAddressId(addresses[0].id);
+    }
+  }, [addresses, addressId]);
   const address = addresses.find((a) => a.id === addressId) ?? addresses[0] ?? null;
   const subscription = subs[0] ?? null; // MVP exposes the single active plan
-
-  // --- payment cards ---
-  const addCard = useCallback((cd: Omit<Card, 'id'>) => {
-    const id = 'card-' + (Date.now().toString(36) + Math.floor(Math.random() * 1296).toString(36)).slice(-5);
-    setCards((xs) => [...xs, { ...cd, id }]);
-    setCardId(id);
-  }, []);
-  const selectCard = useCallback((id: string) => setCardId(id), []);
-  const removeCard = useCallback((id: string) => {
-    setCards((xs) => {
-      const n = xs.filter((c) => c.id !== id);
-      setCardId((cur) => (cur === id ? n[0]?.id ?? '' : cur));
-      return n;
-    });
-  }, []);
-  const card = cards.find((c) => c.id === cardId) ?? cards[0] ?? null;
 
   // Multi-cart: one order PER cook. `cook` scopes checkout to a single cook's lines
   // (and removes only those from the cart); without it, every cook in the cart becomes
@@ -407,8 +390,6 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
     setFav(new Set());
     setAddresses(SEED_ADDRESSES);
     setAddressId('home');
-    setCards(SEED_CARDS);
-    setCardId('visa4242');
     setSubs([]);
     setOrders(SEED_ORDERS);
     setRequests(SEED_REQUESTS);
@@ -503,14 +484,9 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
     address,
     addressId,
     addAddress,
+    updateAddress,
     selectAddress,
     removeAddress,
-    cards,
-    card,
-    cardId,
-    addCard,
-    selectCard,
-    removeCard,
     prepperStatus,
     role,
     submitApplication,

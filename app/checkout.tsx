@@ -1,7 +1,8 @@
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { View, Text, ScrollView, Platform } from 'react-native';
 import { useLocalSearchParams, useRouter } from 'expo-router';
-import { createRealOrder } from '../src/lib/payments';
+import { createRealOrder, confirmSavedCardPayment } from '../src/lib/payments';
+import { useSavedCards } from '../src/lib/useSavedCards';
 import { COOKS, CookId, money } from '../src/data/data';
 import { useC } from '../src/theme/ThemeContext';
 import { type, radius } from '../src/theme/theme';
@@ -13,6 +14,8 @@ import { ModeToggle } from '../src/components/ModeToggle';
 import { AddressPickerSheet, CardPickerSheet } from '../src/components/PickerSheets';
 import { CardPaymentSheet } from '../src/components/CardPaymentSheet';
 
+const brandName = (b: string) => (b ? b.charAt(0).toUpperCase() + b.slice(1) : 'Card');
+
 const TIPS = [0, 2, 3, 5];
 
 export default function Checkout() {
@@ -20,9 +23,10 @@ export default function Checkout() {
   const router = useRouter();
   const { cook } = useLocalSearchParams<{ cook?: string }>();
   const ck = (cook || undefined) as CookId | undefined;
-  const { cart, tip, setTip, mode, placeOrder, address, card, orders } = useStore();
+  const { cart, tip, setTip, mode, placeOrder, address, orders, toast } = useStore();
   const lines = ck ? cart.filter((l) => l.cook === ck) : cart;
   const t = useTotals(lines, tip, mode);
+  const { methods, defaultId } = useSavedCards();
   const [pay, setPay] = useState<'online' | 'cod'>('online');
   const [busy, setBusy] = useState(false);
   const [addrSheet, setAddrSheet] = useState(false);
@@ -30,6 +34,16 @@ export default function Checkout() {
   const [cardPayOpen, setCardPayOpen] = useState(false);
   const [cardSecret, setCardSecret] = useState<string | null>(null);
   const [cardOrderId, setCardOrderId] = useState<string | null>(null);
+  // Which saved card to charge; `null` = enter a new card. Initialized to the default.
+  const [selectedCardId, setSelectedCardId] = useState<string | null>(null);
+  const [saveNewCard, setSaveNewCard] = useState(true);
+  const [pickedCard, setPickedCard] = useState(false); // has the user chosen explicitly?
+  useEffect(() => {
+    if (pickedCard || Platform.OS !== 'web') return;
+    if (methods.length > 0) setSelectedCardId(defaultId ?? methods[0].id);
+    else setSelectedCardId(null);
+  }, [methods, defaultId, pickedCard]);
+  const selectedCard = methods.find((mm) => mm.id === selectedCardId) ?? null;
   const theCook = COOKS[ck ?? lines[0]?.cook ?? 'maria'];
 
   if (lines.length === 0) {
@@ -57,20 +71,36 @@ export default function Checkout() {
     if (effectivePay === 'cod') { setBusy(true); router.push(`/cod?cook=${ck ?? ''}`); return; }
     const cookId = (ck ?? lines[0]?.cook) as string;
     setBusy(true);
-    // Web: create the real order, then collect a real card in the sheet and confirm.
+    // Web: real order + real Stripe charge.
     if (Platform.OS === 'web') {
       try {
-        const { orderId, clientSecret } = await createRealOrder({ cook: cookId, lines, mode, tipDollars: tip, idempotencyKey: `${cookId}-${Date.now()}` });
+        const useSaved = !!selectedCard;
+        const { orderId, clientSecret } = await createRealOrder({
+          cook: cookId, lines, mode, tipDollars: tip,
+          idempotencyKey: `${cookId}-${Date.now()}`,
+          savePaymentMethod: useSaved ? false : saveNewCard,
+        });
+        if (useSaved) {
+          // Charge the saved card directly — no retype.
+          await confirmSavedCardPayment(clientSecret, selectedCard!.id);
+          setBusy(false);
+          placeOrder('paid', ck, orderId);
+          router.replace(`/track?flow=paid&cook=${ck ?? ''}`);
+          return;
+        }
+        // New card → collect it in the sheet and confirm there.
         setCardOrderId(orderId);
         setCardSecret(clientSecret);
         setCardPayOpen(true);
         setBusy(false);
         return;
       } catch (e) {
-        console.warn('[pay] real order unavailable, mock fallback:', (e as any)?.message);
+        setBusy(false);
+        toast((e as any)?.message?.includes('card') ? 'Your card couldn’t be charged. Check the details or try another card.' : 'Couldn’t start your payment. Please try again.', 'info');
+        return;
       }
     }
-    // Native, or web create-order failure → mock so the demo never breaks.
+    // Native (no web Stripe yet) → mock so the demo flow still completes.
     placeOrder('paid', ck);
     router.replace(`/track?flow=paid&cook=${ck ?? ''}`);
   };
@@ -106,14 +136,26 @@ export default function Checkout() {
         </Block>
 
         <Block title="Payment">
-          <PayOption on={effectivePay === 'online'} onPress={() => setPay('online')} icon="card" title="Pay online" tag="Stripe" tagTone="green" body={card ? `${card.brand} •••• ${card.last4} · secure checkout` : 'Add a card to pay online'} />
-          {effectivePay === 'online' ? (
-            <Press scale={0.98} onPress={() => setCardSheet(true)} label="Change payment card">
-              <View style={{ flexDirection: 'row', alignItems: 'center', gap: 5, alignSelf: 'flex-start', marginTop: 8, marginLeft: 2 }}>
-                <Text style={[type(13, 800), { color: c.primary }]}>{card ? 'Change card' : 'Add a card'}</Text>
-                <Icon name="chevRight" size={14} color={c.primary} />
-              </View>
-            </Press>
+          <PayOption on={effectivePay === 'online'} onPress={() => setPay('online')} icon="card" title="Pay online" tag="Stripe" tagTone="green" body={selectedCard ? `${brandName(selectedCard.brand)} •••• ${selectedCard.last4} · secure checkout` : 'Enter a card securely at payment'} />
+          {effectivePay === 'online' && Platform.OS === 'web' ? (
+            <>
+              <Press scale={0.98} onPress={() => setCardSheet(true)} label="Change payment card">
+                <View style={{ flexDirection: 'row', alignItems: 'center', gap: 5, alignSelf: 'flex-start', marginTop: 8, marginLeft: 2 }}>
+                  <Text style={[type(13, 800), { color: c.primary }]}>{methods.length > 0 ? 'Change card' : 'Add a card'}</Text>
+                  <Icon name="chevRight" size={14} color={c.primary} />
+                </View>
+              </Press>
+              {selectedCard === null ? (
+                <Press scale={0.99} onPress={() => setSaveNewCard((v) => !v)} label="Save this card for next time" style={{ marginTop: 12 }}>
+                  <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10 }}>
+                    <View style={{ width: 22, height: 22, borderRadius: 6, borderWidth: 2, borderColor: saveNewCard ? c.primary : c.border, backgroundColor: saveNewCard ? c.primary : 'transparent', alignItems: 'center', justifyContent: 'center' }}>
+                      {saveNewCard ? <Icon name="check" size={13} color="#fff" /> : null}
+                    </View>
+                    <Text style={[type(13, 700), { color: c.soft }]}>Save this card for next time</Text>
+                  </View>
+                </Press>
+              ) : null}
+            </>
           ) : null}
           <View style={{ height: 10 }} />
           <PayOption on={effectivePay === 'cod'} disabled={!!codBlockedReason} onPress={() => setPay('cod')} icon="cash" title="Cash on delivery" tag={codBlockedReason ? 'Unavailable' : 'In person'} tagTone="purple" body={codBlockedReason ?? 'Confirm the amount together at handoff'} />
@@ -150,7 +192,13 @@ export default function Checkout() {
       </Dock>
 
       <AddressPickerSheet visible={addrSheet} onClose={() => setAddrSheet(false)} />
-      <CardPickerSheet visible={cardSheet} onClose={() => setCardSheet(false)} />
+      <CardPickerSheet
+        visible={cardSheet}
+        onClose={() => setCardSheet(false)}
+        methods={methods}
+        selectedId={selectedCardId}
+        onSelect={(id) => { setSelectedCardId(id); setPickedCard(true); }}
+      />
       <CardPaymentSheet visible={cardPayOpen} clientSecret={cardSecret} amountLabel={money(t.total)} onPaid={onCardPaid} onClose={() => setCardPayOpen(false)} />
     </Screen>
   );

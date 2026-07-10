@@ -17,12 +17,16 @@ export function CardPaymentSheet({
   amountLabel,
   onPaid,
   onClose,
+  mode = 'pay',
 }: {
   visible: boolean;
   clientSecret: string | null;
   amountLabel: string;
+  /** Called after a successful confirm (payment succeeded, or card saved in `save` mode). */
   onPaid: () => void;
   onClose: () => void;
+  /** `pay` confirms a PaymentIntent; `save` confirms a SetupIntent to store the card. */
+  mode?: 'pay' | 'save';
 }) {
   const c = useC();
   const mountRef = useRef<View | null>(null);
@@ -70,14 +74,17 @@ export function CardPaymentSheet({
     if (busy || !stripeRef.current || !cardRef.current || !clientSecret) return;
     setBusy(true);
     setErr(null);
-    const res = await stripeRef.current.confirmCardPayment(clientSecret, { payment_method: { card: cardRef.current } });
+    const res =
+      mode === 'save'
+        ? await stripeRef.current.confirmCardSetup(clientSecret, { payment_method: { card: cardRef.current } })
+        : await stripeRef.current.confirmCardPayment(clientSecret, { payment_method: { card: cardRef.current } });
     setBusy(false);
-    if (res.error) { setErr(res.error.message || 'Payment failed'); return; }
+    if (res.error) { setErr(res.error.message || (mode === 'save' ? 'Could not save the card' : 'Payment failed')); return; }
     onPaid();
   };
 
   return (
-    <Sheet visible={visible} onClose={busy ? () => {} : onClose} title="Pay with card">
+    <Sheet visible={visible} onClose={busy ? () => {} : onClose} title={mode === 'save' ? 'Add a card' : 'Pay with card'}>
       {Platform.OS === 'web' ? (
         <>
           <View
@@ -87,7 +94,7 @@ export function CardPaymentSheet({
           <Text style={[type(11.5, 600), { color: c.muted, marginTop: 8 }]}>Test mode — use 4242 4242 4242 4242, any future date, any CVC.</Text>
           {err ? <Text style={[type(13, 700), { color: c.red, marginTop: 8 }]}>{err}</Text> : null}
           <View style={{ marginTop: 14 }}>
-            <Btn label={`Pay ${amountLabel}`} icon="lock" block loading={busy} disabled={!ready} onPress={pay} />
+            <Btn label={mode === 'save' ? 'Save card' : `Pay ${amountLabel}`} icon="lock" block loading={busy} disabled={!ready} onPress={pay} />
           </View>
         </>
       ) : (

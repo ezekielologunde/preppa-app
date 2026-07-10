@@ -136,8 +136,8 @@ function ReportIssue({ orderId }: { orderId: string }) {
       await createOrderTicket(orderId, cat, subject.trim(), body.trim());
       toast('Issue reported — we’ll follow up', 'check', true);
       setOpen(false); setSubject(''); setBody(''); setCat('missing_item');
-    } catch (e: any) {
-      toast(e?.message ?? 'Could not submit report', 'info');
+    } catch {
+      toast('Couldn’t send your report just now. Please try again.', 'info');
     } finally {
       setBusy(false);
     }

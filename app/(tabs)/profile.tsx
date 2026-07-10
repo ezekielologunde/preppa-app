@@ -31,8 +31,8 @@ export default function Profile() {
       await saveName(nm);
       setEditing(false);
       toast('Name updated', 'check', true);
-    } catch (e: any) {
-      toast(e?.message || 'Couldn’t save your name', 'x');
+    } catch {
+      toast('Couldn’t save your name. Please try again.', 'x');
     } finally {
       setSavingName(false);
     }

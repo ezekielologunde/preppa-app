@@ -25,7 +25,7 @@ export default function HomeScreen() {
   const c = useC();
   const insets = useSafeAreaInsets();
   const router = useRouter();
-  const { mode, location, cartCount, notifCount, fav, firstName } = useStore();
+  const { mode, location, cartCount, notifCount, fav, firstName, orders, reorder } = useStore();
   const { width } = useWindowDimensions();
   const wide = width >= 700; // logo + actions live in the SideRail on wide screens
   const [locPicker, setLocPicker] = useState(false);
@@ -33,6 +33,13 @@ export default function HomeScreen() {
   const dropId = dailyDropId();
   const picks = MEALS.filter((m) => m.id !== dropId).slice(0, 4);
   const favMeals = MEALS.filter((m) => fav.has(m.id));
+  const lastOrder = orders[0] ?? null; // returning-buyer reorder shortcut
+
+  const orderAgain = () => {
+    if (!lastOrder) return;
+    reorder(lastOrder.id);
+    router.push('/cart');
+  };
 
   return (
     <View style={{ flex: 1, backgroundColor: c.primaryL, paddingTop: insets.top }}>
@@ -98,6 +105,24 @@ export default function HomeScreen() {
             </Press>
           ))}
         </ScrollView>
+
+        {lastOrder ? (
+          <Press scale={0.99} onPress={orderAgain} label={`Order again from ${COOKS[lastOrder.cook].name}`} style={{ marginHorizontal: 16, marginTop: 16 }}>
+            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 13, backgroundColor: c.surface, borderWidth: 1, borderColor: c.border2, borderRadius: radius.card, padding: 14, ...shadow.soft }}>
+              <View style={{ width: 44, height: 44, borderRadius: 13, backgroundColor: c.primaryL, alignItems: 'center', justifyContent: 'center' }}>
+                <Icon name="repeat" size={21} color={c.primary} />
+              </View>
+              <View style={{ flex: 1, minWidth: 0 }}>
+                <Text style={[type(11, 800), { color: c.primary, textTransform: 'uppercase', letterSpacing: 0.5 }]}>Order again</Text>
+                <Text numberOfLines={1} style={[type(15, 900), { color: c.ink, letterSpacing: -0.3, marginTop: 2 }]}>{lastOrder.lines[0]?.name}{lastOrder.lines.length > 1 ? ` +${lastOrder.lines.length - 1} more` : ''}</Text>
+                <Text numberOfLines={1} style={[type(12.5, 600), { color: c.soft, marginTop: 1 }]}>From {COOKS[lastOrder.cook].name}</Text>
+              </View>
+              <View style={{ width: 34, height: 34, borderRadius: 17, backgroundColor: c.primary, alignItems: 'center', justifyContent: 'center' }}>
+                <Icon name="plus" size={18} color="#fff" />
+              </View>
+            </View>
+          </Press>
+        ) : null}
 
         <SectionHeader title="Today’s drop" />
         <HeroDrop id={dropId} />

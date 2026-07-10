@@ -120,9 +120,9 @@ export default function Apply() {
       });
       toast('Application received — we’ll be in touch', 'check', true);
       router.replace('/(tabs)/profile');
-    } catch (e: any) {
+    } catch {
       setBusy(false);
-      setErr(e?.message || 'Couldn’t submit your application. Please try again.');
+      setErr('Couldn’t submit your application right now. Please check your details and try again.');
     }
   };
 
