@@ -30,7 +30,7 @@ real" is a sequence gated on a first real transaction — not a single sprint.
 | Database integrity (RLS, FKs, constraints) | ✅ Real |
 | Storage (avatars/meal-photos/kyc-docs) | ✅ Real, hardened |
 | Admin console (orders/users/audit/tickets) | ✅ Real |
-| **Order → payment reconciliation** | ⚠️ **Broken** (charges don't update order state) |
+| Order → payment reconciliation | ✅ **Real** (trigger flips order→paid + writes ledger) |
 | **Cook payouts (Stripe Connect)** | ⚠️ **Not wired** (cooks can't be paid) |
 | **Native payments** | ⚠️ **Mock** (marks paid, never charges) |
 | **Buyer catalog / cooks / reviews** | ⚠️ **Mock** (DB exists but is bypassed) |
@@ -51,15 +51,17 @@ real" is a sequence gated on a first real transaction — not a single sprint.
 
 ## 🟠 High
 
-2. **Payment success is never reconciled into app order state.** `create-order` inserts a
-   PaymentIntent at `status='requires_payment_method'` and never updates it; the Stripe
-   sync engine writes only the read-only `stripe.*` mirror; **nothing maps a succeeded
-   charge back to `public.orders.pay_status` / `public.payment_intents.status`.** Result:
-   every order reads `unpaid` server-side even after the card clears, so fulfillment, the
-   ledger, and `kitchen_balance_cents` (the payout basis) all see $0. *This refines the
-   earlier "orders never confirmed" note — the charge can succeed; the app just doesn't
-   learn about it.* **Fix:** a DB trigger/function joining `stripe.payment_intents.metadata.order_id`
-   (or a webhook handler) to flip order + PI status to paid.
+2. ✅ **FIXED — payment success now reconciles into app order state.** A `SECURITY DEFINER`
+   trigger (`reconcile_paid_pi` on `stripe.payment_intents`) fires when the sync engine
+   records a PI as `succeeded`, maps `metadata.order_id` back to the app, and flips
+   `orders.pay_status→'paid'` + `status→'confirmed'` + `payment_intents.status→'succeeded'`,
+   then writes the cook's `ledger_entries` credits (sale = subtotal, tip = 100%; the 10%
+   service fee is buyer-paid platform revenue, not credited to the kitchen). Idempotent and
+   exception-wrapped so it can never break Stripe sync. **Verified end-to-end:** all 7
+   historical orders backfilled to `paid` with correct ledger; a fresh probe order
+   auto-settled within seconds (paid/confirmed/ledger-credited) with no manual step. The
+   payout basis (`kitchen_balance_cents` = Σ ledger) is now real. _(Migration:
+   `reconcile_stripe_payment_to_order`.)_
 
 3. **Cook payouts are not wired.** `connect-onboard` / `connect-payout` edge functions are
    deployed and real, but **no client code ever calls them** (`app/hub/payout.tsx` is a
@@ -160,7 +162,7 @@ cost is *completely unexercised*; single JS bundle; per-row `auth.uid()` in RLS.
 
 ## Technical-debt register (condensed)
 
-`R1` catalog→DB migration · `R2` payment reconciliation (Stripe→orders) · `R3` remove
+`R1` catalog→DB migration · ~~`R2` payment reconciliation (Stripe→orders)~~ ✅ **DONE** · `R3` remove
 test-customer creds / anonymous guest checkout · `R4` Connect payout wiring · `R5` native
 payments (or block native) · `R6` COD server flow (or hide) · `R7` reviews from DB (or hide)
 · `R8` landing waitlist backend · `R9` RLS `(select auth.uid())` rewrite · `R10` bundle
@@ -179,7 +181,16 @@ splitting · `R11` self-hosted meal images.
 4. **When one-off orders convert & retain:** subscriptions/meal-plans, native payments,
    then video/livestream if engagement justifies the infra cost.
 
-## Fixed in this pass
-- Added btree indexes on 9 unindexed FK columns.
+## Fixed since this audit
+- Added btree indexes on 9 unindexed FK columns (`audit_fk_indexes_and_hygiene`).
 - Revoked anon/authenticated EXECUTE on `handle_new_user` + `rls_auto_enable`.
-(Migration: `audit_fk_indexes_and_hygiene`.)
+- **Closed the money loop (R2):** `reconcile_paid_pi` trigger — Stripe success now flips
+  order→paid/confirmed + writes the cook's ledger; verified end-to-end
+  (`reconcile_stripe_payment_to_order`).
+- Built the `waitlist` table (anon insert-only, reads denied) for the preppa.live landing
+  form (`waitlist_table`) — landing front-end still needs its Supabase URL/key repointed.
+
+## Next up (recommended order)
+`R3` remove the shipped test-customer credential + move guest checkout to anonymous auth
+(needs anonymous auth enabled) → `R1` catalog→DB → `R4` cook payouts (Connect) → the
+prep-experience marketplace + real messaging.
