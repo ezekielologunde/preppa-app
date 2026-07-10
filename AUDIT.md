@@ -83,13 +83,13 @@ real" is a sequence gated on a first real transaction — not a single sprint.
    fabricated constants. **Fix:** point buyer screens at the repository/DB before anything
    else marketplace-related — this is the root of most "mock" findings.
 
-6. **Hardcoded test-customer credentials ship in the client bundle** (`supabase.ts:24`),
-   and the seeded account has **role=prepper** — and `ensureAuth()` signs it in for *every
-   guest checkout*. So the bundle leaks working creds that grant prepper-level access, and
-   all anonymous orders share one prepper identity. (Currently dormant: no `auth.users` row
-   exists for it right now, but the creds are still shipped.) **Fix:** remove the
-   credential; use `signInAnonymously` (needs anonymous auth enabled) or an edge-minted
-   token for guest checkout.
+6. ✅ **FIXED — test-customer credential removed + neutralized.** `TEST_EMAIL`/`TEST_PW`
+   deleted from `supabase.ts`; `ensureAuth()` now returns the real session or throws
+   `AUTH_REQUIRED` (no shared-account fallback — safe because the onboarding gate can't
+   complete without a real OTP/Google session, so `onboarded ⟹ session`). Checkout catches
+   `AUTH_REQUIRED` and re-shows the sign-in gate. The already-leaked password (it shipped in
+   prior public bundles) was **rotated server-side** — verified the old value now returns
+   `400 invalid`. The account is kept (it owns the 7 test orders) but is inert to the app.
 
 7. **preppa.live waitlist is silently broken.** The homepage's only CTA POSTs to
    `nfwfnnfbikjxwflpmsnu.supabase.co/rest/v1/waitlist` — a **dead/paused project that
@@ -162,8 +162,8 @@ cost is *completely unexercised*; single JS bundle; per-row `auth.uid()` in RLS.
 
 ## Technical-debt register (condensed)
 
-`R1` catalog→DB migration · ~~`R2` payment reconciliation (Stripe→orders)~~ ✅ **DONE** · `R3` remove
-test-customer creds / anonymous guest checkout · `R4` Connect payout wiring · `R5` native
+`R1` catalog→DB migration · ~~`R2` payment reconciliation (Stripe→orders)~~ ✅ **DONE** · ~~`R3` remove
+test-customer creds~~ ✅ **DONE** · `R4` Connect payout wiring · `R5` native
 payments (or block native) · `R6` COD server flow (or hide) · `R7` reviews from DB (or hide)
 · `R8` landing waitlist backend · `R9` RLS `(select auth.uid())` rewrite · `R10` bundle
 splitting · `R11` self-hosted meal images.
@@ -190,7 +190,10 @@ splitting · `R11` self-hosted meal images.
 - Built the `waitlist` table (anon insert-only, reads denied) for the preppa.live landing
   form (`waitlist_table`) — landing front-end still needs its Supabase URL/key repointed.
 
+- **Removed the shipped test-customer credential (R3):** `ensureAuth` now requires a real
+  session (throws `AUTH_REQUIRED`, handled by checkout); the leaked password was rotated
+  server-side (old value now rejected). `supabase.ts` + `checkout.tsx`.
+
 ## Next up (recommended order)
-`R3` remove the shipped test-customer credential + move guest checkout to anonymous auth
-(needs anonymous auth enabled) → `R1` catalog→DB → `R4` cook payouts (Connect) → the
-prep-experience marketplace + real messaging.
+`R1` catalog→DB (the visible win — buyers read real inventory) → `R4` cook payouts
+(Connect onboarding + cash-out) → the prep-experience reverse marketplace + real messaging.

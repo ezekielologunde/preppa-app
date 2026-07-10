@@ -20,17 +20,17 @@ export const supabase = createClient(SUPABASE_URL, SUPABASE_ANON, {
   auth: { storage: AsyncStorage as any, autoRefreshToken: true, persistSession: true, detectSessionInUrl: Platform.OS === 'web' },
 });
 
-// Seeded test customer (email+password so we get a real JWT without the anon-auth toggle).
-const TEST_EMAIL = 'test-customer@preppa.local';
-const TEST_PW = 'preppa-test-1234';
-
-/** Ensure there's a signed-in Supabase user; sign in the seeded test customer if not. */
+/**
+ * Ensure there's a signed-in Supabase user before a payment/account action. Real
+ * users always hold a session from onboarding (OTP/Google) — the onboarding gate
+ * can't complete without one. If a session was lost/expired, require a real
+ * re-auth rather than falling back to any shared account (no credentials ship in
+ * the bundle). Callers catch `AUTH_REQUIRED` and route back to sign-in.
+ */
 export async function ensureAuth() {
   const { data } = await supabase.auth.getSession();
   if (data.session) return data.session;
-  const { data: signIn, error } = await supabase.auth.signInWithPassword({ email: TEST_EMAIL, password: TEST_PW });
-  if (error) throw error;
-  return signIn.session;
+  throw new Error('AUTH_REQUIRED');
 }
 
 // ---- Real email-OTP auth (Phase 1) --------------------------------------

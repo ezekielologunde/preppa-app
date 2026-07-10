@@ -23,7 +23,7 @@ export default function Checkout() {
   const router = useRouter();
   const { cook } = useLocalSearchParams<{ cook?: string }>();
   const ck = (cook || undefined) as CookId | undefined;
-  const { cart, tip, setTip, mode, placeOrder, address, orders, toast } = useStore();
+  const { cart, tip, setTip, mode, placeOrder, address, orders, toast, resetOnboarding } = useStore();
   const lines = ck ? cart.filter((l) => l.cook === ck) : cart;
   const t = useTotals(lines, tip, mode);
   const { methods, defaultId } = useSavedCards();
@@ -96,7 +96,13 @@ export default function Checkout() {
         return;
       } catch (e) {
         setBusy(false);
-        toast((e as any)?.message?.includes('card') ? 'Your card couldn’t be charged. Check the details or try another card.' : 'Couldn’t start your payment. Please try again.', 'info');
+        const msg = (e as any)?.message ?? '';
+        if (msg === 'AUTH_REQUIRED') {
+          toast('Please sign in again to place your order.', 'info');
+          resetOnboarding(); // re-show the sign-in gate
+        } else {
+          toast(msg.includes('card') ? 'Your card couldn’t be charged. Check the details or try another card.' : 'Couldn’t start your payment. Please try again.', 'info');
+        }
         return;
       }
     }
