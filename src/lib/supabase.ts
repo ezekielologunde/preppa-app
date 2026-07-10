@@ -260,6 +260,34 @@ export async function submitPrepperApplication(f: ApplicationFields): Promise<st
   return data as string;
 }
 
+// ---- Real meal creation (approved preppers) ----------------------------------
+export interface NewMeal {
+  name: string;
+  description?: string;
+  priceCents: number;
+  serves: number;
+  tags?: string[];
+  grad?: string;
+}
+/**
+ * Publish a real meal to the caller's own verified kitchen. The `create_meal` RPC
+ * resolves the kitchen from auth.uid() server-side (the client never passes a
+ * kitchen_id) and returns the new meal's id. Throws on failure (e.g. no approved
+ * kitchen, bad price) so the form can surface it.
+ */
+export async function createMeal(m: NewMeal): Promise<string> {
+  const { data, error } = await supabase.rpc('create_meal', {
+    p_name: m.name,
+    p_description: m.description ?? null,
+    p_price_cents: m.priceCents,
+    p_serves: m.serves,
+    p_tags: m.tags && m.tags.length ? m.tags : null,
+    p_grad: m.grad ?? 'g1',
+  });
+  if (error) throw error;
+  return data as string;
+}
+
 /** mock cook id -> seeded kitchen UUID */
 export const KITCHEN_ID: Record<string, string> = {
   maria: 'bbbbbbbb-0000-4000-8000-000000000001',

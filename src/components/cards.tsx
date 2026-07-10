@@ -1,7 +1,7 @@
 import React, { useRef, useState } from 'react';
 import { View, Text, ScrollView, Pressable, Animated, StyleSheet, LayoutChangeEvent, StyleProp, ViewStyle, ActivityIndicator } from 'react-native';
 import { useRouter } from 'expo-router';
-import { COOKS, CookId, Meal, Experience, PlanGoal, money } from '../data/data';
+import { COOKS, CookId, Meal, Experience, PlanGoal, money, cookOf } from '../data/data';
 import { useKitchenReviews } from '../data/hooks';
 import { useC } from '../theme/ThemeContext';
 import { type, radius, shadow } from '../theme/theme';
@@ -183,7 +183,7 @@ export const MealCardLg = React.memo(function MealCardLg({ m, showMatch, width }
   const c = useC();
   const router = useRouter();
   const { fav, toggleFav, addToCart, showFlash, isMine } = useStore();
-  const cook = COOKS[m.cook];
+  const cook = cookOf(m);
   const isFav = fav.has(m.id);
   const mine = isMine(m.cook);
   const quickAdd = () => {
@@ -268,7 +268,7 @@ export const HeroDrop = React.memo(function HeroDrop({ m }: { m: Meal }) {
   const c = useC();
   const router = useRouter();
   const { fav, toggleFav, addToCart, showFlash, isMine } = useStore();
-  const cook = COOKS[m.cook];
+  const cook = cookOf(m);
   const isFav = fav.has(m.id);
   const mine = isMine(m.cook);
   const add = () => {

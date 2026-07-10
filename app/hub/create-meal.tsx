@@ -4,6 +4,7 @@ import { useRouter } from 'expo-router';
 import { useC } from '../../src/theme/ThemeContext';
 import { type, GradKey } from '../../src/theme/theme';
 import { useStore } from '../../src/store/store';
+import { createMeal } from '../../src/lib/supabase';
 import { Stepper } from '../../src/ui';
 import { Screen, TopBar, Dock } from '../../src/ui/layout';
 import { Burst } from '../../src/components/shared';
@@ -25,10 +26,29 @@ export default function CreateMealFlow() {
   const [diet, setDiet] = useState<string[]>([]);
   const [qty, setQty] = useState('');
   const [done, setDone] = useState(false);
+  const [busy, setBusy] = useState(false);
   const toggleD = (d: string) => setDiet((p) => (p.includes(d) ? p.filter((x) => x !== d) : [...p, d]));
   const valid = !!name.trim() && Number(price) > 0;
   const reason = !name.trim() ? 'Add a dish name' : 'Set a price above $0';
-  const submit = () => (valid ? setDone(true) : toast(reason, 'info'));
+  const submit = async () => {
+    if (busy) return;
+    if (!valid) { toast(reason, 'info'); return; }
+    setBusy(true);
+    try {
+      await createMeal({
+        name: name.trim(),
+        description: desc.trim() || undefined,
+        priceCents: Math.round(Number(price) * 100),
+        serves,
+        tags: [cat, ...diet],
+        grad: grad ?? undefined,
+      });
+      setDone(true);
+    } catch (e: any) {
+      setBusy(false);
+      toast(e?.message === 'no approved kitchen for this account' ? 'Your kitchen isn’t approved yet' : 'Couldn’t publish your meal — please try again', 'info');
+    }
+  };
 
   if (done) {
     return (
@@ -71,7 +91,7 @@ export default function CreateMealFlow() {
         <KField label="Daily quantity" hint="how many you can make"><KInput value={qty} onChange={setQty} placeholder="e.g. 12 trays per day" /></KField>
       </ScrollView>
       <Dock>
-        <KBtn label="Publish meal" variant="pri" block onPress={submit} style={{ opacity: valid ? 1 : 0.5 }} />
+        <KBtn label={busy ? 'Publishing…' : 'Publish meal'} variant="pri" block onPress={submit} style={{ opacity: valid && !busy ? 1 : 0.5 }} />
       </Dock>
     </Screen>
   );

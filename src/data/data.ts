@@ -59,6 +59,37 @@ export interface Meal {
   photos?: string[]; // extra gallery photos (illustrative seed); the carousel shows these when present, else [img]
   mealUuid?: string; // real DB meals.id (present when sourced from Supabase) — carried to checkout
   kitchenUuid?: string; // real DB kitchens.id — carried to checkout
+  // Real (non-seed) kitchen display identity, carried so an approved prepper's meal
+  // renders under its own kitchen instead of being misattributed to a seed cook.
+  // Present only for kitchens outside the 6 seed cooks; `cookOf` prefers these.
+  kitchenName?: string;
+  kitchenCuisine?: string;
+  kitchenArea?: string;
+}
+
+/**
+ * Resolve a meal's cook for DISPLAY. For the 6 seed kitchens this returns the rich
+ * seed `Cook`; for a real approved kitchen it synthesizes a Cook from the kitchen
+ * identity carried on the meal — so real supply shows under its own name/avatar
+ * rather than defaulting to a seed cook.
+ */
+export function cookOf(m: Meal): Cook {
+  if (m.kitchenName) {
+    return {
+      name: m.kitchenName,
+      kitchen: m.kitchenName,
+      initial: m.kitchenName.trim()[0]?.toUpperCase() ?? 'K',
+      grad: m.grad,
+      cuisine: m.kitchenCuisine ?? '',
+      rating: m.rating,
+      reviews: m.reviews,
+      dist: m.kitchenArea ?? m.dist,
+      verified: true,
+      prepscore: 0,
+      acceptsCod: false,
+    };
+  }
+  return COOKS[m.cook] ?? COOKS.maria;
 }
 
 const IMG = 'https://www.themealdb.com/images/media/meals/';
