@@ -10,8 +10,6 @@ import { type, radius, shadow } from '../../src/theme/theme';
 import { useStore } from '../../src/store/store';
 import { Icon, Press } from '../../src/ui';
 import { HeroDrop, MealGrid, SectionHeader, CookRail } from '../../src/components/cards';
-import { ModeToggle } from '../../src/components/ModeToggle';
-import { LocationPicker } from '../../src/components/LocationPicker';
 import { QuickCartSheet } from '../../src/components/QuickCartSheet';
 import { FLAGS } from '../../src/config/flags';
 
@@ -26,10 +24,9 @@ export default function HomeScreen() {
   const c = useC();
   const insets = useSafeAreaInsets();
   const router = useRouter();
-  const { mode, location, cartCount, notifCount, fav, firstName, orders, reorder } = useStore();
+  const { cartCount, notifCount, fav, firstName, orders, reorder } = useStore();
   const { width } = useWindowDimensions();
   const wide = width >= 700; // logo + actions live in the SideRail on wide screens
-  const [locPicker, setLocPicker] = useState(false);
   const [cartOpen, setCartOpen] = useState(false);
   const dropId = dailyDropId();
   const { data: allMeals, loading: mealsLoading } = useMeals(); // real catalog from the DB
@@ -70,23 +67,12 @@ export default function HomeScreen() {
             </View>
           ) : null}
 
-          <Press scale={0.98} onPress={() => setLocPicker(true)} label="Change location" style={{ marginTop: wide ? 0 : 14, alignSelf: 'flex-start' }}>
-            <Text style={[type(11, 700), { color: c.muted, textTransform: 'uppercase', letterSpacing: 0.6 }]}>{mode === 'pickup' ? 'Pick up in' : 'Deliver to'}</Text>
-            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 5, marginTop: 3 }}>
-              <Icon name="pin" size={15} color={c.ink} />
-              <Text style={[type(16, 800), { color: c.ink, letterSpacing: -0.3 }]}>{location}</Text>
-              <Icon name="chevDown" size={15} color={c.muted} />
-            </View>
-          </Press>
-
-          <View style={{ marginTop: 24 }}>
+          <View style={{ marginTop: wide ? 8 : 20 }}>
             <Text style={[type(29, 900), { color: c.ink, letterSpacing: -1.2, lineHeight: 31 }]}>
               {greetWord()}{firstName ? ', ' : ''}<Text style={{ color: c.primary }}>{firstName}</Text>
             </Text>
             <Text style={[type(15.5, 500), { color: c.soft, marginTop: 7 }]}>What sounds good tonight?</Text>
           </View>
-
-          <View style={{ marginTop: 14 }}><ModeToggle /></View>
         </LinearGradient>
 
         {/* [1] sticky search */}
@@ -109,20 +95,6 @@ export default function HomeScreen() {
             </Press>
           ))}
         </ScrollView>
-
-        {/* Modest entry to the event cost estimator (advisory tool — no supply needed) */}
-        <Press scale={0.99} onPress={() => router.push('/event-estimator')} label="Estimate event catering cost" style={{ marginHorizontal: 16, marginTop: 16 }}>
-          <View style={{ flexDirection: 'row', alignItems: 'center', gap: 13, backgroundColor: c.surface, borderWidth: 1, borderColor: c.border2, borderRadius: radius.card, padding: 14, ...shadow.soft }}>
-            <View style={{ width: 44, height: 44, borderRadius: 13, backgroundColor: c.primaryL, alignItems: 'center', justifyContent: 'center' }}>
-              <Icon name="calendar" size={21} color={c.primary} />
-            </View>
-            <View style={{ flex: 1, minWidth: 0 }}>
-              <Text style={[type(15, 900), { color: c.ink, letterSpacing: -0.3 }]}>Planning an event?</Text>
-              <Text numberOfLines={1} style={[type(12.5, 600), { color: c.soft, marginTop: 2 }]}>Free estimate — budget, menu & staffing</Text>
-            </View>
-            <Icon name="chevRight" size={18} color={c.muted} />
-          </View>
-        </Press>
 
         {lastOrder ? (
           <Press scale={0.99} onPress={orderAgain} label={`Order again from ${COOKS[lastOrder.cook].name}`} style={{ marginHorizontal: 16, marginTop: 16 }}>
@@ -170,7 +142,6 @@ export default function HomeScreen() {
 
         <View style={{ height: 8 }} />
       </ScrollView>
-      <LocationPicker visible={locPicker} onClose={() => setLocPicker(false)} />
       <QuickCartSheet visible={cartOpen} onClose={() => setCartOpen(false)} />
     </View>
   );
