@@ -203,7 +203,9 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
           if (typeof s.name === 'string') setName(s.name);
           if (typeof s.firstName === 'string') setFirstName(s.firstName);
           if (Array.isArray(s.fav)) setFav(new Set(s.fav));
-          if (s.prepperStatus) setPrepperStatus(s.prepperStatus);
+          // prepperStatus is deliberately NOT hydrated from storage — it's an access
+          // gate (My Hub) and must reflect the live session, not a stale cached role.
+          // reconcileAccount() sets it authoritatively from the server (see below).
           if (Array.isArray(s.addresses)) setAddresses(s.addresses);
           if (typeof s.addressId === 'string') setAddressId(s.addressId);
           if (s.lastOrder) setLastOrder(s.lastOrder);
@@ -225,9 +227,9 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
     if (!hydrated.current) return;
     AsyncStorage.setItem(
       LS,
-      JSON.stringify({ onboarded, darkMode, cart, tip, mode, location, name, firstName, fav: [...fav], prepperStatus, addresses, addressId, lastOrder, orders, subs, requests, avail, reels }),
+      JSON.stringify({ onboarded, darkMode, cart, tip, mode, location, name, firstName, fav: [...fav], addresses, addressId, lastOrder, orders, subs, requests, avail, reels }),
     ).catch(() => {});
-  }, [onboarded, darkMode, cart, tip, mode, location, name, firstName, fav, prepperStatus, addresses, addressId, lastOrder, orders, subs, requests, avail, reels]);
+  }, [onboarded, darkMode, cart, tip, mode, location, name, firstName, fav, addresses, addressId, lastOrder, orders, subs, requests, avail, reels]);
 
   const toast = useCallback((msg: string, icon = 'check', green = false) => {
     const id = toastSeq++;
@@ -236,16 +238,18 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
   }, []);
 
   // --- role / prepper lifecycle -------------------------------------------
-  // Reconcile the signed-in user's real role/status from the backend so admin
-  // gating and prepper approval reflect server truth (not a local flag). Runs
-  // after the local hydrate and on every auth change; when signed out we leave
-  // the locally-persisted (demo) status untouched.
+  // Reconcile the user's real role/status from the backend so admin gating and
+  // prepper approval reflect server truth (not a local flag). Runs after hydrate
+  // and on every auth change. Signed out ⇒ 'none' (no elevated access retained).
   const reconcileAccount = useCallback(async () => {
     try {
       const s = await fetchAccountState();
       setIsAdmin(s.isAdmin);
+      // Authoritative: prepperStatus always follows the live session. When signed
+      // out, fetchAccountState returns 'none', so a stale cached role can never keep
+      // My Hub visible to a guest/customer on a browser a prepper once used.
+      setPrepperStatus(s.prepperStatus);
       if (s.signedIn) {
-        setPrepperStatus(s.prepperStatus);
         if (s.displayName) setName(s.displayName);
         if (s.firstName) setFirstName(s.firstName);
       }
