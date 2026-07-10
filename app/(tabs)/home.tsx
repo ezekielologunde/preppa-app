@@ -11,6 +11,7 @@ import { Icon, Press } from '../../src/ui';
 import { HeroDrop, MealGrid, SectionHeader, CookRail } from '../../src/components/cards';
 import { ModeToggle } from '../../src/components/ModeToggle';
 import { LocationPicker } from '../../src/components/LocationPicker';
+import { QuickCartSheet } from '../../src/components/QuickCartSheet';
 import { FLAGS } from '../../src/config/flags';
 
 const CUISINES = ['Comfort', 'Healthy', 'Halal', 'Mexican', 'Seafood', 'Soul food'];
@@ -28,6 +29,7 @@ export default function HomeScreen() {
   const { width } = useWindowDimensions();
   const wide = width >= 700; // logo + actions live in the SideRail on wide screens
   const [locPicker, setLocPicker] = useState(false);
+  const [cartOpen, setCartOpen] = useState(false);
   const dropId = dailyDropId();
   const picks = MEALS.filter((m) => m.id !== dropId).slice(0, 4);
   const favMeals = MEALS.filter((m) => fav.has(m.id));
@@ -52,7 +54,7 @@ export default function HomeScreen() {
               </View>
               <View style={{ flexDirection: 'row', gap: 9 }}>
                 {FLAGS.notifications ? <HdrIcon name="bell" dot={notifCount > 0} onPress={() => router.push('/notifications')} /> : null}
-                <HdrIcon name="cart" dot={cartCount > 0} onPress={() => router.push('/cart')} />
+                <HdrIcon name="cart" dot={cartCount > 0} onPress={() => setCartOpen(true)} />
               </View>
             </View>
           ) : null}
@@ -116,6 +118,7 @@ export default function HomeScreen() {
         <View style={{ height: 8 }} />
       </ScrollView>
       <LocationPicker visible={locPicker} onClose={() => setLocPicker(false)} />
+      <QuickCartSheet visible={cartOpen} onClose={() => setCartOpen(false)} />
     </View>
   );
 }
