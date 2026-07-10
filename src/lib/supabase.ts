@@ -130,12 +130,35 @@ export async function updateDisplayName(fullName: string): Promise<{ displayName
   return { displayName: display, firstName: first };
 }
 
-/** Submit a real prepper application (creates a pending kitchen + verification). */
-export async function submitPrepperApplication(name: string, cuisine?: string, area?: string): Promise<string> {
+export interface ApplicationFields {
+  legalName: string;
+  phone: string;
+  kitchenName: string;
+  cuisine: string;
+  address: string; // private
+  neighborhood: string; // public
+  foodSafety: { refrigeration: boolean; foodPrep: boolean; allergens: boolean; note?: string };
+  foodHandlerCert?: string;
+  story: string;
+  agreementVersion: string;
+}
+
+/**
+ * Submit a real prepper application: creates a pending kitchen + private details
+ * (phone/address/food-safety/agreement) + verification rows for admin review.
+ * (Requires the extended `request_prepper_application` RPC — see the pending migration.)
+ */
+export async function submitPrepperApplication(f: ApplicationFields): Promise<string> {
   const { data, error } = await supabase.rpc('request_prepper_application', {
-    p_kitchen_name: name,
-    p_cuisine: cuisine ?? null,
-    p_approx_area: area ?? null,
+    p_kitchen_name: f.kitchenName,
+    p_cuisine: f.cuisine,
+    p_approx_area: f.neighborhood,
+    p_bio: f.story,
+    p_phone: f.phone,
+    p_address: f.address,
+    p_food_safety: f.foodSafety,
+    p_food_handler_cert: f.foodHandlerCert ?? null,
+    p_agreement_version: f.agreementVersion,
   });
   if (error) throw error;
   return data as string;

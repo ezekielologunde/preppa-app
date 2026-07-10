@@ -6,8 +6,9 @@ import {
 } from '../data/data';
 import { ME } from '../data/cook';
 import { computeTotals } from '../data/totals';
-import { signOutUser, fetchAccountState, submitPrepperApplication, updateDisplayName } from '../lib/supabase';
+import { signOutUser, fetchAccountState, submitPrepperApplication, updateDisplayName, type ApplicationFields } from '../lib/supabase';
 import { supabase } from '../lib/supabase';
+export type { ApplicationFields };
 
 export type PrepperStatus = 'none' | 'pending' | 'approved';
 
@@ -120,7 +121,7 @@ interface Store {
   prepperStatus: PrepperStatus;
   role: 'customer' | 'prepper';
   isAdmin: boolean; // server-derived (profiles.role='admin'); cosmetic gating only
-  applyToPrepper: () => void;
+  submitApplication: (f: ApplicationFields) => Promise<void>;
   isMine: (cook: CookId) => boolean; // true only for an approved prepper viewing their own listing
 
   fav: Set<string>;
@@ -290,21 +291,13 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
 
   const role: 'customer' | 'prepper' = prepperStatus === 'approved' ? 'prepper' : 'customer';
   const isMine = useCallback((cook: CookId) => prepperStatus === 'approved' && cook === ME.id, [prepperStatus]);
-  const applyToPrepper = useCallback(async () => {
-    if (prepperStatus === 'approved' || prepperStatus === 'pending') return;
-    try {
-      // Lightweight application; a fuller form can collect kitchen name / cuisine /
-      // area later. Approval is now admin-driven — no client-side auto-approve.
-      await submitPrepperApplication('My Preppa Kitchen');
-      setPrepperStatus('pending');
-      toast('Application received — under review', 'chefhat');
-    } catch (e: any) {
-      const msg = typeof e?.message === 'string' && e.message.includes('signed in')
-        ? 'Sign in to apply'
-        : 'Could not submit application';
-      toast(msg, 'info');
-    }
-  }, [prepperStatus, toast]);
+  // Full cook application (identity + kitchen + food-safety + agreement). Admin-driven
+  // approval — no client-side auto-approve. Throws on failure so the form can show it.
+  const submitApplication = useCallback(async (f: ApplicationFields) => {
+    await submitPrepperApplication(f);
+    if (f.legalName && f.legalName !== name) { try { await saveName(f.legalName); } catch {} }
+    setPrepperStatus('pending');
+  }, [name, saveName]);
 
   const addToCart = useCallback((line: Omit<CartLine, 'qty'>, qty = 1) => {
     if (isMine(line.cook)) { toast('You can’t order from your own kitchen', 'info'); return; }
@@ -520,8 +513,8 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
     removeCard,
     prepperStatus,
     role,
+    submitApplication,
     isAdmin,
-    applyToPrepper,
     isMine,
     fav,
     toggleFav,

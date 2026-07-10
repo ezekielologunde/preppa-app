@@ -16,7 +16,7 @@ export default function Profile() {
   const c = useC();
   const insets = useSafeAreaInsets();
   const router = useRouter();
-  const { resetOnboarding, darkMode, setDarkMode, logout, deleteAccount, toast, prepperStatus, applyToPrepper, isAdmin, name, location, saveName } = useStore();
+  const { resetOnboarding, darkMode, setDarkMode, logout, deleteAccount, toast, prepperStatus, isAdmin, name, location, saveName } = useStore();
   const initial = (name || '?').trim()[0]?.toUpperCase() ?? '?';
 
   const [editing, setEditing] = useState(false);
@@ -115,7 +115,7 @@ export default function Profile() {
               <Text style={[type(11.5, 800), { color: '#5A5A66' }]}>In review</Text>
             </View>
           ) : (
-            <Press scale={0.9} onPress={applyToPrepper} label="Apply to cook">
+            <Press scale={0.9} onPress={() => router.push('/apply')} label="Apply to cook">
               <View style={{ width: 42, height: 42, borderRadius: 21, backgroundColor: '#fff', alignItems: 'center', justifyContent: 'center', ...shadow.soft }}><Icon name="arrow" size={18} color="#0E0E10" /></View>
             </Press>
           )}
