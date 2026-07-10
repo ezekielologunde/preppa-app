@@ -33,7 +33,7 @@ real" is a sequence gated on a first real transaction — not a single sprint.
 | Order → payment reconciliation | ✅ **Real** (trigger flips order→paid + writes ledger) |
 | **Cook payouts (Stripe Connect)** | ⚠️ **Not wired** (cooks can't be paid) |
 | **Native payments** | ⚠️ **Mock** (marks paid, never charges) |
-| Buyer catalog | 🟡 **DB-backed** (Explore live; other screens migrating — R1 in progress) |
+| Buyer catalog (read path) | ✅ **DB-backed** (Explore/Home/detail/storefront/favorites) |
 | Prep-experience marketplace | 🔲 Mock (no request/bid tables) |
 | Meal plans / subscriptions | 🔲 Mock (no recurring billing) |
 | Messaging / chat | 🔲 Mock (no tables, no realtime) |
@@ -195,10 +195,12 @@ splitting · `R11` self-hosted meal images.
   server-side (old value now rejected). `supabase.ts` + `checkout.tsx`.
 - **R1 slice 1 (catalog→DB):** `meals` enriched with display fields (slug/tags/protein/
   image/grad/rating/labels); real `supabaseRepository` behind the seam; `getRepositories()`
-  flipped to Supabase; **Explore + Home migrated to `useMeals()`** (loading/error states;
-  `HeroDrop` now takes a Meal object). Proven: both render DB meals with zero errors, and a
-  DB price edit reflected live. Remaining: meal detail, cook store, favorites + cart
-  real-UUIDs; cook cards/reviews still seed until migrated.
+  flipped to Supabase; the **entire buyer catalog read path** — Explore, Home, meal detail,
+  cook storefront, favorites — reads meals from the DB via `useMeals`/`useMeal`
+  (loading/error states). Proven per screen with zero console errors, and a DB price edit
+  reflected live. Remaining R1: carry real meal/kitchen UUIDs through the cart (drop
+  `create-order`'s key→UUID map), and migrate cook profiles + reviews to the DB (R7 — where
+  the seed ratings become real).
 
 ## Next up (recommended order)
 Finish `R1` (migrate home/meal/store/favorites to the repo; carry real UUIDs through the

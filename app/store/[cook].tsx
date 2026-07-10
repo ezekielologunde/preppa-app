@@ -1,8 +1,9 @@
 import React, { useState } from 'react';
-import { View, Text, ScrollView } from 'react-native';
+import { View, Text, ScrollView, ActivityIndicator } from 'react-native';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { COOKS, CookId, MEALS, MARKET_PLANS, EXPERIENCES, STORE_SPECIALTIES, money } from '../../src/data/data';
+import { COOKS, CookId, MARKET_PLANS, EXPERIENCES, STORE_SPECIALTIES, money } from '../../src/data/data';
+import { useMeals } from '../../src/data/hooks';
 import { useC } from '../../src/theme/ThemeContext';
 import { type, radius, shadow } from '../../src/theme/theme';
 import { useStore } from '../../src/store/store';
@@ -23,9 +24,10 @@ export default function CookStoreScreen() {
   const [following, setFollowing] = useState(false);
 
   const cd = COOKS[cook as CookId];
+  const { data: cookMeals, loading: mealsLoading } = useMeals({ cook: cook as CookId }); // real menu from the DB
   if (!cd) return <NotFound title="Kitchen" />;
   const id = cook as CookId;
-  const meals = MEALS.filter((m) => m.cook === id);
+  const meals = cookMeals ?? [];
   const plans = MARKET_PLANS.filter((p) => p.cook === id);
   const exps = EXPERIENCES.filter((e) => e.cook === id);
   const firstName = cd.name.replace(/^Chef\s+/, '').split(' ')[0];
@@ -85,7 +87,9 @@ export default function CookStoreScreen() {
           </View>
         </View>
 
-        {meals.length > 0 ? (
+        {mealsLoading ? (
+          <View style={{ paddingVertical: 40, alignItems: 'center' }}><ActivityIndicator color={c.primary} /></View>
+        ) : meals.length > 0 ? (
           <>
             <SectionHeader title="On the menu" right={<Text style={[type(13, 700), { color: c.muted }]}>{meals.length} dish{meals.length !== 1 ? 'es' : ''}</Text>} />
             <MealGrid meals={meals} />

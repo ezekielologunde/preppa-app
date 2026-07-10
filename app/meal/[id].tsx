@@ -1,8 +1,9 @@
 import React, { useState } from 'react';
-import { View, Text, ScrollView } from 'react-native';
+import { View, Text, ScrollView, ActivityIndicator } from 'react-native';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { mealById, mealPhotos, COOKS, ADDONS, money } from '../../src/data/data';
+import { mealPhotos, COOKS, ADDONS, money } from '../../src/data/data';
+import { useMeal } from '../../src/data/hooks';
 import { useC } from '../../src/theme/ThemeContext';
 import { type, radius } from '../../src/theme/theme';
 import { useStore } from '../../src/store/store';
@@ -21,11 +22,12 @@ export default function MealDetail() {
   const router = useRouter();
   const { id } = useLocalSearchParams<{ id: string }>();
   const { fav, toggleFav, addToCart, toast, showFlash, isMine } = useStore();
-  const m = mealById(id!);
+  const { data: m, loading } = useMeal(id!);
   const [qty, setQty] = useState(1);
   const [adds, setAdds] = useState<string[]>([]);
   const [viewer, setViewer] = useState(false);
   const [viewerIdx, setViewerIdx] = useState(0);
+  if (loading) return <Screen bg={c.surface}><View style={{ flex: 1, alignItems: 'center', justifyContent: 'center' }}><ActivityIndicator color={c.primary} /></View></Screen>;
   if (!m) return <NotFound title="Meal" />;
   const photos = mealPhotos(m);
   const cook = COOKS[m.cook];
