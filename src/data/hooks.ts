@@ -6,6 +6,7 @@ import { useEffect, useState } from 'react';
 import { getRepositories, MealQuery } from './repository';
 import { Meal, Cook, CookId } from './data';
 import * as admin from '../lib/admin';
+import { supabase } from '../lib/supabase';
 
 export interface AsyncState<T> {
   data: T | null;
@@ -37,6 +38,25 @@ export function useMeal(id: string): AsyncState<Meal | null> {
 }
 export function useCook(id: CookId): AsyncState<Cook | null> {
   return useAsync(() => getRepositories().cooks.byId(id), [id]);
+}
+
+// --- Real reviews from the DB (empty until buyers review a completed order) ---
+export interface KitchenReview { id: string; rating: number; body: string | null; created_at: string }
+export interface KitchenReviewSummary { reviews: KitchenReview[]; count: number; avg: number }
+export function useKitchenReviews(kitchenId?: string): AsyncState<KitchenReviewSummary> {
+  return useAsync(async () => {
+    if (!kitchenId) return { reviews: [], count: 0, avg: 0 };
+    const { data, error } = await supabase
+      .from('reviews')
+      .select('id,rating,body,created_at')
+      .eq('kitchen_id', kitchenId)
+      .order('created_at', { ascending: false });
+    if (error) throw error;
+    const reviews = (data ?? []) as KitchenReview[];
+    const count = reviews.length;
+    const avg = count ? reviews.reduce((s, r) => s + r.rating, 0) / count : 0;
+    return { reviews, count, avg };
+  }, [kitchenId]);
 }
 
 // --- Admin dashboard hooks (Phase 1). `nonce` lets a screen force a refetch. ---

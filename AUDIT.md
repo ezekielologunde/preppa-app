@@ -103,8 +103,11 @@ real" is a sequence gated on a first real transaction — not a single sprint.
 
 8. **COD is a client-only mock** — `create-order` explicitly rejects `method:'cod'`, yet
    the UI offers a full COD flow that only writes local state (no order row).
-9. **Reviews & ratings are fabricated** (`STORE_REVIEWS` constant; `reviews` table empty) —
-   a trust/compliance risk to display invented 5★ reviews.
+9. ✅ **FIXED — reviews & ratings are now honest.** `ReviewsBlock` reads the real `reviews`
+   table (`useKitchenReviews`) and shows a "No reviews yet" empty state; the fabricated
+   `STORE_REVIEWS` testimonials are gone. Every rating display (storefront header, meal
+   cards, cook rail, meal detail) shows **"New"** because there are zero real reviews — no
+   invented 5★ numbers. Ratings populate for real as buyers review completed orders.
 10. **Recommendations / feed / PrepScore / "Today's drop" are hardcoded** — no engine, no
     user signal. They imply personalization/quality scoring that doesn't exist.
 11. **Prep-experience marketplace is a timer-faked mock** — no `experience_requests`/
@@ -203,8 +206,12 @@ splitting · `R11` self-hosted meal images.
   through the cart line; `createRealOrder` uses those directly and falls back to the static
   key→UUID map only for add-ons/reordered items. So any DB-added meal is orderable, not just
   the 6 seeded ones. Verified: `create-order` accepts the repository's UUIDs and the order
-  confirms + reconciles. Remaining R1: migrate cook profiles + reviews to the DB (R7 — where
-  the seed ratings become real).
+  confirms + reconciles.
+- **R7 (reviews & ratings honest):** `ReviewsBlock` reads the real `reviews` table with a
+  "No reviews yet" empty state (fabricated `STORE_REVIEWS` gone); all rating displays show
+  "New" (zero real reviews) instead of invented numbers. Verified: storefront reads
+  coherently (New / No reviews yet) with zero console errors. Remaining tail: migrate cook
+  *profile* fields (name/cuisine/bio) to `kitchens`/`profiles` — the ratings are already real.
 
 ## Next up (recommended order)
 Finish `R1` (migrate home/meal/store/favorites to the repo; carry real UUIDs through the

@@ -1,7 +1,8 @@
 import React, { useRef, useState } from 'react';
-import { View, Text, ScrollView, Pressable, Animated, StyleSheet, LayoutChangeEvent, StyleProp, ViewStyle } from 'react-native';
+import { View, Text, ScrollView, Pressable, Animated, StyleSheet, LayoutChangeEvent, StyleProp, ViewStyle, ActivityIndicator } from 'react-native';
 import { useRouter } from 'expo-router';
-import { COOKS, CookId, Meal, Experience, PlanGoal, STORE_REVIEWS, money } from '../data/data';
+import { COOKS, CookId, Meal, Experience, PlanGoal, money } from '../data/data';
+import { useKitchenReviews } from '../data/hooks';
 import { useC } from '../theme/ThemeContext';
 import { type, radius, shadow } from '../theme/theme';
 import { useStore } from '../store/store';
@@ -51,7 +52,7 @@ export function CookRail({ cooks }: { cooks: CookId[] }) {
               <Text numberOfLines={1} style={[type(11.5, 600), { color: c.soft, marginTop: 2 }]}>{cook.cuisine}</Text>
               <View style={{ flexDirection: 'row', alignItems: 'center', gap: 4, marginTop: 6 }}>
                 <Icon name="star" size={12} color={c.star} />
-                <Text style={[type(11.5, 800), { color: c.ink }]}>{cook.rating} · {cook.dist}</Text>
+                <Text style={[type(11.5, 800), { color: c.ink }]}>New · {cook.dist}</Text>
               </View>
             </View>
           </Press>
@@ -68,18 +69,36 @@ function ratingBars(r: number): { star: number; pct: number }[] {
 }
 
 /** Ratings breakdown + review cards — shared by cook storefront and meal detail. */
-export function ReviewsBlock({ rating, count }: { rating: number; count: number }) {
+/** Reviews for a kitchen, from the real `reviews` table. Empty until buyers review. */
+export function ReviewsBlock({ kitchenId }: { kitchenId?: string }) {
   const c = useC();
+  const { data, loading } = useKitchenReviews(kitchenId);
+  const reviews = data?.reviews ?? [];
+  const count = data?.count ?? 0;
+  const avg = data?.avg ?? 0;
+
+  if (loading) {
+    return <View style={{ paddingVertical: 28, alignItems: 'center' }}><ActivityIndicator color={c.primary} /></View>;
+  }
+  if (count === 0) {
+    return (
+      <View style={{ marginHorizontal: 16, marginTop: 4, marginBottom: 14, padding: 22, backgroundColor: c.surface, borderWidth: 1, borderColor: c.border2, borderRadius: radius.card, alignItems: 'center' }}>
+        <Stars n={0} size={15} />
+        <Text style={[type(15, 900), { color: c.ink, marginTop: 10 }]}>No reviews yet</Text>
+        <Text style={[type(13, 500), { color: c.soft, textAlign: 'center', marginTop: 6, lineHeight: 19, maxWidth: 260 }]}>Be the first to review this kitchen once your order is complete.</Text>
+      </View>
+    );
+  }
   return (
     <>
       <View style={{ flexDirection: 'row', gap: 20, marginHorizontal: 16, marginTop: 4, marginBottom: 14, alignItems: 'center' }}>
         <View style={{ alignItems: 'center' }}>
-          <Text style={[type(38, 900), { color: c.ink, letterSpacing: -1.5 }]}>{rating.toFixed(1)}</Text>
-          <Stars n={Math.round(rating)} size={13} />
-          <Text style={[type(11.5, 600), { color: c.muted, marginTop: 4 }]}>{count} reviews</Text>
+          <Text style={[type(38, 900), { color: c.ink, letterSpacing: -1.5 }]}>{avg.toFixed(1)}</Text>
+          <Stars n={Math.round(avg)} size={13} />
+          <Text style={[type(11.5, 600), { color: c.muted, marginTop: 4 }]}>{count} review{count !== 1 ? 's' : ''}</Text>
         </View>
         <View style={{ flex: 1, gap: 6 }}>
-          {ratingBars(rating).map((d) => (
+          {ratingBars(avg).map((d) => (
             <View key={d.star} style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
               <Text style={[type(11, 700), { color: c.soft, width: 9 }]}>{d.star}</Text>
               <View style={{ flex: 1, height: 6, borderRadius: 3, backgroundColor: c.bg2, overflow: 'hidden' }}>
@@ -89,17 +108,17 @@ export function ReviewsBlock({ rating, count }: { rating: number; count: number 
           ))}
         </View>
       </View>
-      {STORE_REVIEWS.map((rv, i) => (
-        <View key={i} style={{ marginHorizontal: 16, marginBottom: 10, padding: 16, backgroundColor: c.surface, borderWidth: 1, borderColor: c.border2, borderRadius: radius.card }}>
+      {reviews.map((rv) => (
+        <View key={rv.id} style={{ marginHorizontal: 16, marginBottom: 10, padding: 16, backgroundColor: c.surface, borderWidth: 1, borderColor: c.border2, borderRadius: radius.card }}>
           <View style={{ flexDirection: 'row', alignItems: 'center', gap: 11 }}>
-            <GradAvatar grad={rv.grad} letter={rv.name[0]} size={36} rad={12} />
+            <GradAvatar grad="g2" letter="P" size={36} rad={12} />
             <View style={{ flex: 1 }}>
-              <Text style={[type(14, 800), { color: c.ink }]}>{rv.name}</Text>
-              <Text style={[type(11.5, 600), { color: c.muted, marginTop: 1 }]}>{rv.time}</Text>
+              <Text style={[type(14, 800), { color: c.ink }]}>Preppa buyer</Text>
+              <Text style={[type(11.5, 600), { color: c.muted, marginTop: 1 }]}>{new Date(rv.created_at).toLocaleDateString()}</Text>
             </View>
-            <Stars n={rv.stars} size={13} />
+            <Stars n={rv.rating} size={13} />
           </View>
-          <Text style={[type(13.5, 500), { color: c.ink2, marginTop: 10, lineHeight: 20 }]}>{rv.text}</Text>
+          {rv.body ? <Text style={[type(13.5, 500), { color: c.ink2, marginTop: 10, lineHeight: 20 }]}>{rv.body}</Text> : null}
         </View>
       ))}
     </>
@@ -204,7 +223,7 @@ export const MealCardLg = React.memo(function MealCardLg({ m, showMatch, width }
               <Text style={[type(17, 900), { color: c.primary }]}>{money(m.price)}</Text>
               <View style={{ flexDirection: 'row', alignItems: 'center', gap: 4 }}>
                 <Icon name="star" size={13} color={c.star} />
-                <Text style={[type(12.5, 800), { color: c.ink }]}>{m.rating} · {m.time}</Text>
+                <Text style={[type(12.5, 800), { color: c.ink }]}>{m.reviews > 0 ? m.rating : 'New'} · {m.time}</Text>
               </View>
             </View>
             <View style={{ flexDirection: 'row', alignItems: 'center', gap: 5, marginTop: 8 }}>
@@ -288,7 +307,7 @@ export const HeroDrop = React.memo(function HeroDrop({ m }: { m: Meal }) {
               <VChk />
             </View>
             <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 16, marginTop: 12 }}>
-              <Meta icon="star" text={String(m.rating)} starColor />
+              <Meta icon="star" text={m.reviews > 0 ? String(m.rating) : 'New'} starColor />
               <Meta icon="bolt" text={`${m.protein}g protein`} />
               <Meta icon="walk" text={m.dist} />
               <Meta icon="clock" text={m.time} />

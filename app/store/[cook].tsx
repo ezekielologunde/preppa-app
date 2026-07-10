@@ -3,7 +3,8 @@ import { View, Text, ScrollView, ActivityIndicator } from 'react-native';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { COOKS, CookId, MARKET_PLANS, EXPERIENCES, STORE_SPECIALTIES, money } from '../../src/data/data';
-import { useMeals } from '../../src/data/hooks';
+import { useMeals, useKitchenReviews } from '../../src/data/hooks';
+import { KITCHEN_ID } from '../../src/lib/supabase';
 import { useC } from '../../src/theme/ThemeContext';
 import { type, radius, shadow } from '../../src/theme/theme';
 import { useStore } from '../../src/store/store';
@@ -25,9 +26,12 @@ export default function CookStoreScreen() {
 
   const cd = COOKS[cook as CookId];
   const { data: cookMeals, loading: mealsLoading } = useMeals({ cook: cook as CookId }); // real menu from the DB
+  const { data: kitchenRevs } = useKitchenReviews(KITCHEN_ID[cook as CookId]); // real reviews (empty → New)
   if (!cd) return <NotFound title="Kitchen" />;
   const id = cook as CookId;
   const meals = cookMeals ?? [];
+  const revCount = kitchenRevs?.count ?? 0;
+  const revAvg = kitchenRevs?.avg ?? 0;
   const plans = MARKET_PLANS.filter((p) => p.cook === id);
   const exps = EXPERIENCES.filter((e) => e.cook === id);
   const firstName = cd.name.replace(/^Chef\s+/, '').split(' ')[0];
@@ -73,7 +77,7 @@ export default function CookStoreScreen() {
           </View>
 
           <View style={{ flexDirection: 'row', marginTop: 14, borderWidth: 1, borderColor: c.border2, borderRadius: radius.lg, paddingVertical: 12, backgroundColor: c.bg }}>
-            <Stat><View style={{ flexDirection: 'row', alignItems: 'center', gap: 4 }}><Icon name="star" size={14} color={c.star} /><Text style={[type(16, 900), { color: c.ink, letterSpacing: -0.3 }]}>{cd.rating}</Text></View><StatSub>{cd.reviews} reviews</StatSub></Stat>
+            <Stat><View style={{ flexDirection: 'row', alignItems: 'center', gap: 4 }}><Icon name="star" size={14} color={c.star} /><Text style={[type(16, 900), { color: c.ink, letterSpacing: -0.3 }]}>{revCount > 0 ? revAvg.toFixed(1) : 'New'}</Text></View><StatSub>{revCount > 0 ? `${revCount} review${revCount !== 1 ? 's' : ''}` : 'No reviews yet'}</StatSub></Stat>
             <Stat border><Text style={[type(16, 900), { color: c.ink, letterSpacing: -0.3 }]}>1.2k</Text><StatSub>Followers</StatSub></Stat>
             <Stat border><Text style={[type(16, 900), { color: c.ink, letterSpacing: -0.3 }]}>96%</Text><StatSub>On time</StatSub></Stat>
           </View>
@@ -127,8 +131,8 @@ export default function CookStoreScreen() {
           </>
         ) : null}
 
-        <SectionHeader title="Reviews" right={<Text style={[type(13, 800), { color: c.primary }]}>See all {cd.reviews}</Text>} />
-        <ReviewsBlock rating={cd.rating} count={cd.reviews} />
+        <SectionHeader title="Reviews" right={revCount > 0 ? <Text style={[type(13, 800), { color: c.primary }]}>See all {revCount}</Text> : undefined} />
+        <ReviewsBlock kitchenId={KITCHEN_ID[id]} />
 
         {FLAGS.experiences && !isMine(id) ? (
         <Press scale={0.985} onPress={() => router.push('/request/cookhome')} style={{ marginHorizontal: 16, marginTop: 14 }}>

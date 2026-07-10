@@ -3,7 +3,7 @@ import { View, Text, ScrollView, ActivityIndicator } from 'react-native';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { mealPhotos, COOKS, ADDONS, money } from '../../src/data/data';
-import { useMeal } from '../../src/data/hooks';
+import { useMeal, useKitchenReviews } from '../../src/data/hooks';
 import { useC } from '../../src/theme/ThemeContext';
 import { type, radius } from '../../src/theme/theme';
 import { useStore } from '../../src/store/store';
@@ -27,6 +27,7 @@ export default function MealDetail() {
   const [adds, setAdds] = useState<string[]>([]);
   const [viewer, setViewer] = useState(false);
   const [viewerIdx, setViewerIdx] = useState(0);
+  const { data: mealRevs } = useKitchenReviews(m?.kitchenUuid); // real kitchen reviews (empty → New)
   if (loading) return <Screen bg={c.surface}><View style={{ flex: 1, alignItems: 'center', justifyContent: 'center' }}><ActivityIndicator color={c.primary} /></View></Screen>;
   if (!m) return <NotFound title="Meal" />;
   const photos = mealPhotos(m);
@@ -64,7 +65,7 @@ export default function MealDetail() {
         <View style={{ backgroundColor: c.surface, borderTopLeftRadius: radius.sheet, borderTopRightRadius: radius.sheet, marginTop: -26, padding: 18, paddingTop: 22 }}>
           <Text style={[type(23, 900), { color: c.ink, letterSpacing: -0.8, lineHeight: 27 }]}>{m.name}</Text>
           <View style={{ flexDirection: 'row', gap: 14, marginTop: 10 }}>
-            <Meta icon="star" text={`${m.rating} (${m.reviews})`} tone={c.ink} iconColor={c.star} />
+            <Meta icon="star" text={mealRevs && mealRevs.count > 0 ? `${mealRevs.avg.toFixed(1)} (${mealRevs.count})` : 'New'} tone={c.ink} iconColor={c.star} />
             <Meta icon="clock" text={m.time} tone={c.soft} />
             <Meta icon="walk" text={m.dist} tone={c.soft} />
           </View>
@@ -102,7 +103,7 @@ export default function MealDetail() {
         </View>
 
         <SectionHeader title="Reviews" />
-        <ReviewsBlock rating={m.rating} count={m.reviews} />
+        <ReviewsBlock kitchenId={m.kitchenUuid} />
       </ScrollView>
 
       <Dock>
