@@ -1,12 +1,12 @@
-import React from 'react';
-import { View, Text, ScrollView, Pressable, Alert } from 'react-native';
+import React, { useState } from 'react';
+import { View, Text, ScrollView, Pressable, Alert, Platform, Modal, TextInput } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useC } from '../../src/theme/ThemeContext';
 import { type, radius, shadow } from '../../src/theme/theme';
 import { useStore } from '../../src/store/store';
-import { Icon, Press, Switch } from '../../src/ui';
+import { Icon, Press, Switch, Btn } from '../../src/ui';
 import { SectionLabel } from '../../src/ui/layout';
 
 type Tone = '' | 'amber' | 'purple' | 'blue' | 'pink' | 'green';
@@ -16,7 +16,27 @@ export default function Profile() {
   const c = useC();
   const insets = useSafeAreaInsets();
   const router = useRouter();
-  const { resetOnboarding, darkMode, setDarkMode, logout, deleteAccount, toast, prepperStatus, applyToPrepper, approvePrepper } = useStore();
+  const { resetOnboarding, darkMode, setDarkMode, logout, deleteAccount, toast, prepperStatus, applyToPrepper, isAdmin, name, location, saveName } = useStore();
+  const initial = (name || '?').trim()[0]?.toUpperCase() ?? '?';
+
+  const [editing, setEditing] = useState(false);
+  const [draft, setDraft] = useState('');
+  const [savingName, setSavingName] = useState(false);
+  const openEdit = () => { setDraft(name); setEditing(true); };
+  const commitName = async () => {
+    const nm = draft.trim();
+    if (nm.length < 2) { toast('Please enter your name', 'info'); return; }
+    setSavingName(true);
+    try {
+      await saveName(nm);
+      setEditing(false);
+      toast('Name updated', 'check', true);
+    } catch (e: any) {
+      toast(e?.message || 'Couldn’t save your name', 'x');
+    } finally {
+      setSavingName(false);
+    }
+  };
 
   const confirmDelete = () => {
     Alert.alert(
@@ -38,6 +58,9 @@ export default function Profile() {
     { ico: 'pin', cls: 'blue', t: 'Addresses', act: () => router.push('/addresses') },
     { ico: 'card', cls: 'pink', t: 'Payment methods', act: () => router.push('/payments') },
   ];
+  const support: Row[] = [
+    { ico: 'info', cls: 'purple', t: 'Your support requests', act: () => router.push('/tickets') },
+  ];
   const prefs: Row[] = [
     { ico: 'repeat', cls: '', t: 'Replay onboarding', act: resetOnboarding },
   ];
@@ -48,10 +71,15 @@ export default function Profile() {
         {/* hero */}
         <View style={{ backgroundColor: c.surface, paddingTop: insets.top + 20, paddingBottom: 20, paddingHorizontal: 16, alignItems: 'center', borderBottomWidth: 1, borderBottomColor: c.border2 }}>
           <LinearGradient colors={['#FF8A4C', '#F26B1D']} start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }} style={{ width: 80, height: 80, borderRadius: 26, alignItems: 'center', justifyContent: 'center', ...shadow.brand }}>
-            <Text style={[type(32, 900), { color: '#fff' }]}>J</Text>
+            <Text style={[type(32, 900), { color: '#fff' }]}>{initial}</Text>
           </LinearGradient>
-          <Text style={[type(21, 900), { color: c.ink, letterSpacing: -0.6, marginTop: 12 }]}>Jordan Miller</Text>
-          <Text style={[type(13, 600), { color: c.soft, marginTop: 2 }]}>Atlanta, GA</Text>
+          <Press scale={0.97} onPress={openEdit} label="Edit your name">
+            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 7, marginTop: 12 }}>
+              <Text style={[type(21, 900), { color: c.ink, letterSpacing: -0.6 }]}>{name || 'Add your name'}</Text>
+              <Icon name="edit" size={15} color={c.muted} />
+            </View>
+          </Press>
+          <Text style={[type(13, 600), { color: c.soft, marginTop: 2 }]}>{location}</Text>
         </View>
 
         {/* become a preppa — state-aware */}
@@ -82,9 +110,10 @@ export default function Profile() {
               <View style={{ width: 42, height: 42, borderRadius: 21, backgroundColor: '#fff', alignItems: 'center', justifyContent: 'center', ...shadow.soft }}><Icon name="arrow" size={18} color="#0E0E10" /></View>
             </Press>
           ) : prepperStatus === 'pending' ? (
-            <Press scale={0.9} onPress={approvePrepper} label="Approve (demo)">
-              <View style={{ height: 30, paddingHorizontal: 12, borderRadius: 15, backgroundColor: '#fff', alignItems: 'center', justifyContent: 'center', ...shadow.soft }}><Text style={[type(11.5, 800), { color: '#0E0E10' }]}>Approve</Text></View>
-            </Press>
+            <View style={{ height: 30, paddingHorizontal: 12, borderRadius: 15, backgroundColor: '#fff', flexDirection: 'row', alignItems: 'center', gap: 6, ...shadow.soft }}>
+              <Icon name="clock" size={13} color="#8A8A93" />
+              <Text style={[type(11.5, 800), { color: '#5A5A66' }]}>In review</Text>
+            </View>
           ) : (
             <Press scale={0.9} onPress={applyToPrepper} label="Apply to cook">
               <View style={{ width: 42, height: 42, borderRadius: 21, backgroundColor: '#fff', alignItems: 'center', justifyContent: 'center', ...shadow.soft }}><Icon name="arrow" size={18} color="#0E0E10" /></View>
@@ -92,12 +121,28 @@ export default function Profile() {
           )}
         </LinearGradient>
 
+        {isAdmin && Platform.OS === 'web' ? (
+          <Group label="Admin">
+            <Pressable onPress={() => router.push('/admin')} style={rowStyle(c, true)}>
+              <View style={{ width: 36, height: 36, borderRadius: 11, backgroundColor: c.primaryL, alignItems: 'center', justifyContent: 'center' }}>
+                <Icon name="shield" size={19} color={c.primaryD} />
+              </View>
+              <Text style={[type(15, 700), { color: c.ink, flex: 1 }]}>Admin dashboard</Text>
+              <Icon name="chevRight" size={18} color={c.muted} />
+            </Pressable>
+          </Group>
+        ) : null}
+
         <Group label="Activity">
           {activity.map((r, i) => <RowItem key={r.t} {...r} last={i === activity.length - 1} />)}
         </Group>
 
         <Group label="Payment & delivery">
           {wallet.map((r, i) => <RowItem key={r.t} {...r} last={i === wallet.length - 1} />)}
+        </Group>
+
+        <Group label="Help & support">
+          {support.map((r, i) => <RowItem key={r.t} {...r} last={i === support.length - 1} />)}
         </Group>
 
         <Group label="Preferences">
@@ -125,6 +170,30 @@ export default function Profile() {
 
         <Text style={[type(12, 700), { color: c.muted, textAlign: 'center', padding: 20 }]}>preppa · v1.0</Text>
       </ScrollView>
+
+      <Modal visible={editing} transparent animationType="fade" onRequestClose={() => setEditing(false)}>
+        <Pressable onPress={() => !savingName && setEditing(false)} style={{ flex: 1, backgroundColor: 'rgba(0,0,0,0.45)', justifyContent: 'center', paddingHorizontal: 28 }}>
+          <Pressable onPress={(e) => e.stopPropagation?.()} style={{ backgroundColor: c.surface, borderRadius: radius.xl, padding: 20, gap: 14, maxWidth: 420, width: '100%', alignSelf: 'center' }}>
+            <Text style={[type(18, 900), { color: c.ink, letterSpacing: -0.4 }]}>Your name</Text>
+            <TextInput
+              value={draft}
+              onChangeText={setDraft}
+              autoFocus
+              autoCapitalize="words"
+              autoComplete="name"
+              textContentType="name"
+              placeholder="Your name"
+              placeholderTextColor={c.muted}
+              onSubmitEditing={commitName}
+              style={{ height: 50, borderRadius: radius.md, paddingHorizontal: 14, backgroundColor: c.bg2, borderWidth: 1.5, borderColor: c.border, color: c.ink, fontFamily: type(16, 600).fontFamily, fontSize: 16 }}
+            />
+            <View style={{ flexDirection: 'row', gap: 10 }}>
+              <Btn label="Cancel" variant="ghost" flex={1} onPress={() => setEditing(false)} />
+              <Btn label="Save" flex={1} loading={savingName} onPress={commitName} />
+            </View>
+          </Pressable>
+        </Pressable>
+      </Modal>
     </View>
   );
 }

@@ -6,7 +6,8 @@ import {
 } from '../data/data';
 import { ME } from '../data/cook';
 import { computeTotals } from '../data/totals';
-import { signOutUser } from '../lib/supabase';
+import { signOutUser, fetchAccountState, submitPrepperApplication, updateDisplayName } from '../lib/supabase';
+import { supabase } from '../lib/supabase';
 
 export type PrepperStatus = 'none' | 'pending' | 'approved';
 
@@ -24,6 +25,7 @@ export type OrderFlow = 'paid' | 'cod';
 
 export interface CustomerOrder {
   id: string;
+  dbId?: string; // real Supabase orders.id when the card charge succeeded (enables Report an issue)
   cook: CookId;
   lines: CartLine[];
   subtotal: number;
@@ -94,6 +96,11 @@ interface Store {
   location: string;
   setLocation: (l: string) => void;
 
+  // signed-in user identity (Supabase profile; empty when signed out / before load)
+  name: string; // profiles.display_name
+  firstName: string; // profiles.first_name
+  saveName: (fullName: string) => Promise<void>; // edit own name (RLS: profiles_update_self)
+
   addresses: Address[];
   address: Address | null; // currently selected
   addressId: string;
@@ -108,18 +115,19 @@ interface Store {
   selectCard: (id: string) => void;
   removeCard: (id: string) => void;
 
-  // role / prepper lifecycle (client-simulated for this UI round; real approval must be server-side)
+  // role / prepper lifecycle. Reconciled from the server for signed-in users;
+  // approval is admin-driven (no client-side auto-approve).
   prepperStatus: PrepperStatus;
   role: 'customer' | 'prepper';
+  isAdmin: boolean; // server-derived (profiles.role='admin'); cosmetic gating only
   applyToPrepper: () => void;
-  approvePrepper: () => void; // dev/instant approve
   isMine: (cook: CookId) => boolean; // true only for an approved prepper viewing their own listing
 
   fav: Set<string>;
   toggleFav: (id: string) => void;
 
   lastOrder: OrderFlow | null;
-  placeOrder: (flow: OrderFlow, cook?: CookId) => void;
+  placeOrder: (flow: OrderFlow, cook?: CookId, dbId?: string) => void;
   orders: CustomerOrder[];
   reorder: (id: string) => void;
 
@@ -169,8 +177,11 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
   const [tip, setTip] = useState(2);
   const [mode, setMode] = useState<'delivery' | 'pickup'>('delivery');
   const [location, setLocation] = useState('Atlanta, GA');
+  const [name, setName] = useState('');
+  const [firstName, setFirstName] = useState('');
   const [fav, setFav] = useState<Set<string>>(new Set());
   const [prepperStatus, setPrepperStatus] = useState<PrepperStatus>('none');
+  const [isAdmin, setIsAdmin] = useState(false);
   const [addresses, setAddresses] = useState<Address[]>(SEED_ADDRESSES);
   const [addressId, setAddressId] = useState('home');
   const [cards, setCards] = useState<Card[]>(SEED_CARDS);
@@ -204,6 +215,8 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
           if (typeof s.tip === 'number') setTip(s.tip);
           if (s.mode) setMode(s.mode);
           if (typeof s.location === 'string') setLocation(s.location);
+          if (typeof s.name === 'string') setName(s.name);
+          if (typeof s.firstName === 'string') setFirstName(s.firstName);
           if (Array.isArray(s.fav)) setFav(new Set(s.fav));
           if (s.prepperStatus) setPrepperStatus(s.prepperStatus);
           if (Array.isArray(s.addresses)) setAddresses(s.addresses);
@@ -229,9 +242,9 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
     if (!hydrated.current) return;
     AsyncStorage.setItem(
       LS,
-      JSON.stringify({ onboarded, darkMode, cart, tip, mode, location, fav: [...fav], prepperStatus, addresses, addressId, cards, cardId, lastOrder, orders, subs, requests, avail, reels }),
+      JSON.stringify({ onboarded, darkMode, cart, tip, mode, location, name, firstName, fav: [...fav], prepperStatus, addresses, addressId, cards, cardId, lastOrder, orders, subs, requests, avail, reels }),
     ).catch(() => {});
-  }, [onboarded, darkMode, cart, tip, mode, location, fav, prepperStatus, addresses, addressId, cards, cardId, lastOrder, orders, subs, requests, avail, reels]);
+  }, [onboarded, darkMode, cart, tip, mode, location, name, firstName, fav, prepperStatus, addresses, addressId, cards, cardId, lastOrder, orders, subs, requests, avail, reels]);
 
   const toast = useCallback((msg: string, icon = 'check', green = false) => {
     const id = toastSeq++;
@@ -239,21 +252,59 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
     setTimeout(() => setToasts((t) => t.filter((x) => x.id !== id)), 2600);
   }, []);
 
-  // --- role / prepper lifecycle (client-simulated; real approval must be server-side) ---
+  // --- role / prepper lifecycle -------------------------------------------
+  // Reconcile the signed-in user's real role/status from the backend so admin
+  // gating and prepper approval reflect server truth (not a local flag). Runs
+  // after the local hydrate and on every auth change; when signed out we leave
+  // the locally-persisted (demo) status untouched.
+  const reconcileAccount = useCallback(async () => {
+    try {
+      const s = await fetchAccountState();
+      setIsAdmin(s.isAdmin);
+      if (s.signedIn) {
+        setPrepperStatus(s.prepperStatus);
+        if (s.displayName) setName(s.displayName);
+        if (s.firstName) setFirstName(s.firstName);
+      }
+    } catch {
+      // transient network/permission issue — keep the last known state
+    }
+  }, []);
+
+  const saveName = useCallback(async (fullName: string) => {
+    const { displayName, firstName: fn } = await updateDisplayName(fullName);
+    setName(displayName);
+    setFirstName(fn);
+  }, []);
+  useEffect(() => {
+    if (!ready) return;
+    reconcileAccount();
+    const { data: sub } = supabase.auth.onAuthStateChange(() => {
+      // Defer out of the callback: supabase-js v2 holds the auth lock while this
+      // runs, so calling auth methods (getSession, inside reconcileAccount)
+      // synchronously here can deadlock and leave isAdmin/role unreconciled.
+      setTimeout(() => { reconcileAccount(); }, 0);
+    });
+    return () => sub.subscription.unsubscribe();
+  }, [ready, reconcileAccount]);
+
   const role: 'customer' | 'prepper' = prepperStatus === 'approved' ? 'prepper' : 'customer';
   const isMine = useCallback((cook: CookId) => prepperStatus === 'approved' && cook === ME.id, [prepperStatus]);
-  const applyToPrepper = useCallback(() => {
-    setPrepperStatus((s) => (s === 'approved' ? s : 'pending'));
-    toast('Application received — under review', 'chefhat');
-    setTimeout(() => {
-      setPrepperStatus('approved');
-      toast('You’re approved to cook! My Hub unlocked 👩‍🍳', 'chefhat', true);
-    }, 5000);
-  }, [toast]);
-  const approvePrepper = useCallback(() => {
-    setPrepperStatus('approved');
-    toast('My Hub unlocked 👩‍🍳', 'chefhat', true);
-  }, [toast]);
+  const applyToPrepper = useCallback(async () => {
+    if (prepperStatus === 'approved' || prepperStatus === 'pending') return;
+    try {
+      // Lightweight application; a fuller form can collect kitchen name / cuisine /
+      // area later. Approval is now admin-driven — no client-side auto-approve.
+      await submitPrepperApplication('My Preppa Kitchen');
+      setPrepperStatus('pending');
+      toast('Application received — under review', 'chefhat');
+    } catch (e: any) {
+      const msg = typeof e?.message === 'string' && e.message.includes('signed in')
+        ? 'Sign in to apply'
+        : 'Could not submit application';
+      toast(msg, 'info');
+    }
+  }, [prepperStatus, toast]);
 
   const addToCart = useCallback((line: Omit<CartLine, 'qty'>, qty = 1) => {
     if (isMine(line.cook)) { toast('You can’t order from your own kitchen', 'info'); return; }
@@ -317,7 +368,7 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
   // Multi-cart: one order PER cook. `cook` scopes checkout to a single cook's lines
   // (and removes only those from the cart); without it, every cook in the cart becomes
   // its own order. Fixes the old bug where a mixed-cook cart collapsed into one order.
-  const placeOrder = useCallback((flow: OrderFlow, cook?: CookId) => {
+  const placeOrder = useCallback((flow: OrderFlow, cook?: CookId, dbId?: string) => {
     const targetCooks = cook ? [cook] : Array.from(new Set(cart.map((l) => l.cook)));
     const stamp = Date.now().toString(36) + Math.floor(Math.random() * 46656).toString(36);
     const newOrders = targetCooks
@@ -327,6 +378,8 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
         const t = computeTotals(lines, tip, mode); // per-cook totals
         return {
           id: 'PR-' + (stamp + idx).slice(-6).toUpperCase(),
+          // dbId only applies to the single-cook card path (checkout passes one cook).
+          dbId: targetCooks.length === 1 ? dbId : undefined,
           cook: ck, lines,
           subtotal: t.subtotal, service: t.service, tax: t.tax, delivery: t.delivery, tip: t.tip, total: t.total,
           mode, flow,
@@ -350,7 +403,7 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
   }, [orders, addToCart, toast, isMine]);
 
   const resetOnboarding = useCallback(() => setOnboardedState(false), []);
-  const logout = useCallback(() => { signOutUser(); setPrepperStatus('none'); setOnboardedState(false); }, []);
+  const logout = useCallback(() => { signOutUser(); setPrepperStatus('none'); setIsAdmin(false); setOnboardedState(false); }, []);
   const deleteAccount = useCallback(() => {
     // Apple 5.1.1(v) / Google Play: account-deletion path. Clears the local session and
     // signs out of Supabase. TODO(Phase 1): also call a `delete-account` edge function to
@@ -371,10 +424,13 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
     setTip(2);
     setMode('delivery');
     setLocation('Atlanta, GA');
+    setName('');
+    setFirstName('');
     setDarkModeState(false);
     setAvail(true);
     setActed([]);
     setPrepperStatus('none');
+    setIsAdmin(false);
     setOnboardedState(false);
   }, []);
 
@@ -447,6 +503,9 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
     setMode,
     location,
     setLocation,
+    name,
+    firstName,
+    saveName,
     addresses,
     address,
     addressId,
@@ -461,8 +520,8 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
     removeCard,
     prepperStatus,
     role,
+    isAdmin,
     applyToPrepper,
-    approvePrepper,
     isMine,
     fav,
     toggleFav,

@@ -24,7 +24,7 @@ export default function HomeScreen() {
   const c = useC();
   const insets = useSafeAreaInsets();
   const router = useRouter();
-  const { mode, location, cartCount, notifCount, fav } = useStore();
+  const { mode, location, cartCount, notifCount, fav, firstName } = useStore();
   const { width } = useWindowDimensions();
   const wide = width >= 700; // logo + actions live in the SideRail on wide screens
   const [locPicker, setLocPicker] = useState(false);
@@ -68,7 +68,7 @@ export default function HomeScreen() {
 
           <View style={{ marginTop: 24 }}>
             <Text style={[type(29, 900), { color: c.ink, letterSpacing: -1.2, lineHeight: 31 }]}>
-              {greetWord()}, <Text style={{ color: c.primary }}>Jordan</Text>
+              {greetWord()}{firstName ? ', ' : ''}<Text style={{ color: c.primary }}>{firstName}</Text>
             </Text>
             <Text style={[type(15.5, 500), { color: c.soft, marginTop: 7 }]}>What sounds good tonight?</Text>
           </View>

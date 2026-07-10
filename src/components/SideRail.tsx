@@ -20,15 +20,19 @@ export function SideRail({ width }: { width: number }) {
   const c = useC();
   const router = useRouter();
   const pathname = usePathname();
-  const { cartCount, notifCount, prepperStatus } = useStore();
+  const { cartCount, notifCount, prepperStatus, isAdmin, name, firstName } = useStore();
   const labeled = width >= 200;
+  const displayName = firstName || name || 'Guest';
+  const initial = (firstName || name || '?').trim()[0]?.toUpperCase() ?? '?';
   const items = ITEMS.filter((it) => {
     if (it.id === 'my-hub') return prepperStatus === 'approved'; // prepper-only
     if (it.id === 'experiences') return FLAGS.experiences;
     if (it.id === 'feeds') return FLAGS.feed;
     return true;
   });
-  const activeId = ITEMS.find((it) => pathname === it.path || pathname.startsWith(it.path + '/'))?.id ?? (pathname === '/' ? 'home' : undefined);
+  const activeId = pathname.startsWith('/admin')
+    ? 'admin'
+    : ITEMS.find((it) => pathname === it.path || pathname.startsWith(it.path + '/'))?.id ?? (pathname === '/' ? 'home' : undefined);
 
   const Item = ({ id, ico, lbl, onPress, badge }: { id?: string; ico: string; lbl: string; onPress: () => void; badge?: number }) => {
     const on = id && activeId === id;
@@ -61,6 +65,7 @@ export function SideRail({ width }: { width: number }) {
       {items.map((it) => (
         <Item key={it.id} id={it.id} ico={it.ico} lbl={it.lbl} onPress={() => router.navigate(it.path as any)} />
       ))}
+      {isAdmin ? <Item id="admin" ico="shield" lbl="Admin" onPress={() => router.navigate('/admin')} /> : null}
       {FLAGS.notifications ? <Item ico="bell" lbl="Notifications" badge={notifCount} onPress={() => router.push('/notifications')} /> : null}
       <Item ico="cart" lbl="Cart" badge={cartCount} onPress={() => router.push('/cart')} />
 
@@ -69,11 +74,11 @@ export function SideRail({ width }: { width: number }) {
       <Press scale={0.97} onPress={() => router.navigate('/profile')}>
         <View style={{ flexDirection: 'row', alignItems: 'center', gap: labeled ? 12 : 0, justifyContent: labeled ? 'flex-start' : 'center', paddingHorizontal: labeled ? 8 : 0, paddingVertical: 8 }}>
           <View style={{ width: 38, height: 38, borderRadius: 12, backgroundColor: c.primary, alignItems: 'center', justifyContent: 'center' }}>
-            <Text style={[type(15, 900), { color: '#fff' }]}>J</Text>
+            <Text style={[type(15, 900), { color: '#fff' }]}>{initial}</Text>
           </View>
           {labeled ? (
             <View>
-              <Text style={[type(14, 800), { color: c.ink }]}>Jordan</Text>
+              <Text style={[type(14, 800), { color: c.ink }]}>{displayName}</Text>
               <Text style={[type(11.5, 600), { color: c.muted }]}>View profile</Text>
             </View>
           ) : null}

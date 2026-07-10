@@ -36,11 +36,15 @@ export async function ensureAuth() {
 // profile on first sign-in). NB: the Supabase project's email template must
 // include `{{ .Token }}` so the user actually receives the numeric code.
 
-/** Send a 6-digit login code to the email. Throws on failure (e.g. rate limit). */
-export async function sendEmailOtp(email: string) {
+/**
+ * Send a 6-digit login code to the email. Throws on failure (e.g. rate limit).
+ * `meta` (display_name / first_name) is stashed as user_metadata on signup and
+ * copied into `profiles` by the `handle_new_user` trigger at account creation.
+ */
+export async function sendEmailOtp(email: string, meta?: { display_name?: string; first_name?: string }) {
   const { error } = await supabase.auth.signInWithOtp({
     email,
-    options: { shouldCreateUser: true },
+    options: { shouldCreateUser: true, data: meta },
   });
   if (error) throw error;
 }
@@ -65,6 +69,76 @@ export async function signOutUser() {
 export async function currentUser() {
   const { data } = await supabase.auth.getUser();
   return data.user ?? null;
+}
+
+// ---- Server-authoritative account state (Phase 1 admin/approval) ---------
+// The client role is derived from the DB, never from a local flag. `role` is
+// read from `profiles` (RLS: a user may read their own row); prepper status is
+// reconciled from the server so approval is honest (admin-driven), not faked.
+
+export type PrepperStatusValue = 'none' | 'pending' | 'approved';
+export interface AccountState {
+  signedIn: boolean;
+  isAdmin: boolean;
+  prepperStatus: PrepperStatusValue;
+  displayName: string | null;
+  firstName: string | null;
+}
+
+/**
+ * Resolve the signed-in user's real role/status from the backend. Returns a
+ * signed-out default when there is no session (the app browses anonymously).
+ * `isAdmin` here is cosmetic gating only — every admin action is independently
+ * enforced server-side by `is_admin()` RLS/RPC checks.
+ */
+export async function fetchAccountState(): Promise<AccountState> {
+  const { data: sess } = await supabase.auth.getSession();
+  const uid = sess.session?.user?.id;
+  if (!uid) return { signedIn: false, isAdmin: false, prepperStatus: 'none', displayName: null, firstName: null };
+
+  const { data: prof } = await supabase.from('profiles').select('role, display_name, first_name').eq('id', uid).maybeSingle();
+  const role = (prof?.role as string) ?? 'customer';
+  const displayName = (prof?.display_name as string) ?? null;
+  const firstName = (prof?.first_name as string) ?? null;
+  if (role === 'admin') return { signedIn: true, isAdmin: true, prepperStatus: 'none', displayName, firstName };
+  if (role === 'prepper') return { signedIn: true, isAdmin: false, prepperStatus: 'approved', displayName, firstName };
+
+  // customer: 'pending' iff they have a kitchen still awaiting review.
+  const { data: k } = await supabase
+    .from('kitchens')
+    .select('verification_status')
+    .eq('owner_id', uid)
+    .order('created_at', { ascending: false })
+    .limit(1);
+  const kv = k?.[0]?.verification_status as string | undefined;
+  return { signedIn: true, isAdmin: false, prepperStatus: kv === 'pending' ? 'pending' : 'none', displayName, firstName };
+}
+
+/**
+ * Update the signed-in user's own display name (and derived first name).
+ * Allowed by the `profiles_update_self` RLS policy; the privileged-columns
+ * guard only blocks role/verification_status, so a name change is fine.
+ */
+export async function updateDisplayName(fullName: string): Promise<{ displayName: string; firstName: string }> {
+  const { data: sess } = await supabase.auth.getSession();
+  const uid = sess.session?.user?.id;
+  if (!uid) throw new Error('You need to be signed in to change your name.');
+  const display = fullName.trim();
+  const first = display.split(/\s+/)[0] || display;
+  const { error } = await supabase.from('profiles').update({ display_name: display, first_name: first }).eq('id', uid);
+  if (error) throw error;
+  return { displayName: display, firstName: first };
+}
+
+/** Submit a real prepper application (creates a pending kitchen + verification). */
+export async function submitPrepperApplication(name: string, cuisine?: string, area?: string): Promise<string> {
+  const { data, error } = await supabase.rpc('request_prepper_application', {
+    p_kitchen_name: name,
+    p_cuisine: cuisine ?? null,
+    p_approx_area: area ?? null,
+  });
+  if (error) throw error;
+  return data as string;
 }
 
 /** mock cook id -> seeded kitchen UUID */

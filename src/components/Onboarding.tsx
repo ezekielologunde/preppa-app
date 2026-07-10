@@ -117,16 +117,19 @@ function Orb({ grad, size, style, tag, delay }: { grad: readonly string[]; size:
 
 function Auth({ mode, onNext }: { mode: 'signin' | 'signup'; onNext: (email: string) => void }) {
   const [email, setEmail] = useState('');
+  const [fullName, setFullName] = useState('');
   const [err, setErr] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
   const shake = useShake();
   const submit = async () => {
     if (busy) return;
     const addr = email.trim();
+    const nm = fullName.trim();
+    if (mode === 'signup' && nm.length < 2) { setErr('Please enter your name.'); shake.fire(); return; }
     if (!/^\S+@\S+\.\S+$/.test(addr)) { setErr('That doesn’t look like an email — check for typos.'); shake.fire(); return; }
     setErr(null); setBusy(true);
     try {
-      await sendEmailOtp(addr);
+      await sendEmailOtp(addr, mode === 'signup' ? { display_name: nm, first_name: nm.split(/\s+/)[0] } : undefined);
       setBusy(false);
       onNext(addr);
     } catch (e: any) {
@@ -138,8 +141,23 @@ function Auth({ mode, onNext }: { mode: 'signin' | 'signup'; onNext: (email: str
   return (
     <>
       <Title parts={[mode === 'signin' ? 'Welcome back.' : 'Create your account.']} />
-      <Lead>{mode === 'signin' ? 'Enter your email and we’ll send a sign-in code.' : 'Enter your email — we’ll send a code to get you cooking.'}</Lead>
+      <Lead>{mode === 'signin' ? 'Enter your email and we’ll send a sign-in code.' : 'A couple details and we’ll send a code to get you cooking.'}</Lead>
       <Animated.View style={{ marginTop: 26, transform: [{ translateX: shake.x }] }}>
+        {mode === 'signup' ? (
+          <View style={{ marginBottom: 14 }}>
+            <Text style={[type(12.5, 800), { color: W(0.55), marginBottom: 8 }]}>Full name</Text>
+            <TextInput
+              value={fullName}
+              onChangeText={(t) => { setFullName(t); if (err) setErr(null); }}
+              autoCapitalize="words"
+              autoComplete="name"
+              textContentType="name"
+              placeholder="Your name"
+              placeholderTextColor={W(0.3)}
+              style={stt.input}
+            />
+          </View>
+        ) : null}
         <Text style={[type(12.5, 800), { color: W(0.55), marginBottom: 8 }]}>Email address</Text>
         <TextInput
           value={email}
