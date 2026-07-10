@@ -1,7 +1,7 @@
 import React, { useRef, useState } from 'react';
 import { View, Text, ScrollView, Pressable, Animated, StyleSheet, LayoutChangeEvent, StyleProp, ViewStyle } from 'react-native';
 import { useRouter } from 'expo-router';
-import { COOKS, CookId, MEALS, mealById, Meal, Experience, PlanGoal, STORE_REVIEWS, money } from '../data/data';
+import { COOKS, CookId, Meal, Experience, PlanGoal, STORE_REVIEWS, money } from '../data/data';
 import { useC } from '../theme/ThemeContext';
 import { type, radius, shadow } from '../theme/theme';
 import { useStore } from '../store/store';
@@ -245,11 +245,10 @@ export const MealCardLg = React.memo(function MealCardLg({ m, showMatch, width }
 });
 
 /** Today's drop — the calm white hero card on Home. */
-export const HeroDrop = React.memo(function HeroDrop({ id }: { id: string }) {
+export const HeroDrop = React.memo(function HeroDrop({ m }: { m: Meal }) {
   const c = useC();
   const router = useRouter();
   const { fav, toggleFav, addToCart, showFlash, isMine } = useStore();
-  const m = mealById(id)!;
   const cook = COOKS[m.cook];
   const isFav = fav.has(m.id);
   const mine = isMine(m.cook);

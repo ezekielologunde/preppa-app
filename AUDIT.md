@@ -195,10 +195,10 @@ splitting · `R11` self-hosted meal images.
   server-side (old value now rejected). `supabase.ts` + `checkout.tsx`.
 - **R1 slice 1 (catalog→DB):** `meals` enriched with display fields (slug/tags/protein/
   image/grad/rating/labels); real `supabaseRepository` behind the seam; `getRepositories()`
-  flipped to Supabase; **Explore migrated to `useMeals()`** (loading/error states). Proven:
-  Explore renders DB meals, and a DB price edit reflected live in the app. Remaining screens
-  (home, meal detail, cook store, favorites) + cart real-UUIDs are the next R1 slices; cook
-  cards/reviews still seed until migrated.
+  flipped to Supabase; **Explore + Home migrated to `useMeals()`** (loading/error states;
+  `HeroDrop` now takes a Meal object). Proven: both render DB meals with zero errors, and a
+  DB price edit reflected live. Remaining: meal detail, cook store, favorites + cart
+  real-UUIDs; cook cards/reviews still seed until migrated.
 
 ## Next up (recommended order)
 Finish `R1` (migrate home/meal/store/favorites to the repo; carry real UUIDs through the

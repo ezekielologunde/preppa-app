@@ -1,9 +1,10 @@
 import React, { useState } from 'react';
-import { View, Text, ScrollView, useWindowDimensions } from 'react-native';
+import { View, Text, ScrollView, ActivityIndicator, useWindowDimensions } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useRouter } from 'expo-router';
-import { MEALS, COOKS, CookId, dailyDropId } from '../../src/data/data';
+import { COOKS, CookId, dailyDropId } from '../../src/data/data';
+import { useMeals } from '../../src/data/hooks';
 import { useC } from '../../src/theme/ThemeContext';
 import { type, radius, shadow } from '../../src/theme/theme';
 import { useStore } from '../../src/store/store';
@@ -31,8 +32,11 @@ export default function HomeScreen() {
   const [locPicker, setLocPicker] = useState(false);
   const [cartOpen, setCartOpen] = useState(false);
   const dropId = dailyDropId();
-  const picks = MEALS.filter((m) => m.id !== dropId).slice(0, 4);
-  const favMeals = MEALS.filter((m) => fav.has(m.id));
+  const { data: allMeals, loading: mealsLoading } = useMeals(); // real catalog from the DB
+  const meals = allMeals ?? [];
+  const drop = meals.find((m) => m.id === dropId) ?? null;
+  const picks = meals.filter((m) => m.id !== dropId).slice(0, 4);
+  const favMeals = meals.filter((m) => fav.has(m.id));
   const lastOrder = orders[0] ?? null; // returning-buyer reorder shortcut
 
   const orderAgain = () => {
@@ -124,16 +128,26 @@ export default function HomeScreen() {
           </Press>
         ) : null}
 
-        <SectionHeader title="Today’s drop" />
-        <HeroDrop id={dropId} />
+        {mealsLoading ? (
+          <View style={{ paddingVertical: 48, alignItems: 'center' }}><ActivityIndicator color={c.primary} /></View>
+        ) : (
+          <>
+            {drop ? (
+              <>
+                <SectionHeader title="Today’s drop" />
+                <HeroDrop m={drop} />
+              </>
+            ) : null}
 
-        <SectionHeader title="Fresh near you" action="See all" onAction={() => router.push('/explore')} />
-        <MealGrid meals={picks} />
+            <SectionHeader title="Fresh near you" action="See all" onAction={() => router.push('/explore')} />
+            <MealGrid meals={picks} />
+          </>
+        )}
 
         <SectionHeader title="New preppers near you" action="See all" onAction={() => router.push('/explore')} />
         <CookRail cooks={Object.keys(COOKS) as CookId[]} />
 
-        {favMeals.length > 0 ? (
+        {!mealsLoading && favMeals.length > 0 ? (
           <>
             <SectionHeader title="Your favorites" action="See all" onAction={() => router.push('/favorites')} />
             <MealGrid meals={favMeals} />
