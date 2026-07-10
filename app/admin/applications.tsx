@@ -3,10 +3,12 @@ import { View, Text, ScrollView, TextInput } from 'react-native';
 import { useRouter } from 'expo-router';
 import { useC } from '../../src/theme/ThemeContext';
 import { type, radius } from '../../src/theme/theme';
-import { Screen, TopBar, Block, Empty, Btn, MiniTag, Press, Icon } from '../../src/ui';
+import { Screen, Block, Empty, Btn, MiniTag, Press, Icon } from '../../src/ui';
 import { useStore } from '../../src/store/store';
 import { useAdminApplications } from '../../src/data/hooks';
 import * as admin from '../../src/lib/admin';
+import { AdminHeader } from '../../src/components/admin/AdminHeader';
+import { ErrorRetry } from '../../src/components/admin/states';
 
 function when(iso: string): string {
   try { return new Date(iso).toLocaleDateString(); } catch { return ''; }
@@ -55,12 +57,12 @@ export default function AdminApplications() {
 
   return (
     <Screen max={900}>
-      <TopBar title="Applications" onBack={() => router.push('/admin')} />
+      <AdminHeader title="Applications" sub={loading ? 'Loading…' : `${data?.length ?? 0} pending`} back={() => router.push('/admin')} />
       <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={{ paddingBottom: 60 }}>
         {loading ? (
           <Block><Text style={[type(14, 600), { color: c.soft }]}>Loading…</Text></Block>
         ) : error ? (
-          <Block title="Error"><Text style={[type(13.5, 600), { color: c.red }]}>{error.message}</Text></Block>
+          <ErrorRetry message={error.message} onRetry={refetch} />
         ) : !data || data.length === 0 ? (
           <Empty icon="chefhat" title="Queue is clear" body="No prepper applications are waiting for review." />
         ) : (

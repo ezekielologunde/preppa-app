@@ -1,5 +1,5 @@
-import React from 'react';
-import { View, Text, ScrollView } from 'react-native';
+import React, { useState } from 'react';
+import { View, Text, ScrollView, TextInput } from 'react-native';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { COOKS, money } from '../../src/data/data';
 import { useC } from '../../src/theme/ThemeContext';
@@ -7,6 +7,7 @@ import { type, radius, shadow } from '../../src/theme/theme';
 import { useStore } from '../../src/store/store';
 import { Icon, Press, Avatar, Btn } from '../../src/ui';
 import { Screen, TopBar, Empty } from '../../src/ui/layout';
+import { createOrderTicket, TICKET_CATEGORIES, TicketCategory } from '../../src/lib/tickets';
 
 const STEPS = ['Order confirmed', 'Cook is preparing', 'Ready for handoff', 'Completed'];
 
@@ -108,8 +109,65 @@ export default function OrderDetail() {
           <Btn variant="ghost" icon="repeat" label="Reorder" flex={1} onPress={() => { reorder(o.id); router.push('/cart'); }} />
           {o.status === 'completed' ? <Btn icon="star" label="Rate your cook" flex={1} onPress={() => router.push(`/review/${o.id}`)} /> : <Btn label="Track order" flex={1} onPress={() => router.push(`/track?flow=${o.flow}`)} />}
         </View>
+
+        {o.dbId ? <ReportIssue orderId={o.dbId} /> : null}
       </ScrollView>
     </Screen>
+  );
+}
+
+/** Inline "Report an issue" form — only shown for orders backed by a real DB order. */
+function ReportIssue({ orderId }: { orderId: string }) {
+  const c = useC();
+  const { toast } = useStore();
+  const [open, setOpen] = useState(false);
+  const [cat, setCat] = useState<TicketCategory>('missing_item');
+  const [subject, setSubject] = useState('');
+  const [body, setBody] = useState('');
+  const [busy, setBusy] = useState(false);
+
+  const input = { borderWidth: 1, borderColor: c.border, borderRadius: radius.md, padding: 12, color: c.ink, backgroundColor: c.bg2, ...(type(14, 600) as object) };
+
+  const submit = async () => {
+    if (subject.trim().length < 3) { toast('Add a short subject', 'info'); return; }
+    if (body.trim().length < 3) { toast('Describe the issue', 'info'); return; }
+    setBusy(true);
+    try {
+      await createOrderTicket(orderId, cat, subject.trim(), body.trim());
+      toast('Issue reported — we’ll follow up', 'check', true);
+      setOpen(false); setSubject(''); setBody(''); setCat('missing_item');
+    } catch (e: any) {
+      toast(e?.message ?? 'Could not submit report', 'info');
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  if (!open) {
+    return <Btn variant="ghost" icon="info" label="Report an issue" onPress={() => setOpen(true)} />;
+  }
+  return (
+    <View style={{ backgroundColor: c.surface, borderRadius: radius.card, borderWidth: 1, borderColor: c.border2, padding: 16, gap: 12 }}>
+      <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+        <Text style={[type(15, 900), { color: c.ink, flex: 1 }]}>Report an issue</Text>
+        <Press onPress={() => setOpen(false)} label="Close"><Icon name="x" size={18} color={c.muted} /></Press>
+      </View>
+      <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 8 }}>
+        {TICKET_CATEGORIES.map((k) => {
+          const on = cat === k.value;
+          return (
+            <Press key={k.value} scale={0.96} onPress={() => setCat(k.value)}>
+              <View style={{ paddingHorizontal: 12, height: 32, borderRadius: radius.pill, alignItems: 'center', justifyContent: 'center', backgroundColor: on ? c.primary : c.bg2, borderWidth: 1, borderColor: on ? c.primary : c.border }}>
+                <Text style={[type(12.5, 800), { color: on ? '#fff' : c.ink }]}>{k.label}</Text>
+              </View>
+            </Press>
+          );
+        })}
+      </View>
+      <TextInput value={subject} onChangeText={setSubject} placeholder="Subject" placeholderTextColor={c.muted} style={input} />
+      <TextInput value={body} onChangeText={setBody} placeholder="What went wrong?" placeholderTextColor={c.muted} multiline style={[input, { minHeight: 72, textAlignVertical: 'top' }]} />
+      <Btn label="Submit report" icon="check" loading={busy} onPress={submit} />
+    </View>
   );
 }
 

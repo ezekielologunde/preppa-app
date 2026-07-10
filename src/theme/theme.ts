@@ -25,7 +25,7 @@ export interface Palette {
   /** Stable dark "feature" surface (premium cards / dark buttons) — stays dark in BOTH themes so hard-coded white text remains readable. */
   feature: string;
   green: string; green2: string; greenL: string;
-  blue: string; blueL: string; pink: string; pinkL: string; red: string; star: string;
+  blue: string; blueL: string; pink: string; pinkL: string; red: string; redL: string; star: string;
   unread: string;
 }
 
@@ -36,7 +36,7 @@ export const light: Palette = {
   surface: '#FFFFFF', bg: '#F7F7F9', bg2: '#F2F2F5', border: '#E6E6EE', border2: '#EDEDF2',
   feature: '#141210',
   green: '#16A34A', green2: '#22C55E', greenL: '#E7F7EE',
-  blue: '#0EA5E9', blueL: '#E5F4FD', pink: '#EC4899', pinkL: '#FDE9F3', red: '#EF4444', star: '#F59E0B',
+  blue: '#0EA5E9', blueL: '#E5F4FD', pink: '#EC4899', pinkL: '#FDE9F3', red: '#DC2626', redL: '#FDECEC', star: '#F59E0B',
   unread: '#FFFBF6',
 };
 
@@ -48,7 +48,7 @@ export const dark: Palette = {
   surface: '#1F1A15', bg: '#151210', bg2: '#2B241D', border: '#332C23', border2: '#2A241D',
   feature: '#241C15',
   green: '#16A34A', green2: '#22C55E', greenL: '#16281B',
-  blue: '#0EA5E9', blueL: '#122836', pink: '#EC4899', pinkL: '#331A28', red: '#EF4444', star: '#F59E0B',
+  blue: '#0EA5E9', blueL: '#122836', pink: '#EC4899', pinkL: '#331A28', red: '#EF4444', redL: '#3A1D1D', star: '#F59E0B',
   unread: 'rgba(232,97,26,.09)',
 };
 

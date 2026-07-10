@@ -15,6 +15,8 @@ export interface AdminOverview {
   verified_kitchens: number;
   total_kitchens: number;
   preppers: number;
+  orders_count: number;
+  gmv_cents: number;
 }
 
 export interface AdminApplication {
@@ -67,6 +69,8 @@ export async function overview(): Promise<AdminOverview> {
       verified_kitchens: 0,
       total_kitchens: 0,
       preppers: 0,
+      orders_count: 0,
+      gmv_cents: 0,
     }
   );
 }
@@ -169,4 +173,98 @@ export async function shareTicketWithCook(ticketId: string): Promise<void> {
   ensureWeb();
   const { error } = await supabase.rpc('share_ticket_with_cook', { p_ticket: ticketId });
   if (error) throw error;
+}
+
+// --- Orders & payments (read-only) ---
+export interface AdminOrder {
+  order_id: string;
+  kitchen_name: string | null;
+  buyer_name: string | null;
+  total_cents: number;
+  status: string;
+  pay_status: string;
+  method: string;
+  pi_status: string | null;
+  item_count: number;
+  created_at: string;
+}
+
+export interface AdminOrderItem {
+  name: string;
+  qty: number;
+  unit_price_cents: number;
+}
+
+export interface AdminOrderDetail {
+  order_id: string;
+  kitchen_name: string | null;
+  buyer_name: string | null;
+  status: string;
+  pay_status: string;
+  method: string;
+  fulfillment: string;
+  subtotal_cents: number;
+  service_fee_cents: number;
+  tip_cents: number;
+  total_cents: number;
+  created_at: string;
+  pi_status: string | null;
+  pi_stripe_id: string | null;
+  handoff_status: string | null;
+  items: AdminOrderItem[];
+}
+
+export async function listOrders(): Promise<AdminOrder[]> {
+  ensureWeb();
+  const { data, error } = await supabase.rpc('admin_list_orders');
+  if (error) throw error;
+  return (data as AdminOrder[]) ?? [];
+}
+
+export async function orderDetail(orderId: string): Promise<AdminOrderDetail | null> {
+  ensureWeb();
+  const { data, error } = await supabase.rpc('admin_order_detail', { p_order: orderId });
+  if (error) throw error;
+  const row = data?.[0] as AdminOrderDetail | undefined;
+  if (!row) return null;
+  // `items` arrives as jsonb; normalize to an array.
+  return { ...row, items: Array.isArray(row.items) ? row.items : [] };
+}
+
+// --- Users / profiles (read-only; display_name + role only, no PII) ---
+export interface AdminUser {
+  user_id: string;
+  display_name: string | null;
+  role: string;
+  verification_status: string | null;
+  kitchen_name: string | null;
+  created_at: string;
+}
+
+export async function listUsers(): Promise<AdminUser[]> {
+  ensureWeb();
+  const { data, error } = await supabase.rpc('admin_list_users');
+  if (error) throw error;
+  return (data as AdminUser[]) ?? [];
+}
+
+// --- Audit log (read-only, keyset-paginated) ---
+export interface AdminAuditEntry {
+  id: string;
+  actor_name: string | null;
+  action: string;
+  entity: string | null;
+  entity_id: string | null;
+  meta: Record<string, unknown> | null;
+  created_at: string;
+}
+
+export async function listAudit(opts: { limit?: number; before?: string | null } = {}): Promise<AdminAuditEntry[]> {
+  ensureWeb();
+  const { data, error } = await supabase.rpc('admin_list_audit', {
+    p_limit: opts.limit ?? 100,
+    p_before: opts.before ?? null,
+  });
+  if (error) throw error;
+  return (data as AdminAuditEntry[]) ?? [];
 }

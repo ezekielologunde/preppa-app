@@ -94,6 +94,30 @@ export function MiniTag({ label, tone = 'purple' }: { label: string; tone?: 'pur
   return <Text style={[type(10, 900), { color: fg, backgroundColor: bg, textTransform: 'uppercase', letterSpacing: 0.3, paddingHorizontal: 7, paddingVertical: 2, borderRadius: radius.pill, overflow: 'hidden' }]}>{label}</Text>;
 }
 
+export type StatusTone = 'neutral' | 'success' | 'info' | 'brand' | 'danger';
+/**
+ * Semantic status pill for high-density admin data (order/payment states, roles).
+ * `danger` is a solid fill (white on red = AA); the rest are colored text on a
+ * theme-aware tint. All tones read in both light and dark. Label carries the
+ * meaning too, never color alone.
+ */
+export function StatusTag({ label, tone = 'neutral' }: { label: string; tone?: StatusTone }) {
+  const c = useC();
+  const map: Record<StatusTone, { fg: string; bg: string }> = {
+    neutral: { fg: c.soft, bg: c.bg2 },
+    success: { fg: c.green, bg: c.greenL },
+    info: { fg: c.blue, bg: c.blueL },
+    brand: { fg: c.purpleOn, bg: c.purpleL },
+    danger: { fg: '#fff', bg: c.red },
+  };
+  const { fg, bg } = map[tone];
+  return (
+    <Text style={[type(10, 900), { color: fg, backgroundColor: bg, textTransform: 'uppercase', letterSpacing: 0.3, paddingHorizontal: 8, paddingVertical: 3, borderRadius: radius.pill, overflow: 'hidden' }]}>
+      {label}
+    </Text>
+  );
+}
+
 /** .empty — centered empty-state. */
 export function Empty({ icon, title, body, action }: { icon: string; title: string; body: string; action?: React.ReactNode }) {
   const c = useC();

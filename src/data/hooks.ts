@@ -5,14 +5,15 @@
 import { useEffect, useState } from 'react';
 import { getRepositories, MealQuery } from './repository';
 import { Meal, Cook, CookId } from './data';
+import * as admin from '../lib/admin';
 
-interface AsyncState<T> {
+export interface AsyncState<T> {
   data: T | null;
   loading: boolean;
   error: Error | null;
 }
 
-function useAsync<T>(run: () => Promise<T>, deps: unknown[]): AsyncState<T> {
+export function useAsync<T>(run: () => Promise<T>, deps: unknown[]): AsyncState<T> {
   const [state, setState] = useState<AsyncState<T>>({ data: null, loading: true, error: null });
   useEffect(() => {
     let alive = true;
@@ -36,4 +37,24 @@ export function useMeal(id: string): AsyncState<Meal | null> {
 }
 export function useCook(id: CookId): AsyncState<Cook | null> {
   return useAsync(() => getRepositories().cooks.byId(id), [id]);
+}
+
+// --- Admin dashboard hooks (Phase 1). `nonce` lets a screen force a refetch. ---
+export function useAdminOverview(nonce = 0): AsyncState<admin.AdminOverview> {
+  return useAsync(() => admin.overview(), [nonce]);
+}
+export function useAdminApplications(nonce = 0): AsyncState<admin.AdminApplication[]> {
+  return useAsync(() => admin.listApplications(), [nonce]);
+}
+export function useAdminTickets(nonce = 0): AsyncState<admin.AdminTicket[]> {
+  return useAsync(() => admin.listTickets(), [nonce]);
+}
+export function useAdminOrders(nonce = 0): AsyncState<admin.AdminOrder[]> {
+  return useAsync(() => admin.listOrders(), [nonce]);
+}
+export function useAdminUsers(nonce = 0): AsyncState<admin.AdminUser[]> {
+  return useAsync(() => admin.listUsers(), [nonce]);
+}
+export function useAdminAudit(nonce = 0): AsyncState<admin.AdminAuditEntry[]> {
+  return useAsync(() => admin.listAudit(), [nonce]);
 }
