@@ -10,6 +10,7 @@ import { Icon, Press, Btn } from '../src/ui';
 import { Screen, TopBar, Dock, DockTotal, Block, MiniTag, Empty } from '../src/ui/layout';
 import { useTotals, Summary } from '../src/components/shared';
 import { ModeToggle } from '../src/components/ModeToggle';
+import { AddressPickerSheet, CardPickerSheet } from '../src/components/PickerSheets';
 
 const TIPS = [0, 2, 3, 5];
 
@@ -23,6 +24,8 @@ export default function Checkout() {
   const t = useTotals(lines, tip, mode);
   const [pay, setPay] = useState<'online' | 'cod'>('online');
   const [busy, setBusy] = useState(false);
+  const [addrSheet, setAddrSheet] = useState(false);
+  const [cardSheet, setCardSheet] = useState(false);
   const theCook = COOKS[ck ?? lines[0]?.cook ?? 'maria'];
 
   if (lines.length === 0) {
@@ -52,12 +55,14 @@ export default function Checkout() {
     // Real (test-mode) card charge via Supabase create-order + Stripe. Falls back to the
     // mock on any failure (native, unmapped item, or backend not fully configured yet).
     const cookId = (ck ?? lines[0]?.cook) as string;
+    let dbId: string | undefined;
     try {
-      await payWithCard({ cook: cookId, lines, mode, tipDollars: tip, idempotencyKey: `${cookId}-${Date.now()}` });
+      const res = await payWithCard({ cook: cookId, lines, mode, tipDollars: tip, idempotencyKey: `${cookId}-${Date.now()}` });
+      dbId = res?.orderId; // real Supabase orders.id — kept so the order can be reported on
     } catch (e) {
       if (Platform.OS === 'web') console.warn('[pay] real charge unavailable, mock fallback:', (e as any)?.message);
     }
-    placeOrder('paid', ck); // mirror into local order history for the app's Track/Orders UI
+    placeOrder('paid', ck, dbId); // mirror into local order history for the app's Track/Orders UI
     router.replace(`/track?flow=paid&cook=${ck ?? ''}`);
   };
 
@@ -79,7 +84,7 @@ export default function Checkout() {
               )}
             </View>
             {mode === 'pickup' ? null : (
-              <Press scale={0.9} onPress={() => router.push('/addresses?select=1')} label="Change delivery address"><View style={{ width: 34, height: 34, alignItems: 'center', justifyContent: 'center' }}><Icon name="chevRight" size={16} color={c.muted} /></View></Press>
+              <Press scale={0.9} onPress={() => setAddrSheet(true)} label="Change delivery address"><View style={{ width: 34, height: 34, alignItems: 'center', justifyContent: 'center' }}><Icon name="chevRight" size={16} color={c.muted} /></View></Press>
             )}
           </View>
         </Block>
@@ -87,7 +92,7 @@ export default function Checkout() {
         <Block title="Payment">
           <PayOption on={effectivePay === 'online'} onPress={() => setPay('online')} icon="card" title="Pay online" tag="Stripe" tagTone="green" body={card ? `${card.brand} •••• ${card.last4} · secure checkout` : 'Add a card to pay online'} />
           {effectivePay === 'online' ? (
-            <Press scale={0.98} onPress={() => router.push('/payments?select=1')} label="Change payment card">
+            <Press scale={0.98} onPress={() => setCardSheet(true)} label="Change payment card">
               <View style={{ flexDirection: 'row', alignItems: 'center', gap: 5, alignSelf: 'flex-start', marginTop: 8, marginLeft: 2 }}>
                 <Text style={[type(13, 800), { color: c.primary }]}>{card ? 'Change card' : 'Add a card'}</Text>
                 <Icon name="chevRight" size={14} color={c.primary} />
@@ -127,6 +132,9 @@ export default function Checkout() {
         <DockTotal label="Total" value={money(t.total)} />
         <Btn label={effectivePay === 'cod' ? 'Place order' : `Pay ${money(t.total)}`} flex={1} loading={busy && effectivePay !== 'cod'} onPress={place} />
       </Dock>
+
+      <AddressPickerSheet visible={addrSheet} onClose={() => setAddrSheet(false)} />
+      <CardPickerSheet visible={cardSheet} onClose={() => setCardSheet(false)} />
     </Screen>
   );
 }

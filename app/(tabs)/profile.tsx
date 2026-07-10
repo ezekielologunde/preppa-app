@@ -1,12 +1,12 @@
 import React, { useState } from 'react';
-import { View, Text, ScrollView, Pressable, Alert, Platform, Modal, TextInput } from 'react-native';
+import { View, Text, ScrollView, Pressable, Alert, Platform, TextInput } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useC } from '../../src/theme/ThemeContext';
 import { type, radius, shadow } from '../../src/theme/theme';
 import { useStore } from '../../src/store/store';
-import { Icon, Press, Switch, Btn } from '../../src/ui';
+import { Icon, Press, Switch, Btn, Dialog } from '../../src/ui';
 import { SectionLabel } from '../../src/ui/layout';
 
 type Tone = '' | 'amber' | 'purple' | 'blue' | 'pink' | 'green';
@@ -171,29 +171,24 @@ export default function Profile() {
         <Text style={[type(12, 700), { color: c.muted, textAlign: 'center', padding: 20 }]}>preppa · v1.0</Text>
       </ScrollView>
 
-      <Modal visible={editing} transparent animationType="fade" onRequestClose={() => setEditing(false)}>
-        <Pressable onPress={() => !savingName && setEditing(false)} style={{ flex: 1, backgroundColor: 'rgba(0,0,0,0.45)', justifyContent: 'center', paddingHorizontal: 28 }}>
-          <Pressable onPress={(e) => e.stopPropagation?.()} style={{ backgroundColor: c.surface, borderRadius: radius.xl, padding: 20, gap: 14, maxWidth: 420, width: '100%', alignSelf: 'center' }}>
-            <Text style={[type(18, 900), { color: c.ink, letterSpacing: -0.4 }]}>Your name</Text>
-            <TextInput
-              value={draft}
-              onChangeText={setDraft}
-              autoFocus
-              autoCapitalize="words"
-              autoComplete="name"
-              textContentType="name"
-              placeholder="Your name"
-              placeholderTextColor={c.muted}
-              onSubmitEditing={commitName}
-              style={{ height: 50, borderRadius: radius.md, paddingHorizontal: 14, backgroundColor: c.bg2, borderWidth: 1.5, borderColor: c.border, color: c.ink, fontFamily: type(16, 600).fontFamily, fontSize: 16 }}
-            />
-            <View style={{ flexDirection: 'row', gap: 10 }}>
-              <Btn label="Cancel" variant="ghost" flex={1} onPress={() => setEditing(false)} />
-              <Btn label="Save" flex={1} loading={savingName} onPress={commitName} />
-            </View>
-          </Pressable>
-        </Pressable>
-      </Modal>
+      <Dialog visible={editing} onClose={() => !savingName && setEditing(false)} title="Your name">
+        <TextInput
+          value={draft}
+          onChangeText={setDraft}
+          autoFocus
+          autoCapitalize="words"
+          autoComplete="name"
+          textContentType="name"
+          placeholder="Your name"
+          placeholderTextColor={c.muted}
+          onSubmitEditing={commitName}
+          style={{ height: 50, borderRadius: radius.md, paddingHorizontal: 14, backgroundColor: c.bg2, borderWidth: 1.5, borderColor: c.border, color: c.ink, fontFamily: type(16, 600).fontFamily, fontSize: 16 }}
+        />
+        <View style={{ flexDirection: 'row', gap: 10 }}>
+          <Btn label="Cancel" variant="ghost" flex={1} onPress={() => setEditing(false)} />
+          <Btn label="Save" flex={1} loading={savingName} onPress={commitName} />
+        </View>
+      </Dialog>
     </View>
   );
 }

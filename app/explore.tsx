@@ -1,11 +1,11 @@
 import React, { useState } from 'react';
-import { View, Text, ScrollView, TextInput, Modal, Pressable } from 'react-native';
+import { View, Text, ScrollView, TextInput } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { MEALS, COOKS, Meal } from '../src/data/data';
 import { useC } from '../src/theme/ThemeContext';
 import { type, radius, shadow } from '../src/theme/theme';
-import { Icon, Press, Btn } from '../src/ui';
+import { Icon, Press, Btn, Sheet } from '../src/ui';
 import { Screen, Empty } from '../src/ui/layout';
 import { MealGrid } from '../src/components/cards';
 
@@ -117,34 +117,29 @@ export default function Explore() {
         )}
       </ScrollView>
 
-      <Modal visible={filterOpen} transparent animationType="slide" onRequestClose={() => setFilterOpen(false)} statusBarTranslucent>
-        <Pressable onPress={() => setFilterOpen(false)} style={{ flex: 1, backgroundColor: 'rgba(0,0,0,.4)', justifyContent: 'flex-end' }}>
-          <Pressable onPress={() => {}} style={{ backgroundColor: c.surface, borderTopLeftRadius: radius.sheet, borderTopRightRadius: radius.sheet, paddingTop: 10, paddingBottom: insets.bottom + 16, maxHeight: '82%' }}>
-            <View style={{ width: 40, height: 5, borderRadius: 3, backgroundColor: c.border, alignSelf: 'center', marginBottom: 10 }} />
-            <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: 20, paddingBottom: 6 }}>
-              <Text style={[type(19, 900), { color: c.ink, letterSpacing: -0.4 }]}>Filters</Text>
-              {activeCount ? <Press scale={0.95} onPress={clearFilters} label="Clear filters"><Text style={[type(14, 800), { color: c.primary }]}>Clear all</Text></Press> : null}
-            </View>
-            <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={{ paddingHorizontal: 20, paddingBottom: 10 }}>
-              <FSec title="Sort by">
-                {SORTS.map((s) => <Chip key={s.key} label={s.label} on={sort === s.key} onPress={() => setSort(sort === s.key ? null : s.key)} />)}
-              </FSec>
-              <FSec title="Goals">
-                {GOALS.map((g) => <Chip key={g.label} label={g.label} on={goal === g.label} onPress={() => setGoal(goal === g.label ? null : g.label)} />)}
-              </FSec>
-              <FSec title="Price">
-                {PRICES.map((p) => <Chip key={p.label} label={p.label} on={price === p.label} onPress={() => setPrice(price === p.label ? null : p.label)} />)}
-              </FSec>
-              <FSec title="Tags">
-                {ALL_TAGS.map((t) => <Chip key={t} label={t} on={tags.includes(t)} onPress={() => toggleTag(t)} />)}
-              </FSec>
-            </ScrollView>
-            <View style={{ paddingHorizontal: 20, paddingTop: 8 }}>
-              <Btn label={`Show ${list.length} result${list.length !== 1 ? 's' : ''}`} block onPress={() => setFilterOpen(false)} />
-            </View>
-          </Pressable>
-        </Pressable>
-      </Modal>
+      <Sheet visible={filterOpen} onClose={() => setFilterOpen(false)}>
+        <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: 4, paddingBottom: 6 }}>
+          <Text style={[type(19, 900), { color: c.ink, letterSpacing: -0.4 }]}>Filters</Text>
+          {activeCount ? <Press scale={0.95} onPress={clearFilters} label="Clear filters"><Text style={[type(14, 800), { color: c.primary }]}>Clear all</Text></Press> : null}
+        </View>
+        <ScrollView showsVerticalScrollIndicator={false} style={{ flexShrink: 1 }} contentContainerStyle={{ paddingBottom: 10 }}>
+          <FSec title="Sort by">
+            {SORTS.map((s) => <Chip key={s.key} label={s.label} on={sort === s.key} onPress={() => setSort(sort === s.key ? null : s.key)} />)}
+          </FSec>
+          <FSec title="Goals">
+            {GOALS.map((g) => <Chip key={g.label} label={g.label} on={goal === g.label} onPress={() => setGoal(goal === g.label ? null : g.label)} />)}
+          </FSec>
+          <FSec title="Price">
+            {PRICES.map((p) => <Chip key={p.label} label={p.label} on={price === p.label} onPress={() => setPrice(price === p.label ? null : p.label)} />)}
+          </FSec>
+          <FSec title="Tags">
+            {ALL_TAGS.map((t) => <Chip key={t} label={t} on={tags.includes(t)} onPress={() => toggleTag(t)} />)}
+          </FSec>
+        </ScrollView>
+        <View style={{ paddingTop: 8 }}>
+          <Btn label={`Show ${list.length} result${list.length !== 1 ? 's' : ''}`} block onPress={() => setFilterOpen(false)} />
+        </View>
+      </Sheet>
     </Screen>
   );
 }
