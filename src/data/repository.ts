@@ -8,6 +8,7 @@ import {
   Meal, MEALS, mealById, Cook, COOKS, CookId,
   Experience, EXPERIENCES, expById, MarketPlan, MARKET_PLANS,
 } from './data';
+import { makeSupabaseRepositories } from './supabaseRepository';
 
 export interface MealQuery {
   cook?: CookId;
@@ -81,8 +82,11 @@ function makeMockRepositories(): Repositories {
 }
 
 let _repos: Repositories | null = null;
-/** Composition root. Swap here for a Supabase-backed impl behind an env flag. */
+/**
+ * Composition root. Now Supabase-backed for the catalog (meals from the DB);
+ * `makeMockRepositories` is retained for reference/tests but no longer the default.
+ */
 export function getRepositories(): Repositories {
-  if (!_repos) _repos = makeMockRepositories();
+  if (!_repos) _repos = makeSupabaseRepositories();
   return _repos;
 }

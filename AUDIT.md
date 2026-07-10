@@ -33,7 +33,7 @@ real" is a sequence gated on a first real transaction — not a single sprint.
 | Order → payment reconciliation | ✅ **Real** (trigger flips order→paid + writes ledger) |
 | **Cook payouts (Stripe Connect)** | ⚠️ **Not wired** (cooks can't be paid) |
 | **Native payments** | ⚠️ **Mock** (marks paid, never charges) |
-| **Buyer catalog / cooks / reviews** | ⚠️ **Mock** (DB exists but is bypassed) |
+| Buyer catalog | 🟡 **DB-backed** (Explore live; other screens migrating — R1 in progress) |
 | Prep-experience marketplace | 🔲 Mock (no request/bid tables) |
 | Meal plans / subscriptions | 🔲 Mock (no recurring billing) |
 | Messaging / chat | 🔲 Mock (no tables, no realtime) |
@@ -193,7 +193,14 @@ splitting · `R11` self-hosted meal images.
 - **Removed the shipped test-customer credential (R3):** `ensureAuth` now requires a real
   session (throws `AUTH_REQUIRED`, handled by checkout); the leaked password was rotated
   server-side (old value now rejected). `supabase.ts` + `checkout.tsx`.
+- **R1 slice 1 (catalog→DB):** `meals` enriched with display fields (slug/tags/protein/
+  image/grad/rating/labels); real `supabaseRepository` behind the seam; `getRepositories()`
+  flipped to Supabase; **Explore migrated to `useMeals()`** (loading/error states). Proven:
+  Explore renders DB meals, and a DB price edit reflected live in the app. Remaining screens
+  (home, meal detail, cook store, favorites) + cart real-UUIDs are the next R1 slices; cook
+  cards/reviews still seed until migrated.
 
 ## Next up (recommended order)
-`R1` catalog→DB (the visible win — buyers read real inventory) → `R4` cook payouts
-(Connect onboarding + cash-out) → the prep-experience reverse marketplace + real messaging.
+Finish `R1` (migrate home/meal/store/favorites to the repo; carry real UUIDs through the
+cart so `create-order`'s key→UUID map can go) → `R4` cook payouts (Connect onboarding +
+cash-out) → the prep-experience reverse marketplace + real messaging.

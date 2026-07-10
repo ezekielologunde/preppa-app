@@ -1,8 +1,9 @@
-import React, { useState } from 'react';
-import { View, Text, ScrollView, TextInput } from 'react-native';
+import React, { useMemo, useState } from 'react';
+import { View, Text, ScrollView, TextInput, ActivityIndicator } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useLocalSearchParams, useRouter } from 'expo-router';
-import { MEALS, COOKS, Meal } from '../src/data/data';
+import { COOKS, Meal } from '../src/data/data';
+import { useMeals } from '../src/data/hooks';
 import { useC } from '../src/theme/ThemeContext';
 import { type, radius, shadow } from '../src/theme/theme';
 import { Icon, Press, Btn, Sheet } from '../src/ui';
@@ -10,7 +11,6 @@ import { Screen, Empty } from '../src/ui/layout';
 import { MealGrid } from '../src/components/cards';
 
 const CATS = ['All', 'Comfort', 'Healthy', 'Halal', 'Mexican', 'Seafood', 'Soul food'];
-const ALL_TAGS = Array.from(new Set(MEALS.flatMap((m) => m.tags)));
 const PRICES: { label: string; test: (p: number) => boolean }[] = [
   { label: 'Under $10', test: (p) => p < 10 },
   { label: '$10–$15', test: (p) => p >= 10 && p <= 15 },
@@ -46,7 +46,11 @@ export default function Explore() {
   const toggleTag = (t: string) => setTags((p) => (p.includes(t) ? p.filter((x) => x !== t) : [...p, t]));
   const clearFilters = () => { setTags([]); setPrice(null); setGoal(null); setSort(null); };
 
-  let list = MEALS.filter((m) => {
+  const { data: allMeals, loading, error } = useMeals(); // real catalog from the DB
+  const meals = allMeals ?? [];
+  const ALL_TAGS = useMemo(() => Array.from(new Set(meals.flatMap((m) => m.tags))), [meals]);
+
+  let list = meals.filter((m) => {
     const okCat = cat === 'All' || m.tags.some((t) => t.toLowerCase().includes(cat.toLowerCase()));
     const okQ = !q || m.name.toLowerCase().includes(q.toLowerCase()) || COOKS[m.cook].name.toLowerCase().includes(q.toLowerCase());
     const okTags = tags.length === 0 || m.tags.some((t) => tags.includes(t));
@@ -107,10 +111,16 @@ export default function Explore() {
         </ScrollView>
 
         <View style={{ paddingHorizontal: 16, paddingTop: 16, paddingBottom: 10 }}>
-          <Text style={[type(20, 900), { color: c.ink, letterSpacing: -0.7 }]}>{list.length} result{list.length !== 1 ? 's' : ''}</Text>
+          <Text style={[type(20, 900), { color: c.ink, letterSpacing: -0.7 }]}>
+            {loading ? 'Loading…' : `${list.length} result${list.length !== 1 ? 's' : ''}`}
+          </Text>
         </View>
 
-        {list.length === 0 ? (
+        {loading ? (
+          <View style={{ paddingVertical: 60, alignItems: 'center' }}><ActivityIndicator color={c.primary} /></View>
+        ) : error ? (
+          <Empty icon="info" title="Couldn’t load meals" body="Something went wrong loading the menu. Pull to refresh or try again." />
+        ) : list.length === 0 ? (
           <Empty icon="search" title="No matches" body="Try another cuisine, clear filters, or search again." />
         ) : (
           <MealGrid meals={list} showMatch px={16} />
