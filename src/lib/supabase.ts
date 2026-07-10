@@ -1,5 +1,6 @@
 import { createClient } from '@supabase/supabase-js';
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import { Platform } from 'react-native';
 
 /**
  * Supabase + Stripe connection for real (test-mode) card payments.
@@ -14,7 +15,9 @@ export const STRIPE_PK =
   'pk_test_51TbwCHJP8OvIS2L3l7DC5FGiyKJ4AdivhkShTMqO71jQ7r1DHYRGa2bEFvEnxAiufrnqSdrsMoB1QfPYs0bXqjHd00lw0UZ41x';
 
 export const supabase = createClient(SUPABASE_URL, SUPABASE_ANON, {
-  auth: { storage: AsyncStorage as any, autoRefreshToken: true, persistSession: true, detectSessionInUrl: false },
+  // detectSessionInUrl on web so OAuth (Google) redirects auto-establish the session;
+  // no-op on native (no URL). OTP is unaffected (it never uses URL tokens).
+  auth: { storage: AsyncStorage as any, autoRefreshToken: true, persistSession: true, detectSessionInUrl: Platform.OS === 'web' },
 });
 
 // Seeded test customer (email+password so we get a real JWT without the anon-auth toggle).
@@ -128,6 +131,72 @@ export async function updateDisplayName(fullName: string): Promise<{ displayName
   const { error } = await supabase.from('profiles').update({ display_name: display, first_name: first }).eq('id', uid);
   if (error) throw error;
   return { displayName: display, firstName: first };
+}
+
+// ---- Profile editing (self-writable fields under profiles_update_self) --------
+export interface EditableProfile {
+  displayName: string;
+  bio: string;
+  location: string;
+  dietary: string[];
+  avatarUrl: string | null;
+}
+
+/** Load the signed-in user's editable profile fields. */
+export async function getMyProfile(): Promise<EditableProfile | null> {
+  const { data: sess } = await supabase.auth.getSession();
+  const uid = sess.session?.user?.id;
+  if (!uid) return null;
+  const { data } = await supabase.from('profiles').select('display_name, bio, location, dietary, avatar_url').eq('id', uid).maybeSingle();
+  return {
+    displayName: (data?.display_name as string) ?? '',
+    bio: (data?.bio as string) ?? '',
+    location: (data?.location as string) ?? '',
+    dietary: (data?.dietary as string[]) ?? [],
+    avatarUrl: (data?.avatar_url as string) ?? null,
+  };
+}
+
+/** Update the signed-in user's own profile. `display_name`/`first_name` stay in sync. */
+export async function updateProfile(patch: Partial<EditableProfile>): Promise<void> {
+  const { data: sess } = await supabase.auth.getSession();
+  const uid = sess.session?.user?.id;
+  if (!uid) throw new Error('You need to be signed in.');
+  const row: Record<string, unknown> = {};
+  if (patch.displayName !== undefined) {
+    const dn = patch.displayName.trim();
+    row.display_name = dn;
+    row.first_name = dn.split(/\s+/)[0] || dn;
+  }
+  if (patch.bio !== undefined) row.bio = patch.bio.trim();
+  if (patch.location !== undefined) row.location = patch.location.trim();
+  if (patch.dietary !== undefined) row.dietary = patch.dietary;
+  if (patch.avatarUrl !== undefined) row.avatar_url = patch.avatarUrl;
+  const { error } = await supabase.from('profiles').update(row).eq('id', uid);
+  if (error) throw error;
+}
+
+/** Upload an avatar image to the owner-scoped `avatars` bucket; returns its public URL. Web-first. */
+export async function uploadAvatar(file: Blob, ext: string): Promise<string> {
+  const { data: sess } = await supabase.auth.getSession();
+  const uid = sess.session?.user?.id;
+  if (!uid) throw new Error('You need to be signed in.');
+  const path = `${uid}/avatar-${Date.now()}.${ext}`;
+  const { error } = await supabase.storage.from('avatars').upload(path, file, {
+    upsert: true,
+    contentType: (file as any).type || `image/${ext}`,
+  });
+  if (error) throw error;
+  const { data } = supabase.storage.from('avatars').getPublicUrl(path);
+  return data.publicUrl;
+}
+
+// ---- Social login (web) -------------------------------------------------------
+/** Start Google OAuth (web). Requires the Google provider to be enabled in Supabase. */
+export async function signInWithGoogle(): Promise<void> {
+  const redirectTo = typeof window !== 'undefined' ? window.location.origin : undefined;
+  const { error } = await supabase.auth.signInWithOAuth({ provider: 'google', options: { redirectTo } });
+  if (error) throw error;
 }
 
 export type ServiceType = 'meals' | 'home_chef';

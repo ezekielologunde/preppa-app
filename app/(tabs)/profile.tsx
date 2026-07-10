@@ -1,12 +1,12 @@
-import React, { useState } from 'react';
-import { View, Text, ScrollView, Pressable, Alert, Platform, TextInput } from 'react-native';
+import React from 'react';
+import { View, Text, ScrollView, Pressable, Alert, Platform } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useC } from '../../src/theme/ThemeContext';
 import { type, radius, shadow } from '../../src/theme/theme';
 import { useStore } from '../../src/store/store';
-import { Icon, Press, Switch, Btn, Dialog } from '../../src/ui';
+import { Icon, Press, Switch } from '../../src/ui';
 import { SectionLabel } from '../../src/ui/layout';
 
 type Tone = '' | 'amber' | 'purple' | 'blue' | 'pink' | 'green';
@@ -16,27 +16,8 @@ export default function Profile() {
   const c = useC();
   const insets = useSafeAreaInsets();
   const router = useRouter();
-  const { resetOnboarding, darkMode, setDarkMode, logout, deleteAccount, toast, prepperStatus, isAdmin, name, location, saveName } = useStore();
+  const { resetOnboarding, darkMode, setDarkMode, logout, deleteAccount, toast, prepperStatus, isAdmin, name, location } = useStore();
   const initial = (name || '?').trim()[0]?.toUpperCase() ?? '?';
-
-  const [editing, setEditing] = useState(false);
-  const [draft, setDraft] = useState('');
-  const [savingName, setSavingName] = useState(false);
-  const openEdit = () => { setDraft(name); setEditing(true); };
-  const commitName = async () => {
-    const nm = draft.trim();
-    if (nm.length < 2) { toast('Please enter your name', 'info'); return; }
-    setSavingName(true);
-    try {
-      await saveName(nm);
-      setEditing(false);
-      toast('Name updated', 'check', true);
-    } catch {
-      toast('Couldn’t save your name. Please try again.', 'x');
-    } finally {
-      setSavingName(false);
-    }
-  };
 
   const confirmDelete = () => {
     Alert.alert(
@@ -73,7 +54,7 @@ export default function Profile() {
           <LinearGradient colors={['#FF8A4C', '#F26B1D']} start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }} style={{ width: 80, height: 80, borderRadius: 26, alignItems: 'center', justifyContent: 'center', ...shadow.brand }}>
             <Text style={[type(32, 900), { color: '#fff' }]}>{initial}</Text>
           </LinearGradient>
-          <Press scale={0.97} onPress={openEdit} label="Edit your name">
+          <Press scale={0.97} onPress={() => router.push('/edit-profile')} label="Edit profile">
             <View style={{ flexDirection: 'row', alignItems: 'center', gap: 7, marginTop: 12 }}>
               <Text style={[type(21, 900), { color: c.ink, letterSpacing: -0.6 }]}>{name || 'Add your name'}</Text>
               <Icon name="edit" size={15} color={c.muted} />
@@ -170,25 +151,6 @@ export default function Profile() {
 
         <Text style={[type(12, 700), { color: c.muted, textAlign: 'center', padding: 20 }]}>preppa · v1.0</Text>
       </ScrollView>
-
-      <Dialog visible={editing} onClose={() => !savingName && setEditing(false)} title="Your name">
-        <TextInput
-          value={draft}
-          onChangeText={setDraft}
-          autoFocus
-          autoCapitalize="words"
-          autoComplete="name"
-          textContentType="name"
-          placeholder="Your name"
-          placeholderTextColor={c.muted}
-          onSubmitEditing={commitName}
-          style={{ height: 50, borderRadius: radius.md, paddingHorizontal: 14, backgroundColor: c.bg2, borderWidth: 1.5, borderColor: c.border, color: c.ink, fontFamily: type(16, 600).fontFamily, fontSize: 16 }}
-        />
-        <View style={{ flexDirection: 'row', gap: 10 }}>
-          <Btn label="Cancel" variant="ghost" flex={1} onPress={() => setEditing(false)} />
-          <Btn label="Save" flex={1} loading={savingName} onPress={commitName} />
-        </View>
-      </Dialog>
     </View>
   );
 }

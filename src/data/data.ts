@@ -55,7 +55,8 @@ export interface Meal {
   protein: number; // grams — illustrative seed data (real per-batch macros are REQUIRES-SERVER)
   serves: number;
   desc: string;
-  img?: string; // real photo; the grad is the loading/error fallback
+  img?: string; // cover photo; the grad is the loading/error fallback
+  photos?: string[]; // extra gallery photos (illustrative seed); the carousel shows these when present, else [img]
 }
 
 const IMG = 'https://www.themealdb.com/images/media/meals/';
@@ -63,13 +64,15 @@ export const MEALS: Meal[] = [
   { id: 'lasagna', name: 'Family Lasagna Tray', cook: 'maria', price: 13.5, grad: 'g4', rating: 4.9, reviews: 312, time: '25m', dist: '1.2 km', tags: ['Comfort', 'Pasta'], match: true, kcal: 680, protein: 34, serves: 2, desc: 'Layered fresh pasta, slow-simmered beef ragù and three cheeses, baked golden. Travels in a sealed oven-ready tray — reheat and serve.', img: IMG + 'rvxxuy1468312893.jpg' },
   { id: 'salmon', name: 'Honey Garlic Salmon', cook: 'david', price: 9.75, grad: 'g3', rating: 4.8, reviews: 204, time: '30m', dist: '0.8 km', tags: ['Healthy', 'Seafood'], match: true, kcal: 420, protein: 42, serves: 1, desc: 'Pan-seared salmon glazed in honey-garlic, over herbed jasmine rice with charred greens. High protein, gluten-free.', img: IMG + 'ikizdm1763760862.jpg' },
   { id: 'jollof', name: 'Smoky Jollof & Chicken', cook: 'amara', price: 12.0, grad: 'g1', rating: 4.9, reviews: 412, time: '20m', dist: '0.6 km', tags: ['West African', 'Spicy'], match: false, kcal: 610, protein: 38, serves: 1, desc: 'Party-style smoky jollof rice with grilled marinated chicken and fried plantain. A neighborhood favorite that sells out fast.', img: IMG + 'wyxwsp1486979827.jpg' },
-  { id: 'shortrib', name: 'Slow-Braised Short Rib', cook: 'denise', price: 16.5, grad: 'g6', rating: 4.9, reviews: 540, time: '35m', dist: '1.6 km', tags: ['Comfort', 'Soul food'], match: true, kcal: 720, protein: 45, serves: 1, desc: 'Fork-tender short rib braised for six hours, creamy mash and buttered greens. Rich, deeply savory Sunday cooking any day.', img: IMG + 'pbzcrx1763765096.jpg' },
+  { id: 'shortrib', name: 'Slow-Braised Short Rib', cook: 'denise', price: 16.5, grad: 'g6', rating: 4.9, reviews: 540, time: '35m', dist: '1.6 km', tags: ['Comfort', 'Soul food'], match: true, kcal: 720, protein: 45, serves: 1, desc: 'Fork-tender short rib braised for six hours, creamy mash and buttered greens. Rich, deeply savory Sunday cooking any day.', img: IMG + 'pbzcrx1763765096.jpg', photos: [IMG + 'pbzcrx1763765096.jpg', IMG + 'lmc6r51764365554.jpg', IMG + 'rvxxuy1468312893.jpg'] },
   { id: 'tacos', name: 'Oaxacan Mole Tacos', cook: 'lucia', price: 11.0, grad: 'g7', rating: 4.7, reviews: 198, time: '25m', dist: '2.1 km', tags: ['Mexican', 'Vegan opt.'], match: false, kcal: 540, protein: 18, serves: 1, desc: 'House mole negro over three soft-corn tacos with pickled onion and queso fresco. Mild heat, deep complexity.', img: IMG + 'uvuyxu1503067369.jpg' },
   { id: 'biryani', name: 'Chicken Biryani Box', cook: 'sana', price: 12.75, grad: 'g8', rating: 4.8, reviews: 276, time: '30m', dist: '1.4 km', tags: ['Halal', 'Desi'], match: true, kcal: 650, protein: 40, serves: 1, desc: 'Fragrant dum biryani layered with saffron basmati and tender chicken, raita and salan on the side. Halal-certified kitchen.', img: IMG + 'xrttsx1487339558.jpg' },
   { id: 'poke', name: 'Rainbow Poke Bowl', cook: 'david', price: 10.5, grad: 'g5', rating: 4.7, reviews: 142, time: '20m', dist: '0.8 km', tags: ['Healthy', 'Fresh'], match: false, kcal: 480, protein: 32, serves: 1, desc: 'Ahi tuna, edamame, mango and avocado over sushi rice with sesame-soy dressing. Bright, clean and filling.', img: IMG + 'yypwwq1511304979.jpg' },
   { id: 'cornbread', name: 'Honey Cornbread (6)', cook: 'denise', price: 6.0, grad: 'g4', rating: 5.0, reviews: 88, time: '15m', dist: '1.6 km', tags: ['Sides', 'Baked'], match: false, kcal: 240, protein: 6, serves: 6, desc: 'Six warm honey-butter cornbread squares. The perfect add-on to any soul food order.', img: IMG + 'lmc6r51764365554.jpg' },
 ];
 export const mealById = (id: string) => MEALS.find((m) => m.id === id);
+/** Gallery photos for a meal: its `photos` array if present, else its single cover, else none. */
+export const mealPhotos = (m: Meal): string[] => (m.photos && m.photos.length ? m.photos : m.img ? [m.img] : []);
 
 export const FOUNDING = new Set<CookId>(['maria', 'amara']);
 export interface Addon { key: string; name: string; cook: CookId; price: number; grad: GradKey; }

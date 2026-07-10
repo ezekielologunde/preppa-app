@@ -1,10 +1,10 @@
 import React, { useEffect, useRef, useState } from 'react';
-import { Animated, Easing, Pressable, StyleSheet, Text, TextInput, View, ScrollView } from 'react-native';
+import { Animated, Easing, Platform, Pressable, StyleSheet, Text, TextInput, View, ScrollView } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import Svg, { Defs, RadialGradient, Stop, Rect } from 'react-native-svg';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useStore } from '../store/store';
-import { sendEmailOtp, verifyEmailOtp } from '../lib/supabase';
+import { sendEmailOtp, verifyEmailOtp, signInWithGoogle } from '../lib/supabase';
 import { Icon } from '../ui/Icon';
 import { Press, GradBox } from '../ui/primitives';
 import { useReducedMotion } from '../ui/useReducedMotion';
@@ -143,6 +143,15 @@ function Auth({ mode, onNext }: { mode: 'signin' | 'signup'; onNext: (email: str
       shake.fire();
     }
   };
+  const onGoogle = async () => {
+    setErr(null);
+    try {
+      await signInWithGoogle(); // redirects the browser; the return establishes the session
+    } catch {
+      setErr('Couldn’t start Google sign-in. Please try again.');
+      shake.fire();
+    }
+  };
   return (
     <>
       <Title parts={[mode === 'signin' ? 'Welcome back.' : 'Create your account.']} />
@@ -180,6 +189,21 @@ function Auth({ mode, onNext }: { mode: 'signin' | 'signup'; onNext: (email: str
       </Animated.View>
       <View style={{ flex: 1, minHeight: 24 }} />
       <ObtnPri label="Continue" iconRight="arrow" busy={busy} busyLabel="Sending code…" onPress={submit} />
+      {Platform.OS === 'web' ? (
+        <>
+          <View style={{ flexDirection: 'row', alignItems: 'center', gap: 12, marginTop: 16, marginBottom: 4 }}>
+            <View style={{ flex: 1, height: 1, backgroundColor: W(0.14) }} />
+            <Text style={[type(12, 700), { color: W(0.42) }]}>or</Text>
+            <View style={{ flex: 1, height: 1, backgroundColor: W(0.14) }} />
+          </View>
+          <Press onPress={onGoogle} label="Continue with Google" style={{ marginTop: 10 }}>
+            <View style={{ height: 54, borderRadius: 16, backgroundColor: '#fff', flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 11 }}>
+              <Text style={[type(18, 900), { color: '#4285F4' }]}>G</Text>
+              <Text style={[type(15.5, 800), { color: '#1A1A1A' }]}>Continue with Google</Text>
+            </View>
+          </Press>
+        </>
+      ) : null}
     </>
   );
 }
