@@ -55,7 +55,7 @@ export function HubHeader({ eyebrow = 'My Hub', name, showBell, right, onBack, b
           </Press>
         ) : (
           <GradBox grad={ME.grad} style={{ width: 42, height: 42, borderRadius: 13, alignItems: 'center', justifyContent: 'center' }}>
-            <Text style={[type(17, 900), { color: '#fff' }]}>{ME.initial}</Text>
+            <Text style={[type(17, 900), { color: '#fff' }]}>{(name || '?').trim()[0]?.toUpperCase() ?? '?'}</Text>
           </GradBox>
         )}
         <View style={{ flex: 1, minWidth: 0 }}>
@@ -323,6 +323,7 @@ const SHORTCUTS: { route: string; ic: string; tone: Tone; l: string }[] = [
   { route: '/hub/create-meal', ic: 'plus', tone: 'ic-amber', l: 'Add meal' },
   { route: '/hub/analytics', ic: 'bars', tone: 'ic-blue', l: 'Analytics' },
   { route: '/hub/post-reel', ic: 'play', tone: 'ic-purple', l: 'Post reel' },
+  { route: '/hub/tickets', ic: 'info', tone: 'ic-blue', l: 'Support' },
 ];
 
 /** Shortcut tiles — measured pixel widths (3 col phone / 4 tablet / 6 desktop).
@@ -358,7 +359,7 @@ function ShortcutsGrid() {
 export default function MyHub() {
   const c = useC();
   const router = useRouter();
-  const { ready, avail, toggleAvail, acted, acceptOrder, toast, prepperStatus } = useStore();
+  const { ready, avail, toggleAvail, acted, acceptOrder, toast, prepperStatus, name, firstName } = useStore();
   const [dir, setDir] = useState<'focus' | 'brief'>('focus');
   if (ready && prepperStatus !== 'approved') return <Redirect href="/(tabs)/home" />; // prepper-only
 
@@ -424,7 +425,7 @@ export default function MyHub() {
 
   return (
     <View style={{ flex: 1, backgroundColor: c.bg }}>
-      <HubHeader name={ME.kitchen} showBell below={<KSeg options={[{ key: 'focus', label: 'Focus' }, { key: 'brief', label: 'Dashboard' }]} value={dir} onChange={(k) => setDir(k as 'focus' | 'brief')} />} />
+      <HubHeader name={name || firstName || 'Your kitchen'} showBell below={<KSeg options={[{ key: 'focus', label: 'Focus' }, { key: 'brief', label: 'Dashboard' }]} value={dir} onChange={(k) => setDir(k as 'focus' | 'brief')} />} />
       <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={{ paddingBottom: 40, maxWidth: 1040, alignSelf: 'center', width: '100%' }}>
         <BalanceStrip />
 
@@ -433,8 +434,8 @@ export default function MyHub() {
             {queueBlock}
             <KSec title="This week" link="Analytics" onLink={() => router.push('/hub/analytics')} />
             <View style={{ flexDirection: 'row', gap: 12, paddingHorizontal: 20 }}>
-              <StatTile ic="wallet" tone="ic-green" value={money(BALANCE.week)} label="Earnings" delta="↑ vs last wk" deltaDir="up" onPress={() => router.push('/hub/money')} />
-              <StatTile ic="box" tone="ic-amber" value="34" label="Orders" delta="6 today" deltaDir="flat" onPress={() => router.push('/hub/orders')} />
+              <StatTile ic="wallet" tone="ic-green" value={money(BALANCE.week)} label="Earnings" onPress={() => router.push('/hub/money')} />
+              <StatTile ic="box" tone="ic-amber" value={String(ORDERS.length)} label="Orders" onPress={() => router.push('/hub/orders')} />
             </View>
             {shortcutsBlock}
           </>
@@ -447,7 +448,7 @@ export default function MyHub() {
                 <StatTile ic="box" tone="ic-amber" value={String(BALANCE.todayOrders)} label="Orders today" onPress={() => router.push('/hub/orders')} />
               </View>
               <View style={{ flexDirection: 'row', gap: 12 }}>
-                <StatTile ic="star" tone="ic-blue" value={String(ME.rating)} label={`${ME.reviews} reviews`} onPress={() => router.push('/hub/analytics')} />
+                <StatTile ic="star" tone="ic-blue" value="—" label="No reviews yet" onPress={() => router.push('/hub/analytics')} />
                 <StatTile ic="trendUp" tone="ic-purple" value={`${ANALYTICS.repeat}%`} label="Repeat rate" delta="Analytics" deltaDir="flat" onPress={() => router.push('/hub/analytics')} />
               </View>
             </View>

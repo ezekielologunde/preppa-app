@@ -6,7 +6,7 @@ import { type } from '../../src/theme/theme';
 import { Icon, GradBox } from '../../src/ui';
 import { Screen, TopBar } from '../../src/ui/layout';
 import { money } from '../../src/data/data';
-import { ANALYTICS, MY_PLANS, ME } from '../../src/data/cook';
+import { ANALYTICS, MY_PLANS } from '../../src/data/cook';
 import { StatTile, well, Tone } from '../(tabs)/my-hub';
 
 function Bars({ data }: { data: number[] }) {
@@ -59,10 +59,12 @@ export default function AnalyticsScreen() {
               <Text style={[type(12, 800), { color: c.muted, textTransform: 'uppercase', letterSpacing: 0.4 }]}>Revenue</Text>
               <Text style={[type(26, 900), { color: c.ink, letterSpacing: -1 }]}>{money(total)}</Text>
             </View>
-            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 3 }}>
-              <Icon name="trendUp" size={14} color={c.green} />
-              <Text style={[type(12.5, 800), { color: c.green }]}>Trending up</Text>
-            </View>
+            {total > 0 ? (
+              <View style={{ flexDirection: 'row', alignItems: 'center', gap: 3 }}>
+                <Icon name="trendUp" size={14} color={c.green} />
+                <Text style={[type(12.5, 800), { color: c.green }]}>Trending up</Text>
+              </View>
+            ) : null}
           </View>
           <Bars data={A.revenue} />
           <View style={{ flexDirection: 'row', gap: 8, marginTop: 9 }}>
@@ -77,7 +79,7 @@ export default function AnalyticsScreen() {
           </View>
           <View style={{ flexDirection: 'row', gap: 12 }}>
             <StatTile ic="repeat" tone="ic-purple" value={`${A.repeat}%`} label="Repeat customers" />
-            <StatTile ic="star" tone="ic-blue" value={String(A.rating)} label={`Rating · ${ME.reviews}`} />
+            <StatTile ic="star" tone="ic-blue" value="—" label="No reviews yet" />
           </View>
           <View style={{ flexDirection: 'row', gap: 12 }}>
             <StatTile ic="repeat" tone="ic-green" value={money(recurring)} label="Reserved · weekly" />

@@ -5,10 +5,10 @@ import { useC } from '../../../src/theme/ThemeContext';
 import { type } from '../../../src/theme/theme';
 import { useStore } from '../../../src/store/store';
 import { Icon } from '../../../src/ui';
-import { Screen, TopBar, Dock, DockTotal } from '../../../src/ui/layout';
+import { Screen, TopBar, Dock, DockTotal, Empty } from '../../../src/ui/layout';
 import { Burst } from '../../../src/components/shared';
 import { money } from '../../../src/data/data';
-import { caterById, CATER_OPEN } from '../../../src/data/cook';
+import { caterById } from '../../../src/data/cook';
 import { KField, KInput, MoneyInput, KBtn } from '../../(tabs)/my-hub';
 
 function Fact({ ic, label, budget }: { ic: string; label: string; budget?: boolean }) {
@@ -26,12 +26,20 @@ export default function BidFlow() {
   const router = useRouter();
   const { id } = useLocalSearchParams<{ id: string }>();
   const { toast } = useStore();
-  const r = caterById(id!) || CATER_OPEN[0];
+  const r = caterById(id!);
   const [amount, setAmount] = useState('');
   const [msg, setMsg] = useState('');
   const [done, setDone] = useState(false);
   const valid = Number(amount) > 0;
   const submit = () => (valid ? setDone(true) : toast('Enter your quote amount', 'info'));
+  if (!r) {
+    return (
+      <Screen>
+        <TopBar title="Request" onBack={() => router.back()} />
+        <Empty icon="ticket" title="Request not found" body="This request isn’t available." />
+      </Screen>
+    );
+  }
   const host0 = r.host.split('·')[0].split(' ')[0];
 
   if (done) {

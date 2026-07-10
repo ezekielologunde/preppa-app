@@ -5,9 +5,9 @@ import { useC } from '../../../src/theme/ThemeContext';
 import { type } from '../../../src/theme/theme';
 import { useStore } from '../../../src/store/store';
 import { Icon, Press, GradBox } from '../../../src/ui';
-import { Screen, TopBar, Dock } from '../../../src/ui/layout';
+import { Screen, TopBar, Dock, Empty } from '../../../src/ui/layout';
 import { money } from '../../../src/data/data';
-import { orderById, myMeal, ORDERS, OrderStatus } from '../../../src/data/cook';
+import { orderById, myMeal, OrderStatus } from '../../../src/data/cook';
 import { KBtn } from '../../(tabs)/my-hub';
 
 const FLOW: OrderStatus[] = ['new', 'prep', 'ready', 'done'];
@@ -19,9 +19,17 @@ export default function OrderDetail() {
   const router = useRouter();
   const { id } = useLocalSearchParams<{ id: string }>();
   const { toast } = useStore();
-  const o = orderById(id!) || ORDERS[0];
-  const m = myMeal(o.meal);
-  const [status, setStatus] = useState<OrderStatus>(o.status);
+  const o = orderById(id!);
+  const m = o ? myMeal(o.meal) : undefined;
+  const [status, setStatus] = useState<OrderStatus>(o?.status ?? 'new');
+  if (!o || !m) {
+    return (
+      <Screen>
+        <TopBar title="Order" onBack={() => router.back()} />
+        <Empty icon="ticket" title="Order not found" body="This order isn’t available." />
+      </Screen>
+    );
+  }
   const idx = FLOW.indexOf(status);
   const nextLbl: Record<string, string> = { new: 'Accept & start cooking', prep: 'Mark ready', ready: o.mode === 'pickup' ? 'Mark picked up' : 'Mark delivered' };
   const next = NEXT[status];
