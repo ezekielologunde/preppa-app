@@ -4,7 +4,12 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import Svg, { Defs, RadialGradient, Stop, Rect } from 'react-native-svg';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useStore } from '../store/store';
-import { sendEmailOtp, verifyEmailOtp, signInWithGoogle } from '../lib/supabase';
+import { sendEmailOtp, verifyEmailOtp, signInWithGoogle, AUTH_TIMEOUT_MESSAGE } from '../lib/supabase';
+
+// Google OAuth is disabled: the web PKCE callback broke on this Expo-web SPA
+// ("OAuth state parameter missing"). Kept dormant behind this flag so the button
+// and handler stay in the tree, ready to re-enable once OAuth is implemented correctly.
+const GOOGLE_ENABLED = false;
 import { Icon } from '../ui/Icon';
 import { Press, GradBox } from '../ui/primitives';
 import { useReducedMotion } from '../ui/useReducedMotion';
@@ -189,7 +194,7 @@ function Auth({ mode, onNext }: { mode: 'signin' | 'signup'; onNext: (email: str
       </Animated.View>
       <View style={{ flex: 1, minHeight: 24 }} />
       <ObtnPri label="Continue" iconRight="arrow" busy={busy} busyLabel="Sending code…" onPress={submit} />
-      {Platform.OS === 'web' ? (
+      {GOOGLE_ENABLED && Platform.OS === 'web' ? (
         <>
           <View style={{ flexDirection: 'row', alignItems: 'center', gap: 12, marginTop: 16, marginBottom: 4 }}>
             <View style={{ flex: 1, height: 1, backgroundColor: W(0.14) }} />
@@ -211,7 +216,7 @@ function Auth({ mode, onNext }: { mode: 'signin' | 'signup'; onNext: (email: str
 function Code({ email, onNext }: { email: string; onNext: () => void }) {
   const [code, setCode] = useState('');
   const [busy, setBusy] = useState(false);
-  const [err, setErr] = useState(false);
+  const [err, setErr] = useState<string | null>(null);
   const [cool, setCool] = useState(0);
   const [resent, setResent] = useState(false);
   const ref = useRef<TextInput>(null);
@@ -226,11 +231,18 @@ function Code({ email, onNext }: { email: string; onNext: () => void }) {
     let cancelled = false;
     verifyEmailOtp(email, code)
       .then(() => { if (!cancelled) onNext(); })
-      .catch(() => { if (!cancelled) { setBusy(false); setErr(true); shake.fire(); setCode(''); } });
+      .catch((e: any) => {
+        if (cancelled) return;
+        setBusy(false);
+        // A stalled network surfaces the timeout message; anything else is a bad code.
+        setErr(e?.message === AUTH_TIMEOUT_MESSAGE ? e.message : 'That code didn’t match. Check the digits and try again.');
+        shake.fire();
+        setCode('');
+      });
     return () => { cancelled = true; };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [code]);
-  const resend = () => { setCool(24); setResent(true); setErr(false); sendEmailOtp(email).catch(() => {}); setTimeout(() => setResent(false), 2400); };
+  const resend = () => { setCool(24); setResent(true); setErr(null); sendEmailOtp(email).catch(() => {}); setTimeout(() => setResent(false), 2400); };
   return (
     <>
       <Title parts={['Check your inbox.']} />
@@ -247,7 +259,7 @@ function Code({ email, onNext }: { email: string; onNext: () => void }) {
         <TextInput
           ref={ref}
           value={code}
-          onChangeText={(t) => { setCode(t.replace(/\D/g, '').slice(0, 6)); if (err) setErr(false); }}
+          onChangeText={(t) => { setCode(t.replace(/\D/g, '').slice(0, 6)); if (err) setErr(null); }}
           keyboardType="number-pad"
           maxLength={6}
           autoFocus
@@ -256,7 +268,7 @@ function Code({ email, onNext }: { email: string; onNext: () => void }) {
           style={[FILL, { color: 'transparent', fontSize: 24, textAlign: 'center' }] as any}
         />
       </Animated.View>
-      {err ? <View style={{ flexDirection: 'row', alignItems: 'center', gap: 7, marginTop: 12 }}><Icon name="info" size={15} color="#FCA5A5" /><Text style={[type(13, 700), { color: '#FCA5A5' }]}>That code didn’t match. Check the digits and try again.</Text></View> : null}
+      {err ? <View style={{ flexDirection: 'row', alignItems: 'center', gap: 7, marginTop: 12 }}><Icon name="info" size={15} color="#FCA5A5" /><Text style={[type(13, 700), { color: '#FCA5A5' }]}>{err}</Text></View> : null}
       {busy ? <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8, marginTop: 12 }}><Spinner size={15} /><Text style={[type(13, 700), { color: W(0.6) }]}>Verifying…</Text></View> : null}
       <View style={{ flex: 1, minHeight: 24 }} />
       <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 6, paddingBottom: 4 }}>
@@ -333,43 +345,31 @@ function Cuisine({ onNext }: { onNext: () => void }) {
 const FIN = ['Personalizing your feed', 'Finding verified cooks nearby', 'Securing your account'];
 function Finish({ onDone }: { onDone: () => void }) {
   const [idx, setIdx] = useState(0);
-  const [failed, setFailed] = useState(false);
-  const tried = useRef(false);
   useEffect(() => {
-    if (failed) return;
+    // Progress the setup checklist, then finish. This is the last step after the
+    // session is already established (OTP verified) — no network call happens here,
+    // so it must never fake a failure or stall.
     if (idx >= FIN.length) { const t = setTimeout(onDone, 700); return () => clearTimeout(t); }
-    const t = setTimeout(() => {
-      if (idx === 2 && !tried.current) { tried.current = true; setFailed(true); }
-      else setIdx((i) => i + 1);
-    }, 950);
+    const t = setTimeout(() => setIdx((i) => i + 1), 950);
     return () => clearTimeout(t);
-  }, [idx, failed]);
+  }, [idx]);
   return (
     <View style={{ flex: 1, alignItems: 'center', justifyContent: 'center' }}>
       <View style={[stt.mark, { width: 64, height: 64, borderRadius: 20 }, shadow.brand]}><Icon name="flame" size={32} color="#fff" /></View>
       <Text style={[type(26, 900), { color: '#fff', letterSpacing: -1, marginTop: 22 }]}>Setting up your kitchen…</Text>
       <View style={{ marginTop: 30, maxWidth: 300, gap: 15, width: '100%', paddingHorizontal: 20 }}>
         {FIN.map((s, i) => {
-          const done = i < idx, live = i === idx && !failed, fail = i === idx && failed;
+          const done = i < idx, live = i === idx;
           return (
             <View key={s} style={{ flexDirection: 'row', alignItems: 'center', gap: 13 }}>
-              <View style={{ width: 28, height: 28, borderRadius: 14, alignItems: 'center', justifyContent: 'center', backgroundColor: done ? '#16A34A' : fail ? 'rgba(248,113,113,.2)' : W(0.08), borderWidth: fail || (!done && !live) ? 1 : 0, borderColor: fail ? '#F87171' : W(0.12) }}>
-                {done ? <Icon name="check" size={14} color="#fff" /> : fail ? <Icon name="x" size={14} color="#FCA5A5" /> : live ? <Spinner size={14} /> : <View style={{ width: 6, height: 6, borderRadius: 3, backgroundColor: W(0.3) }} />}
+              <View style={{ width: 28, height: 28, borderRadius: 14, alignItems: 'center', justifyContent: 'center', backgroundColor: done ? '#16A34A' : W(0.08), borderWidth: !done && !live ? 1 : 0, borderColor: W(0.12) }}>
+                {done ? <Icon name="check" size={14} color="#fff" /> : live ? <Spinner size={14} /> : <View style={{ width: 6, height: 6, borderRadius: 3, backgroundColor: W(0.3) }} />}
               </View>
-              <Text style={[type(14.5, 700), { color: done || live || fail ? '#fff' : W(0.4) }]}>{s}{done ? ' ✓' : ''}</Text>
+              <Text style={[type(14.5, 700), { color: done || live ? '#fff' : W(0.4) }]}>{s}{done ? ' ✓' : ''}</Text>
             </View>
           );
         })}
       </View>
-      {failed ? (
-        <View style={{ marginTop: 22, maxWidth: 300, padding: 16, borderRadius: 16, backgroundColor: 'rgba(248,113,113,.1)', borderWidth: 1.5, borderColor: 'rgba(248,113,113,.35)' }}>
-          <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}><Icon name="info" size={16} color="#FCA5A5" /><Text style={[type(14, 800), { color: '#FCA5A5' }]}>Connection hiccup</Text></View>
-          <Text style={[type(12.5, 600), { color: W(0.55), marginTop: 6, lineHeight: 18 }]}>We couldn’t reach the server just now. Your progress is saved — try again.</Text>
-          <Press scale={0.97} onPress={() => setFailed(false)} style={{ marginTop: 12 }}>
-            <View style={[stt.obtn, { height: 44, backgroundColor: W(0.08), borderWidth: 1, borderColor: W(0.12) }]}><Icon name="repeat" size={16} color="#fff" /><Text style={[type(14.5, 800), { color: '#fff' }]}>Retry</Text></View>
-          </Press>
-        </View>
-      ) : null}
     </View>
   );
 }

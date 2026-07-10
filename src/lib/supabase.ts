@@ -1,6 +1,5 @@
 import { createClient } from '@supabase/supabase-js';
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import { Platform } from 'react-native';
 
 /**
  * Supabase + Stripe connection for real (test-mode) card payments.
@@ -15,9 +14,10 @@ export const STRIPE_PK =
   'pk_test_51TbwCHJP8OvIS2L3l7DC5FGiyKJ4AdivhkShTMqO71jQ7r1DHYRGa2bEFvEnxAiufrnqSdrsMoB1QfPYs0bXqjHd00lw0UZ41x';
 
 export const supabase = createClient(SUPABASE_URL, SUPABASE_ANON, {
-  // detectSessionInUrl on web so OAuth (Google) redirects auto-establish the session;
-  // no-op on native (no URL). OTP is unaffected (it never uses URL tokens).
-  auth: { storage: AsyncStorage as any, autoRefreshToken: true, persistSession: true, detectSessionInUrl: Platform.OS === 'web' },
+  // detectSessionInUrl is OFF: login is email-OTP only, which never uses URL tokens.
+  // (It was briefly enabled for Google OAuth, but that flow broke on the Expo-web SPA
+  // — "OAuth state parameter missing" — so it's disabled until OAuth is done correctly.)
+  auth: { storage: AsyncStorage as any, autoRefreshToken: true, persistSession: true, detectSessionInUrl: false },
 });
 
 /**
@@ -33,6 +33,25 @@ export async function ensureAuth() {
   throw new Error('AUTH_REQUIRED');
 }
 
+/** User-facing message when an auth call times out (also used by the code screen to
+ * distinguish a network stall from a wrong code). */
+export const AUTH_TIMEOUT_MESSAGE = 'Couldn’t reach sign-in — check your connection and try again.';
+
+/**
+ * Race a promise against a timeout so an auth call can never hang the UI forever
+ * (a stalled network request would otherwise leave the sign-in spinner spinning
+ * with no recovery). On timeout we reject with a friendly, user-facing message.
+ */
+function withTimeout<T>(p: Promise<T>, ms = 15000): Promise<T> {
+  return new Promise<T>((resolve, reject) => {
+    const timer = setTimeout(() => reject(new Error(AUTH_TIMEOUT_MESSAGE)), ms);
+    p.then(
+      (v) => { clearTimeout(timer); resolve(v); },
+      (e) => { clearTimeout(timer); reject(e); },
+    );
+  });
+}
+
 // ---- Real email-OTP auth (Phase 1) --------------------------------------
 // Passwordless: request a 6-digit code, then verify it. `shouldCreateUser`
 // unifies sign-in and sign-up (the `handle_new_user` trigger auto-creates the
@@ -45,16 +64,17 @@ export async function ensureAuth() {
  * copied into `profiles` by the `handle_new_user` trigger at account creation.
  */
 export async function sendEmailOtp(email: string, meta?: { display_name?: string; first_name?: string }) {
-  const { error } = await supabase.auth.signInWithOtp({
-    email,
-    options: { shouldCreateUser: true, data: meta },
-  });
+  const { error } = await withTimeout(
+    supabase.auth.signInWithOtp({ email, options: { shouldCreateUser: true, data: meta } }),
+  );
   if (error) throw error;
 }
 
 /** Verify the emailed 6-digit code; establishes a real session on success. */
 export async function verifyEmailOtp(email: string, token: string) {
-  const { data, error } = await supabase.auth.verifyOtp({ email, token, type: 'email' });
+  const { data, error } = await withTimeout(
+    supabase.auth.verifyOtp({ email, token, type: 'email' }),
+  );
   if (error) throw error;
   return data.session;
 }
