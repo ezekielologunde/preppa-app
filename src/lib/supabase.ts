@@ -232,7 +232,7 @@ export interface ApplicationFields {
   neighborhood: string; // public
   serviceArea?: string; // home-chef: how far they'll travel
   experience?: string; // home-chef: cooking experience
-  foodSafety: { refrigeration: boolean; foodPrep: boolean; allergens: boolean; note?: string };
+  foodSafety: { refrigeration: boolean; foodPrep: boolean; allergens: boolean; note?: string; docPath?: string; docName?: string };
   foodHandlerCert?: string;
   story: string;
   agreementVersion: string;
@@ -288,6 +288,21 @@ export async function createMeal(m: NewMeal): Promise<string> {
   });
   if (error) throw error;
   return data as string;
+}
+
+/** Upload a food-safety document (pdf/doc/image) to the private, owner-scoped
+ *  `cook-docs` bucket. Returns the stored path (kept in the application's food_safety). */
+export async function uploadCookDoc(file: Blob, ext: string): Promise<string> {
+  const { data: sess } = await supabase.auth.getSession();
+  const uid = sess.session?.user?.id;
+  if (!uid) throw new Error('You need to be signed in.');
+  const path = `${uid}/foodsafety-${Date.now()}.${ext}`;
+  const { error } = await supabase.storage.from('cook-docs').upload(path, file, {
+    upsert: true,
+    contentType: (file as any).type || undefined,
+  });
+  if (error) throw error;
+  return path;
 }
 
 /** Store the caller's kitchen's approximate coordinates (owner-only, best-effort). */

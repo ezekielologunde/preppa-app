@@ -39,6 +39,20 @@ export async function captureCurrentLocation(): Promise<CapturedLocation> {
   return { label, lat: latitude, lng: longitude };
 }
 
+/** Reverse-geocode coords to a neighborhood/locality string (for prefilling the
+ *  application's neighborhood field). Null on failure. */
+export async function reverseNeighborhood(lat: number, lng: number): Promise<string | null> {
+  try {
+    const res = await fetch(
+      `https://api.bigdatacloud.net/data/reverse-geocode-client?latitude=${lat}&longitude=${lng}&localityLanguage=en`,
+    );
+    const j: any = await res.json();
+    return j.locality || j.city || j.principalSubdivision || null;
+  } catch {
+    return null;
+  }
+}
+
 /** Forward-geocode an address/area string to coords (Nominatim/OSM, key-less). Null on failure. */
 export async function geocodeAddress(query: string): Promise<LatLng | null> {
   const q = (query || '').trim();

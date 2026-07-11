@@ -1,15 +1,17 @@
-import React, { useState } from 'react';
-import { View, Text, ScrollView, TextInput, Linking } from 'react-native';
+import React, { useState, useEffect } from 'react';
+import { View, Text, ScrollView, TextInput, Linking, Platform, ActivityIndicator } from 'react-native';
 import { useRouter } from 'expo-router';
 import { useC } from '../src/theme/ThemeContext';
 import { type, radius, shadow } from '../src/theme/theme';
 import { useStore } from '../src/store/store';
-import type { ServiceType } from '../src/lib/supabase';
+import { uploadCookDoc, type ServiceType } from '../src/lib/supabase';
+import { captureCurrentLocation, reverseNeighborhood } from '../src/lib/geo';
 import { Icon, Press, Btn } from '../src/ui';
 import { Screen, TopBar } from '../src/ui/layout';
 import { COOK_AGREEMENT, COOK_AGREEMENT_VERSION } from '../src/lib/cookAgreement';
 
 const CUISINES = ['Italian', 'West African', 'Halal & Desi', 'Mexican', 'Soul food', 'Healthy & seafood', 'Caribbean', 'Baked goods', 'Vegan', 'BBQ', 'Other'];
+const TRAVEL = ['5 miles', '10 miles', '15 miles', '25 miles', '50+ miles'];
 
 // Where cooks can get a food-handler certificate. Requirements vary by state/locality —
 // swap this for your launch region's accredited provider.
@@ -24,7 +26,7 @@ const TITLES: Record<string, string> = {
 export default function Apply() {
   const c = useC();
   const router = useRouter();
-  const { name, submitApplication, toast, prepperStatus } = useStore();
+  const { name, submitApplication, toast, prepperStatus, coords } = useStore();
 
   const [idx, setIdx] = useState(0);
   const [busy, setBusy] = useState(false);
@@ -41,15 +43,68 @@ export default function Apply() {
   const [experience, setExperience] = useState('');
   const [fridge, setFridge] = useState(false);
   const [prep, setPrep] = useState(false);
-  const [allergens, setAllergens] = useState(false);
   const [cert, setCert] = useState('');
   const [story, setStory] = useState('');
   const [agree, setAgree] = useState(false);
+  const [docPath, setDocPath] = useState('');
+  const [docName, setDocName] = useState('');
+  const [uploading, setUploading] = useState(false);
+  const [detecting, setDetecting] = useState(false);
 
   const meals = types.includes('meals');
   const homeChef = types.includes('home_chef');
   const STEPS = ['service', 'about', 'kitchen', ...(homeChef ? ['homechef'] : []), 'foodsafety', 'story', 'agreement', 'review'];
   const key = STEPS[Math.min(idx, STEPS.length - 1)];
+
+  // Preload the neighborhood from the user's captured location (if any) the first
+  // time they reach the kitchen step and haven't typed one.
+  useEffect(() => {
+    if (key !== 'kitchen' || neighborhood.trim() || !coords) return;
+    let alive = true;
+    reverseNeighborhood(coords.lat, coords.lng).then((n) => { if (alive && n) setNeighborhood(n); });
+    return () => { alive = false; };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [key]);
+
+  // Detect the neighborhood on demand (captures location, then reverse-geocodes).
+  const detectNeighborhood = async () => {
+    if (detecting) return;
+    setDetecting(true);
+    try {
+      const loc = await captureCurrentLocation();
+      const n = await reverseNeighborhood(loc.lat, loc.lng);
+      setNeighborhood(n || loc.label);
+    } catch (e: any) {
+      toast(e?.message || 'Couldn’t detect your location', 'info');
+    } finally {
+      setDetecting(false);
+    }
+  };
+
+  // Upload a food-safety document (web file picker → private cook-docs bucket).
+  const pickDoc = () => {
+    if (Platform.OS !== 'web' || typeof document === 'undefined') { toast('Document upload is available on the web app', 'info'); return; }
+    const input = document.createElement('input');
+    input.type = 'file';
+    input.accept = '.pdf,.doc,.docx,image/*';
+    input.onchange = async () => {
+      const file = input.files?.[0];
+      if (!file) return;
+      setUploading(true);
+      try {
+        const ext = (file.name.split('.').pop() || 'pdf').toLowerCase();
+        const path = await uploadCookDoc(file, ext);
+        setDocPath(path);
+        setDocName(file.name);
+        toast('Document uploaded ✓', 'check', true);
+      } catch {
+        toast('Couldn’t upload that file — try again', 'info');
+      } finally {
+        setUploading(false);
+      }
+    };
+    input.click();
+  };
 
   if (prepperStatus === 'pending' || prepperStatus === 'approved') {
     return (
@@ -78,12 +133,12 @@ export default function Apply() {
       if (neighborhood.trim().length < 2) return 'Enter the neighborhood buyers will see.';
     }
     if (key === 'homechef') {
-      if (serviceArea.trim().length < 2) return 'Roughly how far will you travel?';
+      if (!serviceArea) return 'Pick how far you’ll travel.';
       if (experience.trim().length < 2) return 'Tell us a little about your experience.';
     }
     if (key === 'foodsafety') {
       if (meals && !fridge) return 'Please confirm your refrigeration.';
-      if (!prep || !allergens) return 'Please confirm each food-safety item.';
+      if (!prep) return 'Please confirm clean prep & handling.';
     }
     if (key === 'story' && story.trim().length < 2) return 'Tell us one line about your cooking.';
     if (key === 'agreement' && !agree) return 'Please read and agree to the Cook Agreement.';
@@ -97,6 +152,7 @@ export default function Apply() {
     setIdx((i) => Math.min(i + 1, STEPS.length - 1));
   };
   const back = () => { setErr(null); idx === 0 ? router.back() : setIdx((i) => i - 1); };
+  const goStep = (s: string) => { setErr(null); const i = STEPS.indexOf(s); if (i >= 0) setIdx(i); };
   const toggleType = (t: ServiceType) => setTypes((p) => (p.includes(t) ? p.filter((x) => x !== t) : [...p, t]));
 
   const submit = async () => {
@@ -111,9 +167,10 @@ export default function Apply() {
         cuisine,
         address: address.trim(),
         neighborhood: neighborhood.trim(),
-        serviceArea: homeChef ? serviceArea.trim() : undefined,
+        serviceArea: homeChef && serviceArea ? `Within ${serviceArea}` : undefined,
         experience: homeChef ? experience.trim() : undefined,
-        foodSafety: { refrigeration: meals ? fridge : true, foodPrep: prep, allergens, note: cert.trim() || undefined },
+        // allergen disclosure is now accepted as part of the Cook Agreement (`agree`)
+        foodSafety: { refrigeration: meals ? fridge : true, foodPrep: prep, allergens: agree, note: cert.trim() || undefined, docPath: docPath || undefined, docName: docName || undefined },
         foodHandlerCert: cert.trim() || undefined,
         story: story.trim(),
         agreementVersion: COOK_AGREEMENT_VERSION,
@@ -170,14 +227,36 @@ export default function Apply() {
               </View>
             </View>
             <Field c={c} label="Street address (private)" value={address} onChange={setAddress} placeholder="123 Main St, Apt 4" autoCapitalize="words" />
-            <Field c={c} label="Neighborhood (shown to buyers)" value={neighborhood} onChange={setNeighborhood} placeholder="e.g. Old Fourth Ward" autoCapitalize="words" />
+            <View>
+              <Field c={c} label="Neighborhood (shown to buyers)" value={neighborhood} onChange={setNeighborhood} placeholder="e.g. Old Fourth Ward" autoCapitalize="words" />
+              <Press scale={0.98} onPress={detectNeighborhood} style={{ marginTop: 8 }}>
+                <View style={{ flexDirection: 'row', alignItems: 'center', gap: 7, alignSelf: 'flex-start' }}>
+                  {detecting ? <ActivityIndicator size="small" color={c.primary} /> : <Icon name="pin" size={15} color={c.primary} />}
+                  <Text style={[type(13, 800), { color: c.primary }]}>{detecting ? 'Detecting…' : 'Use my current location'}</Text>
+                </View>
+              </Press>
+            </View>
           </>
         ) : null}
 
         {key === 'homechef' ? (
           <>
             <Head c={c} title="Cooking at homes" sub="For private-chef bookings — you’ll cook in the host’s kitchen." />
-            <Field c={c} label="How far will you travel?" value={serviceArea} onChange={setServiceArea} placeholder="e.g. Within 10 miles of Old Fourth Ward" autoCapitalize="sentences" />
+            <View>
+              <Label c={c}>How far will you travel?</Label>
+              <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 8 }}>
+                {TRAVEL.map((x) => {
+                  const on = serviceArea === x;
+                  return (
+                    <Press key={x} scale={0.95} onPress={() => setServiceArea(x)}>
+                      <View style={{ height: 38, paddingHorizontal: 16, borderRadius: radius.pill, backgroundColor: on ? c.primary : c.bg2, borderWidth: 1, borderColor: on ? c.primary : c.border, alignItems: 'center', justifyContent: 'center' }}>
+                        <Text style={[type(13.5, 700), { color: on ? '#fff' : c.soft }]}>{x}</Text>
+                      </View>
+                    </Press>
+                  );
+                })}
+              </View>
+            </View>
             <Field c={c} label="Your experience" value={experience} onChange={setExperience} placeholder="e.g. 6 years catering private dinners" autoCapitalize="sentences" multiline />
           </>
         ) : null}
@@ -187,8 +266,21 @@ export default function Apply() {
             <Head c={c} title="Food safety" sub="You’re the cook and you’re responsible for your food. Confirm the basics — we review every application." />
             {meals ? <Attest c={c} on={fridge} onToggle={() => setFridge((v) => !v)} title="Refrigeration" body="I have adequate cold storage and keep cold food cold." /> : null}
             <Attest c={c} on={prep} onToggle={() => setPrep((v) => !v)} title="Clean prep & handling" body="Clean surfaces, handwashing, and no cross-contamination." />
-            <Attest c={c} on={allergens} onToggle={() => setAllergens((v) => !v)} title="Allergen honesty" body="I’ll disclose common allergens in my dishes on request." />
             <Field c={c} label="Food-handler certificate # (optional)" value={cert} onChange={setCert} placeholder="If you have one" autoCapitalize="characters" />
+            <View>
+              <Label c={c}>Upload a document (optional)</Label>
+              <Press scale={0.98} onPress={pickDoc}>
+                <View style={{ flexDirection: 'row', alignItems: 'center', gap: 12, padding: 14, borderRadius: radius.md, borderWidth: 1.5, borderColor: docName ? c.primary : c.border, backgroundColor: docName ? c.primaryL : c.bg2 }}>
+                  <View style={{ width: 38, height: 38, borderRadius: 11, backgroundColor: c.surface, alignItems: 'center', justifyContent: 'center' }}>
+                    {uploading ? <ActivityIndicator size="small" color={c.primary} /> : <Icon name={docName ? 'check' : 'plus'} size={18} color={c.primary} />}
+                  </View>
+                  <View style={{ flex: 1 }}>
+                    <Text style={[type(14, 800), { color: c.ink }]} numberOfLines={1}>{docName || 'Food-handler card, cert or kitchen photo'}</Text>
+                    <Text style={[type(12, 500), { color: c.soft, marginTop: 1 }]}>{uploading ? 'Uploading…' : docName ? 'Tap to replace · PDF, DOC or image' : 'PDF, DOC or image'}</Text>
+                  </View>
+                </View>
+              </Press>
+            </View>
             <Press scale={0.98} onPress={() => Linking.openURL(FOOD_CERT_URL).catch(() => toast('Couldn’t open the link', 'info'))}>
               <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10, padding: 13, borderRadius: radius.md, backgroundColor: c.primaryL, borderWidth: 1, borderColor: c.primary }}>
                 <Icon name="shield" size={18} color={c.primary} />
@@ -214,23 +306,23 @@ export default function Apply() {
                 <Text style={[type(12.5, 500), { color: c.soft, lineHeight: 19 }]}>{COOK_AGREEMENT}</Text>
               </ScrollView>
             </View>
-            <Attest c={c} on={agree} onToggle={() => setAgree((v) => !v)} title="I agree" body="I’ve read the Cook Agreement and accept responsibility for the food I sell." />
+            <Attest c={c} on={agree} onToggle={() => setAgree((v) => !v)} title="I agree" body="I’ve read the Cook Agreement, accept responsibility for the food I sell, and will honestly disclose common allergens in my dishes." />
           </>
         ) : null}
 
         {key === 'review' ? (
           <>
-            <Head c={c} title="Review & submit" sub="We personally review every cook and will reach out to finish setup." />
-            <View style={{ backgroundColor: c.surface, borderWidth: 1, borderColor: c.border2, borderRadius: radius.card, padding: 16, gap: 10 }}>
-              <Row c={c} k="Doing" v={[meals ? 'Homemade meals' : null, homeChef ? 'Cook at homes' : null].filter(Boolean).join(' · ')} />
-              <Row c={c} k="Name" v={legalName} />
-              <Row c={c} k="Phone" v={phone} />
-              <Row c={c} k={meals ? 'Kitchen' : 'Cook name'} v={kitchenName} />
-              <Row c={c} k="Cuisine" v={cuisine} />
-              <Row c={c} k="Neighborhood" v={neighborhood} />
-              {homeChef ? <Row c={c} k="Travels" v={serviceArea} /> : null}
-              <Row c={c} k="Food safety" v={`${meals ? 'Refrigeration · ' : ''}Prep · Allergens ✓`} />
-              <Row c={c} k="Agreement" v="Accepted ✓" />
+            <Head c={c} title="Review & submit" sub="Tap any line to fix it. We personally review every cook and will reach out to finish setup." />
+            <View style={{ backgroundColor: c.surface, borderWidth: 1, borderColor: c.border2, borderRadius: radius.card, paddingHorizontal: 16, paddingVertical: 4 }}>
+              <Row c={c} k="Doing" v={[meals ? 'Homemade meals' : null, homeChef ? 'Cook at homes' : null].filter(Boolean).join(' · ')} onEdit={() => goStep('service')} />
+              <Row c={c} k="Name" v={legalName} onEdit={() => goStep('about')} />
+              <Row c={c} k="Phone" v={phone} onEdit={() => goStep('about')} />
+              <Row c={c} k={meals ? 'Kitchen' : 'Cook name'} v={kitchenName} onEdit={() => goStep('kitchen')} />
+              <Row c={c} k="Cuisine" v={cuisine} onEdit={() => goStep('kitchen')} />
+              <Row c={c} k="Neighborhood" v={neighborhood} onEdit={() => goStep('kitchen')} />
+              {homeChef ? <Row c={c} k="Travels" v={serviceArea ? `Within ${serviceArea}` : ''} onEdit={() => goStep('homechef')} /> : null}
+              <Row c={c} k="Food safety" v={`${meals ? 'Refrigeration · ' : ''}Prep${docName ? ' · Doc ✓' : ''}`} onEdit={() => goStep('foodsafety')} />
+              <Row c={c} k="Agreement" v={agree ? 'Accepted ✓' : 'Not yet'} onEdit={() => goStep('agreement')} />
             </View>
           </>
         ) : null}
@@ -321,11 +413,14 @@ function Attest({ c, on, onToggle, title, body }: { c: any; on: boolean; onToggl
     </Press>
   );
 }
-function Row({ c, k, v }: { c: any; k: string; v: string }) {
+function Row({ c, k, v, onEdit }: { c: any; k: string; v: string; onEdit?: () => void }) {
   return (
-    <View style={{ flexDirection: 'row', justifyContent: 'space-between', gap: 12 }}>
-      <Text style={[type(13.5, 600), { color: c.muted }]}>{k}</Text>
-      <Text numberOfLines={1} style={[type(13.5, 800), { color: c.ink, flex: 1, textAlign: 'right' }]}>{v}</Text>
-    </View>
+    <Press scale={0.99} onPress={onEdit} label={`Edit ${k}`}>
+      <View style={{ flexDirection: 'row', alignItems: 'center', gap: 12, paddingVertical: 12, borderBottomWidth: 1, borderBottomColor: c.border2 }}>
+        <Text style={[type(13.5, 600), { color: c.muted }]}>{k}</Text>
+        <Text numberOfLines={1} style={[type(13.5, 800), { color: c.ink, flex: 1, textAlign: 'right' }]}>{v || '—'}</Text>
+        {onEdit ? <Icon name="chevRight" size={15} color={c.muted} /> : null}
+      </View>
+    </Press>
   );
 }
