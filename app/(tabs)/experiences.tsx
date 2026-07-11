@@ -167,7 +167,7 @@ export default function ExperiencesScreen() {
         <SectionHeader title="Book a cook" />
         <SvcGrid />
 
-        <SectionHeader title="Cooks near you" action="See all" onAction={() => router.push('/explore')} />
+        <SectionHeader title="Cooks near you" action="See all" onAction={() => router.push('/discover?mode=preppers')} />
         <CookRail cooks={Object.keys(COOKS) as CookId[]} />
 
         <SectionHeader title="Classes & supper clubs" />

@@ -43,7 +43,7 @@ export default function Orders() {
       </View>
 
       {empty ? (
-        <Empty icon="ticket" title="Nothing yet" body="Your meals and plans will show up here once you order or subscribe." action={<Btn label="Explore meals" onPress={() => router.push('/discover')} />} />
+        <Empty icon="ticket" title="Nothing yet" body="Your meals and plans will show up here once you order or subscribe." action={<Btn label="Browse meals" onPress={() => router.push('/discover')} />} />
       ) : (
         <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={{ padding: 16, paddingBottom: 40, maxWidth: 760, alignSelf: 'center', width: '100%' }}>
           {subs.length > 0 ? (
