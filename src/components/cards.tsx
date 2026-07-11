@@ -2,7 +2,8 @@ import React, { useRef, useState } from 'react';
 import { View, Text, ScrollView, Pressable, Animated, StyleSheet, LayoutChangeEvent, StyleProp, ViewStyle, ActivityIndicator } from 'react-native';
 import { useRouter } from 'expo-router';
 import { COOKS, CookId, Meal, Experience, PlanGoal, money, cookOf } from '../data/data';
-import { useKitchenReviews } from '../data/hooks';
+import { useKitchenReviews, type KitchenCard } from '../data/hooks';
+import { seedCookForKitchen } from '../data/supabaseRepository';
 import { useC } from '../theme/ThemeContext';
 import { type, radius, shadow } from '../theme/theme';
 import { useStore } from '../store/store';
@@ -53,6 +54,42 @@ export function CookRail({ cooks }: { cooks: CookId[] }) {
               <View style={{ flexDirection: 'row', alignItems: 'center', gap: 4, marginTop: 6 }}>
                 <Icon name="star" size={12} color={c.star} />
                 <Text style={[type(11.5, 800), { color: c.ink }]}>New · {cook.dist}</Text>
+              </View>
+            </View>
+          </Press>
+        );
+      })}
+    </ScrollView>
+  );
+}
+
+/** Horizontal rail of REAL verified kitchens (from the directory). Keeps the rich seed
+ *  presentation for the six seeded kitchens; real preppers render from live data. */
+export function PrepperRail({ kitchens }: { kitchens: KitchenCard[] }) {
+  const c = useC();
+  const router = useRouter();
+  return (
+    <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ gap: 12, paddingHorizontal: 20, paddingVertical: 4 }}>
+      {kitchens.map((k) => {
+        const seed = seedCookForKitchen(k.id); // rich seed presentation for the seeded six
+        const cook = seed ? COOKS[seed] : null;
+        const name = cook?.name ?? k.name;
+        const cuisine = cook?.cuisine ?? k.cuisine;
+        const distTxt = k.dist || cook?.dist || k.area;
+        const rating = k.ratingCount > 0 ? k.ratingAvg.toFixed(1) : 'New';
+        return (
+          <Press key={k.id} scale={0.97} onPress={() => router.push(`/store/${seed ?? k.id}`)} label={`${name} kitchen`}>
+            <View style={{ width: 150, backgroundColor: c.surface, borderWidth: 1, borderColor: c.border2, borderRadius: radius.card, padding: 14, alignItems: 'center', ...shadow.card }}>
+              {seed ? <Avatar cook={seed} size={54} rad={17} /> : (
+                <View style={{ width: 54, height: 54, borderRadius: 17, backgroundColor: c.primary, alignItems: 'center', justifyContent: 'center' }}>
+                  <Text style={[type(22, 900), { color: '#fff' }]}>{name.trim()[0]?.toUpperCase() ?? 'K'}</Text>
+                </View>
+              )}
+              <Text numberOfLines={1} style={[type(14, 900), { color: c.ink, marginTop: 10 }]}>{name}</Text>
+              <Text numberOfLines={1} style={[type(11.5, 600), { color: c.soft, marginTop: 2 }]}>{cuisine}</Text>
+              <View style={{ flexDirection: 'row', alignItems: 'center', gap: 4, marginTop: 6 }}>
+                <Icon name="star" size={12} color={c.star} />
+                <Text style={[type(11.5, 800), { color: c.ink }]}>{rating}{distTxt ? ` · ${distTxt}` : ''}</Text>
               </View>
             </View>
           </Press>

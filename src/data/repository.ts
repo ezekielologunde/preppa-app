@@ -12,6 +12,7 @@ import { makeSupabaseRepositories } from './supabaseRepository';
 
 export interface MealQuery {
   cook?: CookId;
+  kitchenUuid?: string; // filter by a real kitchen's DB id (for real-prepper storefronts)
   cat?: string; // matches a tag substring, case-insensitive
   q?: string; // free text over meal name + cook name
 }

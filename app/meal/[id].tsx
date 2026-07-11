@@ -2,7 +2,7 @@ import React, { useState } from 'react';
 import { View, Text, ScrollView, ActivityIndicator } from 'react-native';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { mealPhotos, COOKS, ADDONS, money } from '../../src/data/data';
+import { mealPhotos, ADDONS, money, cookOf } from '../../src/data/data';
 import { useMeal, useKitchenReviews } from '../../src/data/hooks';
 import { useC } from '../../src/theme/ThemeContext';
 import { type, radius } from '../../src/theme/theme';
@@ -31,7 +31,9 @@ export default function MealDetail() {
   if (loading) return <Screen bg={c.surface}><View style={{ flex: 1, alignItems: 'center', justifyContent: 'center' }}><ActivityIndicator color={c.primary} /></View></Screen>;
   if (!m) return <NotFound title="Meal" />;
   const photos = mealPhotos(m);
-  const cook = COOKS[m.cook];
+  const cook = cookOf(m); // real kitchen identity for non-seed kitchens (not a seed fallback)
+  const isSeedKitchen = !m.kitchenName; // real kitchens carry kitchenName; seeds don't
+  const kitchenLink = isSeedKitchen ? m.cook : m.kitchenUuid; // route to the real kitchen by UUID
   const toggleAdd = (k: string) => setAdds((p) => (p.includes(k) ? p.filter((x) => x !== k) : [...p, k]));
   const addPrice = adds.reduce((s, k) => s + ADDONS.find((a) => a.key === k)!.price, 0);
   const lineTotal = m.price * qty + addPrice;
@@ -70,7 +72,12 @@ export default function MealDetail() {
             <Meta icon="walk" text={m.dist} tone={c.soft} />
           </View>
 
-          <CookRow cook={m.cook} meta={`${cook.cuisine} · PrepScore ${cook.prepscore} · ${cook.reviews} reviews`} />
+          {isSeedKitchen ? (
+            <CookRow cook={m.cook} meta={`${cook.cuisine} · PrepScore ${cook.prepscore} · ${cook.reviews} reviews`} />
+          ) : (
+            <CookRow name={cook.name} initial={cook.initial} meta={cook.cuisine || cook.dist}
+              onPress={() => kitchenLink && router.push(`/store/${kitchenLink}`)} />
+          )}
 
           <SectionLabel>About this meal</SectionLabel>
           <Text style={[type(14.5, 500), { color: c.soft, lineHeight: 23 }]}>{m.desc}</Text>

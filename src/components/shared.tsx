@@ -61,21 +61,30 @@ export function Row({ label, value, strong }: { label: string; value: string; st
   );
 }
 
-/** .cookrow — tappable cook identity row that opens the storefront. */
-export function CookRow({ cook, meta, goIcon = 'chevRight', onPress }: { cook: CookId; meta?: string; goIcon?: string; onPress?: () => void }) {
+/** .cookrow — tappable prepper/kitchen identity row that opens the storefront.
+ *  Pass a seed `cook` for the six seeded kitchens, or `name`/`initial` (+ `onPress`)
+ *  to render a real kitchen that has no seed CookId. */
+export function CookRow({ cook, name, initial, meta, goIcon = 'chevRight', onPress }: { cook?: CookId; name?: string; initial?: string; meta?: string; goIcon?: string; onPress?: () => void }) {
   const c = useC();
   const router = useRouter();
-  const cd = COOKS[cook];
+  const cd = cook ? COOKS[cook] : null;
+  const displayName = name ?? cd?.name ?? 'Kitchen';
+  const metaText = meta ?? (cd ? `${cd.cuisine} · PrepScore ${cd.prepscore}` : '');
+  const go = onPress ?? (cook ? () => router.push(`/store/${cook}`) : undefined);
   return (
-    <Press scale={0.98} onPress={onPress ?? (() => router.push(`/store/${cook}`))}>
+    <Press scale={0.98} onPress={go}>
       <View style={{ flexDirection: 'row', alignItems: 'center', gap: 12, marginTop: 18, padding: 13, borderRadius: radius.lg, backgroundColor: c.bg, borderWidth: 1, borderColor: c.border }}>
-        <Avatar cook={cook} size={46} />
+        {cook ? <Avatar cook={cook} size={46} /> : (
+          <View style={{ width: 46, height: 46, borderRadius: 15, backgroundColor: c.primary, alignItems: 'center', justifyContent: 'center' }}>
+            <Text style={[type(19, 900), { color: '#fff' }]}>{initial ?? displayName.trim()[0]?.toUpperCase() ?? 'K'}</Text>
+          </View>
+        )}
         <View style={{ flex: 1 }}>
           <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
-            <Text style={[type(15, 900), { color: c.ink }]}>{cd.name}</Text>
+            <Text style={[type(15, 900), { color: c.ink }]}>{displayName}</Text>
             <Icon name="shield" size={15} color={c.green} />
           </View>
-          <Text style={[type(12, 600), { color: c.soft, marginTop: 2 }]}>{meta ?? `${cd.cuisine} · PrepScore ${cd.prepscore}`}</Text>
+          {metaText ? <Text style={[type(12, 600), { color: c.soft, marginTop: 2 }]}>{metaText}</Text> : null}
         </View>
         <View style={{ width: 34, height: 34, borderRadius: 17, backgroundColor: c.surface, borderWidth: 1, borderColor: c.border, alignItems: 'center', justifyContent: 'center' }}>
           <Icon name={goIcon} size={16} color={c.soft} />

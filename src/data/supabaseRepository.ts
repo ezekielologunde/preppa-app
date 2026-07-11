@@ -17,6 +17,11 @@ const KITCHEN_TO_COOK: Record<string, CookId> = Object.fromEntries(
   Object.entries(KITCHEN_ID).map(([key, uuid]) => [uuid, key as CookId]),
 ) as Record<string, CookId>;
 
+/** The seed CookId a verified kitchen UUID maps to (only the 6 seed kitchens), else undefined.
+ *  Lets discovery keep the rich seed presentation for the seeded six while real kitchens
+ *  render from live data. */
+export const seedCookForKitchen = (kitchenUuid: string): CookId | undefined => KITCHEN_TO_COOK[kitchenUuid];
+
 // The viewer's captured coordinates, pushed by the store on GPS capture. Used to
 // compute real distance to each kitchen and sort the catalog nearest-first.
 let viewerCoords: LatLng | null = null;
@@ -97,6 +102,7 @@ export function makeSupabaseRepositories(): Repositories {
           .not('slug', 'is', null);
         if (error) throw error;
         let out = (data ?? []).map(rowToMeal);
+        if (query?.kitchenUuid) out = out.filter((m) => m.kitchenUuid === query.kitchenUuid);
         if (query?.cook) out = out.filter((m) => m.cook === query.cook);
         if (query?.cat && query.cat !== 'All') {
           const cat = query.cat.toLowerCase();

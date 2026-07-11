@@ -9,7 +9,8 @@ import { useC } from '../../src/theme/ThemeContext';
 import { type, radius, shadow } from '../../src/theme/theme';
 import { useStore } from '../../src/store/store';
 import { Icon, Press, GradBox } from '../../src/ui';
-import { HeroDrop, MealGrid, SectionHeader, CookRail } from '../../src/components/cards';
+import { HeroDrop, MealGrid, SectionHeader, PrepperRail } from '../../src/components/cards';
+import { useKitchens } from '../../src/data/hooks';
 import { LocationPicker } from '../../src/components/LocationPicker';
 import { captureCurrentLocation } from '../../src/lib/geo';
 import { QuickCartSheet } from '../../src/components/QuickCartSheet';
@@ -48,6 +49,7 @@ export default function HomeScreen() {
     return () => { alive = false; };
   }, []);
   const activeSub = mySubs.find((s) => s.status === 'active' || s.status === 'paused') ?? null;
+  const { data: kitchens } = useKitchens(); // real verified-kitchen directory (nearest-first)
   const meals = allMeals ?? [];
   const drop = meals.find((m) => m.id === dropId) ?? null;
   const picks = meals.filter((m) => m.id !== dropId).slice(0, 4);
@@ -223,8 +225,12 @@ export default function HomeScreen() {
           </>
         )}
 
-        <SectionHeader title="New preppers near you" action="See all" onAction={() => router.push('/explore')} />
-        <CookRail cooks={Object.keys(COOKS) as CookId[]} />
+        {kitchens && kitchens.length > 0 ? (
+          <>
+            <SectionHeader title="Preppers near you" action="See all" onAction={() => router.push('/explore')} />
+            <PrepperRail kitchens={kitchens.slice(0, 10)} />
+          </>
+        ) : null}
 
         {!mealsLoading && favMeals.length > 0 ? (
           <>
