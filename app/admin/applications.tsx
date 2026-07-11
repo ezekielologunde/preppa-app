@@ -1,11 +1,13 @@
 import React, { useState, useEffect } from 'react';
-import { View, Text, ScrollView, TextInput } from 'react-native';
+import { View, Text, ScrollView, TextInput, Image } from 'react-native';
 import { useRouter } from 'expo-router';
 import { useC } from '../../src/theme/ThemeContext';
 import { type, radius } from '../../src/theme/theme';
 import { Screen, Block, Empty, Btn, MiniTag, Press, Icon } from '../../src/ui';
 import { useStore } from '../../src/store/store';
 import { useAdminApplications } from '../../src/data/hooks';
+import { createCookDocSignedUrl } from '../../src/lib/supabase';
+import { ImageViewer } from '../../src/components/ImageViewer';
 import * as admin from '../../src/lib/admin';
 import { AdminHeader } from '../../src/components/admin/AdminHeader';
 import { ErrorRetry } from '../../src/components/admin/states';
@@ -149,6 +151,7 @@ function AppDetail({ kitchenId }: { kitchenId: string }) {
   const [d, setD] = useState<admin.AdminApplicationDetail | null>(null);
   const [state, setState] = useState<'loading' | 'ok' | 'error'>('loading');
   const [err, setErr] = useState('');
+  const [viewUri, setViewUri] = useState<string | null>(null);
   useEffect(() => {
     let cancelled = false;
     admin
@@ -160,22 +163,60 @@ function AppDetail({ kitchenId }: { kitchenId: string }) {
   if (state === 'loading') return <Text style={[type(13, 600), { color: c.soft }]}>Loading details…</Text>;
   if (state === 'error' || !d) return <Text style={[type(13, 600), { color: c.red }]}>{err || 'No detail'}</Text>;
   const fs = d.food_safety || {};
+  const docs = fs.docs || {};
+  const hasPhotos = !!(docs.govId?.length || docs.selfie?.length || docs.fridge?.length || docs.kitchen?.length);
   const yn = (b?: boolean) => (b ? '✓' : '—');
   const svc = (d.service_types || []).map((t) => (t === 'home_chef' ? 'Cook at homes' : 'Homemade meals')).join(' · ') || '—';
   return (
-    <View style={{ gap: 8, backgroundColor: c.bg2, borderRadius: radius.md, padding: 12 }}>
-      <DRow c={c} k="Service" v={svc} />
-      <DRow c={c} k="Applicant" v={d.applicant_name || '—'} />
-      <DRow c={c} k="Phone" v={d.phone || '—'} />
-      <DRow c={c} k="Address (private)" v={d.address || '—'} />
-      <DRow c={c} k="Neighborhood" v={d.approx_area || '—'} />
-      {d.service_area ? <DRow c={c} k="Travels" v={d.service_area} /> : null}
-      {d.experience ? <DRow c={c} k="Experience" v={d.experience} /> : null}
-      <DRow c={c} k="Cuisine" v={d.cuisine || '—'} />
-      {d.bio ? <DRow c={c} k="About" v={d.bio} /> : null}
-      <DRow c={c} k="Food safety" v={`Refrigeration ${yn(fs.refrigeration)} · Prep ${yn(fs.foodPrep)} · Allergens ${yn(fs.allergens)}`} />
-      <DRow c={c} k="Food-handler cert" v={d.food_handler_cert || '—'} />
-      <DRow c={c} k="Agreement" v={d.agreement_version ? `${d.agreement_version} · accepted` : 'not accepted'} />
+    <>
+      <View style={{ gap: 8, backgroundColor: c.bg2, borderRadius: radius.md, padding: 12 }}>
+        <DRow c={c} k="Service" v={svc} />
+        <DRow c={c} k="Applicant" v={d.applicant_name || '—'} />
+        <DRow c={c} k="Phone" v={d.phone || '—'} />
+        <DRow c={c} k="Address (private)" v={d.address || '—'} />
+        <DRow c={c} k="Neighborhood" v={d.approx_area || '—'} />
+        {d.service_area ? <DRow c={c} k="Travels" v={d.service_area} /> : null}
+        {d.experience ? <DRow c={c} k="Experience" v={d.experience} /> : null}
+        <DRow c={c} k="Cuisine" v={d.cuisine || '—'} />
+        {d.bio ? <DRow c={c} k="About" v={d.bio} /> : null}
+        <DRow c={c} k="Food safety" v={`Refrigeration ${yn(fs.refrigeration)} · Prep ${yn(fs.foodPrep)} · Allergens ${yn(fs.allergens)}`} />
+        <DRow c={c} k="Food-handler cert" v={d.food_handler_cert || '—'} />
+        <DRow c={c} k="Agreement" v={d.agreement_version ? `${d.agreement_version} · accepted` : 'not accepted'} />
+        {hasPhotos ? (
+          <View style={{ gap: 12, marginTop: 6, borderTopWidth: 1, borderTopColor: c.border2, paddingTop: 12 }}>
+            <PhotoStrip label="Government ID" paths={docs.govId} onOpen={setViewUri} />
+            <PhotoStrip label="Selfie" paths={docs.selfie} onOpen={setViewUri} />
+            <PhotoStrip label="Refrigeration" paths={docs.fridge} onOpen={setViewUri} />
+            <PhotoStrip label="Kitchen / stove" paths={docs.kitchen} onOpen={setViewUri} />
+          </View>
+        ) : null}
+      </View>
+      <ImageViewer uri={viewUri ?? undefined} visible={!!viewUri} onClose={() => setViewUri(null)} />
+    </>
+  );
+}
+
+/** Horizontal strip of a cook's verification photos (private → signed URLs). */
+function PhotoStrip({ label, paths, onOpen }: { label: string; paths?: string[]; onOpen: (uri: string) => void }) {
+  const c = useC();
+  const [urls, setUrls] = useState<string[]>([]);
+  useEffect(() => {
+    let alive = true;
+    if (!paths?.length) { setUrls([]); return; }
+    Promise.all(paths.map((p) => createCookDocSignedUrl(p))).then((r) => { if (alive) setUrls(r.filter(Boolean) as string[]); });
+    return () => { alive = false; };
+  }, [paths?.join(',')]);
+  if (!paths?.length) return null;
+  return (
+    <View style={{ gap: 6 }}>
+      <Text style={[type(12, 800), { color: c.muted, textTransform: 'uppercase', letterSpacing: 0.4 }]}>{label} ({paths.length})</Text>
+      <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ gap: 8 }}>
+        {urls.length === 0 ? <Text style={[type(12, 600), { color: c.soft }]}>Loading…</Text> : urls.map((u, i) => (
+          <Press key={i} scale={0.95} onPress={() => onOpen(u)} label={`View ${label} photo`}>
+            <Image source={{ uri: u }} style={{ width: 74, height: 74, borderRadius: radius.md, backgroundColor: c.surface }} resizeMode="cover" />
+          </Press>
+        ))}
+      </ScrollView>
     </View>
   );
 }

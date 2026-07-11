@@ -1,11 +1,12 @@
 import React, { useState, useEffect } from 'react';
-import { View, Text, ScrollView, TextInput, Linking, Platform, ActivityIndicator } from 'react-native';
+import { View, Text, ScrollView, TextInput, Linking, ActivityIndicator } from 'react-native';
 import { useRouter } from 'expo-router';
 import { useC } from '../src/theme/ThemeContext';
 import { type, radius, shadow } from '../src/theme/theme';
 import { useStore } from '../src/store/store';
-import { uploadCookDoc, type ServiceType } from '../src/lib/supabase';
+import type { ServiceType } from '../src/lib/supabase';
 import { captureCurrentLocation, reverseNeighborhood } from '../src/lib/geo';
+import { PhotoUploader, type PhotoRef } from '../src/components/PhotoUploader';
 import { Icon, Press, Btn } from '../src/ui';
 import { Screen, TopBar } from '../src/ui/layout';
 import { COOK_AGREEMENT, COOK_AGREEMENT_VERSION } from '../src/lib/cookAgreement';
@@ -19,8 +20,8 @@ const FOOD_CERT_URL = 'https://www.statefoodsafety.com/food-handler';
 
 const TITLES: Record<string, string> = {
   service: 'How you’ll cook', about: 'About you', kitchen: 'Your kitchen',
-  homechef: 'Cooking at homes', foodsafety: 'Food safety', story: 'Your cooking',
-  agreement: 'Cook Agreement', review: 'Review',
+  homechef: 'Cooking at homes', identity: 'Identity', foodsafety: 'Kitchen & food safety',
+  story: 'Your cooking', agreement: 'Cook Agreement', review: 'Review',
 };
 
 export default function Apply() {
@@ -46,14 +47,15 @@ export default function Apply() {
   const [cert, setCert] = useState('');
   const [story, setStory] = useState('');
   const [agree, setAgree] = useState(false);
-  const [docPath, setDocPath] = useState('');
-  const [docName, setDocName] = useState('');
-  const [uploading, setUploading] = useState(false);
+  const [govId, setGovId] = useState<PhotoRef[]>([]);
+  const [selfie, setSelfie] = useState<PhotoRef[]>([]);
+  const [fridgePhotos, setFridgePhotos] = useState<PhotoRef[]>([]);
+  const [kitchenPhotos, setKitchenPhotos] = useState<PhotoRef[]>([]);
   const [detecting, setDetecting] = useState(false);
 
   const meals = types.includes('meals');
   const homeChef = types.includes('home_chef');
-  const STEPS = ['service', 'about', 'kitchen', ...(homeChef ? ['homechef'] : []), 'foodsafety', 'story', 'agreement', 'review'];
+  const STEPS = ['service', 'about', 'kitchen', ...(homeChef ? ['homechef'] : []), 'identity', 'foodsafety', 'story', 'agreement', 'review'];
   const key = STEPS[Math.min(idx, STEPS.length - 1)];
 
   // Preload the neighborhood from the user's captured location (if any) the first
@@ -79,31 +81,6 @@ export default function Apply() {
     } finally {
       setDetecting(false);
     }
-  };
-
-  // Upload a food-safety document (web file picker → private cook-docs bucket).
-  const pickDoc = () => {
-    if (Platform.OS !== 'web' || typeof document === 'undefined') { toast('Document upload is available on the web app', 'info'); return; }
-    const input = document.createElement('input');
-    input.type = 'file';
-    input.accept = '.pdf,.doc,.docx,image/*';
-    input.onchange = async () => {
-      const file = input.files?.[0];
-      if (!file) return;
-      setUploading(true);
-      try {
-        const ext = (file.name.split('.').pop() || 'pdf').toLowerCase();
-        const path = await uploadCookDoc(file, ext);
-        setDocPath(path);
-        setDocName(file.name);
-        toast('Document uploaded ✓', 'check', true);
-      } catch {
-        toast('Couldn’t upload that file — try again', 'info');
-      } finally {
-        setUploading(false);
-      }
-    };
-    input.click();
   };
 
   if (prepperStatus === 'pending' || prepperStatus === 'approved') {
@@ -136,9 +113,12 @@ export default function Apply() {
       if (!serviceArea) return 'Pick how far you’ll travel.';
       if (experience.trim().length < 2) return 'Tell us a little about your experience.';
     }
+    if (key === 'identity' && govId.length < 2) return 'Add front and back photos of your government ID.';
     if (key === 'foodsafety') {
       if (meals && !fridge) return 'Please confirm your refrigeration.';
       if (!prep) return 'Please confirm clean prep & handling.';
+      if (meals && fridgePhotos.length < 1) return 'Add at least one refrigeration photo.';
+      if (meals && kitchenPhotos.length < 1) return 'Add at least one kitchen/stove photo.';
     }
     if (key === 'story' && story.trim().length < 2) return 'Tell us one line about your cooking.';
     if (key === 'agreement' && !agree) return 'Please read and agree to the Cook Agreement.';
@@ -170,7 +150,13 @@ export default function Apply() {
         serviceArea: homeChef && serviceArea ? `Within ${serviceArea}` : undefined,
         experience: homeChef ? experience.trim() : undefined,
         // allergen disclosure is now accepted as part of the Cook Agreement (`agree`)
-        foodSafety: { refrigeration: meals ? fridge : true, foodPrep: prep, allergens: agree, note: cert.trim() || undefined, docPath: docPath || undefined, docName: docName || undefined },
+        foodSafety: {
+          refrigeration: meals ? fridge : true, foodPrep: prep, allergens: agree, note: cert.trim() || undefined,
+          docs: {
+            govId: govId.map((p) => p.path), selfie: selfie.map((p) => p.path),
+            fridge: fridgePhotos.map((p) => p.path), kitchen: kitchenPhotos.map((p) => p.path),
+          },
+        },
         foodHandlerCert: cert.trim() || undefined,
         story: story.trim(),
         agreementVersion: COOK_AGREEMENT_VERSION,
@@ -261,26 +247,26 @@ export default function Apply() {
           </>
         ) : null}
 
+        {key === 'identity' ? (
+          <>
+            <Head c={c} title="Verify your identity" sub="Upload clear photos of your government ID. This stays private — only Preppa’s review team sees it." />
+            <PhotoUploader label="Government ID" hint="Front and back — add any extra pages." group="govid" photos={govId} onChange={setGovId} min={2} />
+            <PhotoUploader label="Selfie holding your ID (optional)" hint="Helps us match your face to the ID." group="selfie" photos={selfie} onChange={setSelfie} />
+          </>
+        ) : null}
+
         {key === 'foodsafety' ? (
           <>
-            <Head c={c} title="Food safety" sub="You’re the cook and you’re responsible for your food. Confirm the basics — we review every application." />
+            <Head c={c} title="Kitchen & food safety" sub={meals ? 'Show us where you cook and confirm the basics — we review every application.' : 'Confirm the basics — we review every application.'} />
             {meals ? <Attest c={c} on={fridge} onToggle={() => setFridge((v) => !v)} title="Refrigeration" body="I have adequate cold storage and keep cold food cold." /> : null}
             <Attest c={c} on={prep} onToggle={() => setPrep((v) => !v)} title="Clean prep & handling" body="Clean surfaces, handwashing, and no cross-contamination." />
+            {meals ? (
+              <>
+                <PhotoUploader label="Refrigeration photos" hint="Inside your fridge/freezer showing cold storage." group="fridge" photos={fridgePhotos} onChange={setFridgePhotos} min={1} />
+                <PhotoUploader label="Kitchen / stove area" hint="Your cooking area, stove and prep surfaces." group="kitchen" photos={kitchenPhotos} onChange={setKitchenPhotos} min={1} />
+              </>
+            ) : null}
             <Field c={c} label="Food-handler certificate # (optional)" value={cert} onChange={setCert} placeholder="If you have one" autoCapitalize="characters" />
-            <View>
-              <Label c={c}>Upload a document (optional)</Label>
-              <Press scale={0.98} onPress={pickDoc}>
-                <View style={{ flexDirection: 'row', alignItems: 'center', gap: 12, padding: 14, borderRadius: radius.md, borderWidth: 1.5, borderColor: docName ? c.primary : c.border, backgroundColor: docName ? c.primaryL : c.bg2 }}>
-                  <View style={{ width: 38, height: 38, borderRadius: 11, backgroundColor: c.surface, alignItems: 'center', justifyContent: 'center' }}>
-                    {uploading ? <ActivityIndicator size="small" color={c.primary} /> : <Icon name={docName ? 'check' : 'plus'} size={18} color={c.primary} />}
-                  </View>
-                  <View style={{ flex: 1 }}>
-                    <Text style={[type(14, 800), { color: c.ink }]} numberOfLines={1}>{docName || 'Food-handler card, cert or kitchen photo'}</Text>
-                    <Text style={[type(12, 500), { color: c.soft, marginTop: 1 }]}>{uploading ? 'Uploading…' : docName ? 'Tap to replace · PDF, DOC or image' : 'PDF, DOC or image'}</Text>
-                  </View>
-                </View>
-              </Press>
-            </View>
             <Press scale={0.98} onPress={() => Linking.openURL(FOOD_CERT_URL).catch(() => toast('Couldn’t open the link', 'info'))}>
               <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10, padding: 13, borderRadius: radius.md, backgroundColor: c.primaryL, borderWidth: 1, borderColor: c.primary }}>
                 <Icon name="shield" size={18} color={c.primary} />
@@ -321,7 +307,9 @@ export default function Apply() {
               <Row c={c} k="Cuisine" v={cuisine} onEdit={() => goStep('kitchen')} />
               <Row c={c} k="Neighborhood" v={neighborhood} onEdit={() => goStep('kitchen')} />
               {homeChef ? <Row c={c} k="Travels" v={serviceArea ? `Within ${serviceArea}` : ''} onEdit={() => goStep('homechef')} /> : null}
-              <Row c={c} k="Food safety" v={`${meals ? 'Refrigeration · ' : ''}Prep${docName ? ' · Doc ✓' : ''}`} onEdit={() => goStep('foodsafety')} />
+              <Row c={c} k="ID photos" v={`${govId.length} uploaded${selfie.length ? ` · selfie ${selfie.length}` : ''}`} onEdit={() => goStep('identity')} />
+              {meals ? <Row c={c} k="Kitchen photos" v={`Fridge ${fridgePhotos.length} · Kitchen ${kitchenPhotos.length}`} onEdit={() => goStep('foodsafety')} /> : null}
+              <Row c={c} k="Food safety" v={`${meals ? 'Refrigeration · ' : ''}Prep ✓`} onEdit={() => goStep('foodsafety')} />
               <Row c={c} k="Agreement" v={agree ? 'Accepted ✓' : 'Not yet'} onEdit={() => goStep('agreement')} />
             </View>
           </>

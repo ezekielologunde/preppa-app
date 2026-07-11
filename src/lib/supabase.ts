@@ -232,7 +232,11 @@ export interface ApplicationFields {
   neighborhood: string; // public
   serviceArea?: string; // home-chef: how far they'll travel
   experience?: string; // home-chef: cooking experience
-  foodSafety: { refrigeration: boolean; foodPrep: boolean; allergens: boolean; note?: string; docPath?: string; docName?: string };
+  foodSafety: {
+    refrigeration: boolean; foodPrep: boolean; allergens: boolean; note?: string;
+    // Verification photo paths in the private cook-docs bucket, by group.
+    docs?: { govId: string[]; selfie: string[]; fridge: string[]; kitchen: string[] };
+  };
   foodHandlerCert?: string;
   story: string;
   agreementVersion: string;
@@ -290,19 +294,30 @@ export async function createMeal(m: NewMeal): Promise<string> {
   return data as string;
 }
 
-/** Upload a food-safety document (pdf/doc/image) to the private, owner-scoped
- *  `cook-docs` bucket. Returns the stored path (kept in the application's food_safety). */
-export async function uploadCookDoc(file: Blob, ext: string): Promise<string> {
+/** Upload a verification photo/document to the private, owner-scoped `cook-docs`
+ *  bucket, grouped by kind (`govid` | `selfie` | `fridge` | `kitchen`). Returns the
+ *  stored path (kept in the application's food_safety.docs). */
+export async function uploadCookPhoto(file: Blob, group: string): Promise<string> {
   const { data: sess } = await supabase.auth.getSession();
   const uid = sess.session?.user?.id;
   if (!uid) throw new Error('You need to be signed in.');
-  const path = `${uid}/foodsafety-${Date.now()}.${ext}`;
+  const ext = (((file as any).name?.split('.').pop()) || ((file as any).type?.split('/').pop()) || 'jpg').toLowerCase();
+  const rand = Math.random().toString(36).slice(2, 8);
+  const path = `${uid}/${group}-${Date.now()}-${rand}.${ext}`;
   const { error } = await supabase.storage.from('cook-docs').upload(path, file, {
     upsert: true,
     contentType: (file as any).type || undefined,
   });
   if (error) throw error;
   return path;
+}
+
+/** Signed URL (1h) for a private `cook-docs` object — used by admin review to view a
+ *  cook's verification photos. Null on failure. */
+export async function createCookDocSignedUrl(path: string): Promise<string | null> {
+  const { data, error } = await supabase.storage.from('cook-docs').createSignedUrl(path, 3600);
+  if (error) return null;
+  return data?.signedUrl ?? null;
 }
 
 /** Store the caller's kitchen's approximate coordinates (owner-only, best-effort). */

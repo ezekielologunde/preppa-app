@@ -46,7 +46,10 @@ export interface AdminApplicationDetail {
   // private application detail (owner + admin only)
   phone: string | null;
   address: string | null;
-  food_safety: { refrigeration?: boolean; foodPrep?: boolean; allergens?: boolean; note?: string } | null;
+  food_safety: {
+    refrigeration?: boolean; foodPrep?: boolean; allergens?: boolean; note?: string;
+    docs?: { govId?: string[]; selfie?: string[]; fridge?: string[]; kitchen?: string[] };
+  } | null;
   food_handler_cert: string | null;
   agreement_version: string | null;
   agreement_accepted_at: string | null;
