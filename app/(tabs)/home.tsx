@@ -19,8 +19,6 @@ import { fetchActivePlans, listMySubscriptions, type Plan, type MySubscription }
 
 const planWeekly = (cents: number) => money((cents + Math.round(cents * 0.1)) / 100);
 
-const CUISINES = ['Comfort', 'Healthy', 'Halal', 'Mexican', 'Seafood', 'Soul food'];
-
 function greetWord() {
   const h = new Date().getHours();
   return h < 12 ? 'Good morning' : h < 18 ? 'Good afternoon' : 'Good evening';
@@ -123,24 +121,26 @@ export default function HomeScreen() {
 
         {/* [1] sticky search */}
         <View style={{ backgroundColor: c.bg, paddingHorizontal: 20, paddingTop: 6, paddingBottom: 10 }}>
-          <Press scale={0.99} onPress={() => router.push('/explore')}>
+          <Press scale={0.99} onPress={() => router.push('/discover')}>
             <View style={{ height: 54, borderRadius: radius.lg, backgroundColor: c.surface, borderWidth: 1, borderColor: c.border, flexDirection: 'row', alignItems: 'center', gap: 11, paddingHorizontal: 17, ...shadow.soft }}>
               <Icon name="search" size={18} color={c.muted} />
-              <Text style={[type(15, 600), { color: c.muted }]}>Search meals, cooks, cuisines…</Text>
+              <Text style={[type(15, 600), { color: c.muted }]}>Search meals, preppers, plans…</Text>
             </View>
           </Press>
         </View>
 
-        {/* [2+] content */}
-        <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ gap: 8, paddingHorizontal: 20, paddingTop: 14, paddingBottom: 2 }}>
-          {CUISINES.map((x) => (
-            <Press key={x} scale={0.94} onPress={() => router.push(`/explore?cat=${encodeURIComponent(x)}`)}>
-              <View style={{ height: 36, paddingHorizontal: 15, borderRadius: radius.pill, backgroundColor: c.surface, borderWidth: 1, borderColor: c.border, alignItems: 'center', justifyContent: 'center' }}>
-                <Text style={[type(13, 700), { color: c.soft }]}>{x}</Text>
-              </View>
-            </Press>
-          ))}
-        </ScrollView>
+        {/* [2] Intent-first: "what do you need help with?" — the hero of the app. */}
+        <View style={{ paddingHorizontal: 16, paddingTop: 8 }}>
+          <Text style={[type(13, 800), { color: c.muted, textTransform: 'uppercase', letterSpacing: 0.5, marginBottom: 10, paddingHorizontal: 4 }]}>What do you need help with?</Text>
+          <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 10 }}>
+            <IntentTile c={c} icon="repeat" tint={c.primaryL} fg={c.primary} title="Weekly meal prep" onPress={() => router.push('/discover?mode=plans')} />
+            <IntentTile c={c} icon="chefhat" tint={c.blueL} fg={c.blue} title="Meals near you" onPress={() => router.push('/discover?mode=meals')} />
+            <IntentTile c={c} icon="bolt" tint={c.greenL} fg={c.green} title="Fitness & macros" onPress={() => router.push('/explore?goal=High protein')} />
+            <IntentTile c={c} icon="chefhat" tint={c.purpleL} fg={c.purple} title="Cook at home" soon onPress={() => toast('Cook-at-home is coming soon', 'info')} />
+            <IntentTile c={c} icon="gift" tint={c.pinkL} fg={c.pink} title="Catering" soon onPress={() => toast('Catering is coming soon', 'info')} />
+            <IntentTile c={c} icon="grid" tint={c.bg2} fg={c.ink2} title="Food experiences" soon onPress={() => toast('Food experiences are coming soon', 'info')} />
+          </View>
+        </View>
 
         {/* Plan-first: your weekly box, or an invitation to start one. */}
         {FLAGS.plans && activeSub ? (
@@ -220,7 +220,7 @@ export default function HomeScreen() {
               </>
             ) : null}
 
-            <SectionHeader title="Fresh near you" action="See all" onAction={() => router.push('/explore')} />
+            <SectionHeader title="Available this week" action="See all" onAction={() => router.push('/discover?mode=meals')} />
             <MealGrid meals={picks} />
           </>
         )}
@@ -244,6 +244,23 @@ export default function HomeScreen() {
       <LocationPicker visible={locPicker} onClose={() => setLocPicker(false)} />
       <QuickCartSheet visible={cartOpen} onClose={() => setCartOpen(false)} />
     </View>
+  );
+}
+
+/** "What do you need help with?" tile — intent-first entry into a Discover mode or flow. */
+function IntentTile({ c, icon, tint, fg, title, soon, onPress }: { c: any; icon: string; tint: string; fg: string; title: string; soon?: boolean; onPress: () => void }) {
+  return (
+    <Press scale={0.97} onPress={onPress} style={{ flexBasis: '48%', flexGrow: 1 }} label={title}>
+      <View style={{ backgroundColor: c.surface, borderWidth: 1, borderColor: c.border2, borderRadius: radius.xl, padding: 14, ...shadow.card }}>
+        <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }}>
+          <View style={{ width: 40, height: 40, borderRadius: 13, backgroundColor: tint, alignItems: 'center', justifyContent: 'center' }}>
+            <Icon name={icon} size={20} color={fg} />
+          </View>
+          {soon ? <View style={{ height: 20, paddingHorizontal: 8, borderRadius: radius.pill, backgroundColor: c.bg2, alignItems: 'center', justifyContent: 'center' }}><Text style={[type(9.5, 900), { color: c.muted, textTransform: 'uppercase', letterSpacing: 0.4 }]}>Soon</Text></View> : null}
+        </View>
+        <Text style={[type(14.5, 900), { color: c.ink, letterSpacing: -0.3, marginTop: 12 }]}>{title}</Text>
+      </View>
+    </Press>
   );
 }
 

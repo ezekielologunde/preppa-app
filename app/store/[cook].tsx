@@ -105,7 +105,7 @@ export default function CookStoreScreen() {
           <View style={{ paddingVertical: 40, alignItems: 'center' }}><ActivityIndicator color={c.primary} /></View>
         ) : meals.length > 0 ? (
           <>
-            <SectionHeader title="On the menu" right={<Text style={[type(13, 700), { color: c.muted }]}>{meals.length} dish{meals.length !== 1 ? 'es' : ''}</Text>} />
+            <SectionHeader title="Meals" right={<Text style={[type(13, 700), { color: c.muted }]}>{meals.length} dish{meals.length !== 1 ? 'es' : ''}</Text>} />
             <MealGrid meals={meals} />
           </>
         ) : null}
@@ -225,7 +225,7 @@ function RealKitchenStore({ profile, meals, mealsLoading, revCount, revAvg, inse
           <View style={{ paddingVertical: 40, alignItems: 'center' }}><ActivityIndicator color={c.primary} /></View>
         ) : meals.length > 0 ? (
           <>
-            <SectionHeader title="On the menu" right={<Text style={[type(13, 700), { color: c.muted }]}>{meals.length} dish{meals.length !== 1 ? 'es' : ''}</Text>} />
+            <SectionHeader title="Meals" right={<Text style={[type(13, 700), { color: c.muted }]}>{meals.length} dish{meals.length !== 1 ? 'es' : ''}</Text>} />
             <MealGrid meals={meals} />
           </>
         ) : (

@@ -119,7 +119,7 @@ export default function MealDetail() {
         ) : (
           <>
             <DockTotal label="Total" value={money(lineTotal)} />
-            <Btn label="Add to cart" icon="cart" flex={1} onPress={add} />
+            <Btn label="Add to bag" icon="bag" flex={1} onPress={add} />
           </>
         )}
       </Dock>

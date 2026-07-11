@@ -2,15 +2,15 @@ import React, { useCallback, useState } from 'react';
 import { View, Text, ScrollView, ActivityIndicator } from 'react-native';
 import { useRouter, useFocusEffect } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { useC } from '../../src/theme/ThemeContext';
-import { type, radius, shadow } from '../../src/theme/theme';
-import { useStore } from '../../src/store/store';
-import { Icon, Press } from '../../src/ui';
-import { money } from '../../src/data/data';
+import { useC } from '../src/theme/ThemeContext';
+import { type, radius, shadow } from '../src/theme/theme';
+import { useStore } from '../src/store/store';
+import { Icon, Press } from '../src/ui';
+import { money } from '../src/data/data';
 import {
   fetchActivePlans, listMySubscriptions, pauseSubscription, resumeSubscription, cancelSubscription,
   type Plan, type MySubscription,
-} from '../../src/lib/subscriptions';
+} from '../src/lib/subscriptions';
 
 // What the customer is billed weekly = cook price + 10% service fee.
 const weekly = (cents: number) => money((cents + Math.round(cents * 0.1)) / 100);
