@@ -2,11 +2,15 @@ import React, { createContext, useContext, useState, useEffect, useCallback, use
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import {
   GradKey, CookId, Subscription, ServiceRequest, SEED_REQUESTS, genQuotes,
-  NOTIFS, CONVERSATIONS, Notif, Conversation, FeedItem,
+  CONVERSATIONS, Conversation, FeedItem,
 } from '../data/data';
 import { ME } from '../data/cook';
 import { computeTotals } from '../data/totals';
-import { signOutUser, fetchAccountState, submitPrepperApplication, updateDisplayName, type ApplicationFields } from '../lib/supabase';
+import {
+  signOutUser, fetchAccountState, submitPrepperApplication, updateDisplayName,
+  fetchNotifications, markNotificationRead, markAllNotificationsRead,
+  type ApplicationFields, type AppNotification,
+} from '../lib/supabase';
 import { supabase } from '../lib/supabase';
 export type { ApplicationFields };
 
@@ -143,7 +147,7 @@ interface Store {
   showFlash: (item: { name: string; grad: GradKey }) => void;
   dismissFlash: () => void;
 
-  notifs: Notif[];
+  notifs: AppNotification[];
   conversations: Conversation[];
   markNotifRead: (id: string) => void;
   markConvRead: (cook: CookId) => void;
@@ -180,7 +184,7 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
   const [reels, setReels] = useState<FeedItem[]>([]);
   const [avail, setAvail] = useState(true);
   const [acted, setActed] = useState<string[]>([]);
-  const [notifs, setNotifs] = useState<Notif[]>(NOTIFS);
+  const [notifs, setNotifs] = useState<AppNotification[]>([]); // real notifications from the DB
   const [conversations, setConversations] = useState<Conversation[]>(CONVERSATIONS);
   const [flash, setFlash] = useState<{ name: string; grad: GradKey } | null>(null);
   const flashTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -252,6 +256,9 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
       if (s.signedIn) {
         if (s.displayName) setName(s.displayName);
         if (s.firstName) setFirstName(s.firstName);
+        try { setNotifs(await fetchNotifications()); } catch { /* keep last */ }
+      } else {
+        setNotifs([]); // signed out — no notifications
       }
     } catch {
       // transient network/permission issue — keep the last known state
@@ -455,13 +462,17 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
     setFlash(null);
   }, []);
 
-  const markNotifRead = useCallback((id: string) => setNotifs((ns) => ns.map((n) => (n.id === id ? { ...n, unread: false } : n))), []);
+  const markNotifRead = useCallback((id: string) => {
+    setNotifs((ns) => ns.map((n) => (n.id === id ? { ...n, unread: false } : n))); // optimistic
+    markNotificationRead(id).catch(() => {});
+  }, []);
   const markConvRead = useCallback((cook: CookId) => setConversations((cs) => cs.map((cv) => (cv.cook === cook ? { ...cv, unread: 0 } : cv))), []);
   const markAllRead = useCallback(() => {
-    setNotifs((ns) => ns.map((n) => ({ ...n, unread: false })));
-    setConversations((cs) => cs.map((cv) => ({ ...cv, unread: 0 })));
+    setNotifs((ns) => ns.map((n) => ({ ...n, unread: false }))); // optimistic
+    markAllNotificationsRead().catch(() => {});
   }, []);
-  const notifCount = notifs.filter((n) => n.unread).length + conversations.reduce((s, cv) => s + (cv.unread ? 1 : 0), 0);
+  // Bell/badge counts real unread notifications only (buyer↔cook DMs are deferred).
+  const notifCount = notifs.filter((n) => n.unread).length;
 
   const value: Store = {
     ready,

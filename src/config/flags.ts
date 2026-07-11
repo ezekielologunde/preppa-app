@@ -12,5 +12,5 @@ export const FLAGS = {
   prepplus: false, // paid membership — not live (and IAP-sensitive)
   rewards: false, // points / referral rewards — not live
   chat: false, // 1:1 messaging — read-only demo
-  notifications: false, // in-app notification center — seeded/mock, no real push yet
+  notifications: true, // real in-app notification center (DB-backed; generated on real events). No push yet.
 } as const;

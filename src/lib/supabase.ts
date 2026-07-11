@@ -288,6 +288,46 @@ export async function createMeal(m: NewMeal): Promise<string> {
   return data as string;
 }
 
+// ---- Real notifications --------------------------------------------------------
+// Read the signed-in user's real notifications (RLS: user_id = auth.uid()). Rows are
+// generated server-side on real events (kitchen approval/rejection, order status).
+export interface AppNotification {
+  id: string;
+  kind: string;
+  title: string;
+  body: string | null;
+  unread: boolean;
+  created_at: string;
+}
+
+export async function fetchNotifications(): Promise<AppNotification[]> {
+  const { data: sess } = await supabase.auth.getSession();
+  if (!sess.session?.user?.id) return [];
+  const { data, error } = await supabase
+    .from('notifications')
+    .select('id,kind,title,body,read_at,created_at')
+    .order('created_at', { ascending: false })
+    .limit(50);
+  if (error) throw error;
+  return (data ?? []).map((r: any) => ({
+    id: r.id, kind: r.kind, title: r.title, body: r.body ?? null,
+    unread: !r.read_at, created_at: r.created_at,
+  }));
+}
+
+/** Mark one notification read (RLS restricts to the caller's own rows). */
+export async function markNotificationRead(id: string): Promise<void> {
+  await supabase.from('notifications').update({ read_at: new Date().toISOString() }).eq('id', id).is('read_at', null);
+}
+
+/** Mark all of the caller's unread notifications read. */
+export async function markAllNotificationsRead(): Promise<void> {
+  const { data: sess } = await supabase.auth.getSession();
+  const uid = sess.session?.user?.id;
+  if (!uid) return;
+  await supabase.from('notifications').update({ read_at: new Date().toISOString() }).eq('user_id', uid).is('read_at', null);
+}
+
 /** mock cook id -> seeded kitchen UUID */
 export const KITCHEN_ID: Record<string, string> = {
   maria: 'bbbbbbbb-0000-4000-8000-000000000001',
