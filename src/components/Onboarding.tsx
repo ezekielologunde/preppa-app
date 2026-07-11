@@ -1,15 +1,10 @@
 import React, { useEffect, useRef, useState } from 'react';
-import { Animated, Easing, Platform, Pressable, StyleSheet, Text, TextInput, View, ScrollView } from 'react-native';
+import { Animated, Easing, Pressable, StyleSheet, Text, TextInput, View, ScrollView } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import Svg, { Defs, RadialGradient, Stop, Rect } from 'react-native-svg';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useStore } from '../store/store';
-import { sendEmailOtp, verifyEmailOtp, signInWithGoogle, AUTH_TIMEOUT_MESSAGE } from '../lib/supabase';
-
-// Google OAuth is disabled: the web PKCE callback broke on this Expo-web SPA
-// ("OAuth state parameter missing"). Kept dormant behind this flag so the button
-// and handler stay in the tree, ready to re-enable once OAuth is implemented correctly.
-const GOOGLE_ENABLED = false;
+import { sendEmailOtp, verifyEmailOtp, signUpWithPassword, signInWithPassword, AUTH_TIMEOUT_MESSAGE } from '../lib/supabase';
 import { Icon } from '../ui/Icon';
 import { Press, GradBox } from '../ui/primitives';
 import { useReducedMotion } from '../ui/useReducedMotion';
@@ -125,90 +120,95 @@ function Orb({ grad, size, style, tag, delay }: { grad: readonly string[]; size:
   );
 }
 
-function Auth({ mode, onNext }: { mode: 'signin' | 'signup'; onNext: (email: string) => void }) {
+function Auth({ mode, onNext }: { mode: 'signin' | 'signup'; onNext: (email: string, authed: boolean) => void }) {
   const [email, setEmail] = useState('');
+  const [password, setPassword] = useState('');
   const [fullName, setFullName] = useState('');
   const [err, setErr] = useState<string | null>(null);
+  const [info, setInfo] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
+  const [codeBusy, setCodeBusy] = useState(false);
   const shake = useShake();
+
+  const validEmail = /^\S+@\S+\.\S+$/.test(email.trim());
+  const clearMsgs = () => { if (err) setErr(null); if (info) setInfo(null); };
+
+  // Primary path: email + password → session directly (no code to copy).
   const submit = async () => {
-    if (busy) return;
+    if (busy || codeBusy) return;
     const addr = email.trim();
     const nm = fullName.trim();
     if (mode === 'signup' && nm.length < 2) { setErr('Please enter your name.'); shake.fire(); return; }
-    if (!/^\S+@\S+\.\S+$/.test(addr)) { setErr('That doesn’t look like an email — check for typos.'); shake.fire(); return; }
-    setErr(null); setBusy(true);
+    if (!validEmail) { setErr('That doesn’t look like an email — check for typos.'); shake.fire(); return; }
+    if (password.length < 8) { setErr('Use a password of at least 8 characters.'); shake.fire(); return; }
+    setErr(null); setInfo(null); setBusy(true);
     try {
-      await sendEmailOtp(addr, mode === 'signup' ? { display_name: nm, first_name: nm.split(/\s+/)[0] } : undefined);
-      setBusy(false);
-      onNext(addr);
+      if (mode === 'signup') {
+        const session = await signUpWithPassword(addr, password, { display_name: nm, first_name: nm.split(/\s+/)[0] });
+        setBusy(false);
+        if (session) onNext(addr, true);
+        else setInfo(`We sent a confirmation link to ${addr}. Tap it, then sign in.`);
+      } else {
+        await signInWithPassword(addr, password);
+        setBusy(false);
+        onNext(addr, true);
+      }
     } catch (e: any) {
       setBusy(false);
+      const msg = e?.message === AUTH_TIMEOUT_MESSAGE
+        ? e.message
+        : mode === 'signin'
+          ? 'Wrong email or password. Try again, or email yourself a code.'
+          : (typeof e?.message === 'string' && e.message.toLowerCase().includes('already'))
+            ? 'That email already has an account — sign in instead.'
+            : 'Couldn’t create your account — please try again.';
+      setErr(msg); shake.fire();
+    }
+  };
+
+  // Fallback: passwordless — email a 6-digit sign-in code (the old flow).
+  const emailCode = async () => {
+    if (busy || codeBusy) return;
+    const addr = email.trim();
+    const nm = fullName.trim();
+    if (mode === 'signup' && nm.length < 2) { setErr('Please enter your name.'); shake.fire(); return; }
+    if (!validEmail) { setErr('That doesn’t look like an email — check for typos.'); shake.fire(); return; }
+    setErr(null); setInfo(null); setCodeBusy(true);
+    try {
+      await sendEmailOtp(addr, mode === 'signup' ? { display_name: nm, first_name: nm.split(/\s+/)[0] } : undefined);
+      setCodeBusy(false);
+      onNext(addr, false);
+    } catch (e: any) {
+      setCodeBusy(false);
       setErr(e?.message || 'Couldn’t send your code just now — please try again.');
       shake.fire();
     }
   };
-  const onGoogle = async () => {
-    setErr(null);
-    try {
-      await signInWithGoogle(); // redirects the browser; the return establishes the session
-    } catch {
-      setErr('Couldn’t start Google sign-in. Please try again.');
-      shake.fire();
-    }
-  };
+
   return (
     <>
       <Title parts={[mode === 'signin' ? 'Welcome back.' : 'Create your account.']} />
-      <Lead>{mode === 'signin' ? 'Enter your email and we’ll send a sign-in code.' : 'A couple details and we’ll send a code to get you cooking.'}</Lead>
-      <Animated.View style={{ marginTop: 26, transform: [{ translateX: shake.x }] }}>
+      <Lead>{mode === 'signin' ? 'Sign in with your email and password.' : 'A couple details and you’re in — your password lets you skip codes next time.'}</Lead>
+      <Animated.View style={{ marginTop: 24, transform: [{ translateX: shake.x }] }}>
         {mode === 'signup' ? (
           <View style={{ marginBottom: 14 }}>
             <Text style={[type(12.5, 800), { color: W(0.55), marginBottom: 8 }]}>Full name</Text>
-            <TextInput
-              value={fullName}
-              onChangeText={(t) => { setFullName(t); if (err) setErr(null); }}
-              autoCapitalize="words"
-              autoComplete="name"
-              textContentType="name"
-              placeholder="Your name"
-              placeholderTextColor={W(0.3)}
-              style={stt.input}
-            />
+            <TextInput value={fullName} onChangeText={(t) => { setFullName(t); clearMsgs(); }} autoCapitalize="words" autoComplete="name" textContentType="name" placeholder="Your name" placeholderTextColor={W(0.3)} style={stt.input} />
           </View>
         ) : null}
         <Text style={[type(12.5, 800), { color: W(0.55), marginBottom: 8 }]}>Email address</Text>
-        <TextInput
-          value={email}
-          onChangeText={(t) => { setEmail(t); if (err) setErr(null); }}
-          onSubmitEditing={submit}
-          keyboardType="email-address"
-          autoCapitalize="none"
-          autoComplete="email"
-          textContentType="emailAddress"
-          placeholder="you@example.com"
-          placeholderTextColor={W(0.3)}
-          style={[stt.input, err ? { borderColor: '#F87171' } : null]}
-        />
-        {err ? <View style={{ flexDirection: 'row', alignItems: 'center', gap: 7, marginTop: 9 }}><Icon name="info" size={15} color="#FCA5A5" /><Text style={[type(13, 700), { color: '#FCA5A5' }]}>{err}</Text></View> : null}
+        <TextInput value={email} onChangeText={(t) => { setEmail(t); clearMsgs(); }} keyboardType="email-address" autoCapitalize="none" autoComplete="email" textContentType="emailAddress" placeholder="you@example.com" placeholderTextColor={W(0.3)} style={[stt.input, err ? { borderColor: '#F87171' } : null]} />
+        <View style={{ height: 14 }} />
+        <Text style={[type(12.5, 800), { color: W(0.55), marginBottom: 8 }]}>Password</Text>
+        <TextInput value={password} onChangeText={(t) => { setPassword(t); clearMsgs(); }} onSubmitEditing={submit} secureTextEntry autoCapitalize="none" autoComplete={mode === 'signup' ? 'password-new' : 'password'} textContentType={mode === 'signup' ? 'newPassword' : 'password'} placeholder={mode === 'signup' ? 'At least 8 characters' : 'Your password'} placeholderTextColor={W(0.3)} style={[stt.input, err ? { borderColor: '#F87171' } : null]} />
+        {err ? <View style={{ flexDirection: 'row', alignItems: 'center', gap: 7, marginTop: 9 }}><Icon name="info" size={15} color="#FCA5A5" /><Text style={[type(13, 700), { color: '#FCA5A5', flex: 1 }]}>{err}</Text></View> : null}
+        {info ? <View style={{ flexDirection: 'row', alignItems: 'center', gap: 7, marginTop: 9 }}><Icon name="check" size={15} color="#86EFAC" /><Text style={[type(13, 700), { color: '#86EFAC', flex: 1 }]}>{info}</Text></View> : null}
       </Animated.View>
       <View style={{ flex: 1, minHeight: 24 }} />
-      <ObtnPri label="Continue" iconRight="arrow" busy={busy} busyLabel="Sending code…" onPress={submit} />
-      {GOOGLE_ENABLED && Platform.OS === 'web' ? (
-        <>
-          <View style={{ flexDirection: 'row', alignItems: 'center', gap: 12, marginTop: 16, marginBottom: 4 }}>
-            <View style={{ flex: 1, height: 1, backgroundColor: W(0.14) }} />
-            <Text style={[type(12, 700), { color: W(0.42) }]}>or</Text>
-            <View style={{ flex: 1, height: 1, backgroundColor: W(0.14) }} />
-          </View>
-          <Press onPress={onGoogle} label="Continue with Google" style={{ marginTop: 10 }}>
-            <View style={{ height: 54, borderRadius: 16, backgroundColor: '#fff', flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 11 }}>
-              <Text style={[type(18, 900), { color: '#4285F4' }]}>G</Text>
-              <Text style={[type(15.5, 800), { color: '#1A1A1A' }]}>Continue with Google</Text>
-            </View>
-          </Press>
-        </>
-      ) : null}
+      <ObtnPri label={mode === 'signin' ? 'Sign in' : 'Create account'} iconRight="arrow" busy={busy} busyLabel={mode === 'signin' ? 'Signing in…' : 'Creating…'} onPress={submit} />
+      <Pressable onPress={emailCode} style={{ marginTop: 16, alignSelf: 'center' }}>
+        <Text style={[type(13.5, 700), { color: W(0.6) }]}>{codeBusy ? 'Sending code…' : 'Email me a sign-in code instead'}</Text>
+      </Pressable>
     </>
   );
 }
@@ -417,7 +417,7 @@ export function OnboardingFlow() {
         ) : null}
         <Animated.View style={{ flex: 1, opacity: fade }}>
           {step === 'welcome' && <Welcome go={(s, m) => { setMode(m); setStep(s); }} />}
-          {step === 'auth' && <Auth mode={mode} onNext={(e) => { setEmail(e); setStep('code'); }} />}
+          {step === 'auth' && <Auth mode={mode} onNext={(e, authed) => { setEmail(e); setStep(authed ? (mode === 'signin' ? 'finish' : 'goal') : 'code'); }} />}
           {step === 'code' && <Code email={email} onNext={() => setStep(mode === 'signin' ? 'finish' : 'goal')} />}
           {step === 'goal' && <Goal onNext={() => setStep('cuisine')} />}
           {step === 'cuisine' && <Cuisine onNext={() => setStep('finish')} />}

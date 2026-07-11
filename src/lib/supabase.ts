@@ -79,6 +79,26 @@ export async function verifyEmailOtp(email: string, token: string) {
   return data.session;
 }
 
+// ---- Password auth (fast, browser-rememberable — no code to copy) ---------------
+/** Sign up with a password so future logins skip the emailed code. Returns the session,
+ *  or null when the Supabase project still requires email confirmation (one-time link). */
+export async function signUpWithPassword(email: string, password: string, meta?: { display_name?: string; first_name?: string }) {
+  const { data, error } = await withTimeout(
+    supabase.auth.signUp({ email, password, options: { data: meta } }),
+  );
+  if (error) throw error;
+  return data.session;
+}
+
+/** Sign in with email + password — the fast returning-user path (browser can autofill). */
+export async function signInWithPassword(email: string, password: string) {
+  const { data, error } = await withTimeout(
+    supabase.auth.signInWithPassword({ email, password }),
+  );
+  if (error) throw error;
+  return data.session;
+}
+
 /** Sign the current user out of Supabase (clears the persisted session). */
 export async function signOutUser() {
   try {
