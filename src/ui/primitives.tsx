@@ -1,5 +1,6 @@
 import React, { useRef, useState } from 'react';
-import { Animated, Pressable, StyleSheet, Image, View, Text, ActivityIndicator, StyleProp, ViewStyle, TextStyle, PressableProps } from 'react-native';
+import { Animated, Pressable, StyleSheet, View, Text, ActivityIndicator, StyleProp, ViewStyle, TextStyle, PressableProps } from 'react-native';
+import { Image } from 'expo-image';
 import { LinearGradient } from 'expo-linear-gradient';
 import { GRAD, GradKey, radius, type, shadow, tnum, FILL } from '../theme/theme';
 import { useC } from '../theme/ThemeContext';
@@ -95,7 +96,9 @@ export function GradBox({
       style={[r ? { borderRadius: r } : null, img ? { overflow: 'hidden' } : null, style]}
     >
       {img && !err ? (
-        <Image source={{ uri: img }} onError={() => setErr(true)} resizeMode="cover" style={FILL as any} />
+        // expo-image: memory+disk cache (repeat views are instant), a soft fade-in, and a real
+        // lazy-loaded <img> on web. The gradient behind is the placeholder / error fallback.
+        <Image source={{ uri: img }} onError={() => setErr(true)} contentFit="cover" cachePolicy="memory-disk" transition={150} style={FILL as any} />
       ) : null}
       {children}
     </LinearGradient>

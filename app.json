@@ -42,7 +42,8 @@
           "backgroundColor": "#0E0E10",
           "resizeMode": "contain"
         }
-      ]
+      ],
+      "expo-image"
     ]
   }
 }
