@@ -123,10 +123,11 @@ export async function fetchAccountState(): Promise<AccountState> {
   const role = (prof?.role as string) ?? 'customer';
   const displayName = (prof?.display_name as string) ?? null;
   const firstName = (prof?.first_name as string) ?? null;
-  if (role === 'admin') return { signedIn: true, isAdmin: true, prepperStatus: 'none', displayName, firstName };
-  if (role === 'prepper') return { signedIn: true, isAdmin: false, prepperStatus: 'approved', displayName, firstName };
+  const isAdmin = role === 'admin';
 
-  // customer: 'pending' iff they have a kitchen still awaiting review.
+  // Hub access (prepperStatus) reflects actually OWNING A KITCHEN, not the `role`
+  // flag alone. This guards orphaned 'prepper' roles — e.g. a kitchen that was later
+  // removed would otherwise leave the account showing My Hub with nothing to manage.
   const { data: k } = await supabase
     .from('kitchens')
     .select('verification_status')
@@ -134,7 +135,8 @@ export async function fetchAccountState(): Promise<AccountState> {
     .order('created_at', { ascending: false })
     .limit(1);
   const kv = k?.[0]?.verification_status as string | undefined;
-  return { signedIn: true, isAdmin: false, prepperStatus: kv === 'pending' ? 'pending' : 'none', displayName, firstName };
+  const prepperStatus: PrepperStatusValue = kv === 'verified' ? 'approved' : kv === 'pending' ? 'pending' : 'none';
+  return { signedIn: true, isAdmin, prepperStatus, displayName, firstName };
 }
 
 /**
