@@ -7,6 +7,7 @@ import { useStore } from '../src/store/store';
 import type { ServiceType } from '../src/lib/supabase';
 import { captureCurrentLocation, reverseNeighborhood } from '../src/lib/geo';
 import { PhotoUploader, type PhotoRef } from '../src/components/PhotoUploader';
+import { startConnectOnboarding, getMyKitchen } from '../src/lib/connect';
 import { Icon, Press, Btn } from '../src/ui';
 import { Screen, TopBar } from '../src/ui/layout';
 import { COOK_AGREEMENT, COOK_AGREEMENT_VERSION } from '../src/lib/cookAgreement';
@@ -20,7 +21,7 @@ const FOOD_CERT_URL = 'https://www.statefoodsafety.com/food-handler';
 
 const TITLES: Record<string, string> = {
   service: 'How you’ll cook', about: 'About you', kitchen: 'Your kitchen',
-  homechef: 'Cooking at homes', identity: 'Identity', foodsafety: 'Kitchen & food safety',
+  homechef: 'Cooking at homes', foodsafety: 'Kitchen & food safety',
   story: 'Your cooking', agreement: 'Cook Agreement', review: 'Review',
 };
 
@@ -47,15 +48,16 @@ export default function Apply() {
   const [cert, setCert] = useState('');
   const [story, setStory] = useState('');
   const [agree, setAgree] = useState(false);
-  const [govId, setGovId] = useState<PhotoRef[]>([]);
-  const [selfie, setSelfie] = useState<PhotoRef[]>([]);
   const [fridgePhotos, setFridgePhotos] = useState<PhotoRef[]>([]);
   const [kitchenPhotos, setKitchenPhotos] = useState<PhotoRef[]>([]);
   const [detecting, setDetecting] = useState(false);
+  const [submittedKitchen, setSubmittedKitchen] = useState<string | null>(null);
+  const [onboarding, setOnboarding] = useState(false);
+  const [myKitchenId, setMyKitchenId] = useState<string | null>(null);
 
   const meals = types.includes('meals');
   const homeChef = types.includes('home_chef');
-  const STEPS = ['service', 'about', 'kitchen', ...(homeChef ? ['homechef'] : []), 'identity', 'foodsafety', 'story', 'agreement', 'review'];
+  const STEPS = ['service', 'about', 'kitchen', ...(homeChef ? ['homechef'] : []), 'foodsafety', 'story', 'agreement', 'review'];
   const key = STEPS[Math.min(idx, STEPS.length - 1)];
 
   // Preload the neighborhood from the user's captured location (if any) the first
@@ -67,6 +69,11 @@ export default function Apply() {
     return () => { alive = false; };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [key]);
+
+  // A pending applicant re-opening this screen can still start Stripe onboarding.
+  useEffect(() => {
+    if (prepperStatus === 'pending') getMyKitchen().then((k) => setMyKitchenId(k?.id ?? null)).catch(() => {});
+  }, [prepperStatus]);
 
   // Detect the neighborhood on demand (captures location, then reverse-geocodes).
   const detectNeighborhood = async () => {
@@ -83,6 +90,34 @@ export default function Apply() {
     }
   };
 
+  // Just submitted → prompt Stripe Connect onboarding (verifies identity + sets up
+  // payouts). Shown before the pending guard, since submit sets prepperStatus='pending'.
+  if (submittedKitchen) {
+    const onboard = async () => {
+      setOnboarding(true);
+      try {
+        await startConnectOnboarding(submittedKitchen);
+      } catch (e: any) {
+        setOnboarding(false);
+        toast(e?.message || 'Couldn’t start setup — you can finish it in My Hub.', 'info');
+      }
+    };
+    return (
+      <Screen bg={c.surface}>
+        <TopBar title="Almost there" onBack={() => router.replace('/(tabs)/profile')} />
+        <View style={{ flex: 1, alignItems: 'center', justifyContent: 'center', padding: 24 }}>
+          <View style={{ width: 66, height: 66, borderRadius: 21, backgroundColor: c.primaryL, alignItems: 'center', justifyContent: 'center' }}><Icon name="card" size={30} color={c.primary} /></View>
+          <Text style={[type(22, 900), { color: c.ink, marginTop: 16, textAlign: 'center', letterSpacing: -0.4 }]}>Verify your identity & set up payouts</Text>
+          <Text style={[type(14, 500), { color: c.soft, textAlign: 'center', marginTop: 8, maxWidth: 330, lineHeight: 21 }]}>Preppa uses Stripe to confirm your identity and pay you. It’s quick and secure — you don’t need your own Stripe account.</Text>
+          <View style={{ marginTop: 24, width: '100%', maxWidth: 360, gap: 10 }}>
+            <Btn label="Verify & set up payouts" icon="card" block loading={onboarding} onPress={onboard} />
+            <Btn label="Do this later in My Hub" variant="ghost" block onPress={() => router.replace('/(tabs)/profile')} />
+          </View>
+        </View>
+      </Screen>
+    );
+  }
+
   if (prepperStatus === 'pending' || prepperStatus === 'approved') {
     return (
       <Screen>
@@ -90,8 +125,16 @@ export default function Apply() {
         <View style={{ flex: 1, alignItems: 'center', justifyContent: 'center', padding: 24 }}>
           <View style={{ width: 64, height: 64, borderRadius: 20, backgroundColor: c.primaryL, alignItems: 'center', justifyContent: 'center' }}><Icon name={prepperStatus === 'approved' ? 'check' : 'clock'} size={30} color={c.primary} /></View>
           <Text style={[type(19, 900), { color: c.ink, marginTop: 16 }]}>{prepperStatus === 'approved' ? 'You’re already a Preppa' : 'Application under review'}</Text>
-          <Text style={[type(14, 500), { color: c.soft, textAlign: 'center', marginTop: 6, maxWidth: 300 }]}>{prepperStatus === 'approved' ? 'Manage your kitchen in My Hub.' : 'We’re reviewing your application and will reach out soon.'}</Text>
-          <View style={{ marginTop: 20 }}><Btn label="Back" variant="ghost" onPress={() => router.back()} /></View>
+          <Text style={[type(14, 500), { color: c.soft, textAlign: 'center', marginTop: 6, maxWidth: 300 }]}>{prepperStatus === 'approved' ? 'Manage your kitchen in My Hub.' : 'We’re reviewing your application. Finish identity + payout setup to speed it up.'}</Text>
+          {prepperStatus === 'pending' && myKitchenId ? (
+            <View style={{ marginTop: 18, width: '100%', maxWidth: 340 }}>
+              <Btn label="Verify & set up payouts" icon="card" block loading={onboarding} onPress={async () => {
+                setOnboarding(true);
+                try { await startConnectOnboarding(myKitchenId); } catch (e: any) { setOnboarding(false); toast(e?.message || 'Couldn’t start setup — please try again.', 'info'); }
+              }} />
+            </View>
+          ) : null}
+          <View style={{ marginTop: 12 }}><Btn label="Back" variant="ghost" onPress={() => router.back()} /></View>
         </View>
       </Screen>
     );
@@ -113,7 +156,6 @@ export default function Apply() {
       if (!serviceArea) return 'Pick how far you’ll travel.';
       if (experience.trim().length < 2) return 'Tell us a little about your experience.';
     }
-    if (key === 'identity' && govId.length < 2) return 'Add front and back photos of your government ID.';
     if (key === 'foodsafety') {
       if (meals && !fridge) return 'Please confirm your refrigeration.';
       if (!prep) return 'Please confirm clean prep & handling.';
@@ -139,7 +181,7 @@ export default function Apply() {
     if (busy) return;
     setBusy(true); setErr(null);
     try {
-      await submitApplication({
+      const kitchenId = await submitApplication({
         serviceTypes: types,
         legalName: legalName.trim(),
         phone: phone.trim(),
@@ -152,17 +194,15 @@ export default function Apply() {
         // allergen disclosure is now accepted as part of the Cook Agreement (`agree`)
         foodSafety: {
           refrigeration: meals ? fridge : true, foodPrep: prep, allergens: agree, note: cert.trim() || undefined,
-          docs: {
-            govId: govId.map((p) => p.path), selfie: selfie.map((p) => p.path),
-            fridge: fridgePhotos.map((p) => p.path), kitchen: kitchenPhotos.map((p) => p.path),
-          },
+          docs: { fridge: fridgePhotos.map((p) => p.path), kitchen: kitchenPhotos.map((p) => p.path) },
         },
         foodHandlerCert: cert.trim() || undefined,
         story: story.trim(),
         agreementVersion: COOK_AGREEMENT_VERSION,
       });
-      toast('Application received — we’ll be in touch', 'check', true);
-      router.replace('/(tabs)/profile');
+      setBusy(false);
+      toast('Application received', 'check', true);
+      setSubmittedKitchen(kitchenId); // → identity + payout setup (Stripe Connect)
     } catch {
       setBusy(false);
       setErr('Couldn’t submit your application right now. Please check your details and try again.');
@@ -247,14 +287,6 @@ export default function Apply() {
           </>
         ) : null}
 
-        {key === 'identity' ? (
-          <>
-            <Head c={c} title="Verify your identity" sub="Upload clear photos of your government ID. This stays private — only Preppa’s review team sees it." />
-            <PhotoUploader label="Government ID" hint="Front and back — add any extra pages." group="govid" photos={govId} onChange={setGovId} min={2} />
-            <PhotoUploader label="Selfie holding your ID (optional)" hint="Helps us match your face to the ID." group="selfie" photos={selfie} onChange={setSelfie} />
-          </>
-        ) : null}
-
         {key === 'foodsafety' ? (
           <>
             <Head c={c} title="Kitchen & food safety" sub={meals ? 'Show us where you cook and confirm the basics — we review every application.' : 'Confirm the basics — we review every application.'} />
@@ -307,7 +339,6 @@ export default function Apply() {
               <Row c={c} k="Cuisine" v={cuisine} onEdit={() => goStep('kitchen')} />
               <Row c={c} k="Neighborhood" v={neighborhood} onEdit={() => goStep('kitchen')} />
               {homeChef ? <Row c={c} k="Travels" v={serviceArea ? `Within ${serviceArea}` : ''} onEdit={() => goStep('homechef')} /> : null}
-              <Row c={c} k="ID photos" v={`${govId.length} uploaded${selfie.length ? ` · selfie ${selfie.length}` : ''}`} onEdit={() => goStep('identity')} />
               {meals ? <Row c={c} k="Kitchen photos" v={`Fridge ${fridgePhotos.length} · Kitchen ${kitchenPhotos.length}`} onEdit={() => goStep('foodsafety')} /> : null}
               <Row c={c} k="Food safety" v={`${meals ? 'Refrigeration · ' : ''}Prep ✓`} onEdit={() => goStep('foodsafety')} />
               <Row c={c} k="Agreement" v={agree ? 'Accepted ✓' : 'Not yet'} onEdit={() => goStep('agreement')} />

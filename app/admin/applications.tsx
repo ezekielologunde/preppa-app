@@ -6,7 +6,7 @@ import { type, radius } from '../../src/theme/theme';
 import { Screen, Block, Empty, Btn, MiniTag, Press, Icon } from '../../src/ui';
 import { useStore } from '../../src/store/store';
 import { useAdminApplications } from '../../src/data/hooks';
-import { createCookDocSignedUrl } from '../../src/lib/supabase';
+import { supabase, createCookDocSignedUrl } from '../../src/lib/supabase';
 import { ImageViewer } from '../../src/components/ImageViewer';
 import * as admin from '../../src/lib/admin';
 import { AdminHeader } from '../../src/components/admin/AdminHeader';
@@ -164,7 +164,7 @@ function AppDetail({ kitchenId }: { kitchenId: string }) {
   if (state === 'error' || !d) return <Text style={[type(13, 600), { color: c.red }]}>{err || 'No detail'}</Text>;
   const fs = d.food_safety || {};
   const docs = fs.docs || {};
-  const hasPhotos = !!(docs.govId?.length || docs.selfie?.length || docs.fridge?.length || docs.kitchen?.length);
+  const hasPhotos = !!(docs.fridge?.length || docs.kitchen?.length);
   const yn = (b?: boolean) => (b ? '✓' : '—');
   const svc = (d.service_types || []).map((t) => (t === 'home_chef' ? 'Cook at homes' : 'Homemade meals')).join(' · ') || '—';
   return (
@@ -182,10 +182,9 @@ function AppDetail({ kitchenId }: { kitchenId: string }) {
         <DRow c={c} k="Food safety" v={`Refrigeration ${yn(fs.refrigeration)} · Prep ${yn(fs.foodPrep)} · Allergens ${yn(fs.allergens)}`} />
         <DRow c={c} k="Food-handler cert" v={d.food_handler_cert || '—'} />
         <DRow c={c} k="Agreement" v={d.agreement_version ? `${d.agreement_version} · accepted` : 'not accepted'} />
+        <ConnectStatusRow c={c} kitchenId={d.kitchen_id} />
         {hasPhotos ? (
           <View style={{ gap: 12, marginTop: 6, borderTopWidth: 1, borderTopColor: c.border2, paddingTop: 12 }}>
-            <PhotoStrip label="Government ID" paths={docs.govId} onOpen={setViewUri} />
-            <PhotoStrip label="Selfie" paths={docs.selfie} onOpen={setViewUri} />
             <PhotoStrip label="Refrigeration" paths={docs.fridge} onOpen={setViewUri} />
             <PhotoStrip label="Kitchen / stove" paths={docs.kitchen} onOpen={setViewUri} />
           </View>
@@ -227,4 +226,24 @@ function DRow({ c, k, v }: { c: any; k: string; v: string }) {
       <Text style={[type(12.5, 700), { color: c.ink, flex: 1 }]}>{v}</Text>
     </View>
   );
+}
+
+/** Cook's Stripe Connect (identity + payout) status — the KYC replaces raw Gov-ID photos. */
+function ConnectStatusRow({ c, kitchenId }: { c: any; kitchenId: string }) {
+  const [label, setLabel] = useState('Checking…');
+  useEffect(() => {
+    let alive = true;
+    (async () => {
+      try {
+        const { data } = await supabase.from('stripe_accounts').select('details_submitted, charges_enabled, payouts_enabled').eq('kitchen_id', kitchenId).maybeSingle();
+        if (!alive) return;
+        if (!data) setLabel('Not started');
+        else if (data.charges_enabled && data.payouts_enabled) setLabel('Verified via Stripe · payouts enabled ✓');
+        else if (data.details_submitted) setLabel('Submitted · Stripe reviewing');
+        else setLabel('Onboarding started (incomplete)');
+      } catch { if (alive) setLabel('—'); }
+    })();
+    return () => { alive = false; };
+  }, [kitchenId]);
+  return <DRow c={c} k="Identity / payouts" v={label} />;
 }

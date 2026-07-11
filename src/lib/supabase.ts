@@ -254,8 +254,9 @@ export interface ApplicationFields {
   experience?: string; // home-chef: cooking experience
   foodSafety: {
     refrigeration: boolean; foodPrep: boolean; allergens: boolean; note?: string;
-    // Verification photo paths in the private cook-docs bucket, by group.
-    docs?: { govId: string[]; selfie: string[]; fridge: string[]; kitchen: string[] };
+    // Kitchen verification photos in the private cook-docs bucket. (Identity/Gov-ID is
+    // now handled by Stripe Connect Express onboarding, not raw photos.)
+    docs?: { fridge: string[]; kitchen: string[] };
   };
   foodHandlerCert?: string;
   story: string;

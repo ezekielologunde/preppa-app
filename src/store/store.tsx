@@ -115,7 +115,7 @@ interface Store {
   prepperStatus: PrepperStatus;
   role: 'customer' | 'prepper';
   isAdmin: boolean; // server-derived (profiles.role='admin'); cosmetic gating only
-  submitApplication: (f: ApplicationFields) => Promise<void>;
+  submitApplication: (f: ApplicationFields) => Promise<string>;
   isMine: (cook: CookId) => boolean; // true only for an approved prepper viewing their own listing
 
   fav: Set<string>;
@@ -301,6 +301,7 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
       const geo = await geocodeAddress(f.address || f.neighborhood);
       if (geo && kitchenId) await setKitchenGeo(kitchenId, geo.lat, geo.lng);
     } catch { /* non-blocking — proximity is a nice-to-have, not a gate */ }
+    return kitchenId; // caller uses it to start Stripe Connect onboarding
   }, [name, saveName]);
 
   const addToCart = useCallback((line: Omit<CartLine, 'qty'>, qty = 1) => {
