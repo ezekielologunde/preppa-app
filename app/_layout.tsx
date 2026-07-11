@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect } from 'react';
 import { View, useWindowDimensions } from 'react-native';
 import { Stack } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
@@ -29,7 +29,8 @@ export default function RootLayout() {
   useEffect(() => {
     if (fontsLoaded) SplashScreen.hideAsync().catch(() => {});
   }, [fontsLoaded]);
-  if (!fontsLoaded) return null;
+  // Don't block first paint on all 6 font weights — render immediately; the branded
+  // SplashOverlay (gated on store `ready`) covers the brief font swap.
   return (
     <GestureHandlerRootView style={{ flex: 1 }}>
       <SafeAreaProvider>
@@ -56,14 +57,10 @@ function AppShell() {
   const { width } = useWindowDimensions();
   const wide = width >= 700;
   const railW = width >= 1000 ? 240 : 84;
-  const [minElapsed, setMinElapsed] = useState(false);
-  useEffect(() => {
-    const t = setTimeout(() => setMinElapsed(true), 1400);
-    return () => clearTimeout(t);
-  }, []);
-  // Hold the (dark) splash until BOTH a min animation time AND store hydration (`ready`)
-  // complete — so a dark-mode user never first-paints the light theme on a slow hydrate.
-  const showSplash = !minElapsed || !ready;
+  // Hold the (dark) splash only until store hydration (`ready`) completes — an AsyncStorage
+  // read (~tens of ms) — so a dark-mode user never first-paints the light theme. No artificial
+  // minimum delay (removed a fixed 1400ms floor that padded every load).
+  const showSplash = !ready;
   const bg = isDark ? '#151210' : '#F7F7F9';
   return (
     <View style={{ flex: 1, backgroundColor: bg }}>
