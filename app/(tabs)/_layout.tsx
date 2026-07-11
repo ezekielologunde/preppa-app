@@ -10,11 +10,10 @@ import { FLAGS } from '../../src/config/flags';
 
 const TABS: Record<string, { ico: string; lbl: string }> = {
   home: { ico: 'home', lbl: 'Home' },
-  discover: { ico: 'compass', lbl: 'Discover' },
   orders: { ico: 'bag', lbl: 'Orders' },
   'my-hub': { ico: 'chefhat', lbl: 'My Hub' },
   profile: { ico: 'user', lbl: 'Profile' },
-  // experiences/feeds remain as hidden routes (flags off); not in the tab bar.
+  // discover/experiences/feeds are reachable routes (from Home), not tab-bar entries.
 };
 
 function BottomNav({ state, navigation }: any) {
@@ -61,7 +60,6 @@ export default function TabsLayout() {
   return (
     <Tabs screenOptions={{ headerShown: false }} tabBar={(props) => <BottomNav {...props} />}>
       <Tabs.Screen name="home" />
-      <Tabs.Screen name="discover" />
       <Tabs.Screen name="orders" />
       <Tabs.Screen name="experiences" options={{ href: FLAGS.experiences ? undefined : null }} />
       <Tabs.Screen name="feeds" options={{ href: FLAGS.feed ? undefined : null }} />

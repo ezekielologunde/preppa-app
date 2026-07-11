@@ -2,19 +2,19 @@ import React, { useCallback, useState } from 'react';
 import { View, Text, ScrollView, ActivityIndicator } from 'react-native';
 import { useRouter, useLocalSearchParams, useFocusEffect } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { useC } from '../../src/theme/ThemeContext';
-import { type, radius, shadow } from '../../src/theme/theme';
-import { Icon, Press, Avatar } from '../../src/ui';
-import { money, COOKS } from '../../src/data/data';
-import { useKitchens, type KitchenCard } from '../../src/data/hooks';
-import { seedCookForKitchen } from '../../src/data/supabaseRepository';
-import { MealsBrowser } from '../../src/components/MealsBrowser';
-import { ModeTabs } from '../../src/components/ModeTabs';
-import { CardPaymentSheet } from '../../src/components/CardPaymentSheet';
-import { fetchActivePlans, type Plan } from '../../src/lib/subscriptions';
-import { listMyRequests, acceptQuoteAndDeposit, SERVICE_LABELS, type RequestView } from '../../src/lib/services';
-import { useStore } from '../../src/store/store';
-import { FLAGS } from '../../src/config/flags';
+import { useC } from '../src/theme/ThemeContext';
+import { type, radius, shadow } from '../src/theme/theme';
+import { Icon, Press, Avatar } from '../src/ui';
+import { money, COOKS } from '../src/data/data';
+import { useKitchens, type KitchenCard } from '../src/data/hooks';
+import { seedCookForKitchen } from '../src/data/supabaseRepository';
+import { MealsBrowser } from '../src/components/MealsBrowser';
+import { ModeTabs } from '../src/components/ModeTabs';
+import { CardPaymentSheet } from '../src/components/CardPaymentSheet';
+import { fetchActivePlans, type Plan } from '../src/lib/subscriptions';
+import { listMyRequests, acceptQuoteAndDeposit, SERVICE_LABELS, type RequestView } from '../src/lib/services';
+import { useStore } from '../src/store/store';
+import { FLAGS } from '../src/config/flags';
 
 type Mode = 'meals' | 'plans' | 'preppers' | 'services';
 const planWeekly = (cents: number) => money((cents + Math.round(cents * 0.1)) / 100);
@@ -22,6 +22,7 @@ const planWeekly = (cents: number) => money((cents + Math.round(cents * 0.1)) / 
 export default function DiscoverTab() {
   const c = useC();
   const insets = useSafeAreaInsets();
+  const router = useRouter();
   const { mode: modeParam } = useLocalSearchParams<{ mode?: string }>();
   const MODES: { key: Mode; label: string }[] = [
     { key: 'meals', label: 'Meals' },
@@ -35,7 +36,14 @@ export default function DiscoverTab() {
   return (
     <View style={{ flex: 1, backgroundColor: c.bg }}>
       <View style={{ backgroundColor: c.surface, paddingTop: insets.top + 10, paddingBottom: 12, paddingHorizontal: 16, borderBottomWidth: 1, borderBottomColor: c.border2 }}>
-        <Text style={[type(26, 900), { color: c.ink, letterSpacing: -0.9, marginBottom: 12, paddingHorizontal: 4 }]}>Discover</Text>
+        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8, marginBottom: 12 }}>
+          <Press scale={0.9} onPress={() => (router.canGoBack() ? router.back() : router.replace('/home'))} label="Back">
+            <View style={{ width: 38, height: 38, borderRadius: 19, alignItems: 'center', justifyContent: 'center', backgroundColor: c.bg2 }}>
+              <Icon name="chevLeft" size={20} color={c.ink} />
+            </View>
+          </Press>
+          <Text style={[type(26, 900), { color: c.ink, letterSpacing: -0.9 }]}>Discover</Text>
+        </View>
         <ModeTabs modes={MODES} value={mode} onChange={setMode} />
       </View>
       {mode === 'meals' ? <MealsBrowser /> : mode === 'plans' ? <PlansMode /> : mode === 'services' ? <ServicesMode /> : <PreppersMode />}

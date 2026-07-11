@@ -9,7 +9,6 @@ import { FLAGS } from '../config/flags';
 
 const ITEMS = [
   { id: 'home', ico: 'home', lbl: 'Home', path: '/home' },
-  { id: 'discover', ico: 'compass', lbl: 'Discover', path: '/discover' },
   { id: 'orders', ico: 'bag', lbl: 'Orders', path: '/orders' },
   { id: 'my-hub', ico: 'chefhat', lbl: 'My Hub', path: '/my-hub' },
   { id: 'profile', ico: 'user', lbl: 'Profile', path: '/profile' },
