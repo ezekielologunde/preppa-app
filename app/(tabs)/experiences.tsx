@@ -1,7 +1,8 @@
 import React, { useState } from 'react';
 import { View, Text, ScrollView, LayoutChangeEvent } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { useRouter } from 'expo-router';
+import { useRouter, Redirect } from 'expo-router';
+import { FLAGS } from '../../src/config/flags';
 import { SERVICES, EXPERIENCES, Service, ServiceRequest, svcById, COOKS, CookId } from '../../src/data/data';
 import { useC } from '../../src/theme/ThemeContext';
 import { Palette, type, radius, shadow } from '../../src/theme/theme';
@@ -116,6 +117,10 @@ export default function ExperiencesScreen() {
   const insets = useSafeAreaInsets();
   const router = useRouter();
   const { requests, notifCount } = useStore();
+
+  // Not live in v1 — hidden from both navs. Guard the route too so a stale-cached
+  // direct URL can't render it (mirrors the My Hub redirect pattern).
+  if (!FLAGS.experiences) return <Redirect href="/(tabs)/home" />;
 
   return (
     <View style={{ flex: 1, backgroundColor: c.bg }}>

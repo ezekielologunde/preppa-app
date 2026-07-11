@@ -37,15 +37,16 @@ function FauxQR({ dark }: { dark: string }) {
   );
 }
 
-/** Generate a fresh 6-digit backup code (per handoff). */
-export const genCode = () => Array.from({ length: 6 }, () => String(Math.floor(Math.random() * 10)));
+/** Generate a fresh 3-digit backup code (per handoff). */
+export const genCode = () => Array.from({ length: 3 }, () => String(Math.floor(Math.random() * 10)));
 
 /**
- * The QR + 6-digit handoff pane — a mutual-confirmation ritual (both phones agree),
- * NOT a verification/escrow control. Same design serves three contexts:
- *  - `cod`     — cash: shows the amount, confirms cash changed hands.
- *  - `pickup`  — prepaid pickup meetup: show the code to the cook when collecting.
- *  - `delivery`— prepaid delivery meetup: show the code at the door.
+ * The QR + 3-digit handoff pane — a mutual-confirmation ritual (both phones agree),
+ * NOT a verification/escrow control. Shown only when goods/cash change hands in person:
+ *  - `cod`     — cash-on-delivery: shows the amount, confirms cash changed hands.
+ *  - `pickup`  — prepaid pickup/meetup: show the code to the cook when collecting.
+ *  - `delivery`— (legacy) prepaid delivery — no longer routed here; prepaid delivery
+ *                shows tracking only, no code.
  * Manages its own two-step state; calls `onDone` at the final confirm.
  */
 export function Handoff({ mode, cookName, code, amount, onDone }: {
@@ -107,7 +108,7 @@ export function Handoff({ mode, cookName, code, amount, onDone }: {
         </Text>
 
         <View style={{ marginTop: 22, alignItems: 'center' }}>
-          <Text style={[type(12, 800), { color: c.muted, textTransform: 'uppercase' }]}>Backup 6-digit code</Text>
+          <Text style={[type(12, 800), { color: c.muted, textTransform: 'uppercase' }]}>Backup 3-digit code</Text>
           <View style={{ flexDirection: 'row', gap: 9, marginTop: 10 }}>
             {code.map((d, i) => (
               <View key={i} style={{ width: 44, height: 56, borderRadius: radius.md, backgroundColor: filled ? c.primaryL : c.surface, borderWidth: 1.5, borderColor: filled ? c.primary : c.border, alignItems: 'center', justifyContent: 'center' }}>

@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { View, Text, Image, Platform, ActivityIndicator } from 'react-native';
 import { useC } from '../theme/ThemeContext';
-import { type, radius } from '../theme/theme';
+import { type, radius, shadow } from '../theme/theme';
 import { Icon, Press } from '../ui';
 import { uploadCookPhoto } from '../lib/supabase';
 
@@ -64,11 +64,13 @@ export function PhotoUploader({ label, hint, group, photos, onChange, min = 0 }:
       {hint ? <Text style={[type(12, 500), { color: c.muted, marginBottom: 8 }]}>{hint}</Text> : null}
       <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 10 }}>
         {photos.map((p) => (
-          <View key={p.path} style={{ width: 84, height: 84, borderRadius: radius.md, overflow: 'hidden', backgroundColor: c.bg2, borderWidth: 1, borderColor: c.border }}>
-            <Image source={{ uri: p.preview }} style={{ width: '100%', height: '100%' }} resizeMode="cover" />
-            <Press scale={0.9} onPress={() => remove(p.path)} label="Remove photo" hitSlop={6} style={{ position: 'absolute', top: 3, right: 3 }}>
-              <View style={{ width: 22, height: 22, borderRadius: 11, backgroundColor: 'rgba(0,0,0,.6)', alignItems: 'center', justifyContent: 'center' }}>
-                <Icon name="x" size={13} color="#fff" />
+          // NB: no overflow:'hidden' on the wrapper so the remove button isn't clipped and
+          // reliably receives taps on web (it sits above the image).
+          <View key={p.path} style={{ width: 84, height: 84, borderRadius: radius.md, backgroundColor: c.bg2, borderWidth: 1, borderColor: c.border }}>
+            <Image source={{ uri: p.preview }} style={{ width: '100%', height: '100%', borderRadius: radius.md }} resizeMode="cover" />
+            <Press scale={0.9} onPress={() => remove(p.path)} label="Remove photo" hitSlop={12} style={{ position: 'absolute', top: -8, right: -8 }}>
+              <View style={{ width: 28, height: 28, borderRadius: 14, backgroundColor: '#0E0E10', borderWidth: 2, borderColor: '#fff', alignItems: 'center', justifyContent: 'center', ...shadow.soft }}>
+                <Icon name="x" size={15} color="#fff" />
               </View>
             </Press>
           </View>
@@ -84,6 +86,9 @@ export function PhotoUploader({ label, hint, group, photos, onChange, min = 0 }:
           </View>
         </Press>
       </View>
+      {photos.length > 0 ? (
+        <Text style={[type(11.5, 600), { color: c.muted, marginTop: 8 }]}>Tap the ✕ on a photo to remove it.</Text>
+      ) : null}
     </View>
   );
 }

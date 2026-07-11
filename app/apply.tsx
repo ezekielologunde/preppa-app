@@ -57,7 +57,9 @@ export default function Apply() {
 
   const meals = types.includes('meals');
   const homeChef = types.includes('home_chef');
-  const STEPS = ['service', 'about', 'kitchen', ...(homeChef ? ['homechef'] : []), 'foodsafety', 'story', 'agreement', 'review'];
+  // `story` folded into the kitchen step (one fewer tap); foodsafety photos are also
+  // editable on review, so the tail is shorter and less cumbersome.
+  const STEPS = ['service', 'about', 'kitchen', ...(homeChef ? ['homechef'] : []), 'foodsafety', 'agreement', 'review'];
   const key = STEPS[Math.min(idx, STEPS.length - 1)];
 
   // Preload the neighborhood from the user's captured location (if any) the first
@@ -151,6 +153,7 @@ export default function Apply() {
       if (!cuisine) return 'Pick your primary cuisine.';
       if (address.trim().length < 4) return 'Enter your address (private — only Preppa sees it).';
       if (neighborhood.trim().length < 2) return 'Enter the neighborhood buyers will see.';
+      if (story.trim().length < 2) return 'Add one line about what you love to cook.';
     }
     if (key === 'homechef') {
       if (!serviceArea) return 'Pick how far you’ll travel.';
@@ -162,7 +165,6 @@ export default function Apply() {
       if (meals && fridgePhotos.length < 1) return 'Add at least one refrigeration photo.';
       if (meals && kitchenPhotos.length < 1) return 'Add at least one kitchen/stove photo.';
     }
-    if (key === 'story' && story.trim().length < 2) return 'Tell us one line about your cooking.';
     if (key === 'agreement' && !agree) return 'Please read and agree to the Cook Agreement.';
     return null;
   };
@@ -179,6 +181,12 @@ export default function Apply() {
 
   const submit = async () => {
     if (busy) return;
+    // Photos are editable on this review step — re-check the minimum so removing them
+    // here can't slip through the foodsafety-step gate.
+    if (meals && (fridgePhotos.length < 1 || kitchenPhotos.length < 1)) {
+      setErr('Add at least one refrigeration photo and one kitchen/stove photo.');
+      return;
+    }
     setBusy(true); setErr(null);
     try {
       const kitchenId = await submitApplication({
@@ -262,6 +270,7 @@ export default function Apply() {
                 </View>
               </Press>
             </View>
+            <Field c={c} label="What you love to cook (one line buyers will feel)" value={story} onChange={setStory} placeholder="e.g. Party-style jollof my grandmother taught me" autoCapitalize="sentences" multiline />
           </>
         ) : null}
 
@@ -309,13 +318,6 @@ export default function Apply() {
           </>
         ) : null}
 
-        {key === 'story' ? (
-          <>
-            <Head c={c} title="Your cooking" sub="One line buyers will feel — what do you love to cook, or why cook for your neighbors?" />
-            <Field c={c} label="What you love to cook" value={story} onChange={setStory} placeholder="e.g. Party-style jollof my grandmother taught me" autoCapitalize="sentences" multiline />
-          </>
-        ) : null}
-
         {key === 'agreement' ? (
           <>
             <Head c={c} title="Cook Agreement" sub="Please read and agree. This keeps buyers safe and makes clear you’re responsible for your food." />
@@ -338,11 +340,19 @@ export default function Apply() {
               <Row c={c} k={meals ? 'Kitchen' : 'Cook name'} v={kitchenName} onEdit={() => goStep('kitchen')} />
               <Row c={c} k="Cuisine" v={cuisine} onEdit={() => goStep('kitchen')} />
               <Row c={c} k="Neighborhood" v={neighborhood} onEdit={() => goStep('kitchen')} />
+              <Row c={c} k="What you cook" v={story} onEdit={() => goStep('kitchen')} />
               {homeChef ? <Row c={c} k="Travels" v={serviceArea ? `Within ${serviceArea}` : ''} onEdit={() => goStep('homechef')} /> : null}
-              {meals ? <Row c={c} k="Kitchen photos" v={`Fridge ${fridgePhotos.length} · Kitchen ${kitchenPhotos.length}`} onEdit={() => goStep('foodsafety')} /> : null}
               <Row c={c} k="Food safety" v={`${meals ? 'Refrigeration · ' : ''}Prep ✓`} onEdit={() => goStep('foodsafety')} />
               <Row c={c} k="Agreement" v={agree ? 'Accepted ✓' : 'Not yet'} onEdit={() => goStep('agreement')} />
             </View>
+            {meals ? (
+              // Photos are editable right here — add or remove without hopping back a step.
+              <View style={{ backgroundColor: c.surface, borderWidth: 1, borderColor: c.border2, borderRadius: radius.card, padding: 16, gap: 16 }}>
+                <Text style={[type(13.5, 800), { color: c.ink }]}>Kitchen photos</Text>
+                <PhotoUploader label="Refrigeration photos" hint="Inside your fridge/freezer showing cold storage." group="fridge" photos={fridgePhotos} onChange={setFridgePhotos} min={1} />
+                <PhotoUploader label="Kitchen / stove area" hint="Your cooking area, stove and prep surfaces." group="kitchen" photos={kitchenPhotos} onChange={setKitchenPhotos} min={1} />
+              </View>
+            ) : null}
           </>
         ) : null}
 

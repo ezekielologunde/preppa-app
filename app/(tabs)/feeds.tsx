@@ -1,8 +1,9 @@
 import React, { useState } from 'react';
 import { View, Text, FlatList } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { useRouter } from 'expo-router';
+import { useRouter, Redirect } from 'expo-router';
 import { LinearGradient } from 'expo-linear-gradient';
+import { FLAGS } from '../../src/config/flags';
 import { FEED, COOKS, mealById, money } from '../../src/data/data';
 import { type, radius } from '../../src/theme/theme';
 import { useStore } from '../../src/store/store';
@@ -12,6 +13,9 @@ import { shareAndNotify, SITE } from '../../src/lib/share';
 export default function Feeds() {
   const [h, setH] = useState(0);
   const { reels } = useStore();
+  // Not live in v1 — hidden from both navs. Guard the route too so a stale-cached
+  // direct URL can't render it (mirrors the My Hub redirect pattern).
+  if (!FLAGS.feed) return <Redirect href="/(tabs)/home" />;
   const items = [...reels, ...FEED];
   return (
     <View style={{ flex: 1, backgroundColor: '#000' }} onLayout={(e) => setH(e.nativeEvent.layout.height)}>
