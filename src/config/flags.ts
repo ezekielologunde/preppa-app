@@ -9,7 +9,7 @@ export const FLAGS = {
   experiences: false, // classes / supper clubs / private-chef services — waitlist, not live
   feed: false, // video reels — demo only
   plans: true, // weekly meal plans / subscriptions — real recurring billing (Stripe, test mode)
-  services: false, // Food-Services marketplace (cook-at-home/catering request→quote→book) — Phase 3, real backend pending
+  services: true, // Food-Services marketplace (cook-at-home/catering request→quote→book→deposit) — real (Stripe test mode)
   prepplus: false, // paid membership — not live (and IAP-sensitive)
   rewards: false, // points / referral rewards — not live
   chat: false, // 1:1 messaging — read-only demo

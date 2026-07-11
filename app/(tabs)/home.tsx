@@ -55,7 +55,7 @@ export default function HomeScreen() {
   };
 
   const pickMode = (id: 'delivery' | 'pickup' | 'chef') => {
-    if (id === 'chef') { toast('Private-chef bookings are coming soon', 'chefhat'); return; }
+    if (id === 'chef') { FLAGS.services ? router.push('/service-request?category=cook_at_home') : toast('Private-chef bookings are coming soon', 'chefhat'); return; }
     setMode(id);
   };
 
@@ -140,7 +140,7 @@ export default function HomeScreen() {
         ) : null}
 
         {/* banner CTAs */}
-        <ChefBanner c={c} grad={['#FF8A4C', c.primary]} icon="chefhat" title="Cook at My Place" body="A private chef in your kitchen — compare fixed quotes" onPress={() => toast('Private-chef bookings are coming soon', 'chefhat')} />
+        <ChefBanner c={c} grad={['#FF8A4C', c.primary]} icon="chefhat" title="Cook at My Place" body="A private chef in your kitchen — compare fixed quotes" onPress={() => FLAGS.services ? router.push('/service-request?category=cook_at_home') : toast('Private-chef bookings are coming soon', 'chefhat')} />
         <ChefBanner c={c} grad={['#A855F7', c.purple]} icon="repeat" title="Weekly meal plans" body="Subscribe to a cook’s box — pause or swap anytime" onPress={() => router.push('/plans')} style={{ marginTop: 10 }} />
 
         <View style={{ height: 14 }} />

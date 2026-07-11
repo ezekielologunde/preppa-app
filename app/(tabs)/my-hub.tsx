@@ -317,7 +317,7 @@ export function PhotoPick({ grad, setGrad }: { grad: GradKey | null; setGrad: (g
 
 const SHORTCUTS: { route: string; ic: string; tone: Tone; l: string }[] = [
   { route: '/hub/orders', ic: 'box', tone: 'ic-amber', l: 'Orders' },
-  { route: '/hub/catering', ic: 'users', tone: 'ic-purple', l: 'Requests' },
+  { route: '/hub/requests', ic: 'users', tone: 'ic-purple', l: 'Requests' },
   { route: '/hub/money', ic: 'wallet', tone: 'ic-green', l: 'Earnings' },
   { route: '/hub/menu', ic: 'utensils', tone: 'ic-ink', l: 'My menu' },
   { route: '/hub/create-meal', ic: 'plus', tone: 'ic-amber', l: 'Add meal' },

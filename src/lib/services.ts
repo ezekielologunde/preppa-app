@@ -1,0 +1,101 @@
+import { supabase } from './supabase';
+
+/**
+ * Food-Services marketplace client: request → quote → book → deposit. Preppa is the hub —
+ * the deposit is charged on Preppa; the cook is credited (net of the Stripe fee) via the
+ * reconcile trigger; the balance is settled offline. Web-first (Stripe.js for the deposit).
+ */
+
+export type ServiceCategory = 'cook_at_home' | 'private_dinner' | 'catering' | 'consultation' | 'class';
+export const SERVICE_LABELS: Record<ServiceCategory, string> = {
+  cook_at_home: 'Cook at my home',
+  private_dinner: 'Private dinner',
+  catering: 'Catering',
+  consultation: 'Meal-prep consultation',
+  class: 'Cooking class',
+};
+
+export interface QuoteView { id: string; kitchenId: string; kitchenName: string; amountCents: number; depositCents: number; note: string | null; status: string }
+export interface RequestView {
+  id: string; category: ServiceCategory; eventDate: string; approxArea: string | null;
+  guests: number | null; budgetCents: number | null; details: string | null; status: string; quotes: QuoteView[];
+}
+export interface BookingView {
+  id: string; kitchenName: string; status: string; amountCents: number; depositCents: number; balanceCents: number; eventDate: string;
+}
+export interface IncomingRequest {
+  requestId: string; kitchenId: string; category: ServiceCategory; eventDate: string; approxArea: string | null;
+  guests: number | null; budgetCents: number | null; details: string | null; myQuoteId: string | null; myAmountCents: number | null;
+}
+
+const num = (v: any) => Number(v) || 0;
+
+/** The customer's own requests + the quotes on them (customer view). */
+export async function listMyRequests(): Promise<RequestView[]> {
+  const { data: sess } = await supabase.auth.getSession();
+  if (!sess.session?.user) return [];
+  const { data, error } = await supabase
+    .from('service_requests')
+    .select('id, category, event_date, approx_area, guests, budget_cents, details, status, quotes(id, kitchen_id, amount_cents, deposit_cents, note, status, kitchens(name))')
+    .order('created_at', { ascending: false });
+  if (error || !data) return [];
+  return (data as any[]).map((r) => ({
+    id: r.id, category: r.category, eventDate: r.event_date, approxArea: r.approx_area, guests: r.guests,
+    budgetCents: r.budget_cents, details: r.details, status: r.status,
+    quotes: (r.quotes ?? []).map((q: any) => ({ id: q.id, kitchenId: q.kitchen_id, kitchenName: q.kitchens?.name ?? 'A prepper', amountCents: num(q.amount_cents), depositCents: num(q.deposit_cents), note: q.note, status: q.status })),
+  }));
+}
+
+/** The customer's service bookings. */
+export async function listMyBookings(): Promise<BookingView[]> {
+  const { data: sess } = await supabase.auth.getSession();
+  const uid = sess.session?.user?.id;
+  if (!uid) return [];
+  const { data, error } = await supabase
+    .from('bookings')
+    .select('id, status, amount_cents, deposit_cents, balance_cents, event_date, kitchens(name)')
+    .eq('customer_id', uid)
+    .order('created_at', { ascending: false });
+  if (error || !data) return [];
+  return (data as any[]).map((b) => ({ id: b.id, kitchenName: b.kitchens?.name ?? 'A prepper', status: b.status, amountCents: num(b.amount_cents), depositCents: num(b.deposit_cents), balanceCents: num(b.balance_cents), eventDate: b.event_date }));
+}
+
+/** A prepper's incoming (routed) requests. */
+export async function listIncomingRequests(): Promise<IncomingRequest[]> {
+  const { data, error } = await supabase.rpc('prepper_incoming_requests');
+  if (error || !data) return [];
+  return (data as any[]).map((r) => ({
+    requestId: r.request_id, kitchenId: r.kitchen_id, category: r.category, eventDate: r.event_date, approxArea: r.approx_area,
+    guests: r.guests, budgetCents: r.budget_cents, details: r.details, myQuoteId: r.my_quote_id, myAmountCents: r.my_amount_cents != null ? num(r.my_amount_cents) : null,
+  }));
+}
+
+export async function createServiceRequest(body: {
+  category: ServiceCategory; eventDate: string; eventTime?: string; address?: string; lat?: number; lng?: number;
+  approxArea?: string; guests?: number; budgetCents?: number; details?: string;
+}): Promise<{ requestId: string; targets: number }> {
+  const { data, error } = await supabase.functions.invoke('create-service-request', { body });
+  if (error || data?.error) throw new Error(data?.error || error?.message || 'Could not post your request.');
+  return { requestId: data.requestId, targets: data.targets };
+}
+
+export async function submitQuote(body: { requestId: string; amountCents: number; depositCents: number; note?: string }): Promise<string> {
+  const { data, error } = await supabase.functions.invoke('submit-quote', { body });
+  if (error || data?.error) throw new Error(data?.error || error?.message || 'Could not submit your quote.');
+  return data.quoteId;
+}
+
+export async function acceptQuoteAndDeposit(quoteId: string): Promise<{ bookingId: string; clientSecret: string | null; depositCents?: number }> {
+  const { data, error } = await supabase.functions.invoke('accept-quote-and-deposit', { body: { quoteId } });
+  if (error || data?.error) throw new Error(data?.error || error?.message || 'Could not start your booking.');
+  return { bookingId: data.bookingId, clientSecret: data.clientSecret, depositCents: data.depositCents };
+}
+
+export async function completeBooking(bookingId: string): Promise<void> {
+  const { data, error } = await supabase.functions.invoke('complete-booking', { body: { bookingId } });
+  if (error || data?.error) throw new Error(data?.error || error?.message || 'Could not update the booking.');
+}
+export async function cancelBooking(bookingId: string): Promise<void> {
+  const { data, error } = await supabase.functions.invoke('cancel-booking', { body: { bookingId } });
+  if (error || data?.error) throw new Error(data?.error || error?.message || 'Could not cancel the booking.');
+}

@@ -144,8 +144,8 @@ export default function CookStoreScreen() {
         <SectionHeader title="Reviews" right={revCount > 0 ? <Text style={[type(13, 800), { color: c.primary }]}>See all {revCount}</Text> : undefined} />
         <ReviewsBlock kitchenId={KITCHEN_ID[id]} />
 
-        {FLAGS.experiences && !isMine(id) ? (
-        <Press scale={0.985} onPress={() => router.push('/request/cookhome')} style={{ marginHorizontal: 16, marginTop: 14 }}>
+        {FLAGS.services && !isMine(id) ? (
+        <Press scale={0.985} onPress={() => router.push(`/service-request?category=cook_at_home&kitchen=${KITCHEN_ID[id]}`)} style={{ marginHorizontal: 16, marginTop: 14 }}>
           <View style={{ flexDirection: 'row', alignItems: 'center', gap: 14, backgroundColor: c.surface, borderWidth: 1, borderColor: c.border2, borderRadius: radius.xl, padding: 16 }}>
             <View style={{ width: 46, height: 46, borderRadius: 14, backgroundColor: c.primary, alignItems: 'center', justifyContent: 'center', ...shadow.brand }}>
               <Icon name="chefhat" size={22} color="#fff" />
@@ -168,6 +168,7 @@ function RealKitchenStore({ profile, meals, mealsLoading, revCount, revAvg, inse
   profile: KitchenProfile; meals: any[]; mealsLoading: boolean; revCount: number; revAvg: number; insetsTop: number; onBack: () => void;
 }) {
   const c = useC();
+  const router = useRouter();
   const { toast } = useStore();
   const [following, setFollowing] = useState(false);
   const initial = profile.name.trim()[0]?.toUpperCase() ?? 'K';
@@ -236,6 +237,19 @@ function RealKitchenStore({ profile, meals, mealsLoading, revCount, revAvg, inse
 
         <SectionHeader title="Reviews" right={revCount > 0 ? <Text style={[type(13, 800), { color: c.primary }]}>See all {revCount}</Text> : undefined} />
         <ReviewsBlock kitchenId={profile.id} />
+
+        {FLAGS.services ? (
+          <Press scale={0.985} onPress={() => router.push(`/service-request?category=cook_at_home&kitchen=${profile.id}`)} style={{ marginHorizontal: 16, marginTop: 14 }}>
+            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 14, backgroundColor: c.surface, borderWidth: 1, borderColor: c.border2, borderRadius: radius.xl, padding: 16 }}>
+              <View style={{ width: 46, height: 46, borderRadius: 14, backgroundColor: c.primary, alignItems: 'center', justifyContent: 'center', ...shadow.brand }}><Icon name="chefhat" size={22} color="#fff" /></View>
+              <View style={{ flex: 1 }}>
+                <Text style={[type(15, 900), { color: c.ink, letterSpacing: -0.3 }]}>Book {profile.name.split(' ')[0]} for your place</Text>
+                <Text style={[type(12, 600), { color: c.soft, marginTop: 3 }]}>Private dinners & events — get a fixed quote</Text>
+              </View>
+              <Icon name="chevRight" size={18} color={c.muted} />
+            </View>
+          </Press>
+        ) : null}
       </ScrollView>
     </Screen>
   );

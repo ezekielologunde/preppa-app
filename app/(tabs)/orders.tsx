@@ -9,6 +9,7 @@ import { useStore, CustomerOrder } from '../../src/store/store';
 import { Icon, Press, GradBox, Btn } from '../../src/ui';
 import { Empty } from '../../src/ui/layout';
 import { listMySubscriptions, type MySubscription } from '../../src/lib/subscriptions';
+import { listMyBookings, type BookingView } from '../../src/lib/services';
 
 const STATUS: Record<CustomerOrder['status'], { label: string; bg: (c: any) => string; fg: (c: any) => string }> = {
   preparing: { label: 'Preparing', bg: (c) => c.primaryL, fg: (c) => c.primaryD },
@@ -24,9 +25,15 @@ export default function Orders() {
   const insets = useSafeAreaInsets();
   const { orders } = useStore();
   const [subs, setSubs] = useState<MySubscription[]>([]);
-  useFocusEffect(useCallback(() => { let a = true; listMySubscriptions().then((s) => { if (a) setSubs(s); }); return () => { a = false; }; }, []));
+  const [bookings, setBookings] = useState<BookingView[]>([]);
+  useFocusEffect(useCallback(() => {
+    let a = true;
+    listMySubscriptions().then((s) => { if (a) setSubs(s); });
+    listMyBookings().then((b) => { if (a) setBookings(b); });
+    return () => { a = false; };
+  }, []));
 
-  const empty = orders.length === 0 && subs.length === 0;
+  const empty = orders.length === 0 && subs.length === 0 && bookings.length === 0;
 
   return (
     <View style={{ flex: 1, backgroundColor: c.bg }}>
@@ -54,6 +61,24 @@ export default function Orders() {
                       <Icon name="chevRight" size={16} color={c.muted} />
                     </View>
                   </Press>
+                ))}
+              </View>
+            </>
+          ) : null}
+
+          {bookings.length > 0 ? (
+            <>
+              <Text style={[type(12, 800), { color: c.muted, textTransform: 'uppercase', letterSpacing: 0.5, marginBottom: 10 }]}>Service bookings</Text>
+              <View style={{ gap: 10, marginBottom: 22 }}>
+                {bookings.map((b) => (
+                  <View key={b.id} style={{ flexDirection: 'row', alignItems: 'center', gap: 12, backgroundColor: c.surface, borderRadius: radius.card, borderWidth: 1, borderColor: c.border2, padding: 14, ...shadow.card }}>
+                    <View style={{ width: 46, height: 46, borderRadius: 14, backgroundColor: c.primaryL, alignItems: 'center', justifyContent: 'center' }}><Icon name="chefhat" size={21} color={c.primary} /></View>
+                    <View style={{ flex: 1, minWidth: 0 }}>
+                      <Text numberOfLines={1} style={[type(15, 900), { color: c.ink }]}>{b.kitchenName}</Text>
+                      <Text numberOfLines={1} style={[type(12.5, 600), { color: c.soft, marginTop: 2 }]}>{b.eventDate} · {money(b.amountCents / 100)} · {b.status === 'confirmed' ? 'Confirmed' : b.status === 'completed' ? 'Completed' : b.status === 'pending_deposit' ? 'Deposit pending' : b.status}</Text>
+                    </View>
+                    {b.balanceCents > 0 && (b.status === 'confirmed') ? <Text style={[type(11.5, 700), { color: c.muted }]}>{money(b.balanceCents / 100)} due</Text> : null}
+                  </View>
                 ))}
               </View>
             </>
