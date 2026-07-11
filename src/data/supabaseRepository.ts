@@ -91,28 +91,53 @@ function applyProximity(meals: Meal[]): Meal[] {
   return meals.sort((a, b) => a.name.localeCompare(b.name));
 }
 
+/** Pure client-side filter over the (cached) catalog — mirrors the old in-`list` filters. */
+export function filterMeals(meals: Meal[], query?: MealQuery): Meal[] {
+  let out = meals;
+  if (query?.kitchenUuid) out = out.filter((m) => m.kitchenUuid === query.kitchenUuid);
+  if (query?.cook) out = out.filter((m) => m.cook === query.cook);
+  if (query?.cat && query.cat !== 'All') {
+    const cat = query.cat.toLowerCase();
+    out = out.filter((m) => m.tags.some((t) => t.toLowerCase().includes(cat)));
+  }
+  if (query?.q) {
+    const q = query.q.toLowerCase();
+    out = out.filter((m) => m.name.toLowerCase().includes(q) || (COOKS[m.cook]?.name ?? '').toLowerCase().includes(q));
+  }
+  return out;
+}
+
+/** Nearest-first sort over an explicit coords value (copies the array — never reorders the
+ *  shared cached catalog). Lets coords changes re-sort client-side with no refetch. */
+export function sortByProximity(meals: Meal[], coords: LatLng | null): Meal[] {
+  const out = [...meals];
+  if (coords) {
+    for (const m of out) {
+      if (typeof m.kitchenLat === 'number' && typeof m.kitchenLng === 'number') {
+        m.distKm = distanceKm(coords, { lat: m.kitchenLat, lng: m.kitchenLng });
+        m.dist = distanceLabel(m.distKm);
+      }
+    }
+    return out.sort((a, b) => { const da = a.distKm ?? Infinity; const db = b.distKm ?? Infinity; return da === db ? a.name.localeCompare(b.name) : da - db; });
+  }
+  return out.sort((a, b) => a.name.localeCompare(b.name));
+}
+
 export function makeSupabaseRepositories(): Repositories {
   return {
     meals: {
-      async list(query?: MealQuery) {
+      // Returns the RAW live catalog (one cacheable fetch). Filtering by cook/kitchen/cat/q and
+      // proximity sorting are pure client-side transforms (filterMeals/sortByProximity) applied in
+      // the hook — so Home/Discover/every storefront share one cached download and a coords change
+      // re-sorts without a refetch.
+      async list(_query?: MealQuery) {
         const { data, error } = await supabase
           .from('meals')
           .select(MEAL_COLS)
           .eq('status', 'live')
           .not('slug', 'is', null);
         if (error) throw error;
-        let out = (data ?? []).map(rowToMeal);
-        if (query?.kitchenUuid) out = out.filter((m) => m.kitchenUuid === query.kitchenUuid);
-        if (query?.cook) out = out.filter((m) => m.cook === query.cook);
-        if (query?.cat && query.cat !== 'All') {
-          const cat = query.cat.toLowerCase();
-          out = out.filter((m) => m.tags.some((t) => t.toLowerCase().includes(cat)));
-        }
-        if (query?.q) {
-          const q = query.q.toLowerCase();
-          out = out.filter((m) => m.name.toLowerCase().includes(q) || (COOKS[m.cook]?.name ?? '').toLowerCase().includes(q));
-        }
-        return applyProximity(out); // real distance + nearest-first when the viewer has coords
+        return (data ?? []).map(rowToMeal);
       },
       async byId(id: string) {
         const { data, error } = await supabase.from('meals').select(MEAL_COLS).eq('slug', id).maybeSingle();

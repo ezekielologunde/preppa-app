@@ -5,6 +5,7 @@ import { useC } from '../../src/theme/ThemeContext';
 import { type, GradKey } from '../../src/theme/theme';
 import { useStore } from '../../src/store/store';
 import { createMeal } from '../../src/lib/supabase';
+import { invalidate } from '../../src/data/cache';
 import { Stepper } from '../../src/ui';
 import { Screen, TopBar, Dock } from '../../src/ui/layout';
 import { Burst } from '../../src/components/shared';
@@ -43,6 +44,7 @@ export default function CreateMealFlow() {
         tags: [cat, ...diet],
         grad: grad ?? undefined,
       });
+      invalidate('catalog:live'); // new meal → refresh the cached catalog everywhere
       setDone(true);
     } catch (e: any) {
       setBusy(false);

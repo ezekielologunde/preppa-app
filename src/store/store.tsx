@@ -289,10 +289,13 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
   useEffect(() => {
     if (!ready) return;
     reconcileAccount();
-    const { data: sub } = supabase.auth.onAuthStateChange(() => {
-      // Defer out of the callback: supabase-js v2 holds the auth lock while this
-      // runs, so calling auth methods (getSession, inside reconcileAccount)
-      // synchronously here can deadlock and leave isAdmin/role unreconciled.
+    const { data: sub } = supabase.auth.onAuthStateChange((event) => {
+      // Skip hourly TOKEN_REFRESHED and the INITIAL_SESSION echo — the reconcile on mount
+      // (above) already covers boot. Reconciling on those re-ran 3 serial round trips + a
+      // notifications refetch for the whole session. Only real sign-in/out/user changes matter.
+      if (event === 'TOKEN_REFRESHED' || event === 'INITIAL_SESSION') return;
+      // Defer out of the callback: supabase-js v2 holds the auth lock while this runs, so
+      // calling auth methods (getSession, inside reconcileAccount) synchronously can deadlock.
       setTimeout(() => { reconcileAccount(); }, 0);
     });
     return () => sub.subscription.unsubscribe();
