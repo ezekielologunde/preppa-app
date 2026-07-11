@@ -1,4 +1,4 @@
-import React, { createContext, useContext } from 'react';
+import React, { createContext, useContext, useMemo } from 'react';
 import { light, dark, Palette } from './theme';
 
 interface ThemeShape {
@@ -8,7 +8,11 @@ interface ThemeShape {
 const ThemeContext = createContext<ThemeShape>({ c: light, dark: false });
 
 export function ThemeProvider({ isDark, children }: { isDark: boolean; children: React.ReactNode }) {
-  return <ThemeContext.Provider value={{ c: isDark ? dark : light, dark: isDark }}>{children}</ThemeContext.Provider>;
+  // Memo on isDark only: the parent (Themed) re-renders on every store change, but the palette
+  // identity stays stable, so useC()/useIsDark() consumers don't re-render — this was defeating
+  // every React.memo across the app.
+  const value = useMemo<ThemeShape>(() => ({ c: isDark ? dark : light, dark: isDark }), [isDark]);
+  return <ThemeContext.Provider value={value}>{children}</ThemeContext.Provider>;
 }
 
 /** Active colour palette. */

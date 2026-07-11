@@ -1,4 +1,4 @@
-import React, { createContext, useContext, useState, useEffect, useCallback, useRef } from 'react';
+import React, { createContext, useContext, useState, useEffect, useCallback, useRef, useMemo } from 'react';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import {
   GradKey, CookId, Subscription, ServiceRequest, SEED_REQUESTS, genQuotes,
@@ -161,6 +161,16 @@ interface Store {
 
 const StoreContext = createContext<Store>(null as any);
 export const useStore = () => useContext(StoreContext);
+
+// Narrow contexts for hot components (meal cards) so they don't wake on unrelated store
+// churn (toasts, the flash overlay, cart edits). `useStore()` stays the full compat API.
+type Actions = Pick<Store, 'addToCart' | 'toggleFav' | 'showFlash' | 'isMine' | 'toast'>;
+const ActionsContext = createContext<Actions>(null as any);
+const FavContext = createContext<{ fav: Set<string>; toggleFav: (id: string) => void }>(null as any);
+/** Stable action handlers only — identity changes rarely (≈ role change), never on toast/flash/cart. */
+export const useActions = () => useContext(ActionsContext);
+/** The favorites set + toggler. Re-renders on favorite changes only. */
+export const useFav = () => useContext(FavContext);
 
 let toastSeq = 1;
 
@@ -557,5 +567,17 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
     markAllRead,
     notifCount,
   };
-  return <StoreContext.Provider value={value}>{children}</StoreContext.Provider>;
+
+  // Memoized narrow slices: `actions` changes only when a handler identity changes (≈ role);
+  // `favValue` only when the favorites set changes — so meal cards ignore toast/flash/cart churn.
+  const actions = useMemo<Actions>(() => ({ addToCart, toggleFav, showFlash, isMine, toast }), [addToCart, toggleFav, showFlash, isMine, toast]);
+  const favValue = useMemo(() => ({ fav, toggleFav }), [fav, toggleFav]);
+
+  return (
+    <StoreContext.Provider value={value}>
+      <ActionsContext.Provider value={actions}>
+        <FavContext.Provider value={favValue}>{children}</FavContext.Provider>
+      </ActionsContext.Provider>
+    </StoreContext.Provider>
+  );
 }

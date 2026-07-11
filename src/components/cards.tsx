@@ -6,7 +6,7 @@ import { useKitchenReviews, type KitchenCard } from '../data/hooks';
 import { seedCookForKitchen } from '../data/supabaseRepository';
 import { useC } from '../theme/ThemeContext';
 import { type, radius, shadow } from '../theme/theme';
-import { useStore } from '../store/store';
+import { useActions, useFav } from '../store/store';
 import { Press, GradBox, Icon, Avatar, Stars, GradAvatar } from '../ui';
 import { useReducedMotion } from '../ui/useReducedMotion';
 
@@ -219,7 +219,8 @@ export function MealGrid({ meals, showMatch, px = 20 }: { meals: Meal[]; showMat
 export const MealCardLg = React.memo(function MealCardLg({ m, showMatch, width }: { m: Meal; showMatch?: boolean; width?: number }) {
   const c = useC();
   const router = useRouter();
-  const { fav, toggleFav, addToCart, showFlash, isMine } = useStore();
+  const { fav } = useFav();
+  const { toggleFav, addToCart, showFlash, isMine } = useActions();
   const cook = cookOf(m);
   const isFav = fav.has(m.id);
   const mine = isMine(m.cook);
@@ -304,7 +305,8 @@ export const MealCardLg = React.memo(function MealCardLg({ m, showMatch, width }
 export const HeroDrop = React.memo(function HeroDrop({ m }: { m: Meal }) {
   const c = useC();
   const router = useRouter();
-  const { fav, toggleFav, addToCart, showFlash, isMine } = useStore();
+  const { fav } = useFav();
+  const { toggleFav, addToCart, showFlash, isMine } = useActions();
   const cook = cookOf(m);
   const isFav = fav.has(m.id);
   const mine = isMine(m.cook);
