@@ -139,15 +139,44 @@ export default function HomeScreen() {
           </>
         ) : null}
 
-        {/* banner CTAs */}
-        <ChefBanner c={c} grad={['#FF8A4C', c.primary]} icon="chefhat" title="Cook at My Place" body="A private chef in your kitchen — compare fixed quotes" onPress={() => FLAGS.services ? router.push('/service-request?category=cook_at_home') : toast('Private-chef bookings are coming soon', 'chefhat')} />
-        <ChefBanner c={c} grad={['#A855F7', c.purple]} icon="repeat" title="Weekly meal plans" body="Subscribe to a cook’s box — pause or swap anytime" onPress={() => router.push('/plans')} style={{ marginTop: 10 }} />
+        {/* High-end big cards — the app's four layers, since they're not in the mobile nav. */}
+        <SectionHeader title="Explore Preppa" />
+        <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 12, paddingHorizontal: 20 }}>
+          <BigCard c={c} wide={wide} grad={['#A855F7', '#7C3AED']} icon="repeat" title="Meal plans" body="Weekly boxes from a cook you love" onPress={() => router.push('/discover?mode=plans')} />
+          <BigCard c={c} wide={wide} grad={['#38BDF8', '#2563EB']} icon="bank" title="Subscriptions" body="Manage your recurring boxes" onPress={() => router.push('/plans')} />
+          <BigCard c={c} wide={wide} grad={['#FB7185', '#E11D48']} icon="gift" title="Experiences" body="Classes, supper clubs & events" soon onPress={() => toast('Food experiences are coming soon', 'gift')} />
+          <BigCard c={c} wide={wide} grad={['#334155', '#0F172A']} icon="video" title="Feed" body="Watch cooks & meal drops" soon onPress={() => toast('The creator feed is coming soon', 'video')} />
+        </View>
+
+        {/* Cook-at-My-Place (services) banner */}
+        <ChefBanner c={c} grad={['#FF8A4C', c.primary]} icon="chefhat" title="Cook at My Place" body="A private chef in your kitchen — compare fixed quotes" onPress={() => FLAGS.services ? router.push('/service-request?category=cook_at_home') : toast('Private-chef bookings are coming soon', 'chefhat')} style={{ marginTop: 16 }} />
 
         <View style={{ height: 14 }} />
       </ScrollView>
       <LocationPicker visible={locPicker} onClose={() => setLocPicker(false)} />
       <QuickCartSheet visible={cartOpen} onClose={() => setCartOpen(false)} />
     </View>
+  );
+}
+
+/** High-end gradient "layer" card for the homepage (meal plans / subscriptions / experiences / feed). */
+function BigCard({ c, wide, grad, icon, title, body, soon, onPress }: { c: any; wide: boolean; grad: [string, string]; icon: string; title: string; body: string; soon?: boolean; onPress: () => void }) {
+  return (
+    <Press scale={0.97} onPress={onPress} style={{ flexBasis: wide ? '23%' : '47%', flexGrow: 1, minWidth: wide ? 190 : 150 }} label={title}>
+      <LinearGradient colors={grad} start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }} style={{ borderRadius: 22, padding: 16, minHeight: 150, overflow: 'hidden', justifyContent: 'space-between', ...shadow.card }}>
+        <View pointerEvents="none" style={{ position: 'absolute', right: -30, top: -30, width: 100, height: 100, borderRadius: 50, backgroundColor: 'rgba(255,255,255,.12)' }} />
+        <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-start' }}>
+          <View style={{ width: 44, height: 44, borderRadius: 14, backgroundColor: 'rgba(255,255,255,.2)', alignItems: 'center', justifyContent: 'center' }}>
+            <Icon name={icon} size={22} color="#fff" />
+          </View>
+          {soon ? <View style={{ height: 22, paddingHorizontal: 9, borderRadius: 99, backgroundColor: 'rgba(255,255,255,.22)', alignItems: 'center', justifyContent: 'center' }}><Text style={[type(9.5, 900), { color: '#fff', textTransform: 'uppercase', letterSpacing: 0.4 }]}>Soon</Text></View> : null}
+        </View>
+        <View style={{ marginTop: 16 }}>
+          <Text style={[type(17, 900), { color: '#fff', letterSpacing: -0.4 }]}>{title}</Text>
+          <Text style={[type(12.5, 600), { color: 'rgba(255,255,255,.85)', marginTop: 3, lineHeight: 16 }]}>{body}</Text>
+        </View>
+      </LinearGradient>
+    </Press>
   );
 }
 

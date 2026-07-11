@@ -7,8 +7,11 @@ import { useStore } from '../store/store';
 import { Icon, Press } from '../ui';
 import { FLAGS } from '../config/flags';
 
+// The desktop rail can afford a fuller nav than the minimal mobile bottom bar.
 const ITEMS = [
   { id: 'home', ico: 'home', lbl: 'Home', path: '/home' },
+  { id: 'discover', ico: 'compass', lbl: 'Discover', path: '/discover' },
+  { id: 'plans', ico: 'repeat', lbl: 'Meal plans', path: '/plans' },
   { id: 'orders', ico: 'bag', lbl: 'Orders', path: '/orders' },
   { id: 'my-hub', ico: 'chefhat', lbl: 'My Hub', path: '/my-hub' },
   { id: 'profile', ico: 'user', lbl: 'Profile', path: '/profile' },
