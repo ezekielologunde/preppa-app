@@ -10,6 +10,8 @@ import { type, radius, shadow } from '../../src/theme/theme';
 import { useStore } from '../../src/store/store';
 import { Icon, Press } from '../../src/ui';
 import { HeroDrop, MealGrid, SectionHeader, CookRail } from '../../src/components/cards';
+import { LocationPicker } from '../../src/components/LocationPicker';
+import { captureCurrentLocation } from '../../src/lib/geo';
 import { QuickCartSheet } from '../../src/components/QuickCartSheet';
 import { FLAGS } from '../../src/config/flags';
 
@@ -24,10 +26,12 @@ export default function HomeScreen() {
   const c = useC();
   const insets = useSafeAreaInsets();
   const router = useRouter();
-  const { cartCount, notifCount, fav, firstName, orders, reorder } = useStore();
+  const { location, setLocation, toast, cartCount, notifCount, fav, firstName, orders, reorder } = useStore();
   const { width } = useWindowDimensions();
   const wide = width >= 700; // logo + actions live in the SideRail on wide screens
   const [cartOpen, setCartOpen] = useState(false);
+  const [locPicker, setLocPicker] = useState(false);
+  const [locBusy, setLocBusy] = useState(false);
   const dropId = dailyDropId();
   const { data: allMeals, loading: mealsLoading } = useMeals(); // real catalog from the DB
   const meals = allMeals ?? [];
@@ -40,6 +44,22 @@ export default function HomeScreen() {
     if (!lastOrder) return;
     reorder(lastOrder.id);
     router.push('/cart');
+  };
+
+  // Tapping the location pill captures the user's real present location (GPS);
+  // if it's denied or unavailable, fall back to the manual area picker.
+  const useMyLocation = async () => {
+    if (locBusy) return;
+    setLocBusy(true);
+    try {
+      const place = await captureCurrentLocation();
+      setLocation(place);
+      toast(`Location set to ${place}`, 'pin', true);
+    } catch {
+      setLocPicker(true);
+    } finally {
+      setLocBusy(false);
+    }
   };
 
   return (
@@ -67,7 +87,16 @@ export default function HomeScreen() {
             </View>
           ) : null}
 
-          <View style={{ marginTop: wide ? 8 : 20 }}>
+          <Press scale={0.98} onPress={useMyLocation} label="Set your location" style={{ marginTop: wide ? 0 : 14, alignSelf: 'flex-start' }}>
+            <Text style={[type(11, 700), { color: c.muted, textTransform: 'uppercase', letterSpacing: 0.6 }]}>Your area</Text>
+            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 5, marginTop: 3 }}>
+              {locBusy ? <ActivityIndicator size="small" color={c.ink} /> : <Icon name="pin" size={15} color={c.ink} />}
+              <Text style={[type(16, 800), { color: c.ink, letterSpacing: -0.3 }]}>{location}</Text>
+              <Icon name="chevDown" size={13} color={c.muted} />
+            </View>
+          </Press>
+
+          <View style={{ marginTop: 22 }}>
             <Text style={[type(29, 900), { color: c.ink, letterSpacing: -1.2, lineHeight: 31 }]}>
               {greetWord()}{firstName ? ', ' : ''}<Text style={{ color: c.primary }}>{firstName}</Text>
             </Text>
@@ -142,6 +171,7 @@ export default function HomeScreen() {
 
         <View style={{ height: 8 }} />
       </ScrollView>
+      <LocationPicker visible={locPicker} onClose={() => setLocPicker(false)} />
       <QuickCartSheet visible={cartOpen} onClose={() => setCartOpen(false)} />
     </View>
   );
