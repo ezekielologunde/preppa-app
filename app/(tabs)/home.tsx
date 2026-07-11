@@ -26,7 +26,7 @@ export default function HomeScreen() {
   const c = useC();
   const insets = useSafeAreaInsets();
   const router = useRouter();
-  const { location, setLocation, toast, cartCount, notifCount, fav, firstName, orders, reorder } = useStore();
+  const { location, setLocation, setCoords, toast, cartCount, notifCount, fav, firstName, orders, reorder } = useStore();
   const { width } = useWindowDimensions();
   const wide = width >= 700; // logo + actions live in the SideRail on wide screens
   const [cartOpen, setCartOpen] = useState(false);
@@ -52,9 +52,10 @@ export default function HomeScreen() {
     if (locBusy) return;
     setLocBusy(true);
     try {
-      const place = await captureCurrentLocation();
-      setLocation(place);
-      toast(`Location set to ${place}`, 'pin', true);
+      const loc = await captureCurrentLocation();
+      setLocation(loc.label);
+      setCoords({ lat: loc.lat, lng: loc.lng });
+      toast(`Location set to ${loc.label}`, 'pin', true);
     } catch {
       setLocPicker(true);
     } finally {

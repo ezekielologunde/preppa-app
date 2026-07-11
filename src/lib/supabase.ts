@@ -288,6 +288,12 @@ export async function createMeal(m: NewMeal): Promise<string> {
   return data as string;
 }
 
+/** Store the caller's kitchen's approximate coordinates (owner-only, best-effort). */
+export async function setKitchenGeo(kitchenId: string, lat: number, lng: number): Promise<void> {
+  const { error } = await supabase.rpc('set_kitchen_geo', { p_kitchen: kitchenId, p_lat: lat, p_lng: lng });
+  if (error) throw error;
+}
+
 // ---- Real notifications --------------------------------------------------------
 // Read the signed-in user's real notifications (RLS: user_id = auth.uid()). Rows are
 // generated server-side on real events (kitchen approval/rejection, order status).

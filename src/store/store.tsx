@@ -8,10 +8,12 @@ import { ME } from '../data/cook';
 import { computeTotals } from '../data/totals';
 import {
   signOutUser, fetchAccountState, submitPrepperApplication, updateDisplayName,
-  fetchNotifications, markNotificationRead, markAllNotificationsRead,
+  fetchNotifications, markNotificationRead, markAllNotificationsRead, setKitchenGeo,
   type ApplicationFields, type AppNotification,
 } from '../lib/supabase';
 import { supabase } from '../lib/supabase';
+import { setViewerCoords } from '../data/supabaseRepository';
+import { geocodeAddress, type LatLng } from '../lib/geo';
 export type { ApplicationFields };
 
 export type PrepperStatus = 'none' | 'pending' | 'approved';
@@ -92,6 +94,8 @@ interface Store {
   setMode: (m: 'delivery' | 'pickup') => void;
   location: string;
   setLocation: (l: string) => void;
+  coords: LatLng | null;
+  setCoords: (c: LatLng | null) => void;
 
   // signed-in user identity (Supabase profile; empty when signed out / before load)
   name: string; // profiles.display_name
@@ -168,6 +172,7 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
   const [tip, setTip] = useState(2);
   const [mode, setMode] = useState<'delivery' | 'pickup'>('delivery');
   const [location, setLocation] = useState('Atlanta, GA');
+  const [coords, setCoordsState] = useState<LatLng | null>(null);
   const [name, setName] = useState('');
   const [firstName, setFirstName] = useState('');
   const [fav, setFav] = useState<Set<string>>(new Set());
@@ -204,6 +209,7 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
           if (typeof s.tip === 'number') setTip(s.tip);
           if (s.mode) setMode(s.mode);
           if (typeof s.location === 'string') setLocation(s.location);
+          if (s.coords && typeof s.coords.lat === 'number' && typeof s.coords.lng === 'number') { setCoordsState(s.coords); setViewerCoords(s.coords); }
           if (typeof s.name === 'string') setName(s.name);
           if (typeof s.firstName === 'string') setFirstName(s.firstName);
           if (Array.isArray(s.fav)) setFav(new Set(s.fav));
@@ -231,9 +237,9 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
     if (!hydrated.current) return;
     AsyncStorage.setItem(
       LS,
-      JSON.stringify({ onboarded, darkMode, cart, tip, mode, location, name, firstName, fav: [...fav], addresses, addressId, lastOrder, orders, subs, requests, avail, reels }),
+      JSON.stringify({ onboarded, darkMode, cart, tip, mode, location, coords, name, firstName, fav: [...fav], addresses, addressId, lastOrder, orders, subs, requests, avail, reels }),
     ).catch(() => {});
-  }, [onboarded, darkMode, cart, tip, mode, location, name, firstName, fav, addresses, addressId, lastOrder, orders, subs, requests, avail, reels]);
+  }, [onboarded, darkMode, cart, tip, mode, location, coords, name, firstName, fav, addresses, addressId, lastOrder, orders, subs, requests, avail, reels]);
 
   const toast = useCallback((msg: string, icon = 'check', green = false) => {
     const id = toastSeq++;
@@ -287,9 +293,14 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
   // Full cook application (identity + kitchen + food-safety + agreement). Admin-driven
   // approval — no client-side auto-approve. Throws on failure so the form can show it.
   const submitApplication = useCallback(async (f: ApplicationFields) => {
-    await submitPrepperApplication(f);
+    const kitchenId = await submitPrepperApplication(f);
     if (f.legalName && f.legalName !== name) { try { await saveName(f.legalName); } catch {} }
     setPrepperStatus('pending');
+    // Best-effort: geocode the kitchen's location so buyers can sort it by proximity.
+    try {
+      const geo = await geocodeAddress(f.address || f.neighborhood);
+      if (geo && kitchenId) await setKitchenGeo(kitchenId, geo.lat, geo.lng);
+    } catch { /* non-blocking — proximity is a nice-to-have, not a gate */ }
   }, [name, saveName]);
 
   const addToCart = useCallback((line: Omit<CartLine, 'qty'>, qty = 1) => {
@@ -411,6 +422,7 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
     setTip(2);
     setMode('delivery');
     setLocation('Atlanta, GA');
+    setCoordsState(null); setViewerCoords(null);
     setName('');
     setFirstName('');
     setDarkModeState(false);
@@ -471,6 +483,8 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
     setNotifs((ns) => ns.map((n) => ({ ...n, unread: false }))); // optimistic
     markAllNotificationsRead().catch(() => {});
   }, []);
+  // Keep the repository's viewer coords in sync so the catalog can sort nearest-first.
+  const setCoords = useCallback((cc: LatLng | null) => { setCoordsState(cc); setViewerCoords(cc); }, []);
   // Bell/badge counts real unread notifications only (buyer↔cook DMs are deferred).
   const notifCount = notifs.filter((n) => n.unread).length;
 
@@ -494,6 +508,8 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
     setMode,
     location,
     setLocation,
+    coords,
+    setCoords,
     name,
     firstName,
     saveName,

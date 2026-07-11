@@ -8,6 +8,7 @@
  */
 import { supabase, KITCHEN_ID } from '../lib/supabase';
 import { Meal, Cook, CookId, COOKS, Experience, EXPERIENCES, expById, MarketPlan, MARKET_PLANS } from './data';
+import { distanceKm, distanceLabel, type LatLng } from '../lib/geo';
 import type { GradKey } from '../theme/theme';
 import type { Repositories, MealQuery } from './repository';
 
@@ -16,14 +17,22 @@ const KITCHEN_TO_COOK: Record<string, CookId> = Object.fromEntries(
   Object.entries(KITCHEN_ID).map(([key, uuid]) => [uuid, key as CookId]),
 ) as Record<string, CookId>;
 
+// The viewer's captured coordinates, pushed by the store on GPS capture. Used to
+// compute real distance to each kitchen and sort the catalog nearest-first.
+let viewerCoords: LatLng | null = null;
+export function setViewerCoords(c: LatLng | null) { viewerCoords = c; }
+
 // Embeds the parent kitchen (to-one) so real kitchens can render under their own
-// identity instead of a seed cook.
+// identity + coordinates instead of a seed cook.
 const MEAL_COLS =
-  'id,slug,name,kitchen_id,price_cents,grad,rating,review_count,prep_label,dist_label,tags,is_match,kcal,protein_g,serves,description,image_url,photos,kitchens(name,cuisine,approx_area)';
+  'id,slug,name,kitchen_id,price_cents,grad,rating,review_count,prep_label,tags,is_match,kcal,protein_g,serves,description,image_url,photos,kitchens(name,cuisine,approx_area,approx_lat,approx_lng)';
 
 function rowToMeal(r: any): Meal {
   const seedCook = KITCHEN_TO_COOK[r.kitchen_id]; // defined only for the 6 seed kitchens
   const k = r.kitchens ?? null; // joined kitchen row (to-one embed)
+  // numeric columns arrive from supabase-js as strings — coerce + guard.
+  const lat = k?.approx_lat != null ? Number(k.approx_lat) : NaN;
+  const lng = k?.approx_lng != null ? Number(k.approx_lng) : NaN;
   return {
     id: r.slug,
     name: r.name,
@@ -35,7 +44,9 @@ function rowToMeal(r: any): Meal {
     rating: Number(r.rating ?? 0),
     reviews: r.review_count ?? 0,
     time: r.prep_label ?? '',
-    dist: r.dist_label ?? (seedCook ? '' : k?.approx_area ?? ''),
+    // No fake distance: dist is a REAL computed value (filled in list() when the
+    // viewer and the kitchen both have coordinates), otherwise empty.
+    dist: '',
     tags: (r.tags as string[]) ?? [],
     match: !!r.is_match,
     kcal: r.kcal ?? 0,
@@ -50,7 +61,29 @@ function rowToMeal(r: any): Meal {
     kitchenName: seedCook ? undefined : (k?.name ?? 'Kitchen'),
     kitchenCuisine: seedCook ? undefined : (k?.cuisine ?? undefined),
     kitchenArea: seedCook ? undefined : (k?.approx_area ?? undefined),
+    kitchenLat: Number.isFinite(lat) ? lat : undefined,
+    kitchenLng: Number.isFinite(lng) ? lng : undefined,
   };
+}
+
+// Fill in real distance from the viewer's coords, and sort nearest-first. Kitchens
+// without coordinates (e.g. the seed cooks) get no distance and sort after those
+// that do; with no viewer location we keep a stable alphabetical order.
+function applyProximity(meals: Meal[]): Meal[] {
+  if (viewerCoords) {
+    for (const m of meals) {
+      if (typeof m.kitchenLat === 'number' && typeof m.kitchenLng === 'number') {
+        m.distKm = distanceKm(viewerCoords, { lat: m.kitchenLat, lng: m.kitchenLng });
+        m.dist = distanceLabel(m.distKm);
+      }
+    }
+    return meals.sort((a, b) => {
+      const da = a.distKm ?? Infinity;
+      const db = b.distKm ?? Infinity;
+      return da === db ? a.name.localeCompare(b.name) : da - db;
+    });
+  }
+  return meals.sort((a, b) => a.name.localeCompare(b.name));
 }
 
 export function makeSupabaseRepositories(): Repositories {
@@ -64,7 +97,6 @@ export function makeSupabaseRepositories(): Repositories {
           .not('slug', 'is', null);
         if (error) throw error;
         let out = (data ?? []).map(rowToMeal);
-        out.sort((a, b) => a.name.localeCompare(b.name)); // stable catalog order
         if (query?.cook) out = out.filter((m) => m.cook === query.cook);
         if (query?.cat && query.cat !== 'All') {
           const cat = query.cat.toLowerCase();
@@ -74,12 +106,13 @@ export function makeSupabaseRepositories(): Repositories {
           const q = query.q.toLowerCase();
           out = out.filter((m) => m.name.toLowerCase().includes(q) || (COOKS[m.cook]?.name ?? '').toLowerCase().includes(q));
         }
-        return out;
+        return applyProximity(out); // real distance + nearest-first when the viewer has coords
       },
       async byId(id: string) {
         const { data, error } = await supabase.from('meals').select(MEAL_COLS).eq('slug', id).maybeSingle();
         if (error) throw error;
-        return data ? rowToMeal(data) : null;
+        if (!data) return null;
+        return applyProximity([rowToMeal(data)])[0];
       },
     },
     // Delegated to the seed for this slice; migrated in the next R1 pass.

@@ -12,16 +12,17 @@ const AREAS = ['Atlanta, GA', 'Midtown, Atlanta', 'Old Fourth Ward', 'Inman Park
  *  ("Use my current location") with the manual area list as a fallback. */
 export function LocationPicker({ visible, onClose }: { visible: boolean; onClose: () => void }) {
   const c = useC();
-  const { location, setLocation, toast } = useStore();
+  const { location, setLocation, setCoords, toast } = useStore();
   const [busy, setBusy] = useState(false);
-  const pick = (a: string) => { setLocation(a); toast(`Location set to ${a}`, 'pin', true); onClose(); };
+  const pick = (a: string) => { setLocation(a); setCoords(null); toast(`Location set to ${a}`, 'pin', true); onClose(); };
   const useCurrent = async () => {
     if (busy) return;
     setBusy(true);
     try {
-      const place = await captureCurrentLocation();
-      setLocation(place);
-      toast(`Location set to ${place}`, 'pin', true);
+      const loc = await captureCurrentLocation();
+      setLocation(loc.label);
+      setCoords({ lat: loc.lat, lng: loc.lng });
+      toast(`Location set to ${loc.label}`, 'pin', true);
       onClose();
     } catch (e: any) {
       toast(e?.message || 'Couldn’t get your location — pick an area below.', 'info');

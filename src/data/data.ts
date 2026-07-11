@@ -65,6 +65,9 @@ export interface Meal {
   kitchenName?: string;
   kitchenCuisine?: string;
   kitchenArea?: string;
+  kitchenLat?: number; // real kitchen coords (for proximity); present once geocoded
+  kitchenLng?: number;
+  distKm?: number; // computed distance from the viewer (present when both have coords)
 }
 
 /**

@@ -7,6 +7,7 @@ import { getRepositories, MealQuery } from './repository';
 import { Meal, Cook, CookId } from './data';
 import * as admin from '../lib/admin';
 import { supabase } from '../lib/supabase';
+import { useStore } from '../store/store';
 
 export interface AsyncState<T> {
   data: T | null;
@@ -31,7 +32,8 @@ export function useAsync<T>(run: () => Promise<T>, deps: unknown[]): AsyncState<
 }
 
 export function useMeals(query?: MealQuery): AsyncState<Meal[]> {
-  return useAsync(() => getRepositories().meals.list(query), [query?.cook, query?.cat, query?.q]);
+  const { coords } = useStore(); // re-sort nearest-first when the viewer's location changes
+  return useAsync(() => getRepositories().meals.list(query), [query?.cook, query?.cat, query?.q, coords?.lat, coords?.lng]);
 }
 export function useMeal(id: string): AsyncState<Meal | null> {
   return useAsync(() => getRepositories().meals.byId(id), [id]);
