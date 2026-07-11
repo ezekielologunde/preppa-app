@@ -9,6 +9,7 @@ import { FLAGS } from '../config/flags';
 
 const ITEMS = [
   { id: 'home', ico: 'home', lbl: 'Home', path: '/home' },
+  { id: 'plans', ico: 'repeat', lbl: 'Plans', path: '/plans' },
   { id: 'experiences', ico: 'grid', lbl: 'Experiences', path: '/experiences' },
   { id: 'feeds', ico: 'video', lbl: 'Feed', path: '/feeds' },
   { id: 'my-hub', ico: 'chefhat', lbl: 'My Hub', path: '/my-hub' },
@@ -26,6 +27,7 @@ export function SideRail({ width }: { width: number }) {
   const initial = (firstName || name || '?').trim()[0]?.toUpperCase() ?? '?';
   const items = ITEMS.filter((it) => {
     if (it.id === 'my-hub') return prepperStatus === 'approved'; // prepper-only
+    if (it.id === 'plans') return FLAGS.plans;
     if (it.id === 'experiences') return FLAGS.experiences;
     if (it.id === 'feeds') return FLAGS.feed;
     return true;

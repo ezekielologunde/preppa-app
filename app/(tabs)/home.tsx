@@ -1,19 +1,22 @@
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { View, Text, ScrollView, ActivityIndicator, useWindowDimensions } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useRouter } from 'expo-router';
-import { COOKS, CookId, dailyDropId } from '../../src/data/data';
+import { COOKS, CookId, dailyDropId, money } from '../../src/data/data';
 import { useMeals } from '../../src/data/hooks';
 import { useC } from '../../src/theme/ThemeContext';
 import { type, radius, shadow } from '../../src/theme/theme';
 import { useStore } from '../../src/store/store';
-import { Icon, Press } from '../../src/ui';
+import { Icon, Press, GradBox } from '../../src/ui';
 import { HeroDrop, MealGrid, SectionHeader, CookRail } from '../../src/components/cards';
 import { LocationPicker } from '../../src/components/LocationPicker';
 import { captureCurrentLocation } from '../../src/lib/geo';
 import { QuickCartSheet } from '../../src/components/QuickCartSheet';
 import { FLAGS } from '../../src/config/flags';
+import { fetchActivePlans, listMySubscriptions, type Plan, type MySubscription } from '../../src/lib/subscriptions';
+
+const planWeekly = (cents: number) => money((cents + Math.round(cents * 0.1)) / 100);
 
 const CUISINES = ['Comfort', 'Healthy', 'Halal', 'Mexican', 'Seafood', 'Soul food'];
 
@@ -34,6 +37,17 @@ export default function HomeScreen() {
   const [locBusy, setLocBusy] = useState(false);
   const dropId = dailyDropId();
   const { data: allMeals, loading: mealsLoading } = useMeals(); // real catalog from the DB
+  const [plans, setPlans] = useState<Plan[]>([]);
+  const [mySubs, setMySubs] = useState<MySubscription[]>([]);
+  useEffect(() => {
+    if (!FLAGS.plans) return;
+    let alive = true;
+    Promise.all([fetchActivePlans(), listMySubscriptions()]).then(([p, s]) => {
+      if (alive) { setPlans(p); setMySubs(s); }
+    }).catch(() => {});
+    return () => { alive = false; };
+  }, []);
+  const activeSub = mySubs.find((s) => s.status === 'active' || s.status === 'paused') ?? null;
   const meals = allMeals ?? [];
   const drop = meals.find((m) => m.id === dropId) ?? null;
   const picks = meals.filter((m) => m.id !== dropId).slice(0, 4);
@@ -101,7 +115,7 @@ export default function HomeScreen() {
             <Text style={[type(29, 900), { color: c.ink, letterSpacing: -1.2, lineHeight: 31 }]}>
               {greetWord()}{firstName ? ', ' : ''}<Text style={{ color: c.primary }}>{firstName}</Text>
             </Text>
-            <Text style={[type(15.5, 500), { color: c.soft, marginTop: 7 }]}>What sounds good tonight?</Text>
+            <Text style={[type(15.5, 500), { color: c.soft, marginTop: 7 }]}>Plan your week, or grab something for tonight.</Text>
           </View>
         </LinearGradient>
 
@@ -125,6 +139,55 @@ export default function HomeScreen() {
             </Press>
           ))}
         </ScrollView>
+
+        {/* Plan-first: your weekly box, or an invitation to start one. */}
+        {FLAGS.plans && activeSub ? (
+          <Press scale={0.99} onPress={() => router.push('/plans')} label="Your weekly plan" style={{ marginHorizontal: 16, marginTop: 16 }}>
+            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 13, backgroundColor: c.surface, borderWidth: 1, borderColor: c.border2, borderRadius: radius.card, padding: 14, ...shadow.soft }}>
+              <View style={{ width: 44, height: 44, borderRadius: 13, backgroundColor: c.primaryL, alignItems: 'center', justifyContent: 'center' }}>
+                <Icon name="repeat" size={21} color={c.primary} />
+              </View>
+              <View style={{ flex: 1, minWidth: 0 }}>
+                <Text style={[type(11, 800), { color: c.primary, textTransform: 'uppercase', letterSpacing: 0.5 }]}>{activeSub.status === 'paused' ? 'Your plan · paused' : 'Your plan this week'}</Text>
+                <Text numberOfLines={1} style={[type(15, 900), { color: c.ink, letterSpacing: -0.3, marginTop: 2 }]}>{activeSub.planName}</Text>
+                <Text numberOfLines={1} style={[type(12.5, 600), { color: c.soft, marginTop: 1 }]}>{activeSub.kitchenName}{activeSub.preferredDay ? ` · ${activeSub.preferredDay}` : ''}</Text>
+              </View>
+              <Icon name="chevRight" size={18} color={c.muted} />
+            </View>
+          </Press>
+        ) : FLAGS.plans ? (
+          <Press scale={0.98} onPress={() => router.push('/plans')} label="Browse weekly meal plans" style={{ marginHorizontal: 16, marginTop: 16 }}>
+            <GradBox grad={['#A855F7', c.purple]} style={{ borderRadius: radius.xl, padding: 18, overflow: 'hidden' }}>
+              <View style={{ flexDirection: 'row', alignItems: 'center', gap: 14 }}>
+                <View style={{ width: 50, height: 50, borderRadius: 15, backgroundColor: 'rgba(255,255,255,.18)', alignItems: 'center', justifyContent: 'center' }}>
+                  <Icon name="repeat" size={24} color="#fff" />
+                </View>
+                <View style={{ flex: 1 }}>
+                  <Text style={[type(17, 900), { color: '#fff', letterSpacing: -0.4 }]}>Weekly meal plans</Text>
+                  <Text style={[type(12.5, 600), { color: 'rgba(255,255,255,.82)', marginTop: 2, lineHeight: 17 }]}>Subscribe to a cook’s box — cooked fresh, delivered on repeat.{plans.length > 0 ? ` From ${planWeekly(Math.min(...plans.map((p) => p.priceCents)))}/wk.` : ''}</Text>
+                </View>
+                <Icon name="chevRight" size={20} color="#fff" />
+              </View>
+            </GradBox>
+          </Press>
+        ) : null}
+
+        {FLAGS.plans && !activeSub && plans.length > 0 ? (
+          <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ gap: 12, paddingHorizontal: 16, paddingTop: 12 }}>
+            {plans.slice(0, 6).map((p) => (
+              <Press key={p.id} scale={0.97} onPress={() => router.push(`/plan/${p.id}`)}>
+                <View style={{ width: 220, backgroundColor: c.surface, borderWidth: 1, borderColor: c.border2, borderRadius: radius.xl, padding: 14, ...shadow.card }}>
+                  <Text numberOfLines={1} style={[type(15, 900), { color: c.ink, letterSpacing: -0.3 }]}>{p.name}</Text>
+                  <Text numberOfLines={1} style={[type(12, 600), { color: c.soft, marginTop: 3 }]}>{p.kitchenName}</Text>
+                  <View style={{ flexDirection: 'row', alignItems: 'baseline', gap: 4, marginTop: 10 }}>
+                    <Text style={[type(17, 900), { color: c.ink }]}>{planWeekly(p.priceCents)}</Text>
+                    <Text style={[type(11, 700), { color: c.muted }]}>/wk · {p.items.reduce((n, i) => n + i.qty, 0)} meals</Text>
+                  </View>
+                </View>
+              </Press>
+            ))}
+          </ScrollView>
+        ) : null}
 
         {lastOrder ? (
           <Press scale={0.99} onPress={orderAgain} label={`Order again from ${COOKS[lastOrder.cook].name}`} style={{ marginHorizontal: 16, marginTop: 16 }}>

@@ -10,6 +10,7 @@ import { FLAGS } from '../../src/config/flags';
 
 const TABS: Record<string, { ico: string; lbl: string }> = {
   home: { ico: 'home', lbl: 'Home' },
+  plans: { ico: 'repeat', lbl: 'Plans' },
   experiences: { ico: 'grid', lbl: 'Experiences' },
   feeds: { ico: 'video', lbl: 'Feed' },
   'my-hub': { ico: 'chefhat', lbl: 'My Hub' },
@@ -38,6 +39,7 @@ function BottomNav({ state, navigation }: any) {
         const meta = TABS[route.name];
         if (!meta) return null;
         if (route.name === 'my-hub' && prepperStatus !== 'approved') return null; // My Hub is prepper-only
+        if (route.name === 'plans' && !FLAGS.plans) return null; // hidden until plans are live
         if (route.name === 'experiences' && !FLAGS.experiences) return null; // hidden for v1
         if (route.name === 'feeds' && !FLAGS.feed) return null; // hidden for v1
         const focused = state.index === i;
@@ -62,6 +64,7 @@ export default function TabsLayout() {
   return (
     <Tabs screenOptions={{ headerShown: false }} tabBar={(props) => <BottomNav {...props} />}>
       <Tabs.Screen name="home" />
+      <Tabs.Screen name="plans" options={{ href: FLAGS.plans ? undefined : null }} />
       <Tabs.Screen name="experiences" options={{ href: FLAGS.experiences ? undefined : null }} />
       <Tabs.Screen name="feeds" options={{ href: FLAGS.feed ? undefined : null }} />
       <Tabs.Screen name="my-hub" options={{ href: hubApproved ? undefined : null }} />

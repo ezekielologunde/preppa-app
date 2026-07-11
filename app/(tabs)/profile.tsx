@@ -8,6 +8,7 @@ import { type, radius, shadow } from '../../src/theme/theme';
 import { useStore } from '../../src/store/store';
 import { Icon, Press, Switch } from '../../src/ui';
 import { SectionLabel } from '../../src/ui/layout';
+import { FLAGS } from '../../src/config/flags';
 
 type Tone = '' | 'amber' | 'purple' | 'blue' | 'pink' | 'green';
 interface Row { ico: string; cls: Tone; t: string; act: () => void }
@@ -33,6 +34,7 @@ export default function Profile() {
   // grouped so the screen reads as clear sections instead of one long list
   const activity: Row[] = [
     { ico: 'ticket', cls: 'amber', t: 'Your orders', act: () => router.push('/orders') },
+    ...(FLAGS.plans ? [{ ico: 'repeat', cls: 'purple' as Tone, t: 'Your plans', act: () => router.push('/plans') }] : []),
     { ico: 'heart', cls: 'pink', t: 'Favorites', act: () => router.push('/favorites') },
   ];
   const wallet: Row[] = [
