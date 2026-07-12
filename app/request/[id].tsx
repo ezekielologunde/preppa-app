@@ -85,6 +85,18 @@ export default function RequestDetailScreen() {
           {req.approxArea ? <Meta c={c} k="Area" v={req.approxArea} /> : null}
         </Block>
 
+        {req.category === 'meal_plan' ? (
+          <Block title="Your plan">
+            {req.fulfilledPlanId ? (
+              <>
+                <Text style={[type(13.5, 600), { color: c.soft, lineHeight: 20 }]}>A cook designed a weekly plan for you — review the meals and pricing, then subscribe.</Text>
+                <View style={{ marginTop: 12 }}><Btn label="View & subscribe" icon="repeat" block onPress={() => router.push(`/plan/${req.fulfilledPlanId}`)} /></View>
+              </>
+            ) : (
+              <Text style={[type(13.5, 600), { color: c.soft, lineHeight: 20 }]}>Cooks near you are designing weekly plans from your brief. You’ll be notified when one’s ready to review and subscribe — usually within a day.</Text>
+            )}
+          </Block>
+        ) : (
         <Block title={liveQuotes.length ? 'Quotes' : 'Quotes will appear here'}>
           {liveQuotes.length === 0 ? (
             <Text style={[type(13.5, 600), { color: c.soft, lineHeight: 20 }]}>We’ve sent your request to nearby preppers. You’ll be notified as quotes come in — usually within a day.</Text>
@@ -110,6 +122,7 @@ export default function RequestDetailScreen() {
             </View>
           )}
         </Block>
+        )}
 
         {(canEdit || canCancel) ? (
           <View style={{ flexDirection: 'row', gap: 10, marginHorizontal: 16, marginTop: 6 }}>

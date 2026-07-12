@@ -26,6 +26,7 @@ function tints(c: Palette): Record<string, { bg: string; g: [string, string] }> 
 
 // Real service categories (DB enum) → tile look. Order = the "book a cook" menu.
 const CATS: { cat: ServiceCategory; ico: string; cls: string; sub: string }[] = [
+  { cat: 'meal_plan', ico: 'repeat', cls: 'purple', sub: 'A cook designs your weekly plan' },
   { cat: 'cook_at_home', ico: 'chefhat', cls: 'amber', sub: 'A prepper cooks in your kitchen' },
   { cat: 'private_dinner', ico: 'utensils', cls: 'purple', sub: 'A hosted dinner for your table' },
   { cat: 'catering', ico: 'box', cls: 'blue', sub: 'Food for your event or party' },

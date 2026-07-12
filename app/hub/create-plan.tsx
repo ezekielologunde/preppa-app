@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { View, Text, ScrollView, ActivityIndicator } from 'react-native';
-import { useRouter } from 'expo-router';
+import { useRouter, useLocalSearchParams } from 'expo-router';
 import { useC } from '../../src/theme/ThemeContext';
 import { type, radius } from '../../src/theme/theme';
 import { useStore } from '../../src/store/store';
@@ -10,12 +10,14 @@ import { Burst } from '../../src/components/shared';
 import { money } from '../../src/data/data';
 import { KField, KInput, MoneyInput, KSeg, KBtn } from '../(tabs)/my-hub';
 import { fetchMyKitchenMeals, upsertPlan, type CookMeal } from '../../src/lib/subscriptions';
+import { fulfillPlanRequest } from '../../src/lib/services';
 
 const GOALS = [{ key: '', label: 'None' }, { key: 'cut', label: 'Cut' }, { key: 'maintain', label: 'Maintain' }, { key: 'bulk', label: 'Bulk' }];
 
 export default function CreatePlanFlow() {
   const c = useC();
   const router = useRouter();
+  const { forRequest } = useLocalSearchParams<{ forRequest?: string }>();
   const { toast } = useStore();
   const [loading, setLoading] = useState(true);
   const [meals, setMeals] = useState<CookMeal[]>([]);
@@ -47,7 +49,9 @@ export default function CreatePlanFlow() {
     if (!valid) { toast(!name.trim() ? 'Add a plan name' : priceCents <= 0 ? 'Set a price above $0' : 'Add at least one meal to the box', 'info'); return; }
     setBusy(true);
     try {
-      await upsertPlan({ name: name.trim(), description: desc.trim() || undefined, priceCents, fulfillment: fulfillment as any, goal: goal || undefined, items });
+      const planId = await upsertPlan({ name: name.trim(), description: desc.trim() || undefined, priceCents, fulfillment: fulfillment as any, goal: goal || undefined, items });
+      // If this plan answers a customer's meal-plan brief, link it + notify them.
+      if (forRequest && planId) { try { await fulfillPlanRequest(forRequest, planId); } catch (_e) { /* non-fatal */ } }
       setDone(true);
     } catch (e: any) {
       toast(e?.message || 'Could not publish the plan', 'info');
@@ -57,7 +61,13 @@ export default function CreatePlanFlow() {
   if (done) {
     return (
       <Screen bg={c.surface}>
-        <Burst title="Plan published" body={`${name} is live. Customers can subscribe now — you’ll earn ${money(priceCents / 100)}/week (net of the Stripe fee) for every subscriber.`} actionLabel="Back to plans" onAction={() => router.replace('/hub/plans')} />
+        <Burst
+          title="Plan published"
+          body={forRequest
+            ? `${name} is live and the customer who asked has been notified to subscribe. You’ll earn ${money(priceCents / 100)}/week (net of the Stripe fee) per subscriber.`
+            : `${name} is live. Customers can subscribe now — you’ll earn ${money(priceCents / 100)}/week (net of the Stripe fee) for every subscriber.`}
+          actionLabel={forRequest ? 'Back to requests' : 'Back to plans'}
+          onAction={() => router.replace(forRequest ? '/hub/requests' : '/hub/plans')} />
       </Screen>
     );
   }

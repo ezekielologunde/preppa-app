@@ -12,13 +12,14 @@ import {
   SERVICE_LABELS, type ServiceCategory,
 } from '../src/lib/services';
 
-const CATS: ServiceCategory[] = ['cook_at_home', 'private_dinner', 'catering', 'consultation', 'class'];
+const CATS: ServiceCategory[] = ['meal_plan', 'cook_at_home', 'private_dinner', 'catering', 'consultation', 'class'];
 const CAT_SUB: Record<ServiceCategory, string> = {
   cook_at_home: 'A prepper cooks in your kitchen',
   private_dinner: 'A hosted dinner for your table',
   catering: 'Food for your event or party',
   consultation: 'Plan your week with a pro',
   class: 'Learn a dish, hands-on',
+  meal_plan: 'A cook designs your weekly plan',
 };
 
 type Q = { key: string; label: string; type: 'chips' | 'text'; options?: string[]; multi?: boolean; placeholder?: string };
@@ -54,6 +55,13 @@ const DRILL: Record<ServiceCategory, Q[]> = {
     { key: 'dish', label: 'What do you want to learn?', type: 'text', placeholder: 'e.g. jollof rice, fresh pasta, sushi' },
     { key: 'level', label: 'Your skill level', type: 'chips', options: ['Beginner', 'Some experience', 'Advanced'] },
     { key: 'format', label: 'Format', type: 'chips', options: ['Hands-on', 'Watch & learn'] },
+  ],
+  meal_plan: [
+    { key: 'meals_per_week', label: 'How many meals per week?', type: 'chips', options: ['3', '5', '7', '10', '14'] },
+    { key: 'servings', label: 'Servings per meal', type: 'chips', options: ['1', '2', '3', '4+'] },
+    { key: 'dietary', label: 'Dietary style', type: 'chips', options: DIET, multi: true },
+    { key: 'goal', label: 'Your goal', type: 'chips', options: ['Eat healthier', 'Save time', 'Lose weight', 'Build muscle', 'Family meals', 'Budget-friendly'], multi: true },
+    { key: 'delivery_day', label: 'Preferred delivery day', type: 'chips', options: ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'] },
   ],
 };
 
@@ -109,6 +117,7 @@ export default function ServiceRequestScreen() {
   }, [editing]);
 
   const dateValid = /^\d{4}-\d{2}-\d{2}$/.test(eventDate.trim());
+  const isPlan = category === 'meal_plan';
   const qs = DRILL[category];
   const setAns = (key: string, val: string | string[]) => setAnswers((a) => ({ ...a, [key]: val }));
   const toggleMulti = (key: string, opt: string) => setAnswers((a) => {
@@ -151,7 +160,9 @@ export default function ServiceRequestScreen() {
           title={done.edited ? 'Request updated' : done.targets > 0 ? 'Request sent!' : 'Request posted'}
           body={done.edited
             ? (done.targets > 0 ? `Saved. We also notified ${done.targets} more prepper${done.targets !== 1 ? 's' : ''} that now match.` : 'Your changes are saved.')
-            : (done.targets > 0 ? `We sent it to ${done.targets} verified prepper${done.targets !== 1 ? 's' : ''} nearby. You’ll get quotes to review soon.` : 'No preppers offer this nearby yet — we’ll notify you when one does.')}
+            : isPlan
+              ? (done.targets > 0 ? `We sent your brief to ${done.targets} cook${done.targets !== 1 ? 's' : ''} nearby. They’ll design weekly plans for you — you’ll be notified to review and subscribe.` : 'No cooks offer plans nearby yet — we’ll notify you when one does.')
+              : (done.targets > 0 ? `We sent it to ${done.targets} verified prepper${done.targets !== 1 ? 's' : ''} nearby. You’ll get quotes to review soon.` : 'No preppers offer this nearby yet — we’ll notify you when one does.')}
           actionLabel="View my requests"
           onAction={() => router.replace('/experiences')}
         />
@@ -160,7 +171,7 @@ export default function ServiceRequestScreen() {
   }
 
   const stageIdx = ['category', 'specifics', 'details', 'review'].indexOf(stage);
-  const title = editing ? 'Edit request' : 'Request a cook';
+  const title = editing ? 'Edit request' : isPlan ? 'Request a meal plan' : 'Request a cook';
   const back = stage === 'category' ? () => router.back()
     : stage === 'specifics' ? () => setStage('category')
       : stage === 'details' ? () => setStage('specifics')
@@ -220,16 +231,18 @@ export default function ServiceRequestScreen() {
         ) : null}
 
         {stage === 'details' ? (
-          <Block title="When & where">
+          <Block title={isPlan ? 'When & where' : 'When & where'}>
             <View style={{ gap: 14 }}>
-              <Field c={c} label="Date (YYYY-MM-DD)"><Input c={c} value={eventDate} onChange={setEventDate} placeholder="2026-08-15" /></Field>
-              <View style={{ flexDirection: 'row', gap: 12 }}>
-                <View style={{ flex: 1 }}><Field c={c} label="Time (optional)"><Input c={c} value={eventTime} onChange={setEventTime} placeholder="18:30" /></Field></View>
-                <View style={{ flex: 1 }}><Field c={c} label="Guests"><Input c={c} value={guests} onChange={setGuests} placeholder="6" keyboardType="number-pad" /></Field></View>
-              </View>
-              <Field c={c} label="Budget ($, optional)"><Input c={c} value={budget} onChange={setBudget} placeholder="300" keyboardType="decimal-pad" /></Field>
-              <Field c={c} label="Address (private — shared only with the prepper you book)"><Input c={c} value={address} onChange={setAddress} placeholder="Where should they cook?" /></Field>
-              <Field c={c} label="Anything else? (optional)"><Input c={c} value={notes} onChange={setNotes} placeholder="Allergies, must-haves, parking…" multiline /></Field>
+              <Field c={c} label={isPlan ? 'Start date (YYYY-MM-DD)' : 'Date (YYYY-MM-DD)'}><Input c={c} value={eventDate} onChange={setEventDate} placeholder="2026-08-15" /></Field>
+              {isPlan ? null : (
+                <View style={{ flexDirection: 'row', gap: 12 }}>
+                  <View style={{ flex: 1 }}><Field c={c} label="Time (optional)"><Input c={c} value={eventTime} onChange={setEventTime} placeholder="18:30" /></Field></View>
+                  <View style={{ flex: 1 }}><Field c={c} label="Guests"><Input c={c} value={guests} onChange={setGuests} placeholder="6" keyboardType="number-pad" /></Field></View>
+                </View>
+              )}
+              <Field c={c} label={isPlan ? 'Weekly budget ($, optional)' : 'Budget ($, optional)'}><Input c={c} value={budget} onChange={setBudget} placeholder={isPlan ? '120' : '300'} keyboardType="decimal-pad" /></Field>
+              <Field c={c} label={isPlan ? 'Delivery address (private — shared only with the cook you subscribe to)' : 'Address (private — shared only with the prepper you book)'}><Input c={c} value={address} onChange={setAddress} placeholder={isPlan ? 'Where should meals be delivered?' : 'Where should they cook?'} /></Field>
+              <Field c={c} label="Anything else? (optional)"><Input c={c} value={notes} onChange={setNotes} placeholder={isPlan ? 'Allergies, dislikes, favorite cuisines…' : 'Allergies, must-haves, parking…'} multiline /></Field>
             </View>
           </Block>
         ) : null}
@@ -246,7 +259,7 @@ export default function ServiceRequestScreen() {
             </Block>
             <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8, marginHorizontal: 16 }}>
               <Icon name="shield" size={15} color={c.green} />
-              <Text style={[type(12, 600), { color: c.soft, flex: 1, lineHeight: 17 }]}>Your exact address stays private until you accept a quote. You can edit this request until a prepper quotes.</Text>
+              <Text style={[type(12, 600), { color: c.soft, flex: 1, lineHeight: 17 }]}>{isPlan ? 'Your exact address stays private until you subscribe. You can edit this brief until a cook responds.' : 'Your exact address stays private until you accept a quote. You can edit this request until a prepper quotes.'}</Text>
             </View>
           </>
         ) : null}
@@ -260,7 +273,7 @@ export default function ServiceRequestScreen() {
         ) : stage === 'details' ? (
           <Btn label="Review" iconRight="arrow" block disabled={!dateValid} onPress={() => setStage('review')} />
         ) : (
-          <Btn label={busy ? (editing ? 'Saving…' : 'Posting…') : editing ? 'Save changes' : 'Get quotes'} icon="send" block loading={busy} onPress={submit} />
+          <Btn label={busy ? (editing ? 'Saving…' : 'Posting…') : editing ? 'Save changes' : isPlan ? 'Request plans' : 'Get quotes'} icon="send" block loading={busy} onPress={submit} />
         )}
       </Dock>
     </Screen>

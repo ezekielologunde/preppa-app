@@ -41,6 +41,8 @@ export default function HubRequests() {
 
 function RequestCard({ r, onQuoted, toast }: { r: IncomingRequest; onQuoted: () => void; toast: (m: string, i?: string, ok?: boolean) => void }) {
   const c = useC();
+  const router = useRouter();
+  const isPlan = r.category === 'meal_plan';
   const [amount, setAmount] = useState('');
   const [deposit, setDeposit] = useState('');
   const [note, setNote] = useState('');
@@ -69,7 +71,9 @@ function RequestCard({ r, onQuoted, toast }: { r: IncomingRequest; onQuoted: () 
       <Text style={[type(12.5, 600), { color: c.soft, marginTop: 3 }]}>{r.eventDate}{r.guests ? ` · ${r.guests} guests` : ''}{r.approxArea ? ` · ${r.approxArea}` : ''}{r.budgetCents ? ` · budget ${money(r.budgetCents / 100)}` : ''}</Text>
       {r.details ? <Text style={[type(13, 500), { color: c.ink2, marginTop: 8, lineHeight: 19 }]}>{r.details}</Text> : null}
 
-      {!quoted ? (
+      {isPlan ? (
+        <View style={{ marginTop: 12 }}><KBtn label="Create a plan for them" variant="pri" icon="plus" onPress={() => router.push(`/hub/create-plan?forRequest=${r.requestId}`)} /></View>
+      ) : !quoted ? (
         !open ? (
           <View style={{ marginTop: 12 }}><KBtn label="Send a quote" variant="pri" onPress={() => setOpen(true)} /></View>
         ) : (

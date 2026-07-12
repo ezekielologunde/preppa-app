@@ -6,20 +6,21 @@ import { supabase } from './supabase';
  * reconcile trigger; the balance is settled offline. Web-first (Stripe.js for the deposit).
  */
 
-export type ServiceCategory = 'cook_at_home' | 'private_dinner' | 'catering' | 'consultation' | 'class';
+export type ServiceCategory = 'cook_at_home' | 'private_dinner' | 'catering' | 'consultation' | 'class' | 'meal_plan';
 export const SERVICE_LABELS: Record<ServiceCategory, string> = {
   cook_at_home: 'Cook at my home',
   private_dinner: 'Private dinner',
   catering: 'Catering',
   consultation: 'Meal-prep consultation',
   class: 'Cooking class',
+  meal_plan: 'Weekly meal plan',
 };
 
 export interface QuoteView { id: string; kitchenId: string; kitchenName: string; amountCents: number; depositCents: number; note: string | null; status: string }
 export interface RequestView {
   id: string; category: ServiceCategory; eventDate: string; eventTime?: string | null; approxArea: string | null;
   addressText?: string | null; guests: number | null; budgetCents: number | null; details: string | null;
-  answers?: Record<string, any>; status: string; quotes: QuoteView[];
+  answers?: Record<string, any>; status: string; fulfilledPlanId?: string | null; quotes: QuoteView[];
 }
 export interface BookingView {
   id: string; kitchenName: string; status: string; amountCents: number; depositCents: number; balanceCents: number; eventDate: string;
@@ -37,7 +38,7 @@ export async function listMyRequests(): Promise<RequestView[]> {
   if (!sess.session?.user) return [];
   const { data, error } = await supabase
     .from('service_requests')
-    .select('id, category, event_date, event_time, approx_area, address_text, guests, budget_cents, details, answers, status, quotes(id, kitchen_id, amount_cents, deposit_cents, note, status, kitchens(name))')
+    .select('id, category, event_date, event_time, approx_area, address_text, guests, budget_cents, details, answers, status, fulfilled_plan_id, quotes(id, kitchen_id, amount_cents, deposit_cents, note, status, kitchens(name))')
     .order('created_at', { ascending: false });
   if (error || !data) return [];
   return (data as any[]).map(rowToRequest);
@@ -47,16 +48,22 @@ function rowToRequest(r: any): RequestView {
   return {
     id: r.id, category: r.category, eventDate: r.event_date, eventTime: r.event_time, approxArea: r.approx_area,
     addressText: r.address_text, guests: r.guests, budgetCents: r.budget_cents, details: r.details,
-    answers: r.answers ?? {}, status: r.status,
+    answers: r.answers ?? {}, status: r.status, fulfilledPlanId: r.fulfilled_plan_id ?? null,
     quotes: (r.quotes ?? []).map((q: any) => ({ id: q.id, kitchenId: q.kitchen_id, kitchenName: q.kitchens?.name ?? 'A prepper', amountCents: num(q.amount_cents), depositCents: num(q.deposit_cents), note: q.note, status: q.status })),
   };
+}
+
+/** A cook links a published plan to a customer's meal-plan brief (notifies the customer). */
+export async function fulfillPlanRequest(requestId: string, planId: string): Promise<void> {
+  const { data, error } = await supabase.functions.invoke('fulfill-plan-request', { body: { requestId, planId } });
+  if (error || data?.error) throw new Error(data?.error || error?.message || 'Could not link the plan.');
 }
 
 /** A single request (owner-scoped by RLS), with its quotes. */
 export async function fetchServiceRequest(id: string): Promise<RequestView | null> {
   const { data, error } = await supabase
     .from('service_requests')
-    .select('id, category, event_date, event_time, approx_area, address_text, guests, budget_cents, details, answers, status, quotes(id, kitchen_id, amount_cents, deposit_cents, note, status, kitchens(name))')
+    .select('id, category, event_date, event_time, approx_area, address_text, guests, budget_cents, details, answers, status, fulfilled_plan_id, quotes(id, kitchen_id, amount_cents, deposit_cents, note, status, kitchens(name))')
     .eq('id', id).maybeSingle();
   if (error || !data) return null;
   return rowToRequest(data);
