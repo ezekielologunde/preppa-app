@@ -17,8 +17,9 @@ export const SERVICE_LABELS: Record<ServiceCategory, string> = {
 
 export interface QuoteView { id: string; kitchenId: string; kitchenName: string; amountCents: number; depositCents: number; note: string | null; status: string }
 export interface RequestView {
-  id: string; category: ServiceCategory; eventDate: string; approxArea: string | null;
-  guests: number | null; budgetCents: number | null; details: string | null; status: string; quotes: QuoteView[];
+  id: string; category: ServiceCategory; eventDate: string; eventTime?: string | null; approxArea: string | null;
+  addressText?: string | null; guests: number | null; budgetCents: number | null; details: string | null;
+  answers?: Record<string, any>; status: string; quotes: QuoteView[];
 }
 export interface BookingView {
   id: string; kitchenName: string; status: string; amountCents: number; depositCents: number; balanceCents: number; eventDate: string;
@@ -36,14 +37,47 @@ export async function listMyRequests(): Promise<RequestView[]> {
   if (!sess.session?.user) return [];
   const { data, error } = await supabase
     .from('service_requests')
-    .select('id, category, event_date, approx_area, guests, budget_cents, details, status, quotes(id, kitchen_id, amount_cents, deposit_cents, note, status, kitchens(name))')
+    .select('id, category, event_date, event_time, approx_area, address_text, guests, budget_cents, details, answers, status, quotes(id, kitchen_id, amount_cents, deposit_cents, note, status, kitchens(name))')
     .order('created_at', { ascending: false });
   if (error || !data) return [];
-  return (data as any[]).map((r) => ({
-    id: r.id, category: r.category, eventDate: r.event_date, approxArea: r.approx_area, guests: r.guests,
-    budgetCents: r.budget_cents, details: r.details, status: r.status,
+  return (data as any[]).map(rowToRequest);
+}
+
+function rowToRequest(r: any): RequestView {
+  return {
+    id: r.id, category: r.category, eventDate: r.event_date, eventTime: r.event_time, approxArea: r.approx_area,
+    addressText: r.address_text, guests: r.guests, budgetCents: r.budget_cents, details: r.details,
+    answers: r.answers ?? {}, status: r.status,
     quotes: (r.quotes ?? []).map((q: any) => ({ id: q.id, kitchenId: q.kitchen_id, kitchenName: q.kitchens?.name ?? 'A prepper', amountCents: num(q.amount_cents), depositCents: num(q.deposit_cents), note: q.note, status: q.status })),
-  }));
+  };
+}
+
+/** A single request (owner-scoped by RLS), with its quotes. */
+export async function fetchServiceRequest(id: string): Promise<RequestView | null> {
+  const { data, error } = await supabase
+    .from('service_requests')
+    .select('id, category, event_date, event_time, approx_area, address_text, guests, budget_cents, details, answers, status, quotes(id, kitchen_id, amount_cents, deposit_cents, note, status, kitchens(name))')
+    .eq('id', id).maybeSingle();
+  if (error || !data) return null;
+  return rowToRequest(data);
+}
+
+export interface ServiceRequestBody {
+  category: ServiceCategory; eventDate: string; eventTime?: string; address?: string; lat?: number; lng?: number;
+  approxArea?: string; guests?: number; budgetCents?: number; details?: string; answers?: Record<string, any>;
+}
+
+/** Edit an OPEN request (server enforces status='open' + re-routes on category/location change). */
+export async function editServiceRequest(requestId: string, patch: Partial<ServiceRequestBody>): Promise<{ newTargets: number }> {
+  const { data, error } = await supabase.functions.invoke('edit-service-request', { body: { requestId, action: 'edit', ...patch } });
+  if (error || data?.error) throw new Error(data?.error || error?.message || 'Could not update your request.');
+  return { newTargets: data.newTargets ?? 0 };
+}
+
+/** Cancel a request that isn't already booked/cancelled. */
+export async function cancelServiceRequest(requestId: string): Promise<void> {
+  const { data, error } = await supabase.functions.invoke('edit-service-request', { body: { requestId, action: 'cancel' } });
+  if (error || data?.error) throw new Error(data?.error || error?.message || 'Could not cancel your request.');
 }
 
 /** The customer's service bookings. */
@@ -70,10 +104,7 @@ export async function listIncomingRequests(): Promise<IncomingRequest[]> {
   }));
 }
 
-export async function createServiceRequest(body: {
-  category: ServiceCategory; eventDate: string; eventTime?: string; address?: string; lat?: number; lng?: number;
-  approxArea?: string; guests?: number; budgetCents?: number; details?: string;
-}): Promise<{ requestId: string; targets: number }> {
+export async function createServiceRequest(body: ServiceRequestBody): Promise<{ requestId: string; targets: number }> {
   const { data, error } = await supabase.functions.invoke('create-service-request', { body });
   if (error || data?.error) throw new Error(data?.error || error?.message || 'Could not post your request.');
   return { requestId: data.requestId, targets: data.targets };

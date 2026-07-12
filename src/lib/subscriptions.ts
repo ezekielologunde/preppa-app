@@ -65,12 +65,13 @@ export interface MySubscription {
   status: 'active' | 'paused' | 'canceled' | 'past_due' | 'incomplete'; // legacy-compat
   kind: string;
   preferredDay: string | null;
-  planId: string;
+  planId: string | null;
   planName: string;
   kitchenName: string;
   priceCents: number;
   fulfillment: 'pickup' | 'delivery';
   selectionModel: SelectionModel;
+  isBox: boolean;             // customer-built cross-kitchen box (plan_id null)
   items: PlanItem[];          // the plan box/menu (for compact display)
   nextCycle: CycleSummary | null;
 }
@@ -226,7 +227,8 @@ export async function listMySubscriptions(): Promise<MySubscription[]> {
 
   return subs.map((s) => {
     const lifecycle = s.lifecycle as Lifecycle;
-    const cy = cyclesBySub.get(s.id);
+    const isBox = s.kind === 'box';
+    const cyc = cyclesBySub.get(s.id) ? cycleRowToSummary(cyclesBySub.get(s.id)) : null;
     return {
       id: s.id,
       lifecycle,
@@ -234,13 +236,14 @@ export async function listMySubscriptions(): Promise<MySubscription[]> {
       kind: s.kind ?? 'weekly',
       preferredDay: s.preferred_day,
       planId: s.plan_id,
-      planName: s.plans?.name ?? 'Weekly plan',
-      kitchenName: s.plans?.kitchens?.name ?? 'A local cook',
-      priceCents: Number(s.plans?.price_cents) || 0,
+      planName: isBox ? 'My weekly box' : (s.plans?.name ?? 'Weekly plan'),
+      kitchenName: isBox ? 'Built by you' : (s.plans?.kitchens?.name ?? 'A local cook'),
+      priceCents: isBox ? 0 : (Number(s.plans?.price_cents) || 0),
       fulfillment: (s.fulfillment ?? s.plans?.fulfillment ?? 'delivery'),
-      selectionModel: s.plans?.selection_model ?? 'fixed',
-      items: planItems(s.plans?.plan_items),
-      nextCycle: cy ? cycleRowToSummary(cy) : null,
+      selectionModel: isBox ? 'fixed' : (s.plans?.selection_model ?? 'fixed'),
+      isBox,
+      items: isBox ? (cyc?.items ?? []) : planItems(s.plans?.plan_items),
+      nextCycle: cyc,
     };
   });
 }
@@ -281,6 +284,41 @@ export async function subscribeToPlan(opts: SubscribeOptions): Promise<Subscribe
   const { data, error } = await supabase.functions.invoke('subscribe-plan', { body: opts });
   if (error || data?.error) {
     const e: any = new Error(data?.error || error?.message || 'Could not start your plan.');
+    e.code = data?.code;
+    throw e;
+  }
+  return data as SubscribeResult;
+}
+
+// ---- build-your-own (cross-kitchen box) ---------------------------------
+
+const BOX_DISCOUNT_BPS = 1000;   // 10% bundle discount (Preppa-funded)
+const BOX_FEE_BPS = 1500;        // box service fee (vs 10% for a single-cook plan)
+
+export interface BuildBoxOptions {
+  items: { mealId: string; qty: number }[];
+  paymentMethodId?: string;
+  kind?: 'weekly' | 'biweekly';
+  fulfillment?: 'pickup' | 'delivery';
+  startDate?: string;
+  preferredDay?: string;
+}
+
+/** Estimate a box's weekly price the SAME way advance_cycles prices it: S − 10% + 15%. */
+export function estimateBox(items: { qty: number; priceCents: number }[]): {
+  subtotalCents: number; discountCents: number; feeCents: number; totalCents: number;
+} {
+  const subtotal = items.reduce((n, i) => n + i.priceCents * i.qty, 0);
+  const discount = Math.round((subtotal * BOX_DISCOUNT_BPS) / 10000);
+  const fee = Math.round((subtotal * BOX_FEE_BPS) / 10000);
+  return { subtotalCents: subtotal, discountCents: discount, feeCents: fee, totalCents: subtotal - discount + fee };
+}
+
+/** Build a cross-kitchen box and subscribe (one charge per cycle, split across cooks). */
+export async function buildBox(opts: BuildBoxOptions): Promise<SubscribeResult> {
+  const { data, error } = await supabase.functions.invoke('subscribe-box', { body: opts });
+  if (error || data?.error) {
+    const e: any = new Error(data?.error || error?.message || 'Could not create your box.');
     e.code = data?.code;
     throw e;
   }

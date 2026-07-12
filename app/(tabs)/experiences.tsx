@@ -1,17 +1,20 @@
-import React, { useState } from 'react';
+import React, { useCallback, useState } from 'react';
 import { View, Text, ScrollView, LayoutChangeEvent } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { useRouter, Redirect } from 'expo-router';
-import { FLAGS } from '../../src/config/flags';
-import { SERVICES, EXPERIENCES, Service, ServiceRequest, svcById, COOKS, CookId } from '../../src/data/data';
+import { useRouter, useFocusEffect } from 'expo-router';
 import { useC } from '../../src/theme/ThemeContext';
 import { Palette, type, radius, shadow } from '../../src/theme/theme';
 import { useStore } from '../../src/store/store';
 import { Icon, Press, GradBox } from '../../src/ui';
-import { ExpRail, SectionHeader, useColumns, CookRail } from '../../src/components/cards';
+import { SectionHeader, useColumns } from '../../src/components/cards';
+import { money } from '../../src/data/data';
+import { listMyRequests, SERVICE_LABELS, type RequestView, type ServiceCategory } from '../../src/lib/services';
+import { listMySubscriptions, customerWeeklyCents, type MySubscription } from '../../src/lib/subscriptions';
 
-/** Tinted service-card palette per Service.cls (exp.css .xsvc t-* + .ico gradients). */
-function svcTint(c: Palette): Record<string, { bg: string; g: [string, string] }> {
+const money2 = (cents: number) => money(cents / 100);
+
+/** Tinted card palette per key (mirrors the service-card look). */
+function tints(c: Palette): Record<string, { bg: string; g: [string, string] }> {
   return {
     amber: { bg: c.primaryL, g: ['#FF8A4C', c.primary] },
     purple: { bg: c.purpleL, g: ['#A855F7', c.purple] },
@@ -21,88 +24,46 @@ function svcTint(c: Palette): Record<string, { bg: string; g: [string, string] }
   };
 }
 
-export function ReqStatusChip({ r }: { r: ServiceRequest }) {
-  const c = useC();
-  if (r.status === 'booked') {
-    return (
-      <View style={[chip, { backgroundColor: c.greenL }]}>
-        <Icon name="check" size={11} color={c.green} />
-        <Text style={[type(10.5, 900), { color: c.green, textTransform: 'uppercase', letterSpacing: 0.4 }]}>Booked</Text>
-      </View>
-    );
-  }
-  if (r.status === 'quoted') {
-    return (
-      <View style={[chip, { backgroundColor: c.primaryL }]}>
-        <View style={{ width: 6, height: 6, borderRadius: 3, backgroundColor: c.primary }} />
-        <Text style={[type(10.5, 900), { color: c.primary, textTransform: 'uppercase', letterSpacing: 0.4 }]}>{r.quotes.length} quote{r.quotes.length !== 1 ? 's' : ''}</Text>
-      </View>
-    );
-  }
-  return (
-    <View style={[chip, { backgroundColor: c.bg2 }]}>
-      <View style={{ width: 6, height: 6, borderRadius: 3, backgroundColor: c.soft }} />
-      <Text style={[type(10.5, 900), { color: c.soft, textTransform: 'uppercase', letterSpacing: 0.4 }]}>Finding cooks</Text>
-    </View>
-  );
-}
+// Real service categories (DB enum) → tile look. Order = the "book a cook" menu.
+const CATS: { cat: ServiceCategory; ico: string; cls: string; sub: string }[] = [
+  { cat: 'cook_at_home', ico: 'chefhat', cls: 'amber', sub: 'A prepper cooks in your kitchen' },
+  { cat: 'private_dinner', ico: 'utensils', cls: 'purple', sub: 'A hosted dinner for your table' },
+  { cat: 'catering', ico: 'box', cls: 'blue', sub: 'Food for your event or party' },
+  { cat: 'consultation', ico: 'chat', cls: 'green', sub: 'Plan your week with a pro' },
+  { cat: 'class', ico: 'spark', cls: 'red', sub: 'Learn a dish, hands-on' },
+];
 
 const chip = { flexDirection: 'row' as const, alignItems: 'center' as const, gap: 5, height: 22, paddingHorizontal: 9, borderRadius: radius.pill };
 
-/** Service tiles — 2 col on phone, 3 tablet, 4 desktop. Measures a padding-free
- *  inner row so `cardW` fills exactly and never over-wraps. */
-// MVP service menu — the coherent "Book a cook" set. Grocery/errand/class are
-// a different job (logistics / low-stakes) and stay off-menu until later.
-const MVP_SVCS = ['cookhome', 'catering', 'bulk'];
-
-function SvcGrid() {
-  const [w, setW] = useState(0);
-  const cols = useColumns(w);
-  const gap = 12;
-  const cardW = w > 0 ? (w - gap * (cols - 1)) / cols : 0;
-  const svcs = SERVICES.filter((s) => MVP_SVCS.includes(s.id));
-  return (
-    <View style={{ paddingHorizontal: 16 }}>
-      <View onLayout={(e: LayoutChangeEvent) => setW(e.nativeEvent.layout.width)} style={{ flexDirection: 'row', flexWrap: 'wrap', gap }}>
-        {w > 0 && svcs.map((s) => <SvcCard key={s.id} s={s} width={cardW} />)}
-      </View>
-    </View>
-  );
+function RequestStatusChip({ r }: { r: RequestView }) {
+  const c = useC();
+  const nq = r.quotes.length;
+  if (r.status === 'accepted') {
+    return <View style={[chip, { backgroundColor: c.greenL }]}><Icon name="check" size={11} color={c.green} /><Text style={[type(10.5, 900), { color: c.green, textTransform: 'uppercase', letterSpacing: 0.4 }]}>Booked</Text></View>;
+  }
+  if (r.status === 'cancelled' || r.status === 'expired') {
+    return <View style={[chip, { backgroundColor: c.bg2 }]}><Text style={[type(10.5, 900), { color: c.muted, textTransform: 'uppercase', letterSpacing: 0.4 }]}>{r.status === 'expired' ? 'Expired' : 'Cancelled'}</Text></View>;
+  }
+  if (nq > 0) {
+    return <View style={[chip, { backgroundColor: c.primaryL }]}><View style={{ width: 6, height: 6, borderRadius: 3, backgroundColor: c.primary }} /><Text style={[type(10.5, 900), { color: c.primary, textTransform: 'uppercase', letterSpacing: 0.4 }]}>{nq} quote{nq !== 1 ? 's' : ''}</Text></View>;
+  }
+  return <View style={[chip, { backgroundColor: c.bg2 }]}><View style={{ width: 6, height: 6, borderRadius: 3, backgroundColor: c.soft }} /><Text style={[type(10.5, 900), { color: c.soft, textTransform: 'uppercase', letterSpacing: 0.4 }]}>Finding cooks</Text></View>;
 }
 
-function SvcCard({ s, width }: { s: Service; width?: number }) {
+function RealReqCard({ r, onPress }: { r: RequestView; onPress: () => void }) {
   const c = useC();
-  const router = useRouter();
-  const tint = svcTint(c)[s.cls] ?? svcTint(c).amber;
+  const foot = r.status === 'accepted' ? 'View booking' : r.quotes.length > 0 ? 'Review quotes' : 'View request';
   return (
-    <Press scale={0.97} onPress={() => router.push(`/request/${s.id}`)} style={{ width }}>
-      <View style={{ backgroundColor: tint.bg, borderRadius: radius.xl, padding: 15, paddingTop: 16 }}>
-        {s.premium ? (
-          <Text style={[type(9.5, 900), { position: 'absolute', top: 12, right: 12, color: '#fff', backgroundColor: c.primary, textTransform: 'uppercase', letterSpacing: 0.5, paddingHorizontal: 8, paddingVertical: 3, borderRadius: radius.pill, overflow: 'hidden' }]}>Premium</Text>
-        ) : null}
-        <GradBox grad={tint.g} style={{ width: 44, height: 44, borderRadius: 14, alignItems: 'center', justifyContent: 'center', marginBottom: 12, ...shadow.soft }}>
-          <Icon name={s.ico} size={21} color="#fff" />
-        </GradBox>
-        <Text style={[type(15, 900), { color: c.ink, letterSpacing: -0.3 }]}>{s.name}</Text>
-        <Text style={[type(12, 600), { color: c.soft, marginTop: 4, lineHeight: 17 }]}>{s.sub}</Text>
-      </View>
-    </Press>
-  );
-}
-
-function ReqCard({ r }: { r: ServiceRequest }) {
-  const c = useC();
-  const router = useRouter();
-  const foot = r.status === 'booked' ? 'View booking' : r.status === 'quoted' ? 'Review quotes' : 'View request';
-  return (
-    <Press scale={0.985} onPress={() => router.push(`/quotes/${r.id}`)} style={{ marginHorizontal: 16, marginBottom: 10 }}>
+    <Press scale={0.985} onPress={onPress} style={{ marginHorizontal: 16, marginBottom: 10 }}>
       <View style={{ backgroundColor: c.surface, borderWidth: 1, borderColor: c.border2, borderRadius: radius.card, padding: 16, paddingVertical: 15, ...shadow.card }}>
         <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: 10 }}>
-          <Text style={[type(11, 800), { color: c.soft, backgroundColor: c.bg2, textTransform: 'uppercase', letterSpacing: 0.3, paddingHorizontal: 9, paddingVertical: 4, borderRadius: radius.pill, overflow: 'hidden' }]}>{svcById(r.svc)?.name}</Text>
-          <ReqStatusChip r={r} />
+          <Text style={[type(11, 800), { color: c.soft, backgroundColor: c.bg2, textTransform: 'uppercase', letterSpacing: 0.3, paddingHorizontal: 9, paddingVertical: 4, borderRadius: radius.pill, overflow: 'hidden' }]}>{SERVICE_LABELS[r.category] ?? r.category}</Text>
+          <RequestStatusChip r={r} />
         </View>
-        <Text style={[type(15.5, 900), { color: c.ink, letterSpacing: -0.3, marginTop: 9 }]}>{r.title}</Text>
-        <Text style={[type(12.5, 600), { color: c.soft, marginTop: 3 }]}>{r.when} · {r.budget}</Text>
+        <Text style={[type(15.5, 900), { color: c.ink, letterSpacing: -0.3, marginTop: 9 }]}>{SERVICE_LABELS[r.category] ?? 'Request'}</Text>
+        <Text style={[type(12.5, 600), { color: c.soft, marginTop: 3 }]}>
+          {r.eventDate}{r.guests ? ` · ${r.guests} guests` : ''}{r.budgetCents ? ` · ${money2(r.budgetCents)} budget` : ''}
+        </Text>
         <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6, marginTop: 11 }}>
           <Text style={[type(12.5, 800), { color: c.primary }]}>{foot}</Text>
           <Icon name="chevRight" size={15} color={c.primary} />
@@ -112,15 +73,52 @@ function ReqCard({ r }: { r: ServiceRequest }) {
   );
 }
 
+function NeedGrid() {
+  const c = useC();
+  const router = useRouter();
+  const [w, setW] = useState(0);
+  const cols = useColumns(w);
+  const gap = 12;
+  const cardW = w > 0 ? (w - gap * (cols - 1)) / cols : 0;
+  const t = tints(c);
+  return (
+    <View style={{ paddingHorizontal: 16 }}>
+      <View onLayout={(e: LayoutChangeEvent) => setW(e.nativeEvent.layout.width)} style={{ flexDirection: 'row', flexWrap: 'wrap', gap }}>
+        {w > 0 && CATS.map((s) => {
+          const tint = t[s.cls] ?? t.amber;
+          return (
+            <Press key={s.cat} scale={0.97} onPress={() => router.push(`/service-request?category=${s.cat}`)} style={{ width: cardW }}>
+              <View style={{ backgroundColor: tint.bg, borderRadius: radius.xl, padding: 15, paddingTop: 16 }}>
+                <GradBox grad={tint.g} style={{ width: 44, height: 44, borderRadius: 14, alignItems: 'center', justifyContent: 'center', marginBottom: 12, ...shadow.soft }}>
+                  <Icon name={s.ico} size={21} color="#fff" />
+                </GradBox>
+                <Text style={[type(15, 900), { color: c.ink, letterSpacing: -0.3 }]}>{SERVICE_LABELS[s.cat]}</Text>
+                <Text style={[type(12, 600), { color: c.soft, marginTop: 4, lineHeight: 17 }]}>{s.sub}</Text>
+              </View>
+            </Press>
+          );
+        })}
+      </View>
+    </View>
+  );
+}
+
 export default function ExperiencesScreen() {
   const c = useC();
   const insets = useSafeAreaInsets();
   const router = useRouter();
-  const { requests, notifCount } = useStore();
+  const { notifCount } = useStore();
+  const [reqs, setReqs] = useState<RequestView[]>([]);
+  const [subs, setSubs] = useState<MySubscription[]>([]);
 
-  // Not live in v1 — hidden from both navs. Guard the route too so a stale-cached
-  // direct URL can't render it (mirrors the My Hub redirect pattern).
-  if (!FLAGS.experiences) return <Redirect href="/(tabs)/home" />;
+  useFocusEffect(useCallback(() => {
+    let alive = true;
+    Promise.all([listMyRequests(), listMySubscriptions()]).then(([r, s]) => {
+      if (!alive) return;
+      setReqs(r); setSubs(s);
+    });
+    return () => { alive = false; };
+  }, []));
 
   return (
     <View style={{ flex: 1, backgroundColor: c.bg }}>
@@ -134,10 +132,11 @@ export default function ExperiencesScreen() {
             </View>
           </Press>
         </View>
-        <Text style={[type(14, 500), { color: c.soft, marginTop: 10, lineHeight: 20 }]}>Your local cooks, beyond dinner. Tell them what you need, get fixed quotes back, pick your Preppa.</Text>
+        <Text style={[type(14, 500), { color: c.soft, marginTop: 10, lineHeight: 20 }]}>Tell your local cooks what you need — a cook for the night, a weekly plan, or a hand in the kitchen. Get fixed quotes back and pick your Preppa.</Text>
       </View>
 
       <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={{ paddingBottom: 40, maxWidth: 1040, alignSelf: 'center', width: '100%' }}>
+        {/* Weekly meal plans — the recurring relationship layer */}
         <Press scale={0.98} onPress={() => router.push('/plans')} style={{ marginHorizontal: 16, marginTop: 16 }} label="Weekly meal plans">
           <GradBox grad={['#A855F7', c.purple]} style={{ borderRadius: radius.xl, padding: 18, overflow: 'hidden' }}>
             <View style={{ flexDirection: 'row', alignItems: 'center', gap: 14 }}>
@@ -146,32 +145,59 @@ export default function ExperiencesScreen() {
               </View>
               <View style={{ flex: 1 }}>
                 <Text style={[type(18, 900), { color: '#fff', letterSpacing: -0.4 }]}>Weekly meal plans</Text>
-                <Text style={[type(12.5, 600), { color: 'rgba(255,255,255,.82)', marginTop: 3, lineHeight: 17 }]}>Subscribe to a cook’s box — or build your own from several cooks.</Text>
+                <Text style={[type(12.5, 600), { color: 'rgba(255,255,255,.82)', marginTop: 3, lineHeight: 17 }]}>Subscribe to a cook’s box — cooked fresh, on repeat. Choose your meals, skip a week, cancel anytime.</Text>
               </View>
               <Icon name="chevRight" size={20} color="#fff" />
-            </View>
-            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6, marginTop: 14, alignSelf: 'flex-start', height: 26, paddingHorizontal: 12, borderRadius: radius.pill, backgroundColor: 'rgba(255,255,255,.92)' }}>
-              <Icon name="bolt" size={13} color={c.purple} />
-              <Text style={[type(11.5, 900), { color: c.purple, textTransform: 'uppercase', letterSpacing: 0.3 }]}>Reserve · launching soon</Text>
             </View>
           </GradBox>
         </Press>
 
-        {requests.length > 0 ? (
+        {/* Build your own cross-cook box */}
+        <Press scale={0.98} onPress={() => router.push('/build-plan')} style={{ marginHorizontal: 16, marginTop: 12 }} label="Build your own box">
+          <View style={{ flexDirection: 'row', alignItems: 'center', gap: 14, backgroundColor: c.surface, borderWidth: 1, borderColor: c.border2, borderRadius: radius.xl, padding: 16, ...shadow.card }}>
+            <View style={{ width: 46, height: 46, borderRadius: 14, backgroundColor: c.primaryL, alignItems: 'center', justifyContent: 'center' }}>
+              <Icon name="plus" size={22} color={c.primary} />
+            </View>
+            <View style={{ flex: 1 }}>
+              <Text style={[type(15.5, 900), { color: c.ink, letterSpacing: -0.3 }]}>Build your own box</Text>
+              <Text style={[type(12.5, 600), { color: c.soft, marginTop: 2, lineHeight: 17 }]}>Pick any meals across cooks — 10% off every box</Text>
+            </View>
+            <Icon name="chevRight" size={18} color={c.muted} />
+          </View>
+        </Press>
+
+        {/* Your plans (real subscriptions) */}
+        {subs.length > 0 ? (
           <>
-            <SectionHeader title="Your requests" />
-            {requests.map((r) => <ReqCard key={r.id} r={r} />)}
+            <SectionHeader title="Your plans" action="Manage" onAction={() => router.push('/plans')} />
+            <View style={{ paddingHorizontal: 16, gap: 10 }}>
+              {subs.slice(0, 3).map((s) => (
+                <Press key={s.id} scale={0.99} onPress={() => router.push('/plans')}>
+                  <View style={{ flexDirection: 'row', alignItems: 'center', gap: 12, backgroundColor: c.surface, borderWidth: 1, borderColor: c.border2, borderRadius: radius.card, padding: 14 }}>
+                    <View style={{ width: 40, height: 40, borderRadius: 12, backgroundColor: c.primaryL, alignItems: 'center', justifyContent: 'center' }}><Icon name="repeat" size={19} color={c.primary} /></View>
+                    <View style={{ flex: 1 }}>
+                      <Text numberOfLines={1} style={[type(14.5, 900), { color: c.ink }]}>{s.planName}</Text>
+                      <Text numberOfLines={1} style={[type(12, 600), { color: c.soft, marginTop: 2 }]}>{s.kitchenName} · {money2(s.nextCycle && s.nextCycle.totalCents > 0 ? s.nextCycle.totalCents : customerWeeklyCents(s.priceCents))}/wk</Text>
+                    </View>
+                    <Icon name="chevRight" size={16} color={c.muted} />
+                  </View>
+                </Press>
+              ))}
+            </View>
           </>
         ) : null}
 
-        <SectionHeader title="Book a cook" />
-        <SvcGrid />
+        {/* Your requests (real service requests) */}
+        {reqs.length > 0 ? (
+          <>
+            <SectionHeader title="Your requests" />
+            {reqs.map((r) => <RealReqCard key={r.id} r={r} onPress={() => router.push(`/request/${r.id}`)} />)}
+          </>
+        ) : null}
 
-        <SectionHeader title="Cooks near you" action="See all" onAction={() => router.push('/discover?mode=preppers')} />
-        <CookRail cooks={Object.keys(COOKS) as CookId[]} />
-
-        <SectionHeader title="Classes & supper clubs" />
-        <ExpRail exps={EXPERIENCES} />
+        {/* What do you need? — real service categories */}
+        <SectionHeader title="What do you need?" />
+        <NeedGrid />
       </ScrollView>
     </View>
   );

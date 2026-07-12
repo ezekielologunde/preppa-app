@@ -6,7 +6,7 @@
  * not deleting: flip a flag to true to bring a surface back.
  */
 export const FLAGS = {
-  experiences: false, // classes / supper clubs / private-chef services — waitlist, not live
+  experiences: true, // customer "Experiences" hub — request a cook, build/request a meal plan, manage requests (real, live)
   feed: false, // video reels — demo only
   plans: true, // weekly meal plans / subscriptions — real recurring billing (Stripe, test mode)
   services: true, // Food-Services marketplace (cook-at-home/catering request→quote→book→deposit) — real (Stripe test mode)

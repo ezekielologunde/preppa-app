@@ -10,8 +10,17 @@ import { Screen, TopBar, Dock, DockTotal, Block } from '../../src/ui/layout';
 import { CookRow, Burst } from '../../src/components/shared';
 import { SectionHeader } from '../../src/components/cards';
 import { NotFound } from '../../src/components/NotFound';
-import { ReqStatusChip } from '../(tabs)/experiences';
 
+// Local status chip for the legacy (store-backed) request demo. The live services
+// hub in app/(tabs)/experiences.tsx has its own real-data chip.
+const _chip = { flexDirection: 'row' as const, alignItems: 'center' as const, gap: 5, height: 22, paddingHorizontal: 9, borderRadius: radius.pill };
+function ReqStatusChip({ r }: { r: { status: string; quotes: { length: number }[] | { length: number } } }) {
+  const c = useC();
+  const n = Array.isArray(r.quotes) ? r.quotes.length : 0;
+  if (r.status === 'booked') return <View style={[_chip, { backgroundColor: c.greenL }]}><Icon name="check" size={11} color={c.green} /><Text style={[type(10.5, 900), { color: c.green, textTransform: 'uppercase', letterSpacing: 0.4 }]}>Booked</Text></View>;
+  if (r.status === 'quoted') return <View style={[_chip, { backgroundColor: c.primaryL }]}><View style={{ width: 6, height: 6, borderRadius: 3, backgroundColor: c.primary }} /><Text style={[type(10.5, 900), { color: c.primary, textTransform: 'uppercase', letterSpacing: 0.4 }]}>{n} quote{n !== 1 ? 's' : ''}</Text></View>;
+  return <View style={[_chip, { backgroundColor: c.bg2 }]}><View style={{ width: 6, height: 6, borderRadius: 3, backgroundColor: c.soft }} /><Text style={[type(10.5, 900), { color: c.soft, textTransform: 'uppercase', letterSpacing: 0.4 }]}>Finding cooks</Text></View>;
+}
 
 export default function RequestQuotesScreen() {
   const c = useC();
