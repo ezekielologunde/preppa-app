@@ -1,7 +1,7 @@
 import React, { useRef, useState } from 'react';
 import { View, Text, ScrollView, Pressable, Animated, StyleSheet, LayoutChangeEvent, StyleProp, ViewStyle, ActivityIndicator } from 'react-native';
 import { useRouter } from 'expo-router';
-import { COOKS, CookId, Meal, Experience, PlanGoal, money, cookOf } from '../data/data';
+import { COOKS, CookId, Meal, Experience, PlanGoal, money, cookOf, thumb } from '../data/data';
 import { useKitchenReviews, type KitchenCard } from '../data/hooks';
 import { seedCookForKitchen } from '../data/supabaseRepository';
 import { useC } from '../theme/ThemeContext';
@@ -234,7 +234,7 @@ export const MealCardLg = React.memo(function MealCardLg({ m, showMatch, width }
       {/* Visual content — non-interactive; scales with the nav layer's press. */}
       <Animated.View style={press.scaleStyle}>
         <View style={{ backgroundColor: c.surface, borderRadius: radius.card, borderWidth: 1, borderColor: c.border2, overflow: 'hidden', ...shadow.card }}>
-          <GradBox grad={m.grad} img={m.img} style={{ height: 150 }}>
+          <GradBox grad={m.grad} img={thumb(m.img)} style={{ height: 150 }}>
             {showMatch && m.match ? (
               <View style={{ position: 'absolute', top: 8, left: 8, height: 22, borderRadius: radius.pill, paddingHorizontal: 8, flexDirection: 'row', alignItems: 'center', gap: 3, backgroundColor: c.green }}>
                 <Icon name="check" size={11} color="#fff" />

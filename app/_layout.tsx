@@ -7,8 +7,7 @@ import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 import {
   useFonts,
-  Inter_400Regular, Inter_500Medium, Inter_600SemiBold,
-  Inter_700Bold, Inter_800ExtraBold, Inter_900Black,
+  Inter_600SemiBold, Inter_700Bold, Inter_800ExtraBold, Inter_900Black,
 } from '@expo-google-fonts/inter';
 import { StoreProvider, useStore } from '../src/store/store';
 import { ThemeProvider, useIsDark } from '../src/theme/ThemeContext';
@@ -22,9 +21,10 @@ import { ErrorBoundary } from '../src/components/ErrorBoundary';
 SplashScreen.preventAutoHideAsync().catch(() => {});
 
 export default function RootLayout() {
+  // Only 4 weights are actually used (400 never; 500 remaps to 600). Loading 4 instead of 6
+  // TTFs saves ~670KB of fonts off first load — see FONT map in theme.ts.
   const [fontsLoaded] = useFonts({
-    Inter_400Regular, Inter_500Medium, Inter_600SemiBold,
-    Inter_700Bold, Inter_800ExtraBold, Inter_900Black,
+    Inter_600SemiBold, Inter_700Bold, Inter_800ExtraBold, Inter_900Black,
   });
   useEffect(() => {
     if (fontsLoaded) SplashScreen.hideAsync().catch(() => {});

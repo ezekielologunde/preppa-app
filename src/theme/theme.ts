@@ -64,10 +64,12 @@ export const radius = {
   sm: 12, md: 14, lg: 16, card: 18, xl: 20, xxl: 22, hero: 24, sheet: 26, pill: 999,
 };
 
-/** Inter font-family names keyed by CSS numeric weight. */
+/** Inter font-family names keyed by CSS numeric weight. Only 600/700/800/900 are loaded
+ *  (see app/_layout.tsx). 400 (unused) and 500 (rare) remap to the nearest loaded weight,
+ *  600 — an imperceptible shift that saves ~670KB of font TTFs off first load. */
 export const FONT: Record<number, string> = {
-  400: 'Inter_400Regular',
-  500: 'Inter_500Medium',
+  400: 'Inter_600SemiBold',
+  500: 'Inter_600SemiBold',
   600: 'Inter_600SemiBold',
   700: 'Inter_700Bold',
   800: 'Inter_800ExtraBold',

@@ -110,6 +110,12 @@ export const mealById = (id: string) => MEALS.find((m) => m.id === id);
 /** Gallery photos for a meal: its `photos` array if present, else its single cover, else none. */
 export const mealPhotos = (m: Meal): string[] => (m.photos && m.photos.length ? m.photos : m.img ? [m.img] : []);
 
+/** A smaller image variant for card-sized contexts. themealdb serves a ~thumbnail at
+ *  `<url>/preview`; other hosts (Supabase uploads) are returned unchanged. Keeps full-res
+ *  for hero/detail views, cuts bytes on the many small grid cards. */
+export const thumb = (url?: string): string | undefined =>
+  url && url.includes('themealdb.com') ? url + '/preview' : url;
+
 export const FOUNDING = new Set<CookId>(['maria', 'amara']);
 export interface Addon { key: string; name: string; cook: CookId; price: number; grad: GradKey; }
 export const ADDONS: Addon[] = [
