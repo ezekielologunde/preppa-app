@@ -376,6 +376,39 @@ export async function fetchMyKitchenMeals(): Promise<{ kitchenId: string | null;
   return { kitchenId: (k as any).id, meals };
 }
 
+// ---- cook dashboard: "what must I cook this week" + subscribers ----
+
+export interface PrepMeal { mealId: string; name: string; portions: number; subscriberCount: number }
+export interface PrepDay { deliveryDate: string; meals: PrepMeal[]; allergens: string[] }
+
+/** The signed-in cook's upcoming prep, grouped by delivery date (incl. their box portions). */
+export async function fetchPrepRollup(): Promise<PrepDay[]> {
+  const [rollup, allergens] = await Promise.all([
+    supabase.rpc('cook_prep_rollup'),
+    supabase.rpc('cook_prep_allergens'),
+  ]);
+  const algByDay = new Map<string, string[]>();
+  for (const a of (allergens.data as any[] ?? [])) algByDay.set(a.delivery_date, a.allergens ?? []);
+  const byDay = new Map<string, PrepDay>();
+  for (const r of (rollup.data as any[] ?? [])) {
+    let d = byDay.get(r.delivery_date);
+    if (!d) { d = { deliveryDate: r.delivery_date, meals: [], allergens: algByDay.get(r.delivery_date) ?? [] }; byDay.set(r.delivery_date, d); }
+    d.meals.push({ mealId: r.meal_id, name: r.meal_name, portions: Number(r.total_portions) || 0, subscriberCount: Number(r.subscriber_count) || 0 });
+  }
+  return [...byDay.values()];
+}
+
+export interface CookSubscriber { subscriptionId: string; customerName: string; planName: string; lifecycle: Lifecycle; priceCents: number; preferredDay: string | null; createdAt: string }
+
+/** The signed-in cook's plan subscribers (roster). */
+export async function fetchCookSubscribers(): Promise<CookSubscriber[]> {
+  const { data } = await supabase.rpc('cook_subscribers');
+  return (data as any[] ?? []).map((s) => ({
+    subscriptionId: s.subscription_id, customerName: s.customer_name, planName: s.plan_name,
+    lifecycle: s.lifecycle, priceCents: Number(s.price_cents) || 0, preferredDay: s.preferred_day, createdAt: s.created_at,
+  }));
+}
+
 export async function fetchMyPlans(): Promise<Plan[]> {
   const { data: sess } = await supabase.auth.getSession();
   const uid = sess.session?.user?.id;
