@@ -165,7 +165,10 @@ export function ReviewsBlock({ kitchenId }: { kitchenId?: string }) {
 /** Cut / Bulk / Maintain pill for goal-based meal plans. */
 export function GoalBadge({ goal, size = 'sm' }: { goal: PlanGoal; size?: 'sm' | 'md' }) {
   const c = useC();
-  const meta = { cut: { label: 'Cut', color: c.green }, bulk: { label: 'Bulk', color: c.primary }, maintain: { label: 'Maintain', color: c.purple } }[goal];
+  // `goal` is free text on real plans (fed via `as any`) — render nothing for values
+  // outside the known set rather than crashing on `meta.color`.
+  const meta = ({ cut: { label: 'Cut', color: c.green }, bulk: { label: 'Bulk', color: c.primary }, maintain: { label: 'Maintain', color: c.purple } } as Record<string, { label: string; color: string }>)[goal];
+  if (!meta) return null;
   const md = size === 'md';
   return (
     <View style={{ height: md ? 26 : 22, paddingHorizontal: md ? 12 : 10, borderRadius: radius.pill, backgroundColor: meta.color, alignItems: 'center', justifyContent: 'center', flexDirection: 'row', gap: 4 }}>
