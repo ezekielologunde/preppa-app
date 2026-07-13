@@ -39,6 +39,14 @@ export default function CreatePlanFlow() {
   const [servings, setServings] = useState('');          // servings per meal
   const [dietary, setDietary] = useState<string[]>([]);
   const [allergens, setAllergens] = useState<string[]>([]);
+  // advanced (collapsed) config
+  const [advanced, setAdvanced] = useState(false);
+  const [cutoff, setCutoff] = useState('');              // order cutoff (hours before delivery)
+  const [lead, setLead] = useState('');                  // lead time for the first box (hours)
+  const [minCommit, setMinCommit] = useState('');        // minimum commitment (weeks)
+  const [trialOn, setTrialOn] = useState(false);
+  const [trialPrice, setTrialPrice] = useState('');      // trial price per week
+  const [trialWeeks, setTrialWeeks] = useState('');      // number of trial cycles
   const [qty, setQty] = useState<Record<string, number>>({}); // mealId -> qty (0 = not in plan)
   const [cover, setCover] = useState('');        // public cover URL
   const [coverBusy, setCoverBusy] = useState(false);
@@ -62,6 +70,15 @@ export default function CreatePlanFlow() {
           setMealsPerDelivery(pl.mealsPerDelivery ? String(pl.mealsPerDelivery) : '');
           setServings(pl.servings ? String(pl.servings) : '');
           setDietary(pl.dietaryTags ?? []); setAllergens(pl.allergens ?? []);
+          if (pl.cutoffHours != null) setCutoff(String(pl.cutoffHours));
+          if (pl.leadTimeHours != null) setLead(String(pl.leadTimeHours));
+          if (pl.minCommitment != null) setMinCommit(String(pl.minCommitment));
+          if (pl.trialCycles && pl.trialCycles > 0) {
+            setTrialOn(true); setTrialWeeks(String(pl.trialCycles));
+            setTrialPrice(pl.trialPriceCents != null ? String(pl.trialPriceCents / 100) : '');
+          }
+          // open Advanced if anything there is non-default
+          if ((pl.cutoffHours && pl.cutoffHours !== 48) || (pl.leadTimeHours && pl.leadTimeHours !== 48) || (pl.minCommitment && pl.minCommitment > 1) || (pl.trialCycles && pl.trialCycles > 0)) setAdvanced(true);
           const q: Record<string, number> = {}; for (const it of pl.items) if (it.mealId) q[it.mealId] = it.qty; setQty(q);
         }
       }
@@ -93,6 +110,8 @@ export default function CreatePlanFlow() {
   // Weekly price shown to the cook: fixed = the bundle price; customer-choice ≈ per-meal × picks.
   const weeklyCents = choice ? perMealCents * mpd : priceCents;
   const valid = !!name.trim() && items.length > 0 && (choice ? perMealCents >= 100 && mpd > 0 : priceCents > 0);
+  const advancedSummary = [trialOn ? 'Trial' : null, `${cutoff || '48'}h cutoff`, minCommit && minCommit !== '1' ? `${minCommit}wk min` : null].filter(Boolean).join(' · ');
+  const clampInt = (s: string, lo: number, hi: number) => Math.min(hi, Math.max(lo, parseInt(s, 10) || lo));
 
   const submit = async () => {
     if (busy) return;
@@ -114,6 +133,12 @@ export default function CreatePlanFlow() {
         servings: servings.trim() ? Math.max(1, parseInt(servings, 10) || 1) : undefined,
         dietaryTags: dietary.length ? dietary : undefined,
         allergens: allergens.length ? allergens : undefined,
+        cutoffHours: cutoff.trim() ? clampInt(cutoff, 0, 336) : undefined,
+        leadTimeHours: lead.trim() ? clampInt(lead, 0, 336) : undefined,
+        minCommitment: minCommit.trim() ? clampInt(minCommit, 1, 52) : undefined,
+        ...(trialOn
+          ? { trialPriceCents: Math.max(0, Math.round((Number(trialPrice) || 0) * 100)), trialCycles: clampInt(trialWeeks || '1', 1, 12) }
+          : { trialCycles: 0 }),
         ...(choice
           ? { perMealCents, mealsPerDelivery: mpd, priceCents: perMealCents * mpd }
           : { priceCents }),
@@ -256,6 +281,34 @@ export default function CreatePlanFlow() {
             );
           })}
         </View>
+
+        <Press scale={0.99} onPress={() => setAdvanced((a) => !a)}>
+          <View style={{ flexDirection: 'row', alignItems: 'center', gap: 9, marginTop: 18, paddingVertical: 13, borderTopWidth: 1, borderTopColor: c.border2 }}>
+            <Icon name="sliders" size={17} color={c.soft} />
+            <Text style={[type(14, 800), { color: c.ink, flex: 1 }]}>Advanced options</Text>
+            {!advanced ? <Text numberOfLines={1} style={[type(12, 600), { color: c.muted, maxWidth: 150 }]}>{advancedSummary}</Text> : null}
+            <Icon name={advanced ? 'chevDown' : 'chevRight'} size={16} color={c.muted} />
+          </View>
+        </Press>
+        {advanced ? (
+          <View>
+            <View style={{ flexDirection: 'row', gap: 12 }}>
+              <View style={{ flex: 1 }}><KField label="Order cutoff (hrs)"><KInput value={cutoff} onChange={setCutoff} placeholder="48" /></KField></View>
+              <View style={{ flex: 1 }}><KField label="Lead time (hrs)"><KInput value={lead} onChange={setLead} placeholder="48" /></KField></View>
+            </View>
+            <KField label="Minimum commitment (weeks)"><KInput value={minCommit} onChange={setMinCommit} placeholder="1" /></KField>
+            <KField label="Intro trial">
+              <KSeg options={[{ key: 'off', label: 'No trial' }, { key: 'on', label: 'Offer a trial' }]} value={trialOn ? 'on' : 'off'} onChange={(v) => setTrialOn(v === 'on')} />
+              <Text style={[type(11.5, 600), { color: c.muted, marginTop: 6, lineHeight: 16 }]}>A discounted (or free) first weeks to win subscribers — then the normal price kicks in.</Text>
+            </KField>
+            {trialOn ? (
+              <View style={{ flexDirection: 'row', gap: 12 }}>
+                <View style={{ flex: 1 }}><KField label="Trial price / week"><MoneyInput value={trialPrice} onChange={setTrialPrice} /></KField></View>
+                <View style={{ flex: 1 }}><KField label="Trial weeks"><KInput value={trialWeeks} onChange={setTrialWeeks} placeholder="1" /></KField></View>
+              </View>
+            ) : null}
+          </View>
+        ) : null}
 
         <View style={{ marginTop: 20, backgroundColor: c.primaryL, borderRadius: 18, padding: 15, flexDirection: 'row', gap: 11, alignItems: 'flex-start' }}>
           <Icon name="spark" size={19} color={c.primary} />
