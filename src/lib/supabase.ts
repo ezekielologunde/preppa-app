@@ -220,10 +220,19 @@ export async function updateProfile(patch: Partial<EditableProfile>): Promise<vo
 
 /** Upload an avatar image to the owner-scoped `avatars` bucket; returns its public URL. Web-first. */
 export async function uploadAvatar(file: Blob, ext: string): Promise<string> {
+  return uploadPublicImage(file, ext, 'avatar');
+}
+
+/** Upload a plan cover image (public, customer-facing) to the owner-scoped `avatars` bucket. */
+export async function uploadPlanCover(file: Blob, ext: string): Promise<string> {
+  return uploadPublicImage(file, ext, 'plan-cover');
+}
+
+async function uploadPublicImage(file: Blob, ext: string, prefix: string): Promise<string> {
   const { data: sess } = await supabase.auth.getSession();
   const uid = sess.session?.user?.id;
   if (!uid) throw new Error('You need to be signed in.');
-  const path = `${uid}/avatar-${Date.now()}.${ext}`;
+  const path = `${uid}/${prefix}-${Date.now()}.${ext}`;
   const { error } = await supabase.storage.from('avatars').upload(path, file, {
     upsert: true,
     contentType: (file as any).type || `image/${ext}`,

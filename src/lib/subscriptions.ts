@@ -419,13 +419,29 @@ export async function fetchMyPlans(): Promise<Plan[]> {
   return (data as any[] ?? []).map(rowToPlan);
 }
 
-export async function upsertPlan(input: {
-  planId?: string; name: string; description?: string; priceCents: number;
+export interface UpsertPlanInput {
+  planId?: string; name: string; description?: string; priceCents?: number;
   fulfillment: 'pickup' | 'delivery'; goal?: string; items: { mealId: string; qty: number }[];
-  selectionModel?: SelectionModel; mealsPerDelivery?: number; servings?: number;
-  cutoffHours?: number; minCommitment?: number; deliveryDays?: string[];
-}): Promise<string> {
+  selectionModel?: SelectionModel; perMealCents?: number; perDeliveryCents?: number;
+  mealsPerDelivery?: number; servings?: number; mealsPerWeek?: number;
+  deliveryDays?: string[]; cutoffHours?: number; leadTimeHours?: number; minCommitment?: number;
+  trialPriceCents?: number; trialCycles?: number; rotating?: boolean;
+  coverUrl?: string; photoUrls?: string[]; dietaryTags?: string[]; allergens?: string[];
+}
+export async function upsertPlan(input: UpsertPlanInput): Promise<string> {
   const { data, error } = await supabase.functions.invoke('plan-upsert', { body: input });
   if (error || data?.error) throw new Error(data?.error || error?.message || 'Could not save the plan.');
   return data.planId as string;
+}
+
+/** Set the signed-in cook's weekly capacity (max meal portions per delivery day; null = unlimited). */
+export async function setKitchenCapacity(maxPortions: number | null): Promise<void> {
+  const { error } = await supabase.rpc('set_kitchen_capacity', { p_max: maxPortions, p_day: '' });
+  if (error) throw new Error(error.message);
+}
+
+/** The signed-in cook's current all-days capacity cap (null = unlimited). */
+export async function fetchKitchenCapacity(kitchenId: string): Promise<number | null> {
+  const { data } = await supabase.from('kitchen_capacity').select('max_portions_per_day').eq('kitchen_id', kitchenId).eq('delivery_day', '').maybeSingle();
+  return data ? (Number((data as any).max_portions_per_day) ?? null) : null;
 }

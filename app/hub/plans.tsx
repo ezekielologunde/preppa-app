@@ -3,7 +3,7 @@ import { View, Text, ScrollView, ActivityIndicator } from 'react-native';
 import { useRouter, useFocusEffect } from 'expo-router';
 import { useC } from '../../src/theme/ThemeContext';
 import { type, radius, shadow } from '../../src/theme/theme';
-import { Icon, GradBox } from '../../src/ui';
+import { Icon, GradBox, Press } from '../../src/ui';
 import { Screen, TopBar } from '../../src/ui/layout';
 import { money } from '../../src/data/data';
 import { KSec, KBtn } from '../(tabs)/my-hub';
@@ -48,24 +48,27 @@ export default function PlansScreen() {
           plans.map((p) => {
             const totalMeals = p.items.reduce((n, i) => n + i.qty, 0);
             return (
-              <View key={p.id} style={{ marginHorizontal: 20, marginBottom: 14, backgroundColor: c.surface, borderWidth: 1, borderColor: c.border2, borderRadius: 20, padding: 16, ...shadow.card }}>
-                <View style={{ flexDirection: 'row', alignItems: 'center', gap: 13 }}>
-                  <GradBox grad={['#A855F7', c.purple]} style={{ width: 48, height: 48, borderRadius: 14, alignItems: 'center', justifyContent: 'center' }}>
-                    <Icon name="repeat" size={20} color="#fff" />
-                  </GradBox>
-                  <View style={{ flex: 1, minWidth: 0 }}>
-                    <Text numberOfLines={1} style={[type(15, 900), { color: c.ink, letterSpacing: -0.2 }]}>{p.name}</Text>
-                    <Text style={[type(12.5, 600), { color: c.soft, marginTop: 2 }]}>{totalMeals} meal{totalMeals !== 1 ? 's' : ''}/wk · {p.fulfillment === 'pickup' ? 'Pickup' : 'Delivery'}</Text>
+              <Press key={p.id} scale={0.99} onPress={() => router.push(`/hub/create-plan?planId=${p.id}`)} style={{ marginHorizontal: 20, marginBottom: 14 }}>
+                <View style={{ backgroundColor: c.surface, borderWidth: 1, borderColor: c.border2, borderRadius: 20, padding: 16, ...shadow.card }}>
+                  <View style={{ flexDirection: 'row', alignItems: 'center', gap: 13 }}>
+                    <GradBox grad={['#A855F7', c.purple]} style={{ width: 48, height: 48, borderRadius: 14, alignItems: 'center', justifyContent: 'center' }}>
+                      <Icon name="repeat" size={20} color="#fff" />
+                    </GradBox>
+                    <View style={{ flex: 1, minWidth: 0 }}>
+                      <Text numberOfLines={1} style={[type(15, 900), { color: c.ink, letterSpacing: -0.2 }]}>{p.name}</Text>
+                      <Text style={[type(12.5, 600), { color: c.soft, marginTop: 2 }]}>{totalMeals} meal{totalMeals !== 1 ? 's' : ''}/wk · {p.fulfillment === 'pickup' ? 'Pickup' : 'Delivery'}</Text>
+                    </View>
+                    <View style={{ alignItems: 'flex-end' }}>
+                      <Text style={[type(16, 900), { color: c.ink, letterSpacing: -0.3 }]}>{weekly(p.priceCents)}</Text>
+                      <Text style={[type(11, 700), { color: c.muted }]}>/week</Text>
+                    </View>
+                    <Icon name="chevRight" size={16} color={c.muted} />
                   </View>
-                  <View style={{ alignItems: 'flex-end' }}>
-                    <Text style={[type(16, 900), { color: c.ink, letterSpacing: -0.3 }]}>{weekly(p.priceCents)}</Text>
-                    <Text style={[type(11, 700), { color: c.muted }]}>/week</Text>
-                  </View>
+                  {p.items.length > 0 ? (
+                    <Text numberOfLines={2} style={[type(12.5, 600), { color: c.ink2, marginTop: 12, paddingTop: 12, borderTopWidth: 1, borderTopColor: c.border2 }]}>{p.items.map((i) => (i.qty > 1 ? `${i.name} ×${i.qty}` : i.name)).join(' · ')}</Text>
+                  ) : null}
                 </View>
-                {p.items.length > 0 ? (
-                  <Text numberOfLines={2} style={[type(12.5, 600), { color: c.ink2, marginTop: 12, paddingTop: 12, borderTopWidth: 1, borderTopColor: c.border2 }]}>{p.items.map((i) => (i.qty > 1 ? `${i.name} ×${i.qty}` : i.name)).join(' · ')}</Text>
-                ) : null}
-              </View>
+              </Press>
             );
           })
         )}
