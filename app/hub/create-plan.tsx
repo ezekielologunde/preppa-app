@@ -15,6 +15,8 @@ import { uploadPlanCover } from '../../src/lib/supabase';
 
 const GOALS = [{ key: '', label: 'None' }, { key: 'cut', label: 'Cut' }, { key: 'maintain', label: 'Maintain' }, { key: 'bulk', label: 'Bulk' }];
 const DOW = [{ key: 'monday', label: 'Mon' }, { key: 'tuesday', label: 'Tue' }, { key: 'wednesday', label: 'Wed' }, { key: 'thursday', label: 'Thu' }, { key: 'friday', label: 'Fri' }, { key: 'saturday', label: 'Sat' }, { key: 'sunday', label: 'Sun' }];
+const DIETARY = ['Vegetarian', 'Vegan', 'Halal', 'Gluten-free', 'Dairy-free', 'Keto', 'High-protein', 'Low-carb', 'Pescatarian'];
+const ALLERGENS = ['Nuts', 'Peanuts', 'Dairy', 'Gluten', 'Shellfish', 'Eggs', 'Soy', 'Fish', 'Sesame'];
 
 export default function CreatePlanFlow() {
   const c = useC();
@@ -31,6 +33,12 @@ export default function CreatePlanFlow() {
   const [price, setPrice] = useState('');
   const [fulfillment, setFulfillment] = useState('delivery');
   const [goal, setGoal] = useState('');
+  const [selectionModel, setSelectionModel] = useState<'fixed' | 'customer_choice'>('fixed');
+  const [perMeal, setPerMeal] = useState('');            // per-meal price (customer_choice)
+  const [mealsPerDelivery, setMealsPerDelivery] = useState(''); // how many the customer picks each week
+  const [servings, setServings] = useState('');          // servings per meal
+  const [dietary, setDietary] = useState<string[]>([]);
+  const [allergens, setAllergens] = useState<string[]>([]);
   const [qty, setQty] = useState<Record<string, number>>({}); // mealId -> qty (0 = not in plan)
   const [cover, setCover] = useState('');        // public cover URL
   const [coverBusy, setCoverBusy] = useState(false);
@@ -49,6 +57,11 @@ export default function CreatePlanFlow() {
         if (pl) {
           setName(pl.name); setDesc(pl.description ?? ''); setPrice(pl.priceCents ? String(pl.priceCents / 100) : '');
           setFulfillment(pl.fulfillment); setGoal(pl.goal ?? ''); setCover(pl.coverUrl ?? ''); setDays(pl.deliveryDays ?? []);
+          setSelectionModel(pl.selectionModel === 'customer_choice' ? 'customer_choice' : 'fixed');
+          setPerMeal(pl.perMealCents ? String(pl.perMealCents / 100) : '');
+          setMealsPerDelivery(pl.mealsPerDelivery ? String(pl.mealsPerDelivery) : '');
+          setServings(pl.servings ? String(pl.servings) : '');
+          setDietary(pl.dietaryTags ?? []); setAllergens(pl.allergens ?? []);
           const q: Record<string, number> = {}; for (const it of pl.items) if (it.mealId) q[it.mealId] = it.qty; setQty(q);
         }
       }
@@ -71,21 +84,39 @@ export default function CreatePlanFlow() {
   };
   const toggleDay = (k: string) => setDays((d) => d.includes(k) ? d.filter((x) => x !== k) : [...d, k]);
 
+  const choice = selectionModel === 'customer_choice';
   const items = Object.entries(qty).filter(([, q]) => q > 0).map(([mealId, q]) => ({ mealId, qty: q }));
   const totalMeals = items.reduce((n, i) => n + i.qty, 0);
   const priceCents = Math.round((Number(price) || 0) * 100);
-  const valid = !!name.trim() && priceCents > 0 && items.length > 0;
+  const perMealCents = Math.round((Number(perMeal) || 0) * 100);
+  const mpd = Math.max(0, parseInt(mealsPerDelivery, 10) || 0);
+  // Weekly price shown to the cook: fixed = the bundle price; customer-choice ≈ per-meal × picks.
+  const weeklyCents = choice ? perMealCents * mpd : priceCents;
+  const valid = !!name.trim() && items.length > 0 && (choice ? perMealCents >= 100 && mpd > 0 : priceCents > 0);
 
   const submit = async () => {
     if (busy) return;
-    if (!valid) { toast(!name.trim() ? 'Add a plan name' : priceCents <= 0 ? 'Set a price above $0' : 'Add at least one meal to the box', 'info'); return; }
+    if (!valid) {
+      toast(!name.trim() ? 'Add a plan name'
+        : items.length === 0 ? (choice ? 'Add meals to the menu' : 'Add at least one meal to the box')
+        : choice ? (perMealCents < 100 ? 'Set a price per meal (at least $1)' : 'Set how many meals per delivery')
+        : 'Set a price above $0', 'info');
+      return;
+    }
     setBusy(true);
     try {
       const pid = await upsertPlan({
         planId: editing ? planId : undefined,
-        name: name.trim(), description: desc.trim() || undefined, priceCents,
+        name: name.trim(), description: desc.trim() || undefined,
         fulfillment: fulfillment as any, goal: goal || undefined, items,
         coverUrl: cover || undefined, deliveryDays: days.length ? days : undefined,
+        selectionModel,
+        servings: servings.trim() ? Math.max(1, parseInt(servings, 10) || 1) : undefined,
+        dietaryTags: dietary.length ? dietary : undefined,
+        allergens: allergens.length ? allergens : undefined,
+        ...(choice
+          ? { perMealCents, mealsPerDelivery: mpd, priceCents: perMealCents * mpd }
+          : { priceCents }),
       });
       // per-kitchen weekly capacity (blank = unlimited)
       try { await setKitchenCapacity(capacity.trim() ? Math.max(0, parseInt(capacity, 10) || 0) : null); } catch { /* non-fatal */ }
@@ -105,8 +136,8 @@ export default function CreatePlanFlow() {
           body={editing
             ? `Your changes to ${name} are live.`
             : forRequest
-              ? `${name} is live and the customer who asked has been notified to subscribe. You’ll earn ${money(priceCents / 100)}/week (net of the Stripe fee) per subscriber.`
-              : `${name} is live. Customers can subscribe now — you’ll earn ${money(priceCents / 100)}/week (net of the Stripe fee) for every subscriber.`}
+              ? `${name} is live and the customer who asked has been notified to subscribe. You’ll earn about ${money(weeklyCents / 100)}/week (net of the Stripe fee) per subscriber.`
+              : `${name} is live. Customers can subscribe now — you’ll earn about ${money(weeklyCents / 100)}/week (net of the Stripe fee) for every subscriber.`}
           actionLabel={forRequest ? 'Back to requests' : 'Back to plans'}
           onAction={() => router.replace(forRequest ? '/hub/requests' : '/hub/plans')} />
       </Screen>
@@ -151,9 +182,27 @@ export default function CreatePlanFlow() {
         </KField>
         <KField label="Plan name"><KInput value={name} onChange={setName} placeholder="e.g. Weeknight Dinner Box" /></KField>
         <KField label="What’s in the box (short description)"><KInput value={desc} onChange={setDesc} placeholder="Three chef-cooked dinners, rotating each week…" multiline /></KField>
-        <View style={{ flexDirection: 'row', gap: 12 }}>
-          <View style={{ flex: 1 }}><KField label="Weekly price"><MoneyInput value={price} onChange={setPrice} /></KField></View>
-        </View>
+
+        <KField label="How it works">
+          <KSeg options={[{ key: 'fixed', label: 'Fixed box' }, { key: 'customer_choice', label: 'Customer picks' }]} value={selectionModel} onChange={(v) => setSelectionModel(v as any)} />
+          <Text style={[type(11.5, 600), { color: c.muted, marginTop: 6, lineHeight: 16 }]}>
+            {choice ? 'Customers choose their meals each week from the menu below, at a set price per meal.' : 'Every subscriber gets the same box of meals you pick below.'}
+          </Text>
+        </KField>
+
+        {choice ? (
+          <View style={{ flexDirection: 'row', gap: 12 }}>
+            <View style={{ flex: 1 }}><KField label="Price per meal"><MoneyInput value={perMeal} onChange={setPerMeal} /></KField></View>
+            <View style={{ flex: 1 }}><KField label="Meals per delivery"><KInput value={mealsPerDelivery} onChange={setMealsPerDelivery} placeholder="e.g. 3" /></KField></View>
+          </View>
+        ) : (
+          <View style={{ flexDirection: 'row', gap: 12 }}>
+            <View style={{ flex: 1 }}><KField label="Weekly price"><MoneyInput value={price} onChange={setPrice} /></KField></View>
+            <View style={{ flex: 1 }}><KField label="Servings per meal"><KInput value={servings} onChange={setServings} placeholder="e.g. 1" /></KField></View>
+          </View>
+        )}
+        {choice ? <KField label="Servings per meal"><KInput value={servings} onChange={setServings} placeholder="e.g. 1" /></KField> : null}
+
         <KField label="Fulfillment">
           <KSeg options={[{ key: 'delivery', label: 'Delivery' }, { key: 'pickup', label: 'Pickup' }]} value={fulfillment} onChange={setFulfillment} />
         </KField>
@@ -178,8 +227,16 @@ export default function CreatePlanFlow() {
           <KInput value={capacity} onChange={setCapacity} placeholder="Max meals per delivery day" />
           <Text style={[type(11.5, 600), { color: c.muted, marginTop: 6, lineHeight: 16 }]}>We won’t sell past this — leave blank for unlimited. E.g. a 3-meal box → 30 means up to ~10 subscribers.</Text>
         </KField>
+        <KField label="Dietary tags (optional)">
+          <TagChips options={DIETARY} value={dietary} onToggle={(t) => setDietary((x) => x.includes(t) ? x.filter((y) => y !== t) : [...x, t])} />
+        </KField>
+        <KField label="Contains allergens (optional)">
+          <TagChips options={ALLERGENS} value={allergens} onToggle={(t) => setAllergens((x) => x.includes(t) ? x.filter((y) => y !== t) : [...x, t])} danger />
+        </KField>
 
-        <Text style={[type(13, 800), { color: c.soft, marginTop: 18, marginBottom: 8 }]}>Meals in the box{totalMeals > 0 ? ` · ${totalMeals}/week` : ''}</Text>
+        <Text style={[type(13, 800), { color: c.soft, marginTop: 18, marginBottom: 8 }]}>
+          {choice ? `Menu customers choose from${items.length ? ` · ${items.length} offered` : ''}` : `Meals in the box${totalMeals > 0 ? ` · ${totalMeals}/week` : ''}`}
+        </Text>
         <View style={{ borderWidth: 1, borderColor: c.border2, borderRadius: radius.card, overflow: 'hidden' }}>
           {meals.map((m, i) => {
             const q = qty[m.id] || 0;
@@ -194,7 +251,7 @@ export default function CreatePlanFlow() {
                   <Text style={[type(14.5, 700), { color: c.ink }]}>{m.name}</Text>
                   <Text style={[type(12, 600), { color: c.muted, marginTop: 1 }]}>{money(m.priceCents / 100)}</Text>
                 </View>
-                {q > 0 ? <Stepper sm value={q} onDec={() => setQty((s) => ({ ...s, [m.id]: Math.max(0, q - 1) }))} onInc={() => setQty((s) => ({ ...s, [m.id]: q + 1 }))} /> : null}
+                {!choice && q > 0 ? <Stepper sm value={q} onDec={() => setQty((s) => ({ ...s, [m.id]: Math.max(0, q - 1) }))} onInc={() => setQty((s) => ({ ...s, [m.id]: q + 1 }))} /> : null}
               </View>
             );
           })}
@@ -206,9 +263,30 @@ export default function CreatePlanFlow() {
         </View>
       </ScrollView>
       <Dock>
-        <DockTotal label="Per week" value={money(priceCents / 100)} />
-        <KBtn label={busy ? 'Publishing…' : 'Publish plan'} variant="pri" flex={1} height={48} onPress={submit} style={{ opacity: valid && !busy ? 1 : 0.5 }} />
+        <DockTotal label={choice ? 'Per meal' : 'Per week'} value={money((choice ? perMealCents : priceCents) / 100)} />
+        <KBtn label={busy ? 'Publishing…' : editing ? 'Save changes' : 'Publish plan'} variant="pri" flex={1} height={48} onPress={submit} style={{ opacity: valid && !busy ? 1 : 0.5 }} />
       </Dock>
     </Screen>
+  );
+}
+
+/** Toggleable tag chips (dietary / allergens). `danger` tints selected chips as a warning (allergens). */
+function TagChips({ options, value, onToggle, danger }: { options: string[]; value: string[]; onToggle: (t: string) => void; danger?: boolean }) {
+  const c = useC();
+  const onBg = danger ? c.redL : c.primary;
+  const onFg = danger ? c.red : '#fff';
+  return (
+    <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 7 }}>
+      {options.map((t) => {
+        const on = value.includes(t);
+        return (
+          <Press key={t} scale={0.95} onPress={() => onToggle(t)}>
+            <View style={{ height: 34, paddingHorizontal: 13, borderRadius: radius.pill, backgroundColor: on ? onBg : c.bg2, borderWidth: 1, borderColor: on ? onBg : c.border, alignItems: 'center', justifyContent: 'center' }}>
+              <Text style={[type(12.5, 800), { color: on ? onFg : c.soft }]}>{t}</Text>
+            </View>
+          </Press>
+        );
+      })}
+    </View>
   );
 }
