@@ -34,7 +34,7 @@ export default function Profile() {
   // grouped so the screen reads as clear sections instead of one long list
   const activity: Row[] = [
     { ico: 'ticket', cls: 'amber', t: 'Your orders', act: () => router.push('/orders') },
-    ...(FLAGS.plans ? [{ ico: 'repeat', cls: 'purple' as Tone, t: 'Your plans', act: () => router.push('/plans') }] : []),
+    ...(FLAGS.plans ? [{ ico: 'repeat', cls: 'purple' as Tone, t: 'Your plans', act: () => router.push('/experiences?tab=mine') }] : []),
     { ico: 'heart', cls: 'pink', t: 'Favorites', act: () => router.push('/favorites') },
   ];
   const wallet: Row[] = [

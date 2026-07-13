@@ -321,6 +321,7 @@ const SHORTCUTS: { route: string; ic: string; tone: Tone; l: string }[] = [
   { route: '/hub/requests', ic: 'users', tone: 'ic-purple', l: 'Requests' },
   { route: '/hub/money', ic: 'wallet', tone: 'ic-green', l: 'Earnings' },
   { route: '/hub/menu', ic: 'utensils', tone: 'ic-ink', l: 'My menu' },
+  { route: '/hub/experiences', ic: 'spark', tone: 'ic-red', l: 'Experiences' },
   { route: '/hub/create-meal', ic: 'plus', tone: 'ic-amber', l: 'Add meal' },
   { route: '/hub/analytics', ic: 'bars', tone: 'ic-blue', l: 'Analytics' },
   { route: '/hub/post-reel', ic: 'play', tone: 'ic-purple', l: 'Post reel' },

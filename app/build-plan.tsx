@@ -79,7 +79,7 @@ export default function BuildPlanFlow() {
           title="Your box is set!"
           body={<>Your custom box of <Text style={type(15, 800)}>{result?.count} meals</Text> starts {result?.firstDeliveryDate ? chipLabel(new Date(result.firstDeliveryDate + 'T00:00:00')) : 'soon'} at <Text style={type(15, 800)}>{money2(est.totalCents)}/week</Text> (10% bundle discount applied). Skip, pause, or cancel anytime.</>}
           actionLabel="View my plans"
-          onAction={() => router.replace('/plans')}
+          onAction={() => router.replace('/experiences?tab=mine')}
         />
       </Screen>
     );

@@ -20,6 +20,7 @@ const CTX_LABEL: Record<string, string> = {
   service_request: 'About a request',
   booking: 'About a booking',
   box: 'About your weekly box',
+  experience: 'About an experience',
 };
 
 function dayLabel(iso: string): string {

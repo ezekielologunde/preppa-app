@@ -24,6 +24,8 @@ export interface RequestView {
 }
 export interface BookingView {
   id: string; kitchenName: string; status: string; amountCents: number; depositCents: number; balanceCents: number; eventDate: string;
+  kind: string; title: string | null;   // kind='experience' → title is the experience name
+  reviewed: boolean;                     // experience booking already rated
 }
 export interface IncomingRequest {
   requestId: string; kitchenId: string; category: ServiceCategory; eventDate: string; approxArea: string | null;
@@ -94,11 +96,18 @@ export async function listMyBookings(): Promise<BookingView[]> {
   if (!uid) return [];
   const { data, error } = await supabase
     .from('bookings')
-    .select('id, status, amount_cents, deposit_cents, balance_cents, event_date, kitchens(name)')
+    .select('id, status, amount_cents, deposit_cents, balance_cents, event_date, booking_kind, kitchens(name), experiences(title)')
     .eq('customer_id', uid)
     .order('created_at', { ascending: false });
   if (error || !data) return [];
-  return (data as any[]).map((b) => ({ id: b.id, kitchenName: b.kitchens?.name ?? 'A prepper', status: b.status, amountCents: num(b.amount_cents), depositCents: num(b.deposit_cents), balanceCents: num(b.balance_cents), eventDate: b.event_date }));
+  const rows = data as any[];
+  const expIds = rows.filter((b) => b.booking_kind === 'experience').map((b) => b.id);
+  let reviewed = new Set<string>();
+  if (expIds.length) {
+    const { data: rv } = await supabase.from('reviews').select('booking_id').in('booking_id', expIds);
+    reviewed = new Set((rv as any[] ?? []).map((r) => r.booking_id));
+  }
+  return rows.map((b) => ({ id: b.id, kitchenName: b.kitchens?.name ?? 'A prepper', status: b.status, amountCents: num(b.amount_cents), depositCents: num(b.deposit_cents), balanceCents: num(b.balance_cents), eventDate: b.event_date, kind: b.booking_kind ?? 'rfq', title: b.experiences?.title ?? null, reviewed: reviewed.has(b.id) }));
 }
 
 /** A prepper's incoming (routed) requests. */

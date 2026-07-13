@@ -8,78 +8,75 @@ import { type, radius, shadow } from '../../src/theme/theme';
 import { useStore, CustomerOrder } from '../../src/store/store';
 import { Icon, Press, GradBox, Btn } from '../../src/ui';
 import { Empty } from '../../src/ui/layout';
-import { listMySubscriptions, type MySubscription } from '../../src/lib/subscriptions';
 import { listMyBookings, type BookingView } from '../../src/lib/services';
+import { cancelExperienceBooking } from '../../src/lib/experiences';
 
 const STATUS: Record<CustomerOrder['status'], { label: string; bg: (c: any) => string; fg: (c: any) => string }> = {
   preparing: { label: 'Preparing', bg: (c) => c.primaryL, fg: (c) => c.primaryD },
   ready: { label: 'Ready', bg: (c) => c.greenL, fg: (c) => c.green },
   completed: { label: 'Completed', bg: (c) => c.bg2, fg: (c) => c.soft },
 };
-const weekly = (cents: number) => money((cents + Math.round(cents * 0.1)) / 100);
 
-/** Unified activity: meal orders + weekly plans (+ service bookings in Phase 3). */
+/** Unified activity: meal orders + service bookings. (Weekly plans live under Experiences → My Plans.) */
 export default function Orders() {
   const c = useC();
   const router = useRouter();
   const insets = useSafeAreaInsets();
-  const { orders } = useStore();
-  const [subs, setSubs] = useState<MySubscription[]>([]);
+  const { orders, toast } = useStore();
   const [bookings, setBookings] = useState<BookingView[]>([]);
-  useFocusEffect(useCallback(() => {
-    let a = true;
-    listMySubscriptions().then((s) => { if (a) setSubs(s); });
-    listMyBookings().then((b) => { if (a) setBookings(b); });
-    return () => { a = false; };
-  }, []));
+  const [busy, setBusy] = useState<string | null>(null);
+  const load = useCallback(() => { listMyBookings().then(setBookings); }, []);
+  useFocusEffect(useCallback(() => { load(); }, [load]));
 
-  const empty = orders.length === 0 && subs.length === 0 && bookings.length === 0;
+  const cancelExp = async (b: BookingView) => {
+    if (busy) return;
+    if (typeof window !== 'undefined' && !window.confirm(`Cancel "${b.title ?? 'this booking'}"? Refunds follow the host's cancellation policy.`)) return;
+    setBusy(b.id);
+    try {
+      const res = await cancelExperienceBooking(b.id);
+      toast(res.refundedCents > 0 ? `Cancelled — ${money(res.refundedCents / 100)} refunded` : 'Booking cancelled', res.refundedCents > 0 ? 'check' : 'x', res.refundedCents > 0);
+      load();
+    } catch (e: any) { toast(e?.message || 'Could not cancel', 'info'); }
+    finally { setBusy(null); }
+  };
+
+  const empty = orders.length === 0 && bookings.length === 0;
 
   return (
     <View style={{ flex: 1, backgroundColor: c.bg }}>
       <View style={{ backgroundColor: c.surface, paddingTop: insets.top + 10, paddingBottom: 14, paddingHorizontal: 20, borderBottomWidth: 1, borderBottomColor: c.border2 }}>
         <Text style={[type(28, 900), { color: c.ink, letterSpacing: -1 }]}>Orders</Text>
-        <Text style={[type(13.5, 500), { color: c.soft, marginTop: 6 }]}>Your meals, weekly plans, and bookings.</Text>
+        <Text style={[type(13.5, 500), { color: c.soft, marginTop: 6 }]}>Your meals and bookings. Manage weekly plans in Experiences → My Plans.</Text>
       </View>
 
       {empty ? (
-        <Empty icon="ticket" title="Nothing yet" body="Your meals and plans will show up here once you order or subscribe." action={<Btn label="Browse meals" onPress={() => router.push('/discover')} />} />
+        <Empty icon="ticket" title="Nothing yet" body="Your meals and bookings will show up here once you order or book a cook." action={<Btn label="Browse meals" onPress={() => router.push('/discover')} />} />
       ) : (
         <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={{ padding: 16, paddingBottom: 40, maxWidth: 760, alignSelf: 'center', width: '100%' }}>
-          {subs.length > 0 ? (
-            <>
-              <Text style={[type(12, 800), { color: c.muted, textTransform: 'uppercase', letterSpacing: 0.5, marginBottom: 10 }]}>Your plans</Text>
-              <View style={{ gap: 10, marginBottom: 22 }}>
-                {subs.map((s) => (
-                  <Press key={s.id} scale={0.99} onPress={() => router.push('/plans')}>
-                    <View style={{ flexDirection: 'row', alignItems: 'center', gap: 12, backgroundColor: c.surface, borderRadius: radius.card, borderWidth: 1, borderColor: c.border2, padding: 14, ...shadow.card }}>
-                      <View style={{ width: 46, height: 46, borderRadius: 14, backgroundColor: c.primaryL, alignItems: 'center', justifyContent: 'center' }}><Icon name="repeat" size={21} color={c.primary} /></View>
-                      <View style={{ flex: 1, minWidth: 0 }}>
-                        <Text numberOfLines={1} style={[type(15, 900), { color: c.ink }]}>{s.planName}</Text>
-                        <Text numberOfLines={1} style={[type(12.5, 600), { color: c.soft, marginTop: 2 }]}>{s.kitchenName} · {weekly(s.priceCents)}/wk · {s.status === 'paused' ? 'Paused' : s.status === 'past_due' ? 'Payment due' : 'Active'}</Text>
-                      </View>
-                      <Icon name="chevRight" size={16} color={c.muted} />
-                    </View>
-                  </Press>
-                ))}
-              </View>
-            </>
-          ) : null}
-
           {bookings.length > 0 ? (
             <>
-              <Text style={[type(12, 800), { color: c.muted, textTransform: 'uppercase', letterSpacing: 0.5, marginBottom: 10 }]}>Service bookings</Text>
+              <Text style={[type(12, 800), { color: c.muted, textTransform: 'uppercase', letterSpacing: 0.5, marginBottom: 10 }]}>Bookings</Text>
               <View style={{ gap: 10, marginBottom: 22 }}>
-                {bookings.map((b) => (
-                  <View key={b.id} style={{ flexDirection: 'row', alignItems: 'center', gap: 12, backgroundColor: c.surface, borderRadius: radius.card, borderWidth: 1, borderColor: c.border2, padding: 14, ...shadow.card }}>
-                    <View style={{ width: 46, height: 46, borderRadius: 14, backgroundColor: c.primaryL, alignItems: 'center', justifyContent: 'center' }}><Icon name="chefhat" size={21} color={c.primary} /></View>
-                    <View style={{ flex: 1, minWidth: 0 }}>
-                      <Text numberOfLines={1} style={[type(15, 900), { color: c.ink }]}>{b.kitchenName}</Text>
-                      <Text numberOfLines={1} style={[type(12.5, 600), { color: c.soft, marginTop: 2 }]}>{b.eventDate} · {money(b.amountCents / 100)} · {b.status === 'confirmed' ? 'Confirmed' : b.status === 'completed' ? 'Completed' : b.status === 'pending_deposit' ? 'Deposit pending' : b.status}</Text>
+                {bookings.map((b) => {
+                  const isExp = b.kind === 'experience';
+                  const isPast = b.eventDate < new Date().toISOString().slice(0, 10);
+                  const statusLabel = b.status === 'confirmed' ? (isExp ? (isPast ? 'Attended' : 'Booked') : 'Confirmed') : b.status === 'completed' ? 'Completed' : b.status === 'pending_deposit' ? 'Payment pending' : b.status;
+                  return (
+                    <View key={b.id} style={{ flexDirection: 'row', alignItems: 'center', gap: 12, backgroundColor: c.surface, borderRadius: radius.card, borderWidth: 1, borderColor: c.border2, padding: 14, ...shadow.card }}>
+                      <View style={{ width: 46, height: 46, borderRadius: 14, backgroundColor: c.primaryL, alignItems: 'center', justifyContent: 'center' }}><Icon name={isExp ? 'spark' : 'chefhat'} size={21} color={c.primary} /></View>
+                      <View style={{ flex: 1, minWidth: 0 }}>
+                        <Text numberOfLines={1} style={[type(15, 900), { color: c.ink }]}>{isExp && b.title ? b.title : b.kitchenName}</Text>
+                        <Text numberOfLines={1} style={[type(12.5, 600), { color: c.soft, marginTop: 2 }]}>{isExp ? `${b.kitchenName} · ` : ''}{b.eventDate} · {money(b.amountCents / 100)} · {statusLabel}</Text>
+                      </View>
+                      {isExp && b.status === 'confirmed' && isPast ? (
+                        b.reviewed ? <Text style={[type(11.5, 800), { color: c.star }]}>Rated ★</Text>
+                          : <Press scale={0.95} onPress={() => router.push(`/rate-experience/${b.id}`)} label="Rate experience"><Text style={[type(12, 800), { color: c.primary }]}>Rate</Text></Press>
+                      ) : isExp && b.status === 'confirmed' ? (
+                        <Press scale={0.95} onPress={() => cancelExp(b)} label="Cancel booking"><Text style={[type(12, 800), { color: busy === b.id ? c.muted : c.red }]}>{busy === b.id ? '…' : 'Cancel'}</Text></Press>
+                      ) : b.balanceCents > 0 && (b.status === 'confirmed') ? <Text style={[type(11.5, 700), { color: c.muted }]}>{money(b.balanceCents / 100)} due</Text> : null}
                     </View>
-                    {b.balanceCents > 0 && (b.status === 'confirmed') ? <Text style={[type(11.5, 700), { color: c.muted }]}>{money(b.balanceCents / 100)} due</Text> : null}
-                  </View>
-                ))}
+                  );
+                })}
               </View>
             </>
           ) : null}

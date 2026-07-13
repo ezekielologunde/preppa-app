@@ -109,7 +109,7 @@ function RealPlanDetail({ plan }: { plan: Plan }) {
         try { const { clientSecret } = await createSetupIntent(); setAddCard(clientSecret); }
         catch { toast('Add a card to subscribe.', 'info'); }
       } else if (e?.code === 'already_subscribed') {
-        toast("You're already subscribed to this plan.", 'info'); router.replace('/plans');
+        toast("You're already subscribed to this plan.", 'info'); router.replace('/experiences?tab=mine');
       } else {
         toast(e?.message || 'Could not start your plan. Please try again.', 'info');
       }
@@ -130,7 +130,7 @@ function RealPlanDetail({ plan }: { plan: Plan }) {
           title="You’re subscribed!"
           body={<>Your <Text style={type(15, 800)}>{plan.name}</Text> from <Text style={type(15, 800)}>{plan.kitchenName}</Text> starts {result?.firstDeliveryDate ? fmtDate(result.firstDeliveryDate) : 'soon'}. You’re charged {weeklyLabel} per delivery after you confirm that week’s meals — skip, pause, or cancel anytime.</>}
           actionLabel="View my plans"
-          onAction={() => router.replace('/plans')}
+          onAction={() => router.replace('/experiences?tab=mine')}
         />
       </Screen>
     );
@@ -286,7 +286,7 @@ function SeedPlanDetail({ p }: { p: MarketPlan }) {
   if (stage === 'done') {
     return (
       <Screen bg={c.surface}>
-        <Burst title="You’re on the list!" body={<>You’ve reserved <Text style={type(15, 800)}>{p.name}</Text> with <Text style={type(15, 800)}>{cook.name}</Text>. This is a sample plan — subscribe to a live plan from Plans.</>} actionLabel="Browse plans" onAction={() => router.replace('/plans')} />
+        <Burst title="You’re on the list!" body={<>You’ve reserved <Text style={type(15, 800)}>{p.name}</Text> with <Text style={type(15, 800)}>{cook.name}</Text>. This is a sample plan — subscribe to a live plan from Plans.</>} actionLabel="Browse plans" onAction={() => router.replace('/experiences?tab=plans')} />
       </Screen>
     );
   }

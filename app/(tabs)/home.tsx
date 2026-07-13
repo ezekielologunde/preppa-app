@@ -142,9 +142,9 @@ export default function HomeScreen() {
         {/* High-end big cards — the app's four layers, since they're not in the mobile nav. */}
         <SectionHeader title="Explore Preppa" />
         <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 12, paddingHorizontal: 20 }}>
-          <BigCard c={c} wide={wide} grad={['#A855F7', '#7C3AED']} icon="repeat" title="Meal plans" body="Weekly boxes from a cook you love" onPress={() => router.push('/discover?mode=plans')} />
-          <BigCard c={c} wide={wide} grad={['#38BDF8', '#2563EB']} icon="bank" title="Subscriptions" body="Manage your recurring boxes" onPress={() => router.push('/plans')} />
-          <BigCard c={c} wide={wide} grad={['#FB7185', '#E11D48']} icon="gift" title="Experiences" body="Classes, supper clubs & events" soon onPress={() => toast('Food experiences are coming soon', 'gift')} />
+          <BigCard c={c} wide={wide} grad={['#A855F7', '#7C3AED']} icon="repeat" title="Meal plans" body="Weekly boxes from a cook you love" onPress={() => router.push('/experiences?tab=plans')} />
+          <BigCard c={c} wide={wide} grad={['#38BDF8', '#2563EB']} icon="bank" title="Subscriptions" body="Manage your recurring boxes" onPress={() => router.push('/experiences?tab=mine')} />
+          <BigCard c={c} wide={wide} grad={['#FB7185', '#E11D48']} icon="gift" title="Experiences" body="Classes, supper clubs & events" onPress={() => router.push('/experiences?tab=experiences')} />
           <BigCard c={c} wide={wide} grad={['#334155', '#0F172A']} icon="video" title="Feed" body="Watch cooks & meal drops" soon onPress={() => toast('The creator feed is coming soon', 'video')} />
         </View>
 

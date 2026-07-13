@@ -1,17 +1,58 @@
-import React, { useCallback, useState } from 'react';
-import { View, Text, ScrollView, LayoutChangeEvent } from 'react-native';
+import React, { useCallback, useEffect, useState } from 'react';
+import { View, Text, ScrollView, ActivityIndicator, Image, LayoutChangeEvent } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { useRouter, useFocusEffect } from 'expo-router';
+import { useRouter, useFocusEffect, useLocalSearchParams } from 'expo-router';
 import { useC } from '../../src/theme/ThemeContext';
 import { Palette, type, radius, shadow } from '../../src/theme/theme';
 import { useStore } from '../../src/store/store';
 import { Icon, Press, GradBox } from '../../src/ui';
 import { SectionHeader, useColumns } from '../../src/components/cards';
-import { money } from '../../src/data/data';
+import { ModeTabs } from '../../src/components/ModeTabs';
+import { BrowsePlansSection, MyPlansSection, money2 } from '../../src/components/plans';
 import { listMyRequests, SERVICE_LABELS, type RequestView, type ServiceCategory } from '../../src/lib/services';
-import { listMySubscriptions, customerWeeklyCents, type MySubscription } from '../../src/lib/subscriptions';
+import { fetchExperiences, type Experience } from '../../src/lib/experiences';
 
-const money2 = (cents: number) => money(cents / 100);
+const WD = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
+const MO = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+const ETYPE_LABEL: Record<string, string> = { class: 'Class', supper_club: 'Supper club', tasting: 'Tasting', workshop: 'Workshop' };
+function nextSession(e: Experience): string {
+  const up = e.sessions.filter((s) => s.status === 'open' && new Date(s.startsAt).getTime() > Date.now()).sort((a, b) => +new Date(a.startsAt) - +new Date(b.startsAt))[0];
+  if (!up) return 'New dates soon';
+  const d = new Date(up.startsAt);
+  return `${WD[d.getDay()]} ${MO[d.getMonth()]} ${d.getDate()}`;
+}
+
+function ExperienceCard({ e, onPress }: { e: Experience; onPress: () => void }) {
+  const c = useC();
+  return (
+    <Press scale={0.985} onPress={onPress} style={{ marginHorizontal: 16, marginBottom: 12 }}>
+      <View style={{ backgroundColor: c.surface, borderWidth: 1, borderColor: c.border2, borderRadius: radius.xl, overflow: 'hidden', ...shadow.card }}>
+        <GradBox grad={['#FB7185', '#E11D48']} img={e.coverUrl ?? undefined} style={{ height: 130 }}>
+          <View style={{ position: 'absolute', top: 12, left: 12, height: 22, paddingHorizontal: 9, borderRadius: radius.pill, backgroundColor: 'rgba(0,0,0,.45)', flexDirection: 'row', alignItems: 'center' }}>
+            <Text style={[type(10.5, 900), { color: '#fff', textTransform: 'uppercase', letterSpacing: 0.3 }]}>{ETYPE_LABEL[e.experienceType] ?? 'Experience'}</Text>
+          </View>
+        </GradBox>
+        <View style={{ padding: 14, flexDirection: 'row', alignItems: 'center', gap: 10 }}>
+          <View style={{ flex: 1, minWidth: 0 }}>
+            <Text numberOfLines={1} style={[type(15.5, 900), { color: c.ink, letterSpacing: -0.3 }]}>{e.title}</Text>
+            <Text numberOfLines={1} style={[type(12.5, 600), { color: c.soft, marginTop: 3 }]}>{e.kitchenName} · {nextSession(e)}</Text>
+          </View>
+          <View style={{ alignItems: 'flex-end' }}>
+            <Text style={[type(16, 900), { color: c.ink, letterSpacing: -0.4 }]}>{money2(e.perPersonCents ?? 0)}</Text>
+            <Text style={[type(10.5, 700), { color: c.muted }]}>/person</Text>
+          </View>
+        </View>
+      </View>
+    </Press>
+  );
+}
+
+type Tab = 'plans' | 'experiences' | 'mine';
+const TABS: { key: Tab; label: string }[] = [
+  { key: 'plans', label: 'Meal Plans' },
+  { key: 'experiences', label: 'Experiences' },
+  { key: 'mine', label: 'My Plans' },
+];
 
 /** Tinted card palette per key (mirrors the service-card look). */
 function tints(c: Palette): Record<string, { bg: string; g: [string, string] }> {
@@ -104,22 +145,54 @@ function NeedGrid() {
   );
 }
 
+/** The "Experiences" tab body — browse bookable experiences, then request something custom. */
+function ExperiencesBody() {
+  const c = useC();
+  const router = useRouter();
+  const [exps, setExps] = useState<Experience[]>([]);
+  const [reqs, setReqs] = useState<RequestView[]>([]);
+  const [loading, setLoading] = useState(true);
+  useFocusEffect(useCallback(() => {
+    let alive = true;
+    Promise.all([fetchExperiences(), listMyRequests()]).then(([e, r]) => { if (!alive) return; setExps(e); setReqs(r); setLoading(false); });
+    return () => { alive = false; };
+  }, []));
+  return (
+    <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={{ paddingBottom: 40, maxWidth: 1040, alignSelf: 'center', width: '100%' }}>
+      {loading ? (
+        <View style={{ paddingVertical: 40, alignItems: 'center' }}><ActivityIndicator color={c.primary} /></View>
+      ) : exps.length > 0 ? (
+        <>
+          <SectionHeader title="Book an experience" />
+          {exps.map((e) => <ExperienceCard key={e.id} e={e} onPress={() => router.push(`/experience/${e.id}`)} />)}
+        </>
+      ) : null}
+
+      <SectionHeader title={exps.length > 0 ? 'Or request something custom' : 'What do you need?'} />
+      <NeedGrid />
+
+      {reqs.length > 0 ? (
+        <>
+          <SectionHeader title="Your requests" />
+          {reqs.map((r) => <RealReqCard key={r.id} r={r} onPress={() => router.push(`/request/${r.id}`)} />)}
+        </>
+      ) : null}
+    </ScrollView>
+  );
+}
+
+const isTab = (v: unknown): v is Tab => v === 'plans' || v === 'experiences' || v === 'mine';
+
 export default function ExperiencesScreen() {
   const c = useC();
   const insets = useSafeAreaInsets();
   const router = useRouter();
   const { notifCount } = useStore();
-  const [reqs, setReqs] = useState<RequestView[]>([]);
-  const [subs, setSubs] = useState<MySubscription[]>([]);
+  const { tab: tabParam } = useLocalSearchParams<{ tab?: string }>();
+  const [tab, setTab] = useState<Tab>(isTab(tabParam) ? tabParam : 'plans');
 
-  useFocusEffect(useCallback(() => {
-    let alive = true;
-    Promise.all([listMyRequests(), listMySubscriptions()]).then(([r, s]) => {
-      if (!alive) return;
-      setReqs(r); setSubs(s);
-    });
-    return () => { alive = false; };
-  }, []));
+  // honor a changing ?tab= (e.g. the /plans redirect, or post-subscribe return to My Plans)
+  useEffect(() => { if (isTab(tabParam)) setTab(tabParam); }, [tabParam]);
 
   return (
     <View style={{ flex: 1, backgroundColor: c.bg }}>
@@ -133,73 +206,15 @@ export default function ExperiencesScreen() {
             </View>
           </Press>
         </View>
-        <Text style={[type(14, 500), { color: c.soft, marginTop: 10, lineHeight: 20 }]}>Tell your local cooks what you need — a cook for the night, a weekly plan, or a hand in the kitchen. Get fixed quotes back and pick your Preppa.</Text>
+        <Text style={[type(14, 500), { color: c.soft, marginTop: 10, lineHeight: 20 }]}>Subscribe to a weekly meal plan, manage your subscriptions, or book a local cook for a night, an event, or a hand in the kitchen.</Text>
+        <View style={{ marginTop: 14, maxWidth: 460 }}>
+          <ModeTabs modes={TABS} value={tab} onChange={setTab} />
+        </View>
       </View>
 
-      <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={{ paddingBottom: 40, maxWidth: 1040, alignSelf: 'center', width: '100%' }}>
-        {/* Weekly meal plans — the recurring relationship layer */}
-        <Press scale={0.98} onPress={() => router.push('/plans')} style={{ marginHorizontal: 16, marginTop: 16 }} label="Weekly meal plans">
-          <GradBox grad={['#A855F7', c.purple]} style={{ borderRadius: radius.xl, padding: 18, overflow: 'hidden' }}>
-            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 14 }}>
-              <View style={{ width: 52, height: 52, borderRadius: 15, backgroundColor: 'rgba(255,255,255,.18)', alignItems: 'center', justifyContent: 'center' }}>
-                <Icon name="repeat" size={26} color="#fff" />
-              </View>
-              <View style={{ flex: 1 }}>
-                <Text style={[type(18, 900), { color: '#fff', letterSpacing: -0.4 }]}>Weekly meal plans</Text>
-                <Text style={[type(12.5, 600), { color: 'rgba(255,255,255,.82)', marginTop: 3, lineHeight: 17 }]}>Subscribe to a cook’s box — cooked fresh, on repeat. Choose your meals, skip a week, cancel anytime.</Text>
-              </View>
-              <Icon name="chevRight" size={20} color="#fff" />
-            </View>
-          </GradBox>
-        </Press>
-
-        {/* Build your own cross-cook box */}
-        <Press scale={0.98} onPress={() => router.push('/build-plan')} style={{ marginHorizontal: 16, marginTop: 12 }} label="Build your own box">
-          <View style={{ flexDirection: 'row', alignItems: 'center', gap: 14, backgroundColor: c.surface, borderWidth: 1, borderColor: c.border2, borderRadius: radius.xl, padding: 16, ...shadow.card }}>
-            <View style={{ width: 46, height: 46, borderRadius: 14, backgroundColor: c.primaryL, alignItems: 'center', justifyContent: 'center' }}>
-              <Icon name="plus" size={22} color={c.primary} />
-            </View>
-            <View style={{ flex: 1 }}>
-              <Text style={[type(15.5, 900), { color: c.ink, letterSpacing: -0.3 }]}>Build your own box</Text>
-              <Text style={[type(12.5, 600), { color: c.soft, marginTop: 2, lineHeight: 17 }]}>Pick any meals across cooks — 10% off every box</Text>
-            </View>
-            <Icon name="chevRight" size={18} color={c.muted} />
-          </View>
-        </Press>
-
-        {/* Your plans (real subscriptions) */}
-        {subs.length > 0 ? (
-          <>
-            <SectionHeader title="Your plans" action="Manage" onAction={() => router.push('/plans')} />
-            <View style={{ paddingHorizontal: 16, gap: 10 }}>
-              {subs.slice(0, 3).map((s) => (
-                <Press key={s.id} scale={0.99} onPress={() => router.push('/plans')}>
-                  <View style={{ flexDirection: 'row', alignItems: 'center', gap: 12, backgroundColor: c.surface, borderWidth: 1, borderColor: c.border2, borderRadius: radius.card, padding: 14 }}>
-                    <View style={{ width: 40, height: 40, borderRadius: 12, backgroundColor: c.primaryL, alignItems: 'center', justifyContent: 'center' }}><Icon name="repeat" size={19} color={c.primary} /></View>
-                    <View style={{ flex: 1 }}>
-                      <Text numberOfLines={1} style={[type(14.5, 900), { color: c.ink }]}>{s.planName}</Text>
-                      <Text numberOfLines={1} style={[type(12, 600), { color: c.soft, marginTop: 2 }]}>{s.kitchenName} · {money2(s.nextCycle && s.nextCycle.totalCents > 0 ? s.nextCycle.totalCents : customerWeeklyCents(s.priceCents))}/wk</Text>
-                    </View>
-                    <Icon name="chevRight" size={16} color={c.muted} />
-                  </View>
-                </Press>
-              ))}
-            </View>
-          </>
-        ) : null}
-
-        {/* Your requests (real service requests) */}
-        {reqs.length > 0 ? (
-          <>
-            <SectionHeader title="Your requests" />
-            {reqs.map((r) => <RealReqCard key={r.id} r={r} onPress={() => router.push(`/request/${r.id}`)} />)}
-          </>
-        ) : null}
-
-        {/* What do you need? — real service categories */}
-        <SectionHeader title="What do you need?" />
-        <NeedGrid />
-      </ScrollView>
+      {tab === 'plans' ? <BrowsePlansSection />
+        : tab === 'experiences' ? <ExperiencesBody />
+        : <MyPlansSection onBrowse={() => setTab('plans')} />}
     </View>
   );
 }

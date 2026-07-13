@@ -2,7 +2,7 @@ import React, { useState } from 'react';
 import { View, Text, ScrollView, ActivityIndicator } from 'react-native';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { COOKS, CookId, MARKET_PLANS, EXPERIENCES, STORE_SPECIALTIES, money } from '../../src/data/data';
+import { COOKS, CookId, MARKET_PLANS, STORE_SPECIALTIES, money } from '../../src/data/data';
 import { useMeals, useKitchenReviews, useKitchenProfile, type KitchenProfile } from '../../src/data/hooks';
 import { KITCHEN_ID } from '../../src/lib/supabase';
 import { useC } from '../../src/theme/ThemeContext';
@@ -11,11 +11,45 @@ import { useStore } from '../../src/store/store';
 import { Icon, Press, GradBox, Btn } from '../../src/ui';
 import { Screen } from '../../src/ui/layout';
 import { HeroTopBar, HeroBtn } from '../../src/components/shared';
-import { MealGrid, ExpRail, SectionHeader, ReviewsBlock } from '../../src/components/cards';
+import { MealGrid, SectionHeader, ReviewsBlock } from '../../src/components/cards';
 import { NotFound } from '../../src/components/NotFound';
 import { shareAndNotify, SITE } from '../../src/lib/share';
 import { FLAGS } from '../../src/config/flags';
 import { openThread } from '../../src/lib/messages';
+import { fetchExperiencesForKitchen, type Experience } from '../../src/lib/experiences';
+
+const _WD = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
+const _MO = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+/** A kitchen's real published experiences on its storefront (replaces the retired seed rail). */
+function StoreExperiences({ kitchenId }: { kitchenId?: string }) {
+  const c = useC();
+  const router = useRouter();
+  const [items, setItems] = React.useState<Experience[]>([]);
+  React.useEffect(() => { if (kitchenId) fetchExperiencesForKitchen(kitchenId).then(setItems).catch(() => {}); }, [kitchenId]);
+  if (items.length === 0) return null;
+  const next = (e: Experience) => {
+    const up = e.sessions.filter((s) => s.status === 'open' && new Date(s.startsAt).getTime() > Date.now()).sort((a, b) => +new Date(a.startsAt) - +new Date(b.startsAt))[0];
+    if (!up) return 'New dates soon';
+    const d = new Date(up.startsAt); return `${_WD[d.getDay()]} ${_MO[d.getMonth()]} ${d.getDate()}`;
+  };
+  return (
+    <>
+      <SectionHeader title="Experiences" />
+      {items.map((e) => (
+        <Press key={e.id} scale={0.985} onPress={() => router.push(`/experience/${e.id}`)} style={{ marginHorizontal: 16, marginBottom: 12 }}>
+          <View style={{ backgroundColor: c.surface, borderWidth: 1, borderColor: c.border2, borderRadius: radius.xl, padding: 14, flexDirection: 'row', alignItems: 'center', gap: 12, ...shadow.card }}>
+            <GradBox grad={['#FB7185', '#E11D48']} img={e.coverUrl ?? undefined} style={{ width: 54, height: 54, borderRadius: 14, alignItems: 'center', justifyContent: 'center' }}>{e.coverUrl ? null : <Icon name="spark" size={22} color="#fff" />}</GradBox>
+            <View style={{ flex: 1, minWidth: 0 }}>
+              <Text numberOfLines={1} style={[type(15, 900), { color: c.ink, letterSpacing: -0.3 }]}>{e.title}</Text>
+              <Text style={[type(12.5, 600), { color: c.soft, marginTop: 2 }]}>{money((e.perPersonCents ?? 0) / 100)}/person · {next(e)}</Text>
+            </View>
+            <Icon name="chevRight" size={16} color={c.muted} />
+          </View>
+        </Press>
+      ))}
+    </>
+  );
+}
 
 /** Square "message" button — pre-sale DM to a kitchen from its storefront. */
 function MsgBtn({ onPress }: { onPress: () => void }) {
@@ -56,7 +90,6 @@ export default function CookStoreScreen() {
   const revCount = kitchenRevs?.count ?? 0;
   const revAvg = kitchenRevs?.avg ?? 0;
   const plans = MARKET_PLANS.filter((p) => p.cook === id);
-  const exps = EXPERIENCES.filter((e) => e.cook === id);
   const firstName = cd.name.replace(/^Chef\s+/, '').split(' ')[0];
 
   const follow = () => {
@@ -156,12 +189,7 @@ export default function CookStoreScreen() {
           </>
         ) : null}
 
-        {FLAGS.experiences && exps.length > 0 ? (
-          <>
-            <SectionHeader title="Experiences" />
-            <ExpRail exps={exps} />
-          </>
-        ) : null}
+        <StoreExperiences kitchenId={KITCHEN_ID[id]} />
 
         <SectionHeader title="Reviews" right={revCount > 0 ? <Text style={[type(13, 800), { color: c.primary }]}>See all {revCount}</Text> : undefined} />
         <ReviewsBlock kitchenId={KITCHEN_ID[id]} />
@@ -264,6 +292,8 @@ function RealKitchenStore({ profile, meals, mealsLoading, revCount, revAvg, inse
             <Text style={[type(14, 600), { color: c.soft, textAlign: 'center' }]}>No meals listed yet — check back soon.</Text>
           </View>
         )}
+
+        <StoreExperiences kitchenId={profile.id} />
 
         <SectionHeader title="Reviews" right={revCount > 0 ? <Text style={[type(13, 800), { color: c.primary }]}>See all {revCount}</Text> : undefined} />
         <ReviewsBlock kitchenId={profile.id} />

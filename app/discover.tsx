@@ -11,13 +11,12 @@ import { seedCookForKitchen } from '../src/data/supabaseRepository';
 import { MealsBrowser } from '../src/components/MealsBrowser';
 import { ModeTabs } from '../src/components/ModeTabs';
 import { CardPaymentSheet } from '../src/components/CardPaymentSheet';
-import { fetchActivePlans, type Plan } from '../src/lib/subscriptions';
 import { listMyRequests, acceptQuoteAndDeposit, SERVICE_LABELS, type RequestView } from '../src/lib/services';
 import { useStore } from '../src/store/store';
 import { FLAGS } from '../src/config/flags';
 
-type Mode = 'meals' | 'plans' | 'preppers' | 'services';
-const planWeekly = (cents: number) => money((cents + Math.round(cents * 0.1)) / 100);
+// Meal-plan browsing lives in the Experiences hub (→ /experiences?tab=plans), not here.
+type Mode = 'meals' | 'preppers' | 'services';
 
 export default function DiscoverTab() {
   const c = useC();
@@ -26,7 +25,6 @@ export default function DiscoverTab() {
   const { mode: modeParam } = useLocalSearchParams<{ mode?: string }>();
   const MODES: { key: Mode; label: string }[] = [
     { key: 'meals', label: 'Meals' },
-    { key: 'plans', label: 'Plans' },
     { key: 'preppers', label: 'Preppers' },
     ...(FLAGS.services ? [{ key: 'services' as Mode, label: 'Services' }] : []),
   ];
@@ -46,7 +44,7 @@ export default function DiscoverTab() {
         </View>
         <ModeTabs modes={MODES} value={mode} onChange={setMode} />
       </View>
-      {mode === 'meals' ? <MealsBrowser /> : mode === 'plans' ? <PlansMode /> : mode === 'services' ? <ServicesMode /> : <PreppersMode />}
+      {mode === 'meals' ? <MealsBrowser /> : mode === 'services' ? <ServicesMode /> : <PreppersMode />}
     </View>
   );
 }
@@ -145,42 +143,6 @@ function KDeposit({ label, onPress }: { label: string; onPress: () => void }) {
         <Text style={[type(14, 800), { color: '#fff' }]}>{label}</Text>
       </View>
     </Press>
-  );
-}
-
-function PlansMode() {
-  const c = useC();
-  const router = useRouter();
-  const [plans, setPlans] = useState<Plan[]>([]);
-  const [loading, setLoading] = useState(true);
-  useFocusEffect(useCallback(() => { let a = true; setLoading(true); fetchActivePlans().then((p) => { if (a) { setPlans(p); setLoading(false); } }); return () => { a = false; }; }, []));
-  if (loading) return <View style={{ paddingVertical: 60, alignItems: 'center' }}><ActivityIndicator color={c.primary} /></View>;
-  if (plans.length === 0) return (
-    <View style={{ alignItems: 'center', paddingVertical: 50, paddingHorizontal: 24 }}>
-      <View style={{ width: 56, height: 56, borderRadius: 18, backgroundColor: c.primaryL, alignItems: 'center', justifyContent: 'center' }}><Icon name="repeat" size={26} color={c.primary} /></View>
-      <Text style={[type(16, 900), { color: c.ink, marginTop: 14 }]}>No weekly plans near you yet</Text>
-      <Text style={[type(13.5, 600), { color: c.soft, textAlign: 'center', marginTop: 6, maxWidth: 300, lineHeight: 20 }]}>Preppers are adding weekly boxes. Check back soon.</Text>
-    </View>
-  );
-  return (
-    <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={{ padding: 16, paddingBottom: 40, gap: 12 }}>
-      {plans.map((p) => (
-        <Press key={p.id} scale={0.985} onPress={() => router.push(`/plan/${p.id}`)}>
-          <View style={{ backgroundColor: c.surface, borderWidth: 1, borderColor: c.border2, borderRadius: radius.xl, padding: 16, ...shadow.card }}>
-            <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: 10 }}>
-              <View style={{ flex: 1 }}>
-                <Text numberOfLines={1} style={[type(16, 900), { color: c.ink, letterSpacing: -0.3 }]}>{p.name}</Text>
-                <Text style={[type(12.5, 600), { color: c.soft, marginTop: 3 }]}>{p.kitchenName} · {p.items.reduce((n, i) => n + i.qty, 0)} meals/wk</Text>
-              </View>
-              <View style={{ alignItems: 'flex-end' }}>
-                <Text style={[type(18, 900), { color: c.ink, letterSpacing: -0.5 }]}>{planWeekly(p.priceCents)}</Text>
-                <Text style={[type(10.5, 700), { color: c.muted }]}>/week</Text>
-              </View>
-            </View>
-          </View>
-        </Press>
-      ))}
-    </ScrollView>
   );
 }
 
