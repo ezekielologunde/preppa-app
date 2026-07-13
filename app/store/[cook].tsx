@@ -15,6 +15,19 @@ import { MealGrid, ExpRail, SectionHeader, ReviewsBlock } from '../../src/compon
 import { NotFound } from '../../src/components/NotFound';
 import { shareAndNotify, SITE } from '../../src/lib/share';
 import { FLAGS } from '../../src/config/flags';
+import { openThread } from '../../src/lib/messages';
+
+/** Square "message" button — pre-sale DM to a kitchen from its storefront. */
+function MsgBtn({ onPress }: { onPress: () => void }) {
+  const c = useC();
+  return (
+    <Press scale={0.94} onPress={onPress} label="Message kitchen">
+      <View style={{ width: 46, height: 46, borderRadius: radius.md, backgroundColor: c.bg2, borderWidth: 1, borderColor: c.border2, alignItems: 'center', justifyContent: 'center' }}>
+        <Icon name="comment" size={20} color={c.ink2} />
+      </View>
+    </Press>
+  );
+}
 
 export default function CookStoreScreen() {
   const c = useC();
@@ -49,6 +62,10 @@ export default function CookStoreScreen() {
   const follow = () => {
     setFollowing((f) => !f);
     toast(following ? `Unfollowed ${cd.name}` : `Following ${cd.name} — you’ll see their drops first`, following ? 'x' : 'check', !following);
+  };
+  const openChat = async () => {
+    try { const tid = await openThread(KITCHEN_ID[id], 'store'); router.push(`/messages/${tid}`); }
+    catch (e: any) { toast(e?.message || 'Could not open chat', 'info'); }
   };
 
   return (
@@ -96,7 +113,12 @@ export default function CookStoreScreen() {
             {isMine(id) ? (
               <Btn label="Manage kitchen" icon="chefhat" variant="dark" block height={46} onPress={() => router.push('/my-hub')} />
             ) : (
-              <Btn label={following ? 'Following' : 'Follow'} icon={following ? 'check' : 'plus'} variant={following ? 'ghost' : 'pri'} block height={46} onPress={follow} />
+              <>
+                <View style={{ flex: 1 }}>
+                  <Btn label={following ? 'Following' : 'Follow'} icon={following ? 'check' : 'plus'} variant={following ? 'ghost' : 'pri'} block height={46} onPress={follow} />
+                </View>
+                {FLAGS.chat ? <MsgBtn onPress={openChat} /> : null}
+              </>
             )}
           </View>
         </View>
@@ -216,9 +238,17 @@ function RealKitchenStore({ profile, meals, mealsLoading, revCount, revAvg, inse
             {profile.yearsActive ? <Stat border><Text style={[type(16, 900), { color: c.ink, letterSpacing: -0.3 }]}>{profile.yearsActive}y</Text><StatSub>Cooking</StatSub></Stat> : <Stat border><Text style={[type(16, 900), { color: c.ink, letterSpacing: -0.3 }]}>{profile.area || '—'}</Text><StatSub>Area</StatSub></Stat>}
           </View>
 
-          <View style={{ marginTop: 14 }}>
-            <Btn label={following ? 'Following' : 'Follow'} icon={following ? 'check' : 'plus'} variant={following ? 'ghost' : 'pri'} block height={46}
-              onPress={() => { setFollowing((f) => !f); toast(following ? `Unfollowed ${profile.name}` : `Following ${profile.name}`, following ? 'x' : 'check', !following); }} />
+          <View style={{ flexDirection: 'row', gap: 10, marginTop: 14 }}>
+            <View style={{ flex: 1 }}>
+              <Btn label={following ? 'Following' : 'Follow'} icon={following ? 'check' : 'plus'} variant={following ? 'ghost' : 'pri'} block height={46}
+                onPress={() => { setFollowing((f) => !f); toast(following ? `Unfollowed ${profile.name}` : `Following ${profile.name}`, following ? 'x' : 'check', !following); }} />
+            </View>
+            {FLAGS.chat ? (
+              <MsgBtn onPress={async () => {
+                try { const tid = await openThread(profile.id, 'store'); router.push(`/messages/${tid}`); }
+                catch (e: any) { toast(e?.message || 'Could not open chat', 'info'); }
+              }} />
+            ) : null}
           </View>
         </View>
 

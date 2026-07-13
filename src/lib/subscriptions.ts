@@ -67,6 +67,7 @@ export interface MySubscription {
   preferredDay: string | null;
   planId: string | null;
   planName: string;
+  kitchenId: string | null;   // null for a cross-kitchen box (no single cook to message)
   kitchenName: string;
   priceCents: number;
   fulfillment: 'pickup' | 'delivery';
@@ -203,7 +204,7 @@ export async function listMySubscriptions(): Promise<MySubscription[]> {
   if (!uid) return [];
   const { data, error } = await supabase
     .from('subscriptions')
-    .select('id, lifecycle, kind, preferred_day, plan_id, fulfillment, plans(name, price_cents, fulfillment, selection_model, service_fee_bps, kitchens(name), plan_items(qty, meal_id, meals(id, name, price_cents)))')
+    .select('id, lifecycle, kind, preferred_day, plan_id, fulfillment, plans(name, price_cents, fulfillment, selection_model, service_fee_bps, kitchen_id, kitchens(name), plan_items(qty, meal_id, meals(id, name, price_cents)))')
     .eq('customer_id', uid)
     .not('lifecycle', 'in', '(cancelled,completed)')
     .order('created_at', { ascending: false });
@@ -237,6 +238,7 @@ export async function listMySubscriptions(): Promise<MySubscription[]> {
       preferredDay: s.preferred_day,
       planId: s.plan_id,
       planName: isBox ? 'My weekly box' : (s.plans?.name ?? 'Weekly plan'),
+      kitchenId: isBox ? null : (s.plans?.kitchen_id ?? null),
       kitchenName: isBox ? 'Built by you' : (s.plans?.kitchens?.name ?? 'A local cook'),
       priceCents: isBox ? 0 : (Number(s.plans?.price_cents) || 0),
       fulfillment: (s.fulfillment ?? s.plans?.fulfillment ?? 'delivery'),

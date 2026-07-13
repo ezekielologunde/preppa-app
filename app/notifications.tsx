@@ -28,7 +28,7 @@ function relTime(iso: string): string {
 export default function Notifications() {
   const c = useC();
   const router = useRouter();
-  const { notifs, markNotifRead, markAllRead, notifCount } = useStore();
+  const { notifs, markNotifRead, markAllRead, notifCount, threadUnread } = useStore();
   const [tab, setTab] = useState<'alerts' | 'messages'>('alerts');
   const unreadAlerts = notifs.filter((n) => n.unread).length;
 
@@ -45,7 +45,7 @@ export default function Notifications() {
       ) : undefined} />
       <View style={{ backgroundColor: c.surface, borderBottomWidth: 1, borderBottomColor: c.border2, flexDirection: 'row', gap: 8, paddingHorizontal: 16, paddingBottom: 12 }}>
         <Seg label="Alerts" count={unreadAlerts} on={tab === 'alerts'} onPress={() => setTab('alerts')} />
-        <Seg label="Messages" count={0} on={tab === 'messages'} onPress={() => setTab('messages')} />
+        <Seg label="Messages" count={threadUnread} on={false} onPress={() => router.push('/messages')} />
       </View>
       <ScrollView showsVerticalScrollIndicator={false}>
         {tab === 'alerts' ? (

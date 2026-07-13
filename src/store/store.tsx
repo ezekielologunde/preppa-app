@@ -12,6 +12,7 @@ import {
   type ApplicationFields, type AppNotification,
 } from '../lib/supabase';
 import { supabase } from '../lib/supabase';
+import { threadUnreadCount, subscribeMyNotifications } from '../lib/messages';
 import { setViewerCoords } from '../data/supabaseRepository';
 import { geocodeAddress, type LatLng } from '../lib/geo';
 export type { ApplicationFields };
@@ -157,6 +158,10 @@ interface Store {
   markConvRead: (cook: CookId) => void;
   markAllRead: () => void;
   notifCount: number;
+
+  // real 1:1 messaging: unread-thread count (drives the Messages badge, separate from alerts)
+  threadUnread: number;
+  refreshMessaging: () => void;
 }
 
 const StoreContext = createContext<Store>(null as any);
@@ -200,6 +205,8 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
   const [avail, setAvail] = useState(true);
   const [acted, setActed] = useState<string[]>([]);
   const [notifs, setNotifs] = useState<AppNotification[]>([]); // real notifications from the DB
+  const [threadUnread, setThreadUnread] = useState(0); // unread DM threads (real messaging)
+  const [uid, setUid] = useState<string | null>(null); // signed-in user id (drives Realtime subscriptions)
   const [conversations, setConversations] = useState<Conversation[]>(CONVERSATIONS);
   const [flash, setFlash] = useState<{ name: string; grad: GradKey } | null>(null);
   const flashTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -269,16 +276,25 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
       // out, fetchAccountState returns 'none', so a stale cached role can never keep
       // My Hub visible to a guest/customer on a browser a prepper once used.
       setPrepperStatus(s.prepperStatus);
+      const { data: sess } = await supabase.auth.getSession();
+      setUid(sess.session?.user?.id ?? null);
       if (s.signedIn) {
         if (s.displayName) setName(s.displayName);
         if (s.firstName) setFirstName(s.firstName);
         try { setNotifs(await fetchNotifications()); } catch { /* keep last */ }
+        try { setThreadUnread(await threadUnreadCount()); } catch { /* keep last */ }
       } else {
         setNotifs([]); // signed out — no notifications
+        setThreadUnread(0);
       }
     } catch {
       // transient network/permission issue — keep the last known state
     }
+  }, []);
+
+  // Refresh just the messaging unread count (called after opening/reading a thread).
+  const refreshMessaging = useCallback(async () => {
+    try { setThreadUnread(await threadUnreadCount()); } catch { /* keep last */ }
   }, []);
 
   const saveName = useCallback(async (fullName: string) => {
@@ -300,6 +316,19 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
     });
     return () => sub.subscription.unsubscribe();
   }, [ready, reconcileAccount]);
+
+  // Live in-app updates over Supabase Realtime, keyed on the signed-in user. New rows on the
+  // per-user notifications channel light the bell AND refresh the messaging badge without a
+  // poll (postgres_changes can't filter "my threads", so the notifications channel is the
+  // list/badge signal — see src/lib/messages.ts). Re-subscribes when the user changes.
+  useEffect(() => {
+    if (!uid) return;
+    const off = subscribeMyNotifications(uid, () => {
+      fetchNotifications().then(setNotifs).catch(() => {});
+      threadUnreadCount().then(setThreadUnread).catch(() => {});
+    });
+    return off;
+  }, [uid]);
 
   const role: 'customer' | 'prepper' = prepperStatus === 'approved' ? 'prepper' : 'customer';
   const isMine = useCallback((cook: CookId) => prepperStatus === 'approved' && cook === ME.id, [prepperStatus]);
@@ -569,6 +598,8 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
     markConvRead,
     markAllRead,
     notifCount,
+    threadUnread,
+    refreshMessaging,
   };
 
   // Memoized narrow slices: `actions` changes only when a handler identity changes (≈ role);

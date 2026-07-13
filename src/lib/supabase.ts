@@ -374,6 +374,7 @@ export async function fetchNotifications(): Promise<AppNotification[]> {
   const { data, error } = await supabase
     .from('notifications')
     .select('id,kind,title,body,read_at,created_at')
+    .neq('kind', 'message') // DM pings live in the Messages surface (threadUnread), not the Alerts feed
     .order('created_at', { ascending: false })
     .limit(50);
   if (error) throw error;

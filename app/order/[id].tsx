@@ -8,6 +8,9 @@ import { useStore } from '../../src/store/store';
 import { Icon, Press, Avatar, Btn } from '../../src/ui';
 import { Screen, TopBar, Empty } from '../../src/ui/layout';
 import { createOrderTicket, TICKET_CATEGORIES, TicketCategory } from '../../src/lib/tickets';
+import { FLAGS } from '../../src/config/flags';
+import { KITCHEN_ID } from '../../src/lib/supabase';
+import { openThread } from '../../src/lib/messages';
 
 const STEPS = ['Order confirmed', 'Cook is preparing', 'Ready for handoff', 'Completed'];
 
@@ -28,6 +31,11 @@ export default function OrderDetail() {
   }
 
   const cook = COOKS[o.cook];
+  const kitchenId = KITCHEN_ID[o.cook];
+  const openChat = async () => {
+    try { const tid = await openThread(kitchenId, 'order', o.dbId); router.push(`/messages/${tid}`); }
+    catch (e: any) { toast(e?.message || 'Could not open chat', 'info'); }
+  };
   const active = o.status === 'completed' ? 3 : o.status === 'ready' ? 2 : 1;
   const headline = o.status === 'completed' ? (o.flow === 'cod' ? 'Completed · paid in cash' : 'Completed — enjoy!') : o.status === 'ready' ? (o.mode === 'pickup' ? 'Ready for pickup' : 'On its way') : 'Your cook is preparing';
 
@@ -59,6 +67,10 @@ export default function OrderDetail() {
             <Icon name="chevRight" size={16} color={c.muted} />
           </View>
         </Press>
+
+        {FLAGS.chat && kitchenId ? (
+          <Btn variant="ghost" icon="comment" label={`Message ${cook.name.replace(/^Chef\s+/, '').split(' ')[0]}`} onPress={openChat} />
+        ) : null}
 
         {/* steps */}
         {o.status !== 'completed' ? (

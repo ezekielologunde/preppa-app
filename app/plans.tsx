@@ -5,9 +5,11 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useC } from '../src/theme/ThemeContext';
 import { type, radius, shadow } from '../src/theme/theme';
 import { useStore } from '../src/store/store';
+import { FLAGS } from '../src/config/flags';
 import { Icon, Press } from '../src/ui';
 import { Stepper } from '../src/ui/primitives';
 import { money } from '../src/data/data';
+import { openThread } from '../src/lib/messages';
 import {
   fetchActivePlans, listMySubscriptions, pauseSubscription, resumeSubscription, cancelSubscription,
   skipCycle, selectCycleMeals, customerWeeklyCents,
@@ -57,6 +59,14 @@ export default function PlansTab() {
     } finally { setBusy(null); }
   };
 
+  const message = async (sub: MySubscription) => {
+    if (!sub.kitchenId) return; // box: no single cook (button is hidden anyway)
+    try {
+      const tid = await openThread(sub.kitchenId, 'subscription', sub.id);
+      router.push(`/messages/${tid}`);
+    } catch (e: any) { toast(e?.message || 'Could not open chat', 'info'); }
+  };
+
   const subscribedPlanIds = new Set(subs.map((s) => s.planId));
   const available = plans.filter((p) => !subscribedPlanIds.has(p.id));
 
@@ -76,7 +86,7 @@ export default function PlansTab() {
               <View style={{ paddingHorizontal: 16, paddingTop: 16, gap: 12 }}>
                 <Text style={[type(12, 800), { color: c.muted, textTransform: 'uppercase', letterSpacing: 0.5 }]}>Your plans</Text>
                 {subs.map((s) => (
-                  <SubCard key={s.id} s={s} busy={busy === s.id} onAct={(a) => act(s, a)} onEditMeals={() => setEditSub(s)} />
+                  <SubCard key={s.id} s={s} busy={busy === s.id} onAct={(a) => act(s, a)} onEditMeals={() => setEditSub(s)} onMessage={() => message(s)} />
                 ))}
               </View>
             ) : null}
@@ -116,9 +126,9 @@ function cycleStatus(cy: CycleSummary | null, lifecycle: string): { label: strin
   return { label: 'Active', tint: (c) => c.green };
 }
 
-function SubCard({ s, busy, onAct, onEditMeals }: {
+function SubCard({ s, busy, onAct, onEditMeals, onMessage }: {
   s: MySubscription; busy: boolean;
-  onAct: (a: 'pause' | 'resume' | 'cancel' | 'skip') => void; onEditMeals: () => void;
+  onAct: (a: 'pause' | 'resume' | 'cancel' | 'skip') => void; onEditMeals: () => void; onMessage: () => void;
 }) {
   const c = useC();
   const cy = s.nextCycle;
@@ -137,9 +147,18 @@ function SubCard({ s, busy, onAct, onEditMeals }: {
           <Text style={[type(16.5, 900), { color: c.ink, letterSpacing: -0.3 }]}>{s.planName}</Text>
           <Text style={[type(12.5, 600), { color: c.soft, marginTop: 3 }]}>{s.kitchenName} · {priceLabel}/wk{s.preferredDay ? ` · ${s.preferredDay}` : ''}</Text>
         </View>
-        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6, height: 24, paddingHorizontal: 10, borderRadius: radius.pill, backgroundColor: c.bg2 }}>
-          <View style={{ width: 7, height: 7, borderRadius: 4, backgroundColor: tint }} />
-          <Text style={[type(11, 900), { color: tint, textTransform: 'uppercase', letterSpacing: 0.3 }]}>{st.label}</Text>
+        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
+          {FLAGS.chat && s.kitchenId ? (
+            <Press scale={0.9} onPress={onMessage} label="Message cook">
+              <View style={{ width: 32, height: 32, borderRadius: 16, backgroundColor: c.bg2, alignItems: 'center', justifyContent: 'center' }}>
+                <Icon name="comment" size={16} color={c.ink2} />
+              </View>
+            </Press>
+          ) : null}
+          <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6, height: 24, paddingHorizontal: 10, borderRadius: radius.pill, backgroundColor: c.bg2 }}>
+            <View style={{ width: 7, height: 7, borderRadius: 4, backgroundColor: tint }} />
+            <Text style={[type(11, 900), { color: tint, textTransform: 'uppercase', letterSpacing: 0.3 }]}>{st.label}</Text>
+          </View>
         </View>
       </View>
 

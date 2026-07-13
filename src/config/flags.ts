@@ -12,6 +12,6 @@ export const FLAGS = {
   services: true, // Food-Services marketplace (cook-at-home/catering request→quote→book→deposit) — real (Stripe test mode)
   prepplus: false, // paid membership — not live (and IAP-sensitive)
   rewards: false, // points / referral rewards — not live
-  chat: false, // 1:1 messaging — read-only demo
+  chat: true, // 1:1 messaging — real relationship threads (Supabase Realtime + RLS), live
   notifications: true, // real in-app notification center (DB-backed; generated on real events). No push yet.
 } as const;

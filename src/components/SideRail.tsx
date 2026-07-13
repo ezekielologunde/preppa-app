@@ -23,7 +23,7 @@ export function SideRail({ width }: { width: number }) {
   const c = useC();
   const router = useRouter();
   const pathname = usePathname();
-  const { cartCount, notifCount, prepperStatus, isAdmin, name, firstName } = useStore();
+  const { cartCount, notifCount, threadUnread, prepperStatus, isAdmin, name, firstName } = useStore();
   const labeled = width >= 200;
   const displayName = firstName || name || 'Guest';
   const initial = (firstName || name || '?').trim()[0]?.toUpperCase() ?? '?';
@@ -67,6 +67,7 @@ export function SideRail({ width }: { width: number }) {
         <Item key={it.id} id={it.id} ico={it.ico} lbl={it.lbl} onPress={() => router.navigate(it.path as any)} />
       ))}
       {isAdmin ? <Item id="admin" ico="shield" lbl="Admin" onPress={() => router.navigate('/admin')} /> : null}
+      {FLAGS.chat ? <Item id="messages" ico="comment" lbl="Messages" badge={threadUnread} onPress={() => router.push('/messages')} /> : null}
       {FLAGS.notifications ? <Item ico="bell" lbl="Notifications" badge={notifCount} onPress={() => router.push('/notifications')} /> : null}
       <Item ico="cart" lbl="Cart" badge={cartCount} onPress={() => router.push('/cart')} />
 
