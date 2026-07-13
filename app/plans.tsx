@@ -12,8 +12,8 @@ import { money } from '../src/data/data';
 import { openThread } from '../src/lib/messages';
 import {
   fetchActivePlans, listMySubscriptions, pauseSubscription, resumeSubscription, cancelSubscription,
-  skipCycle, selectCycleMeals, customerWeeklyCents,
-  type Plan, type MySubscription, type CycleSummary,
+  skipCycle, selectCycleMeals, customerWeeklyCents, fetchBoxKitchens,
+  type Plan, type MySubscription, type CycleSummary, type BoxKitchen,
 } from '../src/lib/subscriptions';
 
 const money2 = (cents: number) => money(cents / 100);
@@ -37,6 +37,7 @@ export default function PlansTab() {
   const [loading, setLoading] = useState(true);
   const [busy, setBusy] = useState<string | null>(null);
   const [editSub, setEditSub] = useState<MySubscription | null>(null);
+  const [boxPicker, setBoxPicker] = useState<MySubscription | null>(null);
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -60,7 +61,8 @@ export default function PlansTab() {
   };
 
   const message = async (sub: MySubscription) => {
-    if (!sub.kitchenId) return; // box: no single cook (button is hidden anyway)
+    if (sub.isBox) { setBoxPicker(sub); return; } // cross-kitchen box → pick which cook to message
+    if (!sub.kitchenId) return;
     try {
       const tid = await openThread(sub.kitchenId, 'subscription', sub.id);
       router.push(`/messages/${tid}`);
@@ -110,7 +112,59 @@ export default function PlansTab() {
       </ScrollView>
 
       <EditMealsModal sub={editSub} onClose={() => setEditSub(null)} onSaved={async () => { setEditSub(null); await load(); toast('Meals updated', 'check', true); }} />
+      <BoxCookPicker sub={boxPicker} onClose={() => setBoxPicker(null)} />
     </View>
+  );
+}
+
+/** A cross-kitchen box spans several cooks — pick which one to message (each is a 1:1 thread). */
+function BoxCookPicker({ sub, onClose }: { sub: MySubscription | null; onClose: () => void }) {
+  const c = useC();
+  const router = useRouter();
+  const { toast } = useStore();
+  const [kitchens, setKitchens] = useState<BoxKitchen[]>([]);
+  const [loading, setLoading] = useState(true);
+
+  React.useEffect(() => {
+    if (!sub) return;
+    setLoading(true);
+    fetchBoxKitchens(sub.id).then(setKitchens).catch(() => setKitchens([])).finally(() => setLoading(false));
+  }, [sub?.id]);
+
+  if (!sub) return null;
+  const pick = async (k: BoxKitchen) => {
+    try { const tid = await openThread(k.kitchenId, 'box', sub.id); onClose(); router.push(`/messages/${tid}`); }
+    catch (e: any) { toast(e?.message || 'Could not open chat', 'info'); }
+  };
+
+  return (
+    <Modal visible={!!sub} transparent animationType="fade" onRequestClose={onClose}>
+      <Pressable onPress={onClose} style={{ flex: 1, backgroundColor: 'rgba(0,0,0,.45)', justifyContent: 'flex-end' }}>
+        <Pressable onPress={(e) => e.stopPropagation?.()} style={{ backgroundColor: c.surface, borderTopLeftRadius: radius.sheet, borderTopRightRadius: radius.sheet, padding: 18, paddingBottom: 26, maxHeight: '70%' }}>
+          <Text style={[type(18, 900), { color: c.ink, letterSpacing: -0.4 }]}>Message a cook</Text>
+          <Text style={[type(12.5, 600), { color: c.soft, marginTop: 4 }]}>Your box spans a few kitchens — pick who to message.</Text>
+          {loading ? (
+            <View style={{ paddingVertical: 30, alignItems: 'center' }}><ActivityIndicator color={c.primary} /></View>
+          ) : kitchens.length === 0 ? (
+            <Text style={[type(13, 600), { color: c.muted, paddingVertical: 20 }]}>No kitchens found for this box.</Text>
+          ) : (
+            <ScrollView style={{ marginTop: 10 }}>
+              {kitchens.map((k) => (
+                <Press key={k.kitchenId} scale={0.98} onPress={() => pick(k)}>
+                  <View style={{ flexDirection: 'row', alignItems: 'center', gap: 12, paddingVertical: 13, borderBottomWidth: 1, borderBottomColor: c.border2 }}>
+                    <View style={{ width: 40, height: 40, borderRadius: 12, backgroundColor: c.primaryL, alignItems: 'center', justifyContent: 'center' }}>
+                      <Text style={[type(16, 900), { color: c.primaryD }]}>{(k.name[0] ?? '?').toUpperCase()}</Text>
+                    </View>
+                    <Text style={[type(15, 800), { color: c.ink, flex: 1 }]}>{k.name}</Text>
+                    <Icon name="chevRight" size={16} color={c.muted} />
+                  </View>
+                </Press>
+              ))}
+            </ScrollView>
+          )}
+        </Pressable>
+      </Pressable>
+    </Modal>
   );
 }
 
@@ -148,7 +202,7 @@ function SubCard({ s, busy, onAct, onEditMeals, onMessage }: {
           <Text style={[type(12.5, 600), { color: c.soft, marginTop: 3 }]}>{s.kitchenName} · {priceLabel}/wk{s.preferredDay ? ` · ${s.preferredDay}` : ''}</Text>
         </View>
         <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
-          {FLAGS.chat && s.kitchenId ? (
+          {FLAGS.chat && (s.kitchenId || s.isBox) ? (
             <Press scale={0.9} onPress={onMessage} label="Message cook">
               <View style={{ width: 32, height: 32, borderRadius: 16, backgroundColor: c.bg2, alignItems: 'center', justifyContent: 'center' }}>
                 <Icon name="comment" size={16} color={c.ink2} />

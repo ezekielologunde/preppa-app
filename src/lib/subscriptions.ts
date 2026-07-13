@@ -197,6 +197,14 @@ function cycleRowToSummary(cy: any): CycleSummary {
   };
 }
 
+export interface BoxKitchen { kitchenId: string; name: string }
+/** The distinct kitchens in a customer's cross-kitchen box — for the messaging cook-picker. */
+export async function fetchBoxKitchens(subscriptionId: string): Promise<BoxKitchen[]> {
+  const { data, error } = await supabase.rpc('box_kitchens', { p_subscription: subscriptionId });
+  if (error || !data) return [];
+  return (data as any[]).map((r) => ({ kitchenId: r.kitchen_id, name: r.name }));
+}
+
 /** The signed-in customer's subscriptions (excludes cancelled/completed), each with its current cycle. */
 export async function listMySubscriptions(): Promise<MySubscription[]> {
   const { data: sess } = await supabase.auth.getSession();
