@@ -116,6 +116,8 @@ interface Store {
   prepperStatus: PrepperStatus;
   role: 'customer' | 'prepper';
   isAdmin: boolean; // server-derived (profiles.role='admin'); cosmetic gating only
+  isPrepPlus: boolean; // PrepPlus member — cosmetic; fee waivers enforced server-side. Never cached.
+  prepplusUntil: string | null; // current membership period end (ISO), for display
   submitApplication: (f: ApplicationFields) => Promise<string>;
   isMine: (cook: CookId) => boolean; // true only for an approved prepper viewing their own listing
 
@@ -162,6 +164,8 @@ interface Store {
   // real 1:1 messaging: unread-thread count (drives the Messages badge, separate from alerts)
   threadUnread: number;
   refreshMessaging: () => void;
+  // re-pull server account state (role/prepper/PrepPlus) — e.g. after a membership change
+  reconcileAccount: () => Promise<void>;
 }
 
 const StoreContext = createContext<Store>(null as any);
@@ -192,6 +196,8 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
   const [firstName, setFirstName] = useState('');
   const [fav, setFav] = useState<Set<string>>(new Set());
   const [prepperStatus, setPrepperStatus] = useState<PrepperStatus>('none');
+  const [isPrepPlus, setIsPrepPlus] = useState(false);
+  const [prepplusUntil, setPrepplusUntil] = useState<string | null>(null);
   const [isAdmin, setIsAdmin] = useState(false);
   const [addresses, setAddresses] = useState<Address[]>(SEED_ADDRESSES);
   const [addressId, setAddressId] = useState('home');
@@ -276,6 +282,9 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
       // out, fetchAccountState returns 'none', so a stale cached role can never keep
       // My Hub visible to a guest/customer on a browser a prepper once used.
       setPrepperStatus(s.prepperStatus);
+      // PrepPlus entitlement, same never-cached discipline as prepperStatus.
+      setIsPrepPlus(s.isPrepPlus);
+      setPrepplusUntil(s.prepplusUntil);
       const { data: sess } = await supabase.auth.getSession();
       setUid(sess.session?.user?.id ?? null);
       if (s.signedIn) {
@@ -446,7 +455,7 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
   }, [orders, addToCart, toast, isMine]);
 
   const resetOnboarding = useCallback(() => setOnboardedState(false), []);
-  const logout = useCallback(() => { signOutUser(); setPrepperStatus('none'); setIsAdmin(false); setOnboardedState(false); }, []);
+  const logout = useCallback(() => { signOutUser(); setPrepperStatus('none'); setIsAdmin(false); setIsPrepPlus(false); setPrepplusUntil(null); setOnboardedState(false); }, []);
   const deleteAccount = useCallback(() => {
     // Apple 5.1.1(v) / Google Play: account-deletion path. Clears the local session and
     // signs out of Supabase. TODO(Phase 1): also call a `delete-account` edge function to
@@ -473,6 +482,8 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
     setActed([]);
     setPrepperStatus('none');
     setIsAdmin(false);
+    setIsPrepPlus(false);
+    setPrepplusUntil(null);
     setOnboardedState(false);
   }, []);
 
@@ -567,6 +578,8 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
     role,
     submitApplication,
     isAdmin,
+    isPrepPlus,
+    prepplusUntil,
     isMine,
     fav,
     toggleFav,
@@ -600,6 +613,7 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
     notifCount,
     threadUnread,
     refreshMessaging,
+    reconcileAccount,
   };
 
   // Memoized narrow slices: `actions` changes only when a handler identity changes (≈ role);

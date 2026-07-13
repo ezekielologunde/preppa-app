@@ -54,11 +54,12 @@ const money0 = (cents: number) => money(cents / 100);
 function ServicesMode() {
   const c = useC();
   const router = useRouter();
-  const { toast } = useStore();
+  const { toast, isPrepPlus } = useStore();
   const [requests, setRequests] = useState<RequestView[]>([]);
   const [loading, setLoading] = useState(true);
   const [pay, setPay] = useState<{ clientSecret: string; label: string } | null>(null);
   const [busyQuote, setBusyQuote] = useState<string | null>(null);
+  const feeBps = isPrepPlus ? 0 : 1500; // PrepPlus waives Preppa's service fee (display; server-enforced)
 
   const load = useCallback(() => { setLoading(true); listMyRequests().then((r) => { setRequests(r); setLoading(false); }); }, []);
   useFocusEffect(useCallback(() => { load(); }, [load]));
@@ -118,8 +119,8 @@ function ServicesMode() {
                     <Text style={[type(12.5, 800), { color: c.green, marginTop: 8 }]}>Booked ✓</Text>
                   ) : (
                     <View style={{ marginTop: 10 }}>
-                      <KDeposit label={busyQuote === q.id ? 'Starting…' : `Accept · deposit ${money0(q.depositCents + Math.round(q.amountCents * 0.15))}`}
-                        onPress={() => accept(q.id, money0(q.depositCents + Math.round(q.amountCents * 0.15)))} />
+                      <KDeposit label={busyQuote === q.id ? 'Starting…' : `Accept · deposit ${money0(q.depositCents + Math.round(q.amountCents * feeBps / 10000))}`}
+                        onPress={() => accept(q.id, money0(q.depositCents + Math.round(q.amountCents * feeBps / 10000)))} />
                     </View>
                   )}
                 </View>

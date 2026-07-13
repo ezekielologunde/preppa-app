@@ -17,7 +17,7 @@ export default function Profile() {
   const c = useC();
   const insets = useSafeAreaInsets();
   const router = useRouter();
-  const { resetOnboarding, darkMode, setDarkMode, logout, deleteAccount, toast, prepperStatus, isAdmin, name, location } = useStore();
+  const { resetOnboarding, darkMode, setDarkMode, logout, deleteAccount, toast, prepperStatus, isAdmin, isPrepPlus, name, location } = useStore();
   const initial = (name || '?').trim()[0]?.toUpperCase() ?? '?';
 
   const confirmDelete = () => {
@@ -103,6 +103,28 @@ export default function Profile() {
             </Press>
           )}
         </View>
+
+        {/* PrepPlus — web-only entry (IAP policy). State-aware upsell vs member badge. */}
+        {FLAGS.prepplus && Platform.OS === 'web' ? (
+          <Press scale={0.98} onPress={() => router.push('/prepplus')} label="PrepPlus"
+            style={{ marginHorizontal: 16, marginTop: 12, borderRadius: radius.xl, overflow: 'hidden', ...shadow.card }}>
+            <LinearGradient colors={['#7C3AED', '#F26B1D']} start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }}
+              style={{ padding: 16, flexDirection: 'row', alignItems: 'center', gap: 14 }}>
+              <View style={{ width: 46, height: 46, borderRadius: 15, backgroundColor: 'rgba(255,255,255,.2)', alignItems: 'center', justifyContent: 'center' }}>
+                <Icon name="bolt" size={23} color="#fff" />
+              </View>
+              <View style={{ flex: 1 }}>
+                <Text style={[type(16, 900), { color: '#fff' }]}>{isPrepPlus ? 'PrepPlus member' : 'Join PrepPlus'}</Text>
+                <Text style={[type(12.5, 600), { color: 'rgba(255,255,255,.9)', marginTop: 2 }]}>
+                  {isPrepPlus ? 'Manage your membership & perks' : 'Fee-free private chefs, catering & meal plans'}
+                </Text>
+              </View>
+              {isPrepPlus
+                ? <View style={{ height: 26, paddingHorizontal: 10, borderRadius: 13, backgroundColor: 'rgba(255,255,255,.22)', alignItems: 'center', justifyContent: 'center' }}><Text style={[type(11, 900), { color: '#fff' }]}>ACTIVE</Text></View>
+                : <Icon name="arrow" size={18} color="#fff" />}
+            </LinearGradient>
+          </Press>
+        ) : null}
 
         {isAdmin && Platform.OS === 'web' ? (
           <Group label="Admin">

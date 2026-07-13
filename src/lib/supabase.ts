@@ -126,6 +126,8 @@ export interface AccountState {
   prepperStatus: PrepperStatusValue;
   displayName: string | null;
   firstName: string | null;
+  isPrepPlus: boolean;
+  prepplusUntil: string | null;
 }
 
 /**
@@ -137,7 +139,7 @@ export interface AccountState {
 export async function fetchAccountState(): Promise<AccountState> {
   const { data: sess } = await supabase.auth.getSession();
   const uid = sess.session?.user?.id;
-  if (!uid) return { signedIn: false, isAdmin: false, prepperStatus: 'none', displayName: null, firstName: null };
+  if (!uid) return { signedIn: false, isAdmin: false, prepperStatus: 'none', displayName: null, firstName: null, isPrepPlus: false, prepplusUntil: null };
 
   const { data: prof } = await supabase.from('profiles').select('role, display_name, first_name').eq('id', uid).maybeSingle();
   const role = (prof?.role as string) ?? 'customer';
@@ -156,7 +158,26 @@ export async function fetchAccountState(): Promise<AccountState> {
     .limit(1);
   const kv = k?.[0]?.verification_status as string | undefined;
   const prepperStatus: PrepperStatusValue = kv === 'verified' ? 'approved' : kv === 'pending' ? 'pending' : 'none';
-  return { signedIn: true, isAdmin, prepperStatus, displayName, firstName };
+
+  // PrepPlus entitlement — cosmetic here (fee waivers are enforced server-side by
+  // is_prepplus_member()). Mirrors that predicate: active/trialing (unexpired) or a 3-day
+  // past_due grace. Read via the memberships RLS (select-own); never cached (see store).
+  const { data: mem } = await supabase
+    .from('memberships')
+    .select('status, current_period_end, updated_at')
+    .eq('customer_id', uid)
+    .maybeSingle();
+  let isPrepPlus = false;
+  const prepplusUntil = (mem?.current_period_end as string) ?? null;
+  if (mem) {
+    const now = Date.now();
+    const periodOk = !mem.current_period_end || new Date(mem.current_period_end as string).getTime() > now;
+    const graceOk = mem.status === 'past_due' && mem.updated_at
+      && new Date(mem.updated_at as string).getTime() > now - 3 * 24 * 3600 * 1000;
+    isPrepPlus = ((mem.status === 'active' || mem.status === 'trialing') && periodOk) || !!graceOk;
+  }
+
+  return { signedIn: true, isAdmin, prepperStatus, displayName, firstName, isPrepPlus, prepplusUntil };
 }
 
 /**
