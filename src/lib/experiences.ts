@@ -41,14 +41,16 @@ export interface Experience {
   allergens: string[];
   cancellationPolicy: string;
   status: ExperienceStatus;
+  meetingUrl: string | null;   // virtual join link — owner-readable only (null for public viewers)
   sessions: ExperienceSession[];
 }
 
 const SELECT =
   'id, kitchen_id, title, description, experience_type, category, cover_url, photo_urls, location_type, address_text, duration_min, min_guests, max_guests, price_model, per_person_cents, price_cents, whats_included, requirements, dietary_tags, allergens, cancellation_policy, status, kitchens(name)';
 
-function rowToExperience(r: any, sessions: ExperienceSession[] = []): Experience {
+function rowToExperience(r: any, sessions: ExperienceSession[] = [], meetingUrl: string | null = null): Experience {
   return {
+    meetingUrl,
     id: r.id, kitchenId: r.kitchen_id, kitchenName: r.kitchens?.name ?? 'A local cook',
     title: r.title, description: r.description ?? null,
     experienceType: (r.experience_type ?? 'class') as ExperienceType, category: r.category,
@@ -104,7 +106,15 @@ export async function fetchMyExperiences(): Promise<Experience[]> {
 export async function fetchExperience(id: string): Promise<Experience | null> {
   const { data, error } = await supabase.from('experiences').select(SELECT).eq('id', id).maybeSingle();
   if (error || !data) return null;
-  return rowToExperience(data, await sessionsFor(id));
+  // meeting_url is owner-readable only (RLS) → null for public viewers; used for wizard edit prefill
+  const { data: priv } = await supabase.from('experience_private').select('meeting_url').eq('experience_id', id).maybeSingle();
+  return rowToExperience(data, await sessionsFor(id), (priv as any)?.meeting_url ?? null);
+}
+
+/** The join link for a virtual experience — only returned to a customer WITH a confirmed booking. */
+export async function fetchExperienceMeetingUrl(experienceId: string): Promise<string | null> {
+  const { data } = await supabase.rpc('experience_private_details', { p_experience: experienceId });
+  return (data as any[])?.[0]?.meeting_url ?? null;
 }
 
 /** Published experiences for the customer browse (E2 surface). */
@@ -130,6 +140,7 @@ export interface UpsertExperienceInput {
   photoUrls?: string[];
   locationType?: string;
   addressText?: string;
+  meetingUrl?: string;
   durationMin?: number;
   minGuests?: number;
   maxGuests?: number;

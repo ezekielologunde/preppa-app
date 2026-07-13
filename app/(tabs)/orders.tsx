@@ -9,7 +9,7 @@ import { useStore, CustomerOrder } from '../../src/store/store';
 import { Icon, Press, GradBox, Btn } from '../../src/ui';
 import { Empty } from '../../src/ui/layout';
 import { listMyBookings, type BookingView } from '../../src/lib/services';
-import { cancelExperienceBooking } from '../../src/lib/experiences';
+import { cancelExperienceBooking, fetchExperienceMeetingUrl } from '../../src/lib/experiences';
 
 const STATUS: Record<CustomerOrder['status'], { label: string; bg: (c: any) => string; fg: (c: any) => string }> = {
   preparing: { label: 'Preparing', bg: (c) => c.primaryL, fg: (c) => c.primaryD },
@@ -40,6 +40,15 @@ export default function Orders() {
     finally { setBusy(null); }
   };
 
+  const joinLink = async (b: BookingView) => {
+    if (!b.experienceId) return;
+    try {
+      const url = await fetchExperienceMeetingUrl(b.experienceId);
+      if (url && typeof window !== 'undefined') window.open(url, '_blank');
+      else toast('The host hasn’t added the link yet', 'info');
+    } catch { toast('Could not get the link', 'info'); }
+  };
+
   const empty = orders.length === 0 && bookings.length === 0;
 
   return (
@@ -68,7 +77,9 @@ export default function Orders() {
                         <Text numberOfLines={1} style={[type(15, 900), { color: c.ink }]}>{isExp && b.title ? b.title : b.kitchenName}</Text>
                         <Text numberOfLines={1} style={[type(12.5, 600), { color: c.soft, marginTop: 2 }]}>{isExp ? `${b.kitchenName} · ` : ''}{b.eventDate} · {money(b.amountCents / 100)} · {statusLabel}</Text>
                       </View>
-                      {isExp && b.status === 'confirmed' && isPast ? (
+                      {isExp && b.status === 'confirmed' && b.locationType === 'virtual' && !isPast ? (
+                        <Press scale={0.95} onPress={() => joinLink(b)} label="Join online session"><Text style={[type(12, 800), { color: c.primary }]}>Join</Text></Press>
+                      ) : isExp && b.status === 'confirmed' && isPast ? (
                         b.reviewed ? <Text style={[type(11.5, 800), { color: c.star }]}>Rated ★</Text>
                           : <Press scale={0.95} onPress={() => router.push(`/rate-experience/${b.id}`)} label="Rate experience"><Text style={[type(12, 800), { color: c.primary }]}>Rate</Text></Press>
                       ) : isExp && b.status === 'confirmed' ? (

@@ -48,12 +48,15 @@ export default function CreateExperienceFlow() {
   const [title, setTitle] = useState('');
   const [desc, setDesc] = useState('');
   const [etype, setEtype] = useState<ExperienceType>('class');
-  const [cover, setCover] = useState('');
-  const [coverBusy, setCoverBusy] = useState(false);
+  const [photos, setPhotos] = useState<string[]>([]);  // first = cover
+  const [photoBusy, setPhotoBusy] = useState(false);
   const [address, setAddress] = useState('');
+  const [locationType, setLocationType] = useState<'prepper_place' | 'venue' | 'virtual'>('prepper_place');
+  const [meetingUrl, setMeetingUrl] = useState('');
   const [duration, setDuration] = useState('');
   const [minG, setMinG] = useState('1');
   const [maxG, setMaxG] = useState('8');
+  const [priceModel, setPriceModel] = useState<'per_person' | 'flat'>('per_person');
   const [price, setPrice] = useState('');
   const [included, setIncluded] = useState<string[]>([]);
   const [requirements, setRequirements] = useState('');
@@ -61,6 +64,7 @@ export default function CreateExperienceFlow() {
   const [allergens, setAllergens] = useState<string[]>([]);
   const [policy, setPolicy] = useState<'flexible' | 'standard' | 'strict'>('standard');
   const [sessions, setSessions] = useState<SessRow[]>([]);
+  const [repeatN, setRepeatN] = useState('4');
   const [status, setStatus] = useState<string>('draft');
   const [busy, setBusy] = useState(false);
   const [done, setDone] = useState<{ status: string } | null>(null);
@@ -70,9 +74,13 @@ export default function CreateExperienceFlow() {
       if (editing) {
         const e = await fetchExperience(experienceId!);
         if (e) {
-          setTitle(e.title); setDesc(e.description ?? ''); setEtype(e.experienceType); setCover(e.coverUrl ?? '');
+          setTitle(e.title); setDesc(e.description ?? ''); setEtype(e.experienceType);
+          setPhotos(e.photoUrls && e.photoUrls.length ? e.photoUrls : (e.coverUrl ? [e.coverUrl] : []));
           setAddress(e.addressText ?? ''); setDuration(String(e.durationMin)); setMinG(String(e.minGuests)); setMaxG(String(e.maxGuests));
-          setPrice(e.perPersonCents ? String(e.perPersonCents / 100) : ''); setIncluded(e.whatsIncluded); setRequirements(e.requirements ?? '');
+          setLocationType(e.locationType === 'venue' || e.locationType === 'virtual' ? e.locationType : 'prepper_place'); setMeetingUrl(e.meetingUrl ?? '');
+          setPriceModel(e.priceModel === 'flat' ? 'flat' : 'per_person');
+          setPrice(((e.priceModel === 'flat' ? e.priceCents : e.perPersonCents) || 0) ? String(((e.priceModel === 'flat' ? e.priceCents : e.perPersonCents) as number) / 100) : '');
+          setIncluded(e.whatsIncluded); setRequirements(e.requirements ?? '');
           setDietary(e.dietaryTags); setAllergens(e.allergens); setPolicy((e.cancellationPolicy as any) || 'standard'); setStatus(e.status);
           setSessions(e.sessions.filter((s) => s.status !== 'cancelled').map((s) => ({ id: s.id, ...splitISO(s.startsAt), seats: String(s.capacity), seatsTaken: s.seatsTaken, status: s.status })));
         }
@@ -81,27 +89,54 @@ export default function CreateExperienceFlow() {
     })();
   }, []);
 
-  const pickCover = () => {
+  const pickPhotos = () => {
     if (Platform.OS !== 'web' || typeof document === 'undefined') return;
     const input = document.createElement('input');
-    input.type = 'file'; input.accept = 'image/*';
+    input.type = 'file'; input.accept = 'image/*'; input.multiple = true;
     input.onchange = async () => {
-      const f = (input.files || [])[0]; if (!f) return;
-      setCoverBusy(true);
-      try { const ext = (f.name.split('.').pop() || 'jpg').toLowerCase(); setCover(await uploadPlanCover(f, ext)); }
-      catch (e: any) { toast(e?.message || 'Could not upload the photo', 'info'); }
-      finally { setCoverBusy(false); }
+      const slots = 6 - photos.length;
+      const files = Array.from(input.files || []).slice(0, Math.max(0, slots));
+      if (!files.length) return;
+      setPhotoBusy(true);
+      try {
+        for (const f of files) {
+          const ext = (f.name.split('.').pop() || 'jpg').toLowerCase();
+          const url = await uploadPlanCover(f, ext);              // public avatars bucket → public URL
+          setPhotos((p) => (p.length >= 6 ? p : [...p, url]));
+        }
+      } catch (e: any) { toast(e?.message || 'Could not upload a photo', 'info'); }
+      finally { setPhotoBusy(false); }
     };
     input.click();
   };
 
   const perPersonCents = Math.round((Number(price) || 0) * 100);
   const validSessions = sessions.filter((s) => toISO(s.date, s.time) && Number(s.seats) > 0);
-  const canSubmit = !!title.trim() && perPersonCents >= 100 && Number(maxG) >= Number(minG) && validSessions.length > 0;
+  const canSubmit = !!title.trim() && perPersonCents >= 100 && Number(maxG) >= Number(minG) && validSessions.length > 0
+    && (locationType !== 'virtual' || !!meetingUrl.trim());
 
   const addSession = () => setSessions((s) => [...s, { date: '', time: '18:00', seats: maxG || '8', seatsTaken: 0, status: 'open' }]);
   const setSess = (i: number, patch: Partial<SessRow>) => setSessions((s) => s.map((r, j) => (j === i ? { ...r, ...patch } : r)));
   const removeSess = (i: number) => setSessions((s) => s.filter((_, j) => j !== i));
+  const repeatWeekly = () => {
+    const base = sessions.find((s) => /^\d{4}-\d{2}-\d{2}$/.test(s.date));
+    if (!base) { toast('Add a first session date, then repeat it', 'info'); return; }
+    const n = Math.min(8, Math.max(2, parseInt(repeatN, 10) || 4));
+    const seen = new Set(sessions.map((s) => `${s.date} ${s.time}`));
+    const add: SessRow[] = [];
+    for (let k = 1; k < n; k++) {
+      const d = new Date(base.date + 'T00:00:00'); d.setDate(d.getDate() + k * 7); // date-only math (DST-safe)
+      const p = (x: number) => String(x).padStart(2, '0');
+      const date = `${d.getFullYear()}-${p(d.getMonth() + 1)}-${p(d.getDate())}`;
+      const key = `${date} ${base.time}`;
+      if (seen.has(key)) continue;
+      seen.add(key);
+      add.push({ date, time: base.time, seats: base.seats, seatsTaken: 0, status: 'open' });
+    }
+    if (add.length === 0) { toast('Those weeks are already scheduled', 'info'); return; }
+    setSessions((s) => [...s, ...add]);
+    toast(`Added ${add.length} weekly session${add.length !== 1 ? 's' : ''}`, 'check', true);
+  };
   const cancelBooked = async (i: number, s: SessRow) => {
     if (!s.id) { removeSess(i); return; }
     if (typeof window !== 'undefined' && !window.confirm(`Cancel this session? All ${s.seatsTaken} booked guests will be fully refunded and notified.`)) return;
@@ -112,7 +147,7 @@ export default function CreateExperienceFlow() {
   const save = async (submit: boolean) => {
     if (busy) return;
     if (submit && !canSubmit) {
-      toast(!title.trim() ? 'Add a title' : perPersonCents < 100 ? 'Set a price per person (at least $1)' : validSessions.length === 0 ? 'Add at least one session' : 'Check your guest limits', 'info');
+      toast(!title.trim() ? 'Add a title' : perPersonCents < 100 ? 'Set a price per person (at least $1)' : validSessions.length === 0 ? 'Add at least one session' : (locationType === 'virtual' && !meetingUrl.trim()) ? 'Add a meeting link for the online session' : 'Check your guest limits', 'info');
       return;
     }
     if (!title.trim()) { toast('Add a title', 'info'); return; }
@@ -124,10 +159,14 @@ export default function CreateExperienceFlow() {
       const res = await upsertExperience({
         experienceId: editing ? experienceId : undefined,
         title: title.trim(), description: desc.trim() || undefined, experienceType: etype,
-        coverUrl: cover || undefined, locationType: 'prepper_place', addressText: address.trim() || undefined,
+        coverUrl: photos[0] || undefined, photoUrls: photos.length ? photos : undefined,
+        locationType,
+        addressText: locationType !== 'virtual' ? (address.trim() || undefined) : undefined,
+        meetingUrl: locationType === 'virtual' ? (meetingUrl.trim() || undefined) : undefined,
         durationMin: duration.trim() ? Math.max(15, parseInt(duration, 10) || 120) : undefined,
         minGuests: Math.max(1, parseInt(minG, 10) || 1), maxGuests: Math.max(1, parseInt(maxG, 10) || 8),
-        priceModel: 'per_person', perPersonCents,
+        priceModel,
+        ...(priceModel === 'flat' ? { priceCents: perPersonCents } : { perPersonCents }),
         whatsIncluded: included.length ? included : undefined, requirements: requirements.trim() || undefined,
         dietaryTags: dietary.length ? dietary : undefined, allergens: allergens.length ? allergens : undefined,
         cancellationPolicy: policy, submit, sessions: sess,
@@ -160,23 +199,42 @@ export default function CreateExperienceFlow() {
       <TopBar title={editing ? 'Edit experience' : 'Create an experience'} onBack={() => router.back()} />
       <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={{ paddingHorizontal: 20, paddingBottom: 130 }}>
         <View style={{ marginTop: 16 }} />
-        <KField label="Cover photo">
-          <Press scale={0.98} onPress={pickCover}>
-            <View style={{ height: 150, borderRadius: radius.card, overflow: 'hidden', backgroundColor: c.bg2, borderWidth: 1, borderColor: c.border2, alignItems: 'center', justifyContent: 'center' }}>
-              {cover ? <Image source={{ uri: cover }} style={{ width: '100%', height: '100%' }} resizeMode="cover" /> : coverBusy ? <ActivityIndicator color={c.primary} /> : (
-                <View style={{ alignItems: 'center', gap: 6 }}><Icon name="camera" size={22} color={c.muted} /><Text style={[type(12.5, 700), { color: c.soft }]}>Add a cover photo</Text></View>
-              )}
-              {cover && !coverBusy ? <View style={{ position: 'absolute', bottom: 8, right: 8, backgroundColor: 'rgba(0,0,0,.55)', paddingHorizontal: 10, paddingVertical: 5, borderRadius: 999 }}><Text style={[type(11, 800), { color: '#fff' }]}>Change</Text></View> : null}
-            </View>
-          </Press>
+        <KField label="Photos" hint="First is your cover · up to 6">
+          <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 8 }}>
+            {photos.map((url, i) => (
+              <View key={url + i} style={{ width: 96, height: 96, borderRadius: 12, overflow: 'hidden', backgroundColor: c.bg2 }}>
+                <Image source={{ uri: url }} style={{ width: '100%', height: '100%' }} resizeMode="cover" />
+                {i === 0 ? <View style={{ position: 'absolute', top: 4, left: 4, backgroundColor: 'rgba(0,0,0,.6)', paddingHorizontal: 6, paddingVertical: 2, borderRadius: 6 }}><Text style={[type(9, 900), { color: '#fff', letterSpacing: 0.3 }]}>COVER</Text></View> : null}
+                <Press scale={0.9} onPress={() => setPhotos((p) => p.filter((_, j) => j !== i))} style={{ position: 'absolute', top: 4, right: 4 }} label="Remove photo">
+                  <View style={{ width: 22, height: 22, borderRadius: 11, backgroundColor: 'rgba(0,0,0,.6)', alignItems: 'center', justifyContent: 'center' }}><Icon name="x" size={12} color="#fff" /></View>
+                </Press>
+                {i !== 0 ? (
+                  <Press scale={0.95} onPress={() => setPhotos((p) => [p[i], ...p.filter((_, j) => j !== i)])} style={{ position: 'absolute', bottom: 0, left: 0, right: 0 }} label="Make cover">
+                    <View style={{ backgroundColor: 'rgba(0,0,0,.55)', paddingVertical: 3, alignItems: 'center' }}><Text style={[type(9.5, 800), { color: '#fff' }]}>Make cover</Text></View>
+                  </Press>
+                ) : null}
+              </View>
+            ))}
+            {photos.length < 6 ? (
+              <Press scale={0.97} onPress={pickPhotos}>
+                <View style={{ width: 96, height: 96, borderRadius: 12, borderWidth: 2, borderStyle: 'dashed', borderColor: c.border, backgroundColor: c.bg2, alignItems: 'center', justifyContent: 'center', gap: 4 }}>
+                  {photoBusy ? <ActivityIndicator color={c.primary} /> : <><Icon name="camera" size={20} color={c.muted} /><Text style={[type(10.5, 700), { color: c.soft }]}>Add</Text></>}
+                </View>
+              </Press>
+            ) : null}
+          </View>
         </KField>
         <KField label="Title"><KInput value={title} onChange={setTitle} placeholder="e.g. Hands-on Pasta Night" /></KField>
         <KField label="Description"><KInput value={desc} onChange={setDesc} placeholder="What you'll cook and eat together…" multiline /></KField>
 
         <KField label="Format"><KSeg options={TYPES} value={etype} onChange={(v) => setEtype(v as ExperienceType)} /></KField>
 
+        <KField label="Pricing">
+          <KSeg options={[{ key: 'per_person', label: 'Per person' }, { key: 'flat', label: 'Whole session' }]} value={priceModel} onChange={(v) => setPriceModel(v as any)} />
+          {priceModel === 'flat' ? <Text style={[type(11.5, 600), { color: c.muted, marginTop: 6, lineHeight: 16 }]}>One party books the entire session for a flat price (private buyout).</Text> : null}
+        </KField>
         <View style={{ flexDirection: 'row', gap: 12 }}>
-          <View style={{ flex: 1 }}><KField label="Price per person"><MoneyInput value={price} onChange={setPrice} /></KField></View>
+          <View style={{ flex: 1 }}><KField label={priceModel === 'flat' ? 'Price (whole session)' : 'Price per person'}><MoneyInput value={price} onChange={setPrice} /></KField></View>
           <View style={{ flex: 1 }}><KField label="Duration (min)"><KInput value={duration} onChange={setDuration} placeholder="120" /></KField></View>
         </View>
         <View style={{ flexDirection: 'row', gap: 12 }}>
@@ -184,7 +242,12 @@ export default function CreateExperienceFlow() {
           <View style={{ flex: 1 }}><KField label="Max guests"><KInput value={maxG} onChange={setMaxG} placeholder="8" /></KField></View>
         </View>
 
-        <KField label="Where" hint="Hosted at your kitchen"><KInput value={address} onChange={setAddress} placeholder="Neighborhood or address (shown after booking)" /></KField>
+        <KField label="Location">
+          <KSeg options={[{ key: 'prepper_place', label: "Host's kitchen" }, { key: 'venue', label: 'Venue' }, { key: 'virtual', label: 'Online' }]} value={locationType} onChange={(v) => setLocationType(v as any)} />
+        </KField>
+        {locationType === 'prepper_place' ? <KField label="Neighborhood (optional)"><KInput value={address} onChange={setAddress} placeholder="Shown to guests after they book" /></KField> : null}
+        {locationType === 'venue' ? <KField label="Venue"><KInput value={address} onChange={setAddress} placeholder="Venue name / address" /></KField> : null}
+        {locationType === 'virtual' ? <KField label="Meeting link" hint="Sent to guests after they book — keep it private"><KInput value={meetingUrl} onChange={setMeetingUrl} placeholder="https://…" /></KField> : null}
 
         <KField label="What's included"><Chips options={INCLUDED} value={included} onToggle={(t) => setIncluded((x) => x.includes(t) ? x.filter((y) => y !== t) : [...x, t])} /></KField>
         <KField label="Good to know / requirements"><KInput value={requirements} onChange={setRequirements} placeholder="Skill level, what to bring, accessibility…" multiline /></KField>
@@ -207,6 +270,16 @@ export default function CreateExperienceFlow() {
         {/* Sessions */}
         <Text style={[type(13, 800), { color: c.ink, marginTop: 22, marginBottom: 4 }]}>Sessions</Text>
         <Text style={[type(12, 600), { color: c.soft, marginBottom: 10, lineHeight: 17 }]}>Add the dates and times customers can book, with seats per session.</Text>
+        {sessions.length > 0 ? (
+          <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8, marginBottom: 10, flexWrap: 'wrap' }}>
+            <Text style={[type(12.5, 700), { color: c.soft }]}>Repeat weekly for</Text>
+            <View style={{ width: 52 }}><KInput value={repeatN} onChange={setRepeatN} placeholder="4" /></View>
+            <Text style={[type(12.5, 700), { color: c.soft }]}>weeks</Text>
+            <Press scale={0.96} onPress={repeatWeekly}>
+              <View style={{ height: 36, paddingHorizontal: 14, borderRadius: radius.pill, backgroundColor: c.primaryL, alignItems: 'center', justifyContent: 'center' }}><Text style={[type(12.5, 800), { color: c.primaryD }]}>Add weeks</Text></View>
+            </Press>
+          </View>
+        ) : null}
         <View style={{ gap: 10 }}>
           {sessions.map((s, i) => {
             const locked = (s.seatsTaken ?? 0) > 0;

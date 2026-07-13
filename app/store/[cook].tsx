@@ -41,7 +41,7 @@ function StoreExperiences({ kitchenId }: { kitchenId?: string }) {
             <GradBox grad={['#FB7185', '#E11D48']} img={e.coverUrl ?? undefined} style={{ width: 54, height: 54, borderRadius: 14, alignItems: 'center', justifyContent: 'center' }}>{e.coverUrl ? null : <Icon name="spark" size={22} color="#fff" />}</GradBox>
             <View style={{ flex: 1, minWidth: 0 }}>
               <Text numberOfLines={1} style={[type(15, 900), { color: c.ink, letterSpacing: -0.3 }]}>{e.title}</Text>
-              <Text style={[type(12.5, 600), { color: c.soft, marginTop: 2 }]}>{money((e.perPersonCents ?? 0) / 100)}/person · {next(e)}</Text>
+              <Text style={[type(12.5, 600), { color: c.soft, marginTop: 2 }]}>{money((e.priceModel === 'flat' ? (e.priceCents ?? 0) : (e.perPersonCents ?? 0)) / 100)}{e.priceModel === 'flat' ? '/session' : '/person'} · {next(e)}</Text>
             </View>
             <Icon name="chevRight" size={16} color={c.muted} />
           </View>

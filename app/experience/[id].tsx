@@ -11,6 +11,8 @@ import { Stepper } from '../../src/ui/primitives';
 import { Screen, Dock, DockTotal, SectionLabel } from '../../src/ui/layout';
 import { HeroTopBar, HeroBtn } from '../../src/components/shared';
 import { NotFound } from '../../src/components/NotFound';
+import { MealGallery } from '../../src/components/MealGallery';
+import { ImageViewer } from '../../src/components/ImageViewer';
 import { CardPaymentSheet } from '../../src/components/CardPaymentSheet';
 import { shareAndNotify, SITE } from '../../src/lib/share';
 import { FLAGS } from '../../src/config/flags';
@@ -46,6 +48,8 @@ export default function ExperienceDetail() {
   const [waitlisted, setWaitlisted] = useState<Set<string>>(new Set());
   const [rating, setRating] = useState({ avg: 0, count: 0 });
   const [reviews, setReviews] = useState<ExperienceReview[]>([]);
+  const [viewer, setViewer] = useState(false);
+  const [viewerIdx, setViewerIdx] = useState(0);
 
   const loadAvail = async (expId: string) => {
     const a = await fetchAvailability(expId);
@@ -73,9 +77,11 @@ export default function ExperienceDetail() {
   if (notFound) return <NotFound title="Experience" />;
   if (loading || !exp) return <Screen bg={c.surface}><View style={{ flex: 1, alignItems: 'center', justifyContent: 'center' }}><ActivityIndicator color={c.primary} /></View></Screen>;
 
-  const per = exp.perPersonCents ?? 0;
-  const total = per * guests;
-  const canBook = !!sel && sel.seatsLeft >= guests && guests >= exp.minGuests;
+  const photos = exp.photoUrls.length ? exp.photoUrls : (exp.coverUrl ? [exp.coverUrl] : []);
+  const isFlat = exp.priceModel === 'flat';
+  const unit = isFlat ? (exp.priceCents ?? 0) : (exp.perPersonCents ?? 0);   // flat = whole-session price
+  const total = isFlat ? unit : unit * guests;
+  const canBook = !!sel && (isFlat ? sel.seatsLeft > 0 : sel.seatsLeft >= guests) && guests >= exp.minGuests;
 
   const book = async () => {
     if (!sel || busy) return;
@@ -104,7 +110,7 @@ export default function ExperienceDetail() {
     catch (e: any) { toast(e?.message || 'Could not update', 'info'); }
   };
   const primaryAction = !sel ? undefined : canBook ? book : onWait ? leaveWl : joinWl;
-  const primaryLabel = !sel ? 'Pick a date' : canBook ? `Book · ${money(total / 100)}` : onWait ? 'On the waitlist' : 'Join waitlist';
+  const primaryLabel = !sel ? 'Pick a date' : canBook ? (isFlat ? `Book the whole session · ${money(total / 100)}` : `Book · ${money(total / 100)}`) : onWait ? 'On the waitlist' : 'Join waitlist';
   const primaryIcon = canBook ? 'ticket' : onWait ? 'check' : 'bell';
 
   const initial = exp.kitchenName.trim()[0]?.toUpperCase() ?? 'K';
@@ -116,13 +122,13 @@ export default function ExperienceDetail() {
   return (
     <Screen bg={c.surface}>
       <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={{ paddingBottom: 130 }}>
-        <GradBox grad={['#FB7185', '#E11D48']} img={exp.coverUrl ?? undefined} style={{ height: 240 }}>
+        <MealGallery photos={photos} grad="g6" height={240} onOpen={(i) => { setViewerIdx(i); setViewer(true); }}>
           <HeroTopBar topInset={insets.top} onBack={() => router.back()} right={<HeroBtn icon="share" onPress={() => shareAndNotify(toast, { title: exp.title, url: `${SITE}/experience/${exp.id}` })} />} />
           <View pointerEvents="none" style={{ position: 'absolute', bottom: 34, left: 18, height: 24, borderRadius: radius.pill, paddingHorizontal: 10, flexDirection: 'row', alignItems: 'center', gap: 5, backgroundColor: 'rgba(0,0,0,.45)' }}>
             <Icon name="spark" size={11} color="#fff" />
             <Text style={[type(10, 900), { color: '#fff', textTransform: 'uppercase', letterSpacing: 0.3 }]}>{TYPE_LABEL[exp.experienceType] ?? 'Experience'}</Text>
           </View>
-        </GradBox>
+        </MealGallery>
 
         <View style={{ backgroundColor: c.surface, borderTopLeftRadius: radius.sheet, borderTopRightRadius: radius.sheet, marginTop: -26, padding: 18, paddingTop: 22 }}>
           <Text style={[type(23, 900), { color: c.ink, letterSpacing: -0.8, lineHeight: 27 }]}>{exp.title}</Text>
@@ -151,6 +157,12 @@ export default function ExperienceDetail() {
                 <Text style={[type(13.5, 800), { color: c.ink2 }]}>Message the host</Text>
               </View>
             </Press>
+          ) : null}
+
+          {exp.locationType === 'virtual' ? (
+            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8, marginTop: 12 }}><Icon name="comment" size={15} color={c.soft} /><Text style={[type(12.5, 600), { color: c.soft }]}>Online session · join link sent after you book</Text></View>
+          ) : exp.locationType === 'venue' && exp.addressText ? (
+            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8, marginTop: 12 }}><Icon name="chefhat" size={15} color={c.soft} /><Text style={[type(12.5, 600), { color: c.soft }]}>{exp.addressText}</Text></View>
           ) : null}
 
           {exp.description ? (<><SectionLabel>About this experience</SectionLabel><Text style={[type(14.5, 500), { color: c.soft, lineHeight: 23 }]}>{exp.description}</Text></>) : null}
@@ -185,6 +197,7 @@ export default function ExperienceDetail() {
                 </View>
               ) : null}
               {sel && sel.seatsLeft <= 0 ? <Text style={[type(11.5, 600), { color: c.ink2, marginTop: 6 }]}>This session is full — join the waitlist and we’ll notify you if a seat opens.</Text>
+                : sel && isFlat ? <Text style={[type(11.5, 600), { color: c.muted, marginTop: 6 }]}>Fixed price — your party books the whole session.</Text>
                 : sel && sel.seatsLeft < exp.maxGuests ? <Text style={[type(11.5, 600), { color: c.muted, marginTop: 6 }]}>Only {sel.seatsLeft} seat{sel.seatsLeft !== 1 ? 's' : ''} left for this session.</Text> : null}
             </>
           )}
@@ -223,7 +236,7 @@ export default function ExperienceDetail() {
       </ScrollView>
 
       <Dock>
-        <DockTotal label={canBook ? `${guests} × ${money(per / 100)}` : 'Per person'} value={money((canBook ? total : per) / 100)} />
+        <DockTotal label={isFlat ? 'Whole session' : canBook ? `${guests} × ${money(unit / 100)}` : 'Per person'} value={money((isFlat ? unit : (canBook ? total : unit)) / 100)} />
         <Press scale={0.98} onPress={sel && !busy ? primaryAction : undefined} style={{ flex: 1 }}>
           <View style={{ height: 50, borderRadius: radius.md, backgroundColor: !sel ? c.border : onWait ? c.bg2 : c.primary, borderWidth: onWait ? 1.5 : 0, borderColor: c.primary, alignItems: 'center', justifyContent: 'center', flexDirection: 'row', gap: 8, opacity: busy ? 0.7 : 1 }}>
             {busy ? <ActivityIndicator size="small" color="#fff" /> : <><Icon name={primaryIcon} size={18} color={onWait ? c.primary : '#fff'} /><Text style={[type(15, 900), { color: onWait ? c.primary : '#fff' }]}>{primaryLabel}</Text></>}
@@ -233,6 +246,7 @@ export default function ExperienceDetail() {
 
       <CardPaymentSheet visible={!!pay} clientSecret={pay?.clientSecret ?? null} amountLabel={pay?.label ?? ''} mode="pay"
         onPaid={() => { setPay(null); toast('You’re booked! 🎉', 'check', true); router.replace('/orders'); }} onClose={() => setPay(null)} />
+      <ImageViewer uri={photos[viewerIdx]} caption={exp.title} visible={viewer} onClose={() => setViewer(false)} />
     </Screen>
   );
 }

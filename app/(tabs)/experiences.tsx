@@ -38,8 +38,8 @@ function ExperienceCard({ e, onPress }: { e: Experience; onPress: () => void }) 
             <Text numberOfLines={1} style={[type(12.5, 600), { color: c.soft, marginTop: 3 }]}>{e.kitchenName} · {nextSession(e)}</Text>
           </View>
           <View style={{ alignItems: 'flex-end' }}>
-            <Text style={[type(16, 900), { color: c.ink, letterSpacing: -0.4 }]}>{money2(e.perPersonCents ?? 0)}</Text>
-            <Text style={[type(10.5, 700), { color: c.muted }]}>/person</Text>
+            <Text style={[type(16, 900), { color: c.ink, letterSpacing: -0.4 }]}>{money2(e.priceModel === 'flat' ? (e.priceCents ?? 0) : (e.perPersonCents ?? 0))}</Text>
+            <Text style={[type(10.5, 700), { color: c.muted }]}>{e.priceModel === 'flat' ? '/session' : '/person'}</Text>
           </View>
         </View>
       </View>
