@@ -132,6 +132,25 @@ export async function threadUnreadCount(): Promise<number> {
   return Number(data) || 0;
 }
 
+// ---- Broadcast (cook → all subscribers, WhatsApp-style fan-out) ------------------------
+/** How many subscribers the caller's broadcast would reach (composer preview). */
+export async function broadcastAudienceCount(): Promise<number> {
+  const { data } = await supabase.rpc('my_broadcast_audience_count');
+  return Number(data) || 0;
+}
+
+export interface BroadcastResult { broadcastId: string; recipientCount: number; deduped?: boolean }
+/**
+ * Send one message to every active/paused subscriber, fanned out into each 1:1 thread (replies
+ * land back 1:1 — never a group chat). Rate-limited to 3/day and idempotent on `idempotencyKey`
+ * (a repeat with the same key returns the prior result without re-sending) — enforced in-DB.
+ */
+export async function sendBroadcast(body: string, idempotencyKey: string): Promise<BroadcastResult> {
+  const { data, error } = await supabase.rpc('send_kitchen_broadcast', { p_body: body.trim(), p_idempotency_key: idempotencyKey });
+  if (error) throw error;
+  return data as BroadcastResult;
+}
+
 /** Live per-thread message stream (Realtime postgres_changes, INSERT). Returns an unsubscribe fn. */
 export function subscribeThread(threadId: string, onInsert: (row: any) => void): () => void {
   const channel = supabase

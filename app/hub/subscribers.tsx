@@ -1,14 +1,15 @@
-import React, { useCallback, useState } from 'react';
-import { View, Text, ScrollView, ActivityIndicator } from 'react-native';
+import React, { useCallback, useEffect, useRef, useState } from 'react';
+import { View, Text, ScrollView, ActivityIndicator, Modal, Pressable, TextInput } from 'react-native';
 import { useRouter, useFocusEffect } from 'expo-router';
 import { useC } from '../../src/theme/ThemeContext';
 import { type, radius } from '../../src/theme/theme';
 import { useStore } from '../../src/store/store';
-import { Icon, GradAvatar } from '../../src/ui';
+import { Icon, GradAvatar, Press } from '../../src/ui';
 import { Screen, TopBar } from '../../src/ui/layout';
 import { money } from '../../src/data/data';
 import { KSec, KBtn } from '../(tabs)/my-hub';
 import { fetchPrepRollup, fetchCookSubscribers, type PrepDay, type CookSubscriber, type Lifecycle } from '../../src/lib/subscriptions';
+import { broadcastAudienceCount, sendBroadcast } from '../../src/lib/messages';
 
 const WD = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
 const MO = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
@@ -29,6 +30,7 @@ export default function SubscribersScreen() {
   const [prep, setPrep] = useState<PrepDay[]>([]);
   const [subs, setSubs] = useState<CookSubscriber[]>([]);
   const [loading, setLoading] = useState(true);
+  const [broadcastOpen, setBroadcastOpen] = useState(false);
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -106,11 +108,82 @@ export default function SubscribersScreen() {
             })}
           </View>
           <View style={{ paddingHorizontal: 20, paddingTop: 14 }}>
-            <KBtn label="Message all subscribers" variant="ghost" block icon="mega" onPress={() => toast('Messaging subscribers is coming soon', 'mega')} />
+            <KBtn label="Message all subscribers" variant="ghost" block icon="mega" onPress={() => setBroadcastOpen(true)} />
           </View>
         </ScrollView>
       )}
+      <BroadcastComposer open={broadcastOpen} onClose={() => setBroadcastOpen(false)} />
     </Screen>
+  );
+}
+
+/** Compose one message that fans out to every subscriber's 1:1 thread (replies come back 1:1). */
+function BroadcastComposer({ open, onClose }: { open: boolean; onClose: () => void }) {
+  const c = useC();
+  const { toast } = useStore();
+  const [body, setBody] = useState('');
+  const [count, setCount] = useState<number | null>(null);
+  const [sending, setSending] = useState(false);
+  const idemKey = useRef('');
+
+  useEffect(() => {
+    if (!open) return;
+    setBody('');
+    setCount(null);
+    // one idempotency key per compose session — a double-tap Send can't send twice
+    idemKey.current = `bc-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
+    broadcastAudienceCount().then(setCount).catch(() => setCount(0));
+  }, [open]);
+
+  const send = async () => {
+    const text = body.trim();
+    if (text.length < 1 || sending) return;
+    setSending(true);
+    try {
+      const res = await sendBroadcast(text, idemKey.current);
+      toast(res.recipientCount > 0 ? `Sent to ${res.recipientCount} subscriber${res.recipientCount !== 1 ? 's' : ''}` : 'No subscribers to message yet', 'check', res.recipientCount > 0);
+      onClose();
+    } catch (e: any) {
+      const msg = String(e?.message || '');
+      toast(msg.includes('rate_limit') ? 'You can send up to 3 broadcasts per day' : (msg || 'Couldn’t send'), 'info');
+    } finally { setSending(false); }
+  };
+
+  return (
+    <Modal visible={open} transparent animationType="fade" onRequestClose={onClose}>
+      <Pressable onPress={onClose} style={{ flex: 1, backgroundColor: 'rgba(0,0,0,.45)', justifyContent: 'flex-end' }}>
+        <Pressable onPress={(e) => e.stopPropagation?.()} style={{ backgroundColor: c.surface, borderTopLeftRadius: radius.sheet, borderTopRightRadius: radius.sheet, padding: 18, paddingBottom: 26 }}>
+          <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
+            <Icon name="mega" size={18} color={c.primary} />
+            <Text style={[type(18, 900), { color: c.ink, letterSpacing: -0.4, flex: 1 }]}>Message subscribers</Text>
+            <Press onPress={onClose} label="Close"><Icon name="x" size={20} color={c.muted} /></Press>
+          </View>
+          <Text style={[type(12.5, 600), { color: c.soft, marginTop: 6, lineHeight: 18 }]}>
+            {count === null ? 'Counting your subscribers…'
+              : count === 0 ? 'You have no active subscribers to message yet.'
+              : `Goes to all ${count} subscriber${count !== 1 ? 's' : ''} as a private 1:1 message — replies come straight back to you.`}
+          </Text>
+          <View style={{ marginTop: 12, borderWidth: 1, borderColor: c.border2, borderRadius: radius.md, backgroundColor: c.bg2, padding: 12, minHeight: 96 }}>
+            <TextInput
+              value={body}
+              onChangeText={setBody}
+              placeholder="e.g. This week’s menu is live — order by Thursday 6pm 🍜"
+              placeholderTextColor={c.muted}
+              multiline
+              maxLength={2000}
+              style={[type(14, 500), { color: c.ink, minHeight: 72, textAlignVertical: 'top' }]}
+            />
+          </View>
+          <View style={{ marginTop: 14 }}>
+            <KBtn
+              label={sending ? 'Sending…' : count && count > 0 ? `Send to ${count}` : 'Send'}
+              variant="pri" block icon="send"
+              onPress={body.trim() && count && count > 0 && !sending ? send : undefined}
+            />
+          </View>
+        </Pressable>
+      </Pressable>
+    </Modal>
   );
 }
 
