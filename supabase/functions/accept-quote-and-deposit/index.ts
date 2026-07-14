@@ -66,6 +66,7 @@ Deno.serve(async (req) => {
       if (code === '42501') return json(403, { error: 'Not your request.' });
       if (code === 'P0011') return json(409, { error: 'This quote can no longer be accepted.' });
       if (code === 'P0012') return json(409, { error: 'This request already has an active booking.' });
+      if (code === 'P0013') return json(400, { error: 'This cook has not finished payout setup yet.' });
       return json(500, { error: 'Could not start your booking. Please try again.' });
     }
     const bk = accepted as any;

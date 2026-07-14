@@ -55,7 +55,8 @@ Deno.serve(async (req) => {
     if (b.status === 'confirmed' && withinWindow) {
       refundedCents = b.deposit_cents ?? 0;
       if (refundedCents > 0 && b.deposit_pi_id) {
-        try { await stripe.refunds.create({ payment_intent: b.deposit_pi_id }); }
+        // Idempotency key (audit High finding): dedupes a double-submit/retry on Stripe's side.
+        try { await stripe.refunds.create({ payment_intent: b.deposit_pi_id }, { idempotencyKey: `refund_${b.id}` }); }
         catch (_e) { return json(502, { error: 'Refund could not be processed. Please contact support.' }); }
       }
     }

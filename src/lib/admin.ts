@@ -266,6 +266,14 @@ export async function reinstateKitchen(kitchenId: string): Promise<void> {
   if (error) throw error;
 }
 
+/** Change a user's role (audit High finding: role changes previously bypassed audit_log
+ * entirely, done only via raw DB access). */
+export async function setUserRole(userId: string, role: 'customer' | 'prepper' | 'admin'): Promise<void> {
+  ensureWeb();
+  const { error } = await supabase.rpc('admin_set_user_role', { p_user: userId, p_role: role });
+  if (error) throw error;
+}
+
 // --- Audit log (read-only, keyset-paginated) ---
 export interface AdminAuditEntry {
   id: string;

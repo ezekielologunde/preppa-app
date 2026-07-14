@@ -59,9 +59,17 @@ function ServicesMode() {
   const [loading, setLoading] = useState(true);
   const [pay, setPay] = useState<{ clientSecret: string; label: string } | null>(null);
   const [busyQuote, setBusyQuote] = useState<string | null>(null);
+  const [loadError, setLoadError] = useState<string | null>(null);
   const feeBps = isPrepPlus ? 0 : 1500; // PrepPlus waives Preppa's service fee (display; server-enforced)
 
-  const load = useCallback(() => { setLoading(true); listMyRequests().then((r) => { setRequests(r); setLoading(false); }); }, []);
+  // Audit High finding: this used to have no .catch, so a rejected listMyRequests() call
+  // left `loading` stuck true forever with no error surfaced.
+  const load = useCallback(() => {
+    setLoading(true); setLoadError(null);
+    listMyRequests()
+      .then((r) => { setRequests(r); setLoading(false); })
+      .catch((e: any) => { setLoadError(e?.message || 'Could not load your requests.'); setLoading(false); });
+  }, []);
   useFocusEffect(useCallback(() => { load(); }, [load]));
 
   const accept = async (quoteId: string, amountLabel: string) => {
@@ -91,6 +99,11 @@ function ServicesMode() {
       <Text style={[type(12, 800), { color: c.muted, textTransform: 'uppercase', letterSpacing: 0.5, marginTop: 22, marginBottom: 10 }]}>Your requests</Text>
       {loading ? (
         <View style={{ paddingVertical: 40, alignItems: 'center' }}><ActivityIndicator color={c.primary} /></View>
+      ) : loadError ? (
+        <View style={{ alignItems: 'center', paddingVertical: 30, paddingHorizontal: 24 }}>
+          <Text style={[type(13.5, 600), { color: c.red, textAlign: 'center', marginBottom: 10 }]}>{loadError}</Text>
+          <Press scale={0.96} onPress={load}><Text style={[type(13.5, 800), { color: c.primary }]}>Try again</Text></Press>
+        </View>
       ) : requests.length === 0 ? (
         <View style={{ alignItems: 'center', paddingVertical: 30, paddingHorizontal: 24 }}>
           <Text style={[type(13.5, 600), { color: c.soft, textAlign: 'center' }]}>No requests yet. Post one above to get quotes from local preppers.</Text>
@@ -150,8 +163,15 @@ function KDeposit({ label, onPress }: { label: string; onPress: () => void }) {
 function PreppersMode() {
   const c = useC();
   const router = useRouter();
-  const { data: kitchens, loading } = useKitchens();
+  const { data: kitchens, loading, error } = useKitchens();
   if (loading) return <View style={{ paddingVertical: 60, alignItems: 'center' }}><ActivityIndicator color={c.primary} /></View>;
+  // Audit High finding: this used to drop the `error` field entirely, so a failed fetch
+  // rendered the same "no preppers" empty-state text as a genuine zero-results case.
+  if (error) return (
+    <View style={{ alignItems: 'center', paddingVertical: 50, paddingHorizontal: 24 }}>
+      <Text style={[type(13.5, 600), { color: c.red, textAlign: 'center', marginBottom: 10 }]}>Could not load preppers. Please try again.</Text>
+    </View>
+  );
   const list = kitchens ?? [];
   if (list.length === 0) return (
     <View style={{ alignItems: 'center', paddingVertical: 50, paddingHorizontal: 24 }}>
