@@ -72,6 +72,7 @@ export default function AdminHome() {
           <ModuleCard icon="ticket" title="Support tickets" sub="Disputes & order issues" onPress={() => router.push('/admin/tickets')} />
           <ModuleCard icon="users" title="Users" sub="Accounts & roles" onPress={() => router.push('/admin/users')} />
           <ModuleCard icon="clock" title="Audit log" sub="Admin action trail" onPress={() => router.push('/admin/audit')} />
+          <ModuleCard icon="bell" title="Waitlist" sub="Signups from preppa.live" onPress={() => router.push('/admin/waitlist')} />
         </View>
 
         <Text style={[type(12, 600), { color: c.muted, textAlign: 'center', marginTop: 26, paddingHorizontal: 30, lineHeight: 18 }]}>

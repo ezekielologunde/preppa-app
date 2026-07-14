@@ -25,6 +25,7 @@ const COMMANDS: Command[] = [
   { label: 'Support tickets', hint: 'Disputes & issues', icon: 'ticket', route: '/admin/tickets' },
   { label: 'Users', hint: 'Accounts & roles', icon: 'users', route: '/admin/users' },
   { label: 'Audit log', hint: 'Admin action trail', icon: 'clock', route: '/admin/audit' },
+  { label: 'Waitlist', hint: 'Signups from preppa.live', icon: 'bell', route: '/admin/waitlist' },
   { label: 'Back to app', hint: 'Leave admin', icon: 'logout', route: '/(tabs)/home' },
 ];
 
