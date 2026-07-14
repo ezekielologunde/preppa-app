@@ -6,7 +6,7 @@
 // out could extract more real money than the kitchen's ledger balance allowed.
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.45.4';
 import Stripe from 'https://esm.sh/stripe@16.12.0?target=deno';
-import { corsHeaders, json } from '../_shared/cors.ts';
+import { corsHeaders, json } from './_shared/cors.ts';
 
 const stripe = new Stripe(Deno.env.get('STRIPE_SECRET_KEY') ?? '', {
   apiVersion: '2024-06-20',
