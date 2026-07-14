@@ -68,7 +68,7 @@ export default function AdminExperiences() {
                     </View>
                   </Press>
                   <Press scale={0.97} onPress={() => act(e, 'published')} style={{ flex: 1 }}>
-                    <View style={{ height: 44, borderRadius: radius.md, backgroundColor: c.primary, alignItems: 'center', justifyContent: 'center' }}>
+                    <View style={{ height: 44, borderRadius: radius.md, backgroundColor: c.primaryD, alignItems: 'center', justifyContent: 'center' }}>
                       {busy === e.id ? <ActivityIndicator size="small" color="#fff" /> : <Text style={[type(13.5, 800), { color: '#fff' }]}>Approve & publish</Text>}
                     </View>
                   </Press>

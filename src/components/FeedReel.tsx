@@ -113,7 +113,7 @@ export const FeedReel = React.memo(function FeedReel({ f, height, isActive = tru
             <Icon name="shield" size={14} color="#fff" />
           </View>
           <Press scale={0.9} onPress={onFollow} label={following ? 'Following' : 'Follow'}>
-            <View style={{ height: 28, paddingHorizontal: 13, borderRadius: 14, backgroundColor: following ? 'rgba(255,255,255,.16)' : '#F26B1D', borderWidth: following ? 1 : 0, borderColor: 'rgba(255,255,255,.45)', alignItems: 'center', justifyContent: 'center' }}>
+            <View style={{ height: 28, paddingHorizontal: 13, borderRadius: 14, backgroundColor: following ? 'rgba(255,255,255,.16)' : '#E24A38', borderWidth: following ? 1 : 0, borderColor: 'rgba(255,255,255,.45)', alignItems: 'center', justifyContent: 'center' }}>
               <Text style={[type(12, 800), { color: '#fff' }]}>{following ? 'Following' : 'Follow'}</Text>
             </View>
           </Press>
@@ -130,7 +130,7 @@ export const FeedReel = React.memo(function FeedReel({ f, height, isActive = tru
                 <Text numberOfLines={1} style={[type(13, 800), { color: '#fff' }]}>{f.mealName}</Text>
                 <Text style={[type(12, 700), { color: 'rgba(255,255,255,.85)' }]}>by {f.kitchenName}{f.mealPriceCents != null ? ` · ${money(f.mealPriceCents / 100)}` : ''}</Text>
               </View>
-              <View style={{ height: 38, paddingHorizontal: 16, borderRadius: radius.pill, backgroundColor: '#F26B1D', flexDirection: 'row', alignItems: 'center', gap: 6 }}>
+              <View style={{ height: 38, paddingHorizontal: 16, borderRadius: radius.pill, backgroundColor: '#E24A38', flexDirection: 'row', alignItems: 'center', gap: 6 }}>
                 <Icon name="cart" size={15} color="#fff" />
                 <Text style={[type(13.5, 800), { color: '#fff' }]}>Order</Text>
               </View>
@@ -156,7 +156,7 @@ function RailBtn({ icon, label, active, onPress }: { icon: string; label: string
   return (
     <Press scale={0.85} onPress={onPress}>
       <View style={{ alignItems: 'center', gap: 5 }}>
-        <View style={{ width: 46, height: 46, borderRadius: 23, backgroundColor: active ? '#F26B1D' : 'rgba(0,0,0,.32)', alignItems: 'center', justifyContent: 'center' }}>
+        <View style={{ width: 46, height: 46, borderRadius: 23, backgroundColor: active ? '#E24A38' : 'rgba(0,0,0,.32)', alignItems: 'center', justifyContent: 'center' }}>
           <Icon name={icon} size={24} color="#fff" />
         </View>
         <Text style={[type(11, 800), { color: '#fff' }]}>{label}</Text>

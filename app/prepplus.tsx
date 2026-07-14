@@ -95,7 +95,7 @@ export default function PrepPlus() {
       <Screen>
         <TopBar title="PrepPlus" />
         <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={{ paddingBottom: 40 }}>
-          <GradBox grad={['#7C3AED', '#F26B1D']} style={{ margin: 16, borderRadius: radius.xl, padding: 22, overflow: 'hidden', ...shadow.hero }}>
+          <GradBox grad={['#6B4A93', '#E24A38']} style={{ margin: 16, borderRadius: radius.xl, padding: 22, overflow: 'hidden', ...shadow.hero }}>
             <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10 }}>
               <View style={{ width: 44, height: 44, borderRadius: 14, backgroundColor: 'rgba(255,255,255,.18)', alignItems: 'center', justifyContent: 'center' }}>
                 <Icon name="bolt" size={22} color="#fff" />
@@ -147,7 +147,7 @@ export default function PrepPlus() {
     <Screen>
       <TopBar title="PrepPlus" />
       <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={{ paddingBottom: 130 }}>
-        <GradBox grad={['#7C3AED', '#F26B1D']} style={{ margin: 16, borderRadius: radius.xl, padding: 22, overflow: 'hidden', ...shadow.hero }}>
+        <GradBox grad={['#6B4A93', '#E24A38']} style={{ margin: 16, borderRadius: radius.xl, padding: 22, overflow: 'hidden', ...shadow.hero }}>
           <View style={{ width: 56, height: 56, borderRadius: 18, backgroundColor: 'rgba(255,255,255,.18)', alignItems: 'center', justifyContent: 'center' }}>
             <Icon name="bolt" size={28} color="#fff" />
           </View>

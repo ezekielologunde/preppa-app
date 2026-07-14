@@ -17,7 +17,7 @@ function Bars({ data }: { data: number[] }) {
         const pct = Math.min(100, Math.max(6, (v / max) * 100));
         const last = i === data.length - 1;
         return (
-          <GradBox key={i} grad={last ? ['#F26B1D', '#C0560F'] : ['#FFB37A', '#F26B1D']} style={{ flex: 1, height: `${pct}%`, borderTopLeftRadius: 7, borderTopRightRadius: 7, borderBottomLeftRadius: 3, borderBottomRightRadius: 3 }} />
+          <GradBox key={i} grad={last ? ['#E24A38', '#C0560F'] : ['#FFB37A', '#E24A38']} style={{ flex: 1, height: `${pct}%`, borderTopLeftRadius: 7, borderTopRightRadius: 7, borderBottomLeftRadius: 3, borderBottomRightRadius: 3 }} />
         );
       })}
     </View>
@@ -99,7 +99,7 @@ export default function AnalyticsScreen() {
                 <Text style={[type(12.5, 700), { color: c.soft, marginLeft: 12 }]}>{t.sold} sold</Text>
               </View>
               <View style={{ height: 8, borderRadius: 999, backgroundColor: c.bg2, marginTop: 8, overflow: 'hidden' }}>
-                <GradBox grad={['#FF8A4C', '#F26B1D']} style={{ height: '100%', width: `${Math.min(100, Math.max(0, t.pct))}%`, borderRadius: 999 }} />
+                <GradBox grad={['#FF8A4C', '#E24A38']} style={{ height: '100%', width: `${Math.min(100, Math.max(0, t.pct))}%`, borderRadius: 999 }} />
               </View>
             </View>
           ))}

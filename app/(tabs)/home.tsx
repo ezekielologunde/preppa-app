@@ -1,14 +1,13 @@
 import React from 'react';
 import { View, Text, ScrollView, ActivityIndicator, useWindowDimensions } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { LinearGradient } from 'expo-linear-gradient';
 import { useRouter } from 'expo-router';
 import { dailyDropId } from '../../src/data/data';
 import { useMeals, useKitchens } from '../../src/data/hooks';
 import { useC } from '../../src/theme/ThemeContext';
-import { type, radius, shadow } from '../../src/theme/theme';
+import { type, serif, radius, shadow } from '../../src/theme/theme';
 import { useStore } from '../../src/store/store';
-import { Icon, Press } from '../../src/ui';
+import { Icon, Press, Skeleton } from '../../src/ui';
 import { HeroDrop, MealGrid, SectionHeader, PrepperRail } from '../../src/components/cards';
 import { LocationPicker } from '../../src/components/LocationPicker';
 import { captureCurrentLocation } from '../../src/lib/geo';
@@ -60,57 +59,57 @@ export default function HomeScreen() {
   };
 
   return (
-    <View style={{ flex: 1, backgroundColor: c.primaryL, paddingTop: insets.top }}>
+    <View style={{ flex: 1, backgroundColor: c.bg, paddingTop: insets.top }}>
       <ScrollView stickyHeaderIndices={[1]} showsVerticalScrollIndicator={false}
         contentContainerStyle={{ paddingBottom: 40, maxWidth: 1040, alignSelf: 'center', width: '100%' }} style={{ backgroundColor: c.bg }}>
-        {/* [0] header wash */}
-        <LinearGradient colors={[c.primaryL, c.surface]} start={{ x: 0, y: 0 }} end={{ x: 0, y: 1 }} style={{ paddingHorizontal: 20, paddingTop: 8, paddingBottom: 20 }}>
+        {/* [0] header — calm warm canvas, no orange wash */}
+        <View style={{ paddingHorizontal: 20, paddingTop: 8, paddingBottom: 18, backgroundColor: c.bg }}>
           {!wide ? (
             <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }}>
-              <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
-                <View style={{ width: 30, height: 30, borderRadius: 10, backgroundColor: c.primary, alignItems: 'center', justifyContent: 'center', ...shadow.brand }}>
+              <View style={{ flexDirection: 'row', alignItems: 'center', gap: 9 }}>
+                <View style={{ width: 30, height: 30, borderRadius: 10, backgroundColor: c.primary, alignItems: 'center', justifyContent: 'center', ...shadow.soft }}>
                   <Icon name="flame" size={16} color="#fff" />
                 </View>
-                <Text style={[type(18, 900), { color: c.ink, letterSpacing: -0.7 }]}>preppa</Text>
+                <Text style={[type(19, 700), { color: c.ink, letterSpacing: -0.5 }]}>preppa</Text>
               </View>
               <View style={{ flexDirection: 'row', gap: 9 }}>
-                {FLAGS.notifications ? <HdrIcon name="bell" dot={notifCount > 0} onPress={() => router.push('/notifications')} /> : null}
-                <HdrIcon name="cart" dot={cartCount > 0} onPress={() => setCartOpen(true)} />
+                {FLAGS.notifications ? <HdrIcon name="bell" dot={notifCount > 0} count={notifCount} label="Notifications" onPress={() => router.push('/notifications')} /> : null}
+                <HdrIcon name="cart" dot={cartCount > 0} count={cartCount} label="Cart" onPress={() => setCartOpen(true)} />
               </View>
             </View>
           ) : null}
 
           {/* location pill */}
-          <Press scale={0.98} onPress={useMyLocation} label="Set your location" style={{ marginTop: wide ? 0 : 14, alignSelf: 'flex-start' }}>
-            <Text style={[type(11, 700), { color: c.muted, textTransform: 'uppercase', letterSpacing: 0.6 }]}>{mode === 'pickup' ? 'Pick up in' : 'Deliver to'}</Text>
+          <Press scale={0.98} onPress={useMyLocation} label="Set your location" style={{ marginTop: wide ? 0 : 16, alignSelf: 'flex-start' }}>
+            <Text style={[type(11, 600), { color: c.muted, textTransform: 'uppercase', letterSpacing: 0.6 }]}>{mode === 'pickup' ? 'Pick up in' : 'Deliver to'}</Text>
             <View style={{ flexDirection: 'row', alignItems: 'center', gap: 5, marginTop: 3 }}>
-              {locBusy ? <ActivityIndicator size="small" color={c.ink} /> : <Icon name="pin" size={15} color={c.ink} />}
-              <Text style={[type(16, 800), { color: c.ink, letterSpacing: -0.3 }]}>{location}</Text>
+              {locBusy ? <ActivityIndicator size="small" color={c.ink} /> : <Icon name="pin" size={15} color={c.primary} />}
+              <Text style={[type(16, 700), { color: c.ink, letterSpacing: -0.3 }]}>{location}</Text>
               <Icon name="chevDown" size={13} color={c.muted} />
             </View>
           </Press>
 
-          {/* greeting */}
-          <View style={{ marginTop: 24 }}>
-            <Text style={[type(29, 900), { color: c.ink, letterSpacing: -1.2, lineHeight: 31 }]}>{greetWord()}{firstName ? ', ' : ''}<Text style={{ color: c.primary }}>{firstName}</Text></Text>
-            <Text style={[type(15.5, 500), { color: c.soft, marginTop: 7 }]}>What sounds good tonight?</Text>
+          {/* greeting — the one editorial serif moment */}
+          <View style={{ marginTop: 22 }}>
+            <Text style={[serif(30, 600), { color: c.ink, letterSpacing: -0.6, lineHeight: 34 }]}>{greetWord()}{firstName ? ', ' : ''}{firstName ? <Text style={[serif(30, 600), { color: c.primaryD }]}>{firstName}</Text> : null}</Text>
+            <Text style={[type(15.5, 400), { color: c.soft, marginTop: 8 }]}>What sounds good tonight?</Text>
           </View>
 
           {/* mode toggle — Delivery · Pickup · Private Chef */}
-          <View style={{ flexDirection: 'row', alignSelf: 'flex-start', gap: 4, marginTop: 14, backgroundColor: c.bg2, padding: 4, borderRadius: 13 }}>
+          <View style={{ flexDirection: 'row', alignSelf: 'flex-start', gap: 4, marginTop: 18, backgroundColor: c.bg2, padding: 4, borderRadius: 13 }}>
             {MODES.map((m) => {
               const on = m.id === mode; // 'chef' is never the active fulfillment mode — it navigates
               return (
-                <Press key={m.id} scale={0.96} onPress={() => pickMode(m.id)}>
-                  <View style={{ height: 36, paddingHorizontal: 16, borderRadius: 10, flexDirection: 'row', alignItems: 'center', gap: 6, backgroundColor: on ? c.surface : 'transparent', ...(on ? { shadowColor: '#000', shadowOpacity: 0.1, shadowRadius: 4, shadowOffset: { width: 0, height: 1 }, elevation: 1 } : {}) }}>
-                    <Icon name={m.ico} size={15} color={on ? c.ink : c.soft} />
-                    <Text style={[type(13.5, 700), { color: on ? c.ink : c.soft }]}>{m.t}</Text>
+                <Press key={m.id} scale={0.96} onPress={() => pickMode(m.id)} label={m.t} selected={on}>
+                  <View style={{ height: 40, paddingHorizontal: 16, borderRadius: 10, flexDirection: 'row', alignItems: 'center', gap: 6, backgroundColor: on ? c.surface : 'transparent', borderWidth: 1, borderColor: on ? c.border : 'transparent', ...(on ? shadow.soft : {}) }}>
+                    <Icon name={m.ico} size={15} color={on ? c.primary : c.soft} />
+                    <Text style={[type(13.5, on ? 600 : 500), { color: on ? c.ink : c.soft }]}>{m.t}</Text>
                   </View>
                 </Press>
               );
             })}
           </View>
-        </LinearGradient>
+        </View>
 
         {/* [1] sticky search */}
         <View style={{ backgroundColor: c.bg, paddingHorizontal: 20, paddingTop: 6, paddingBottom: 10 }}>
@@ -123,7 +122,14 @@ export default function HomeScreen() {
         </View>
 
         {mealsLoading ? (
-          <View style={{ paddingVertical: 48, alignItems: 'center' }}><ActivityIndicator color={c.primary} /></View>
+          <View style={{ paddingTop: 30 }}>
+            <View style={{ paddingHorizontal: 20 }}><Skeleton w={'42%'} h={20} r={7} /></View>
+            <View style={{ marginHorizontal: 20, marginTop: 14 }}><Skeleton w={'100%'} h={300} r={radius.hero} /></View>
+            <View style={{ paddingHorizontal: 20, marginTop: 34, flexDirection: 'row', gap: 14 }}>
+              <Skeleton w={'47%'} h={230} r={radius.card} />
+              <Skeleton w={'47%'} h={230} r={radius.card} />
+            </View>
+          </View>
         ) : (
           <>
             {drop ? (<><SectionHeader title="Today’s drop" /><HeroDrop m={drop} /></>) : null}
@@ -139,17 +145,17 @@ export default function HomeScreen() {
           </>
         ) : null}
 
-        {/* High-end big cards — the app's four layers, since they're not in the mobile nav. */}
+        {/* Explore — the app's four layers as calm, flat, wayfinding-labelled cards (not rainbow tiles). */}
         <SectionHeader title="Explore Preppa" />
         <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 12, paddingHorizontal: 20 }}>
-          <BigCard c={c} wide={wide} grad={['#A855F7', '#7C3AED']} icon="repeat" title="Meal plans" body="Weekly boxes from a cook you love" onPress={() => router.push('/experiences?tab=plans')} />
-          <BigCard c={c} wide={wide} grad={['#38BDF8', '#2563EB']} icon="bank" title="Subscriptions" body="Manage your recurring boxes" onPress={() => router.push('/experiences?tab=mine')} />
-          <BigCard c={c} wide={wide} grad={['#FB7185', '#E11D48']} icon="gift" title="Experiences" body="Classes, supper clubs & events" onPress={() => router.push('/experiences?tab=experiences')} />
-          <BigCard c={c} wide={wide} grad={['#334155', '#0F172A']} icon="video" title="Feed" body="See what cooks are making" onPress={() => router.push('/(tabs)/feeds')} />
+          <BigCard c={c} wide={wide} kind="Weekly" icon="repeat" title="Meal plans" body="Recurring boxes from a cook you love" onPress={() => router.push('/experiences?tab=plans')} />
+          <BigCard c={c} wide={wide} kind="Yours" icon="bank" title="Subscriptions" body="Manage your recurring boxes" onPress={() => router.push('/experiences?tab=mine')} />
+          <BigCard c={c} wide={wide} kind="Events" icon="gift" title="Experiences" body="Classes, supper clubs & events" onPress={() => router.push('/experiences?tab=experiences')} />
+          <BigCard c={c} wide={wide} kind="Live" icon="video" title="Feed" body="See what cooks are making" onPress={() => router.push('/(tabs)/feeds')} />
         </View>
 
         {/* Cook-at-My-Place (services) banner */}
-        <ChefBanner c={c} grad={['#FF8A4C', c.primary]} icon="chefhat" title="Cook at My Place" body="A private chef in your kitchen — compare fixed quotes" onPress={() => FLAGS.services ? router.push('/service-request?category=cook_at_home') : toast('Private-chef bookings are coming soon', 'chefhat')} style={{ marginTop: 16 }} />
+        <ChefBanner c={c} icon="chefhat" title="Cook at My Place" body="A private chef in your kitchen — compare fixed quotes" onPress={() => FLAGS.services ? router.push('/service-request?category=cook_at_home') : toast('Private-chef bookings are coming soon', 'chefhat')} style={{ marginTop: 16 }} />
 
         <View style={{ height: 14 }} />
       </ScrollView>
@@ -159,37 +165,38 @@ export default function HomeScreen() {
   );
 }
 
-/** High-end gradient "layer" card for the homepage (meal plans / subscriptions / experiences / feed). */
-function BigCard({ c, wide, grad, icon, title, body, soon, onPress }: { c: any; wide: boolean; grad: [string, string]; icon: string; title: string; body: string; soon?: boolean; onPress: () => void }) {
+/** Calm "layer" card for the homepage (meal plans / subscriptions / experiences / feed).
+ *  Flat surface + hairline border; the accent appears once (the tinted icon); a small
+ *  monochrome kind-chip does the object-type wayfinding the old gradient colour used to. */
+function BigCard({ c, wide, kind, icon, title, body, onPress }: { c: any; wide: boolean; kind: string; icon: string; title: string; body: string; onPress: () => void }) {
   return (
-    <Press scale={0.97} onPress={onPress} style={{ flexBasis: wide ? '23%' : '47%', flexGrow: 1, minWidth: wide ? 190 : 150 }} label={title}>
-      <LinearGradient colors={grad} start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }} style={{ borderRadius: 22, padding: 16, minHeight: 150, overflow: 'hidden', justifyContent: 'space-between', ...shadow.card }}>
-        <View pointerEvents="none" style={{ position: 'absolute', right: -30, top: -30, width: 100, height: 100, borderRadius: 50, backgroundColor: 'rgba(255,255,255,.12)' }} />
+    <Press scale={0.98} onPress={onPress} style={{ flexBasis: wide ? '23%' : '47%', flexGrow: 1, minWidth: wide ? 190 : 150 }} label={`${title} — ${body}`}>
+      <View style={{ borderRadius: radius.card, padding: 16, minHeight: 148, backgroundColor: c.surface, borderWidth: 1, borderColor: c.border, justifyContent: 'space-between', ...shadow.card }}>
         <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-start' }}>
-          <View style={{ width: 44, height: 44, borderRadius: 14, backgroundColor: 'rgba(255,255,255,.2)', alignItems: 'center', justifyContent: 'center' }}>
-            <Icon name={icon} size={22} color="#fff" />
+          <View style={{ width: 42, height: 42, borderRadius: 12, backgroundColor: c.primaryL, alignItems: 'center', justifyContent: 'center' }}>
+            <Icon name={icon} size={20} color={c.primaryD} />
           </View>
-          {soon ? <View style={{ height: 22, paddingHorizontal: 9, borderRadius: 99, backgroundColor: 'rgba(255,255,255,.22)', alignItems: 'center', justifyContent: 'center' }}><Text style={[type(9.5, 900), { color: '#fff', textTransform: 'uppercase', letterSpacing: 0.4 }]}>Soon</Text></View> : null}
+          <Text style={[type(10.5, 600), { color: c.muted, backgroundColor: c.bg2, textTransform: 'uppercase', letterSpacing: 0.4, paddingHorizontal: 8, paddingVertical: 3, borderRadius: radius.pill, overflow: 'hidden' }]}>{kind}</Text>
         </View>
-        <View style={{ marginTop: 16 }}>
-          <Text style={[type(17, 900), { color: '#fff', letterSpacing: -0.4 }]}>{title}</Text>
-          <Text style={[type(12.5, 600), { color: 'rgba(255,255,255,.85)', marginTop: 3, lineHeight: 16 }]}>{body}</Text>
+        <View style={{ marginTop: 18 }}>
+          <Text style={[type(16.5, 600), { color: c.ink, letterSpacing: -0.3 }]}>{title}</Text>
+          <Text style={[type(12.5, 400), { color: c.soft, marginTop: 3, lineHeight: 17 }]}>{body}</Text>
         </View>
-      </LinearGradient>
+      </View>
     </Press>
   );
 }
 
-function ChefBanner({ c, grad, icon, title, body, onPress, style }: { c: any; grad: [string, string]; icon: string; title: string; body: string; onPress: () => void; style?: any }) {
+function ChefBanner({ c, icon, title, body, onPress, style }: { c: any; icon: string; title: string; body: string; onPress: () => void; style?: any }) {
   return (
-    <Press scale={0.985} onPress={onPress} style={[{ marginHorizontal: 20, marginTop: 8 }, style]} label={title}>
-      <View style={{ flexDirection: 'row', alignItems: 'center', gap: 14, padding: 16, borderRadius: 18, backgroundColor: c.surface, borderWidth: 1, borderColor: c.border2 }}>
-        <LinearGradient colors={grad} start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }} style={{ width: 46, height: 46, borderRadius: 14, alignItems: 'center', justifyContent: 'center', ...shadow.brand }}>
-          <Icon name={icon} size={22} color="#fff" />
-        </LinearGradient>
+    <Press scale={0.99} onPress={onPress} style={[{ marginHorizontal: 20, marginTop: 8 }, style]} label={`${title} — ${body}`}>
+      <View style={{ flexDirection: 'row', alignItems: 'center', gap: 14, padding: 16, borderRadius: radius.card, backgroundColor: c.surface, borderWidth: 1, borderColor: c.border }}>
+        <View style={{ width: 46, height: 46, borderRadius: 13, backgroundColor: c.primaryL, alignItems: 'center', justifyContent: 'center' }}>
+          <Icon name={icon} size={22} color={c.primaryD} />
+        </View>
         <View style={{ flex: 1, minWidth: 0 }}>
-          <Text style={[type(15.5, 800), { color: c.ink, letterSpacing: -0.2 }]}>{title}</Text>
-          <Text style={[type(12.5, 500), { color: c.soft, marginTop: 2, lineHeight: 17 }]}>{body}</Text>
+          <Text style={[type(15.5, 600), { color: c.ink, letterSpacing: -0.2 }]}>{title}</Text>
+          <Text style={[type(12.5, 400), { color: c.soft, marginTop: 2, lineHeight: 17 }]}>{body}</Text>
         </View>
         <Icon name="chevRight" size={18} color={c.muted} />
       </View>
@@ -197,11 +204,12 @@ function ChefBanner({ c, grad, icon, title, body, onPress, style }: { c: any; gr
   );
 }
 
-function HdrIcon({ name, dot, onPress }: { name: string; dot?: boolean; onPress: () => void }) {
+function HdrIcon({ name, dot, count, label, onPress }: { name: string; dot?: boolean; count?: number; label: string; onPress: () => void }) {
   const c = useC();
+  const a11y = count && count > 0 ? `${label}, ${count}` : label;
   return (
-    <Press scale={0.9} onPress={onPress} label={name === 'bell' ? 'Notifications' : 'Cart'}>
-      <View style={{ width: 44, height: 44, borderRadius: 14, backgroundColor: c.bg2, alignItems: 'center', justifyContent: 'center' }}>
+    <Press scale={0.9} onPress={onPress} label={a11y}>
+      <View style={{ width: 44, height: 44, borderRadius: 13, backgroundColor: c.bg2, alignItems: 'center', justifyContent: 'center' }}>
         <Icon name={name} size={19} color={c.ink2} />
         {dot ? <View style={{ position: 'absolute', top: 9, right: 10, width: 9, height: 9, borderRadius: 5, backgroundColor: c.primary, borderWidth: 2, borderColor: c.bg2 }} /> : null}
       </View>

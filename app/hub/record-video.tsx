@@ -114,7 +114,7 @@ export default function RecordVideo() {
         ) : (
           <Press scale={0.92} onPress={recording ? stopRecording : startRecording} label={recording ? 'Stop recording' : 'Start recording'}>
             <View style={{ width: 76, height: 76, borderRadius: 38, borderWidth: 4, borderColor: '#fff', alignItems: 'center', justifyContent: 'center' }}>
-              <View style={{ width: recording ? 30 : 62, height: recording ? 30 : 62, borderRadius: recording ? 6 : 31, backgroundColor: '#F26B1D' }} />
+              <View style={{ width: recording ? 30 : 62, height: recording ? 30 : 62, borderRadius: recording ? 6 : 31, backgroundColor: '#E24A38' }} />
             </View>
           </Press>
         )}

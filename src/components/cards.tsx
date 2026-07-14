@@ -5,10 +5,17 @@ import { COOKS, CookId, Meal, Experience, PlanGoal, money, cookOf, thumb } from 
 import { useKitchenReviews, type KitchenCard } from '../data/hooks';
 import { seedCookForKitchen } from '../data/supabaseRepository';
 import { useC } from '../theme/ThemeContext';
-import { type, radius, shadow } from '../theme/theme';
+import { type, radius, shadow, tnum } from '../theme/theme';
 import { useActions, useFav } from '../store/store';
-import { Press, GradBox, Icon, Avatar, Stars, GradAvatar } from '../ui';
+import { Press, GradBox, Icon, Avatar, Stars, GradAvatar, gradColors } from '../ui';
 import { useReducedMotion } from '../ui/useReducedMotion';
+
+/* Fixed inks for chrome that overlays photos (white pills / heart buttons). These sit on
+ * imagery that's identical in both themes, so they must NOT use the themed `c.ink` (which
+ * flips light in dark mode → invisible white-on-white). */
+const ONWHITE_INK = '#1E1A16';
+const ONWHITE_SOFT = '#4A4540';
+const ONWHITE_ACCENT = '#B93A22';
 
 /**
  * Whole-card press-scale for the "navigation layer" pattern. The card wraps its
@@ -183,10 +190,10 @@ export function SectionHeader({ title, action, onAction, right }: { title: strin
   const c = useC();
   return (
     <View style={{ flexDirection: 'row', alignItems: 'flex-end', justifyContent: 'space-between', paddingHorizontal: 20, paddingTop: 30, paddingBottom: 14 }}>
-      <Text style={[type(20, 900), { color: c.ink, letterSpacing: -0.7 }]}>{title}</Text>
+      <Text style={[type(21, 700), { color: c.ink, letterSpacing: -0.5 }]}>{title}</Text>
       {right ?? (action ? (
-        <Press scale={0.95} onPress={onAction}>
-          <Text style={[type(14, 800), { color: c.primary }]}>{action}</Text>
+        <Press scale={0.95} onPress={onAction} label={action}>
+          <Text style={[type(14, 700), { color: c.primaryD }]}>{action}</Text>
         </Press>
       ) : null)}
     </View>
@@ -246,22 +253,22 @@ export const MealCardLg = React.memo(function MealCardLg({ m, showMatch, width }
             ) : null}
             {mine ? (
               <View style={{ position: 'absolute', bottom: 9, right: 9, height: 22, borderRadius: radius.pill, paddingHorizontal: 9, flexDirection: 'row', alignItems: 'center', gap: 4, backgroundColor: 'rgba(255,255,255,.92)', ...shadow.soft }}>
-                <Icon name="chefhat" size={12} color={c.ink} />
-                <Text style={[type(10, 900), { color: c.ink, textTransform: 'uppercase' }]}>Yours</Text>
+                <Icon name="chefhat" size={12} color={ONWHITE_INK} />
+                <Text style={[type(10, 700), { color: ONWHITE_INK, textTransform: 'uppercase', letterSpacing: 0.3 }]}>Yours</Text>
               </View>
             ) : null}
           </GradBox>
           <View style={{ padding: 12 }}>
             <Text numberOfLines={2} style={[type(15, 800), { color: c.ink, letterSpacing: -0.2 }]}>{m.name}</Text>
             <View style={{ flexDirection: 'row', alignItems: 'center', gap: 7, marginTop: 8 }}>
-              <GradBox grad={cook.grad} style={{ width: 22, height: 22, borderRadius: 7, alignItems: 'center', justifyContent: 'center' }}>
-                <Text style={[type(11, 900), { color: '#fff' }]}>{cook.initial}</Text>
-              </GradBox>
-              <Text numberOfLines={1} style={[type(12, 700), { color: c.soft, flex: 1 }]}>{cook.name}</Text>
+              <View style={{ width: 22, height: 22, borderRadius: 7, backgroundColor: gradColors(cook.grad)[1], alignItems: 'center', justifyContent: 'center' }}>
+                <Text style={[type(11, 700), { color: '#fff' }]}>{cook.initial}</Text>
+              </View>
+              <Text numberOfLines={1} style={[type(12.5, 600), { color: c.soft, flex: 1 }]}>{cook.name}</Text>
               <VChk />
             </View>
             <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginTop: 10 }}>
-              <Text style={[type(17, 900), { color: c.primary }]}>{money(m.price)}</Text>
+              <Text style={[type(17, 700), { color: c.ink }]}>{money(m.price)}</Text>
               <View style={{ flexDirection: 'row', alignItems: 'center', gap: 4 }}>
                 <Icon name="star" size={13} color={c.star} />
                 <Text style={[type(12.5, 800), { color: c.ink }]}>{m.reviews > 0 ? m.rating : 'New'} · {m.time}</Text>
@@ -287,14 +294,14 @@ export const MealCardLg = React.memo(function MealCardLg({ m, showMatch, width }
       <View style={{ position: 'absolute', top: 8, right: 8 }}>
         <Press scale={0.85} onPress={() => toggleFav(m.id)} label={isFav ? `Remove ${m.name} from favorites` : `Save ${m.name} to favorites`} hitSlop={8}>
           <View style={{ width: 28, height: 28, borderRadius: 14, backgroundColor: 'rgba(255,255,255,.92)', alignItems: 'center', justifyContent: 'center', ...shadow.soft }}>
-            <Icon name={isFav ? 'heartFill' : 'heart'} size={15} color={isFav ? c.primary : c.soft} />
+            <Icon name={isFav ? 'heartFill' : 'heart'} size={15} color={isFav ? ONWHITE_ACCENT : ONWHITE_SOFT} />
           </View>
         </Press>
       </View>
       {!mine ? (
         <View style={{ position: 'absolute', top: 107, right: 9 }}>
           <Press scale={0.85} onPress={quickAdd} label={`Quick add ${m.name} to cart`} hitSlop={8}>
-            <View style={{ width: 34, height: 34, borderRadius: 12, backgroundColor: c.primary, alignItems: 'center', justifyContent: 'center', ...shadow.brand }}>
+            <View style={{ width: 34, height: 34, borderRadius: 12, backgroundColor: c.primaryD, alignItems: 'center', justifyContent: 'center', ...shadow.soft }}>
               <Icon name="plus" size={18} color="#fff" />
             </View>
           </Press>
@@ -324,15 +331,15 @@ export const HeroDrop = React.memo(function HeroDrop({ m }: { m: Meal }) {
       <View style={{ backgroundColor: c.surface, borderWidth: 1, borderColor: c.border2, borderRadius: radius.hero, overflow: 'hidden', ...shadow.card }}>
         <GradBox grad={m.grad} img={m.img} style={{ height: 210 }}>
           <View pointerEvents="none" style={{ position: 'absolute', top: 14, left: 14, height: 30, borderRadius: radius.pill, paddingHorizontal: 13, flexDirection: 'row', alignItems: 'center', gap: 6, backgroundColor: 'rgba(255,255,255,.94)' }}>
-            <Icon name="bolt" size={13} color={c.primary} />
-            <Text style={[type(11, 900), { color: c.ink, textTransform: 'uppercase' }]}>Today’s drop</Text>
+            <Icon name="bolt" size={13} color={ONWHITE_ACCENT} />
+            <Text style={[type(11, 700), { color: ONWHITE_INK, textTransform: 'uppercase', letterSpacing: 0.4 }]}>Today’s drop</Text>
           </View>
           {/* Nav layer over the photo — sibling of the heart, so no nested <button>. */}
           <Pressable onPress={goMeal} onPressIn={press.onPressIn} onPressOut={press.onPressOut} accessibilityRole="button" accessibilityLabel={m.name} style={StyleSheet.absoluteFill} />
           <View style={{ position: 'absolute', top: 13, right: 13 }}>
             <Press scale={0.85} onPress={() => toggleFav(m.id)} label={isFav ? `Remove ${m.name} from favorites` : `Save ${m.name} to favorites`} hitSlop={8}>
               <View style={{ width: 28, height: 28, borderRadius: 14, backgroundColor: 'rgba(255,255,255,.92)', alignItems: 'center', justifyContent: 'center', ...shadow.soft }}>
-                <Icon name={isFav ? 'heartFill' : 'heart'} size={15} color={isFav ? c.primary : c.soft} />
+                <Icon name={isFav ? 'heartFill' : 'heart'} size={15} color={isFav ? ONWHITE_ACCENT : ONWHITE_SOFT} />
               </View>
             </Press>
           </View>
@@ -340,12 +347,12 @@ export const HeroDrop = React.memo(function HeroDrop({ m }: { m: Meal }) {
         <View style={{ padding: 18 }}>
           {/* Text block is its own nav button (sibling of the CTA below). */}
           <Press scale={0.995} onPress={goMeal} label={m.name}>
-            <Text style={[type(21, 900), { color: c.ink, letterSpacing: -0.6 }]}>{m.name}</Text>
+            <Text style={[type(22, 700), { color: c.ink, letterSpacing: -0.5 }]}>{m.name}</Text>
             <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8, marginTop: 10 }}>
-              <GradBox grad={cook.grad} style={{ width: 24, height: 24, borderRadius: 8, alignItems: 'center', justifyContent: 'center' }}>
-                <Text style={[type(12, 900), { color: '#fff' }]}>{cook.initial}</Text>
-              </GradBox>
-              <Text style={[type(13.5, 700), { color: c.soft }]}>{cook.kitchen}</Text>
+              <View style={{ width: 24, height: 24, borderRadius: 8, backgroundColor: gradColors(cook.grad)[1], alignItems: 'center', justifyContent: 'center' }}>
+                <Text style={[type(12, 700), { color: '#fff' }]}>{cook.initial}</Text>
+              </View>
+              <Text style={[type(13.5, 600), { color: c.soft }]}>{cook.kitchen}</Text>
               <VChk />
             </View>
             <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 16, marginTop: 12 }}>
@@ -356,19 +363,22 @@ export const HeroDrop = React.memo(function HeroDrop({ m }: { m: Meal }) {
             </View>
           </Press>
           <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginTop: 18 }}>
-            <Text style={[type(23, 900), { color: c.primary }]}>{money(m.price)}</Text>
+            <View>
+              <Text style={[type(11, 600), { color: c.muted, textTransform: 'uppercase', letterSpacing: 0.5 }]}>Price</Text>
+              <Text style={[type(23, 700), { color: c.ink, letterSpacing: -0.5, marginTop: 1 }, tnum]}>{money(m.price)}</Text>
+            </View>
             {mine ? (
-              <Press scale={0.94} onPress={() => router.push('/hub/menu')}>
-                <View style={{ height: 46, borderRadius: radius.pill, paddingHorizontal: 20, flexDirection: 'row', alignItems: 'center', gap: 6, backgroundColor: c.bg2 }}>
+              <Press scale={0.96} onPress={() => router.push('/hub/menu')}>
+                <View style={{ height: 48, borderRadius: radius.md, paddingHorizontal: 20, flexDirection: 'row', alignItems: 'center', gap: 6, backgroundColor: c.bg2 }}>
                   <Icon name="chefhat" size={16} color={c.ink} />
-                  <Text style={[type(15, 800), { color: c.ink }]}>Your listing</Text>
+                  <Text style={[type(15, 700), { color: c.ink }]}>Your listing</Text>
                 </View>
               </Press>
             ) : (
-            <Press scale={0.94} onPress={add}>
-              <View style={{ height: 46, borderRadius: radius.pill, paddingHorizontal: 22, flexDirection: 'row', alignItems: 'center', gap: 6, backgroundColor: c.primary, ...shadow.brand }}>
+            <Press scale={0.96} onPress={add}>
+              <View style={{ height: 48, borderRadius: radius.md, paddingHorizontal: 22, flexDirection: 'row', alignItems: 'center', gap: 7, backgroundColor: c.primaryD, ...shadow.soft }}>
                 <Icon name="plus" size={17} color="#fff" />
-                <Text style={[type(15, 800), { color: '#fff' }]}>Add to bag</Text>
+                <Text style={[type(15, 700), { color: '#fff' }]}>Add to bag</Text>
               </View>
             </Press>
             )}

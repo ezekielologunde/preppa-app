@@ -45,9 +45,9 @@ function ObtnPri({ label, icon, iconRight, onPress, disabled, busyLabel, busy }:
   return (
     <Press scale={0.97} onPress={disabled || busy ? undefined : onPress} style={{ opacity: disabled ? 0.45 : 1 }}>
       <View style={[stt.obtn, { backgroundColor: '#fff' }, shadow.card]}>
-        {busy ? <Spinner color="#F26B1D" /> : icon ? <Icon name={icon} size={18} color="#F26B1D" /> : null}
-        <Text style={[type(16, 800), { color: '#F26B1D' }]}>{busy ? busyLabel : label}</Text>
-        {!busy && iconRight ? <Icon name={iconRight} size={18} color="#F26B1D" /> : null}
+        {busy ? <Spinner color="#E24A38" /> : icon ? <Icon name={icon} size={18} color="#E24A38" /> : null}
+        <Text style={[type(16, 800), { color: '#E24A38' }]}>{busy ? busyLabel : label}</Text>
+        {!busy && iconRight ? <Icon name={iconRight} size={18} color="#E24A38" /> : null}
       </View>
     </Press>
   );
@@ -267,7 +267,7 @@ function Goal({ onNext }: { onNext: () => void }) {
                   <Text style={[type(15.5, 800), { color: '#fff' }]}>{g.t}</Text>
                   <Text style={[type(12.5, 500), { color: W(0.7), marginTop: 2 }]}>{g.s}</Text>
                 </View>
-                <View style={{ width: 24, height: 24, borderRadius: 12, borderWidth: 2, borderColor: on ? ACCENT : W(0.3), backgroundColor: on ? ACCENT : 'transparent', alignItems: 'center', justifyContent: 'center' }}>{on ? <Icon name="check" size={13} color="#F26B1D" /> : null}</View>
+                <View style={{ width: 24, height: 24, borderRadius: 12, borderWidth: 2, borderColor: on ? ACCENT : W(0.3), backgroundColor: on ? ACCENT : 'transparent', alignItems: 'center', justifyContent: 'center' }}>{on ? <Icon name="check" size={13} color="#E24A38" /> : null}</View>
               </View>
             </Press>
           );
@@ -293,7 +293,7 @@ function Cuisine({ onNext }: { onNext: () => void }) {
           return (
             <Press key={x} scale={0.94} onPress={() => toggle(x)}>
               {on ? (
-                <View style={[stt.cuisOn, { backgroundColor: '#fff' }]}><Text style={[type(14, 800), { color: '#F26B1D' }]}>{x}</Text></View>
+                <View style={[stt.cuisOn, { backgroundColor: '#fff' }]}><Text style={[type(14, 800), { color: '#E24A38' }]}>{x}</Text></View>
               ) : (
                 <View style={stt.cuis}><Text style={[type(14, 700), { color: '#fff' }]}>{x}</Text></View>
               )}

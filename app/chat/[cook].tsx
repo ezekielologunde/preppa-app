@@ -66,7 +66,7 @@ export default function Chat() {
           </View>
         </Press>
         <Press scale={0.94} onPress={() => toast('Demo only — messaging is read-only')}>
-          <View style={{ width: 52, height: 48, borderRadius: radius.md, backgroundColor: c.primary, alignItems: 'center', justifyContent: 'center' }}><Icon name="send" size={20} color="#fff" /></View>
+          <View style={{ width: 52, height: 48, borderRadius: radius.md, backgroundColor: c.primaryD, alignItems: 'center', justifyContent: 'center' }}><Icon name="send" size={20} color="#fff" /></View>
         </Press>
       </View>
     </Screen>

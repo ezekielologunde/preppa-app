@@ -79,7 +79,7 @@ export default function Feeds() {
           </Text>
           {following ? (
             <Press scale={0.96} onPress={() => selectTab('all')} label="See all posts" style={{ marginTop: 16 }}>
-              <View style={{ height: 38, paddingHorizontal: 18, borderRadius: radius.pill, backgroundColor: '#F26B1D', alignItems: 'center', justifyContent: 'center' }}>
+              <View style={{ height: 38, paddingHorizontal: 18, borderRadius: radius.pill, backgroundColor: '#E24A38', alignItems: 'center', justifyContent: 'center' }}>
                 <Text style={[type(13, 800), { color: '#fff' }]}>See all posts</Text>
               </View>
             </Press>
@@ -123,7 +123,7 @@ export default function Feeds() {
       {prepperStatus === 'approved' ? (
         <Press scale={0.9} onPress={() => router.push('/hub/post-reel')} label="Post to the feed"
           style={{ position: 'absolute', top: insets.top + 48, left: 14 }}>
-          <View style={{ height: 40, paddingHorizontal: 14, borderRadius: 20, backgroundColor: '#F26B1D', flexDirection: 'row', alignItems: 'center', gap: 7, ...shadow.brand }}>
+          <View style={{ height: 40, paddingHorizontal: 14, borderRadius: 20, backgroundColor: '#E24A38', flexDirection: 'row', alignItems: 'center', gap: 7, ...shadow.brand }}>
             <Icon name="plus" size={18} color="#fff" />
             <Text style={[type(13.5, 800), { color: '#fff' }]}>Post</Text>
           </View>

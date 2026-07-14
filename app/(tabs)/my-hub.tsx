@@ -153,7 +153,7 @@ export function BalanceStrip({ summary }: { summary: KitchenDashboardSummary | n
     <View style={{ marginHorizontal: 20, marginTop: 18, padding: 18, borderRadius: 22, backgroundColor: c.feature, overflow: 'hidden' }}>
       <View style={{ position: 'absolute', right: -50, top: -50, width: 170, height: 170, borderRadius: 85, backgroundColor: 'rgba(242,107,29,.28)' }} />
       <Press scale={0.93} onPress={() => router.push('/hub/money')} style={{ position: 'absolute', right: 18, top: 18, zIndex: 2 }}>
-        <View style={{ height: 36, paddingHorizontal: 16, borderRadius: radius.pill, backgroundColor: c.primary, flexDirection: 'row', alignItems: 'center', gap: 6, ...shadow.brand }}>
+        <View style={{ height: 36, paddingHorizontal: 16, borderRadius: radius.pill, backgroundColor: c.primaryD, flexDirection: 'row', alignItems: 'center', gap: 6, ...shadow.brand }}>
           <Icon name="bank" size={15} color="#fff" />
           <Text style={[type(13.5, 800), { color: '#fff' }]}>Pay out</Text>
         </View>

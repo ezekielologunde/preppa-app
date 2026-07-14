@@ -5,10 +5,15 @@ import { StatusBar } from 'expo-status-bar';
 import * as SplashScreen from 'expo-splash-screen';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
+import { useFonts } from '@expo-google-fonts/hanken-grotesk';
 import {
-  useFonts,
-  Inter_600SemiBold, Inter_700Bold, Inter_800ExtraBold, Inter_900Black,
-} from '@expo-google-fonts/inter';
+  HankenGrotesk_400Regular, HankenGrotesk_500Medium,
+  HankenGrotesk_600SemiBold, HankenGrotesk_700Bold,
+} from '@expo-google-fonts/hanken-grotesk';
+import {
+  Fraunces_400Regular, Fraunces_500Medium,
+  Fraunces_600SemiBold, Fraunces_700Bold,
+} from '@expo-google-fonts/fraunces';
 import { StoreProvider, useStore } from '../src/store/store';
 import { ThemeProvider, useIsDark } from '../src/theme/ThemeContext';
 import { ToastHost } from '../src/ui';
@@ -22,10 +27,14 @@ import { ApprovalWelcomeOverlay } from '../src/components/ApprovalWelcomeOverlay
 SplashScreen.preventAutoHideAsync().catch(() => {});
 
 export default function RootLayout() {
-  // Only 4 weights are actually used (400 never; 500 remaps to 600). Loading 4 instead of 6
-  // TTFs saves ~670KB of fonts off first load — see FONT map in theme.ts.
+  // Hanken Grotesk (UI, 400/500/600/700) + Fraunces (editorial serif, hero-only). The old
+  // 800/900 weights are gone — the FONT map in theme.ts caps that reflex at 700, so ~480
+  // legacy `type(…,900)` sites de-shout without touching a single call site.
   const [fontsLoaded] = useFonts({
-    Inter_600SemiBold, Inter_700Bold, Inter_800ExtraBold, Inter_900Black,
+    HankenGrotesk_400Regular, HankenGrotesk_500Medium,
+    HankenGrotesk_600SemiBold, HankenGrotesk_700Bold,
+    Fraunces_400Regular, Fraunces_500Medium,
+    Fraunces_600SemiBold, Fraunces_700Bold,
   });
   useEffect(() => {
     if (fontsLoaded) SplashScreen.hideAsync().catch(() => {});
@@ -62,7 +71,7 @@ function AppShell() {
   // read (~tens of ms) — so a dark-mode user never first-paints the light theme. No artificial
   // minimum delay (removed a fixed 1400ms floor that padded every load).
   const showSplash = !ready;
-  const bg = isDark ? '#151210' : '#F7F7F9';
+  const bg = isDark ? '#15120F' : '#FAFAF9';
   return (
     <View style={{ flex: 1, backgroundColor: bg }}>
       <StatusBar style={isDark ? 'light' : 'dark'} />

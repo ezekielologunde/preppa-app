@@ -58,7 +58,7 @@ export function SideRail({ width }: { width: number }) {
   return (
     <View style={{ width, backgroundColor: c.surface, borderRightWidth: 1, borderRightColor: c.border2, paddingVertical: 20, paddingHorizontal: 12, gap: 4 }}>
       <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10, paddingHorizontal: labeled ? 10 : 0, justifyContent: labeled ? 'flex-start' : 'center', marginBottom: 14 }}>
-        <View style={{ width: 34, height: 34, borderRadius: 11, backgroundColor: c.primary, alignItems: 'center', justifyContent: 'center', ...shadow.brand }}>
+        <View style={{ width: 34, height: 34, borderRadius: 11, backgroundColor: c.primaryD, alignItems: 'center', justifyContent: 'center', ...shadow.brand }}>
           <Icon name="flame" size={18} color="#fff" />
         </View>
         {labeled ? <Text style={[type(19, 900), { color: c.ink, letterSpacing: -0.7 }]}>preppa</Text> : null}

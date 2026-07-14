@@ -234,7 +234,7 @@ export default function CookStoreScreen() {
         {FLAGS.feed ? (
           <Press scale={0.985} onPress={() => router.push(`/store/${id}/feed`)} style={{ marginHorizontal: 16, marginTop: 14 }}>
             <View style={{ flexDirection: 'row', alignItems: 'center', gap: 14, backgroundColor: c.surface, borderWidth: 1, borderColor: c.border2, borderRadius: radius.xl, padding: 16 }}>
-              <View style={{ width: 46, height: 46, borderRadius: 14, backgroundColor: c.primary, alignItems: 'center', justifyContent: 'center', ...shadow.brand }}>
+              <View style={{ width: 46, height: 46, borderRadius: 14, backgroundColor: c.primaryD, alignItems: 'center', justifyContent: 'center', ...shadow.brand }}>
                 <Icon name="video" size={22} color="#fff" />
               </View>
               <View style={{ flex: 1 }}>
@@ -252,7 +252,7 @@ export default function CookStoreScreen() {
         {FLAGS.services && !isMine(id) ? (
         <Press scale={0.985} onPress={() => router.push(`/service-request?category=cook_at_home&kitchen=${KITCHEN_ID[id]}`)} style={{ marginHorizontal: 16, marginTop: 14 }}>
           <View style={{ flexDirection: 'row', alignItems: 'center', gap: 14, backgroundColor: c.surface, borderWidth: 1, borderColor: c.border2, borderRadius: radius.xl, padding: 16 }}>
-            <View style={{ width: 46, height: 46, borderRadius: 14, backgroundColor: c.primary, alignItems: 'center', justifyContent: 'center', ...shadow.brand }}>
+            <View style={{ width: 46, height: 46, borderRadius: 14, backgroundColor: c.primaryD, alignItems: 'center', justifyContent: 'center', ...shadow.brand }}>
               <Icon name="chefhat" size={22} color="#fff" />
             </View>
             <View style={{ flex: 1 }}>
@@ -291,7 +291,7 @@ function RealKitchenStore({ profile, meals, mealsLoading, revCount, revAvg, inse
   return (
     <Screen max={960}>
       <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={{ paddingBottom: 40 }}>
-        <GradBox grad={['#A855F7', '#7C3AED']} img={profile.coverUrl ?? undefined} style={{ height: 172 }}>
+        <GradBox grad={['#A855F7', '#6B4A93']} img={profile.coverUrl ?? undefined} style={{ height: 172 }}>
           <HeroTopBar topInset={insetsTop} onBack={onBack} right={<HeroBtn icon="share" label={`Share ${profile.name}`} onPress={() => shareAndNotify(toast, { title: `${profile.name} on Preppa`, url: `${SITE}/store/${profile.id}` })} />} />
           {profile.availability === 'open' ? (
             <View style={{ position: 'absolute', right: 18, bottom: 16, height: 26, paddingHorizontal: 11, borderRadius: radius.pill, flexDirection: 'row', alignItems: 'center', gap: 6, backgroundColor: 'rgba(0,0,0,.45)' }}>
@@ -365,7 +365,7 @@ function RealKitchenStore({ profile, meals, mealsLoading, revCount, revAvg, inse
         {FLAGS.feed ? (
           <Press scale={0.985} onPress={() => router.push(`/store/${profile.id}/feed`)} style={{ marginHorizontal: 16, marginTop: 14 }}>
             <View style={{ flexDirection: 'row', alignItems: 'center', gap: 14, backgroundColor: c.surface, borderWidth: 1, borderColor: c.border2, borderRadius: radius.xl, padding: 16 }}>
-              <View style={{ width: 46, height: 46, borderRadius: 14, backgroundColor: c.primary, alignItems: 'center', justifyContent: 'center', ...shadow.brand }}>
+              <View style={{ width: 46, height: 46, borderRadius: 14, backgroundColor: c.primaryD, alignItems: 'center', justifyContent: 'center', ...shadow.brand }}>
                 <Icon name="video" size={22} color="#fff" />
               </View>
               <View style={{ flex: 1 }}>
@@ -383,7 +383,7 @@ function RealKitchenStore({ profile, meals, mealsLoading, revCount, revAvg, inse
         {FLAGS.services ? (
           <Press scale={0.985} onPress={() => router.push(`/service-request?category=cook_at_home&kitchen=${profile.id}`)} style={{ marginHorizontal: 16, marginTop: 14 }}>
             <View style={{ flexDirection: 'row', alignItems: 'center', gap: 14, backgroundColor: c.surface, borderWidth: 1, borderColor: c.border2, borderRadius: radius.xl, padding: 16 }}>
-              <View style={{ width: 46, height: 46, borderRadius: 14, backgroundColor: c.primary, alignItems: 'center', justifyContent: 'center', ...shadow.brand }}><Icon name="chefhat" size={22} color="#fff" /></View>
+              <View style={{ width: 46, height: 46, borderRadius: 14, backgroundColor: c.primaryD, alignItems: 'center', justifyContent: 'center', ...shadow.brand }}><Icon name="chefhat" size={22} color="#fff" /></View>
               <View style={{ flex: 1 }}>
                 <Text style={[type(15, 900), { color: c.ink, letterSpacing: -0.3 }]}>Book {profile.name.split(' ')[0]} for your place</Text>
                 <Text style={[type(12, 600), { color: c.soft, marginTop: 3 }]}>Private dinners & events — get a fixed quote</Text>

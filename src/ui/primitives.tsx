@@ -107,19 +107,50 @@ export function GradBox({
 
 export function Avatar({ cook, size = 46, rad = 14, fontSize }: { cook: CookId; size?: number; rad?: number; fontSize?: number }) {
   const c = COOKS[cook];
+  // Flat warm-neutral chip (deep end of the cook's spice-drawer tint) — no rainbow gradient.
+  // Per-cook hue is retained so cooks stay distinguishable; white initial reads AA-large.
+  const fill = gradColors(c.grad)[1];
   return (
-    <GradBox grad={c.grad} style={{ width: size, height: size, borderRadius: rad, alignItems: 'center', justifyContent: 'center' }}>
-      <Text style={[type(fontSize || size * 0.4, 900), { color: '#fff' }]}>{c.initial}</Text>
-    </GradBox>
+    <View style={{ width: size, height: size, borderRadius: rad, backgroundColor: fill, alignItems: 'center', justifyContent: 'center' }}>
+      <Text style={[type(fontSize || size * 0.42, 700), { color: '#fff' }]}>{c.initial}</Text>
+    </View>
   );
 }
 
 /** Small solid-colour avatar (reviews, subscribers) keyed off a grad. */
 export function GradAvatar({ grad, letter, size = 40, rad = 13, fontSize }: { grad: GradKey | Grad; letter: string; size?: number; rad?: number; fontSize?: number }) {
+  const fill = gradColors(grad)[1];
   return (
-    <GradBox grad={grad} style={{ width: size, height: size, borderRadius: rad, alignItems: 'center', justifyContent: 'center' }}>
-      <Text style={[type(fontSize || size * 0.4, 900), { color: '#fff' }]}>{letter}</Text>
-    </GradBox>
+    <View style={{ width: size, height: size, borderRadius: rad, backgroundColor: fill, alignItems: 'center', justifyContent: 'center' }}>
+      <Text style={[type(fontSize || size * 0.42, 700), { color: '#fff' }]}>{letter}</Text>
+    </View>
+  );
+}
+
+/** Shimmer placeholder that mirrors a real content silhouette (card, line, avatar) while it
+ *  loads — replaces mid-content spinners. Respects Reduce Motion (renders a static tint). */
+export function Skeleton({ w, h = 14, r = 8, style }: { w?: number | `${number}%`; h?: number; r?: number; style?: StyleProp<ViewStyle> }) {
+  const c = useC();
+  const reduced = useReducedMotion();
+  const a = useRef(new Animated.Value(0.5)).current;
+  React.useEffect(() => {
+    if (reduced) return;
+    const loop = Animated.loop(
+      Animated.sequence([
+        Animated.timing(a, { toValue: 1, duration: 700, useNativeDriver: true }),
+        Animated.timing(a, { toValue: 0.5, duration: 700, useNativeDriver: true }),
+      ]),
+    );
+    loop.start();
+    return () => loop.stop();
+  }, [reduced, a]);
+  return (
+    <Animated.View
+      style={[
+        { width: w as any, height: h, borderRadius: r, backgroundColor: c.bg2, opacity: reduced ? 0.7 : a },
+        style,
+      ]}
+    />
   );
 }
 
@@ -133,7 +164,7 @@ export function Stepper({ value, onDec, onInc, sm }: { value: number; onDec: () 
           <Icon name="minus" size={sm ? 15 : 18} color={c.ink} />
         </View>
       </Press>
-      <Text style={[type(sm ? 15 : 17, 900), { color: c.ink, minWidth: 40, textAlign: 'center' }, tnum]}>{value}</Text>
+      <Text style={[type(sm ? 15 : 17, 700), { color: c.ink, minWidth: 40, textAlign: 'center' }, tnum]}>{value}</Text>
       <Press scale={0.9} onPress={onInc} label="Increase" hitSlop={10}>
         <View style={[st.stepBtn, { width: btn, height: btn, backgroundColor: c.surface }, shadow.soft]}>
           <Icon name="plus" size={sm ? 15 : 18} color={c.ink} />
@@ -195,12 +226,14 @@ export function Btn({
 }) {
   const c = useC();
   const h = height ?? (lg ? 56 : 52);
-  const bg = variant === 'pri' ? c.primary : variant === 'dark' ? c.ink : c.surface;
+  // 'pri' fills with primaryD (white-on = 5.7:1 AA); the lighter `primary` is reserved for
+  // tints/marks and would fail as a button fill (3.98:1). Rounded-rect (radius.md), not pill.
+  const bg = variant === 'pri' ? c.primaryD : variant === 'dark' ? c.ink : c.surface;
   const fg = variant === 'ghost' ? c.ink : variant === 'dark' ? c.surface : '#fff';
   const blocked = disabled || loading;
   const base: ViewStyle = {
     height: h,
-    borderRadius: radius.pill,
+    borderRadius: radius.md,
     paddingHorizontal: 22,
     flexDirection: 'row',
     alignItems: 'center',
@@ -211,19 +244,19 @@ export function Btn({
   };
   const extra: ViewStyle =
     variant === 'ghost'
-      ? { borderWidth: 1.5, borderColor: c.border, ...shadow.soft }
+      ? { borderWidth: 1, borderColor: c.borderF, ...shadow.soft }
       : variant === 'pri'
-        ? shadow.brand
+        ? shadow.soft
         : {};
   return (
-    <Press scale={0.96} disabled={blocked} onPress={loading ? undefined : onPress} label={label} style={[block ? { width: '100%' } : null, flex ? { flex } : null, style]}>
+    <Press scale={0.97} disabled={blocked} onPress={loading ? undefined : onPress} label={label} style={[block ? { width: '100%' } : null, flex ? { flex } : null, style]}>
       <View style={[base, extra]}>
         {loading ? (
           <ActivityIndicator color={fg} size="small" />
         ) : (
           <>
             {icon ? <Icon name={icon} size={lg ? 19 : 18} color={fg} /> : null}
-            {label ? <Text style={[type(lg ? 17 : 16, 800), { color: fg, letterSpacing: -0.1 }]}>{label}</Text> : null}
+            {label ? <Text style={[type(lg ? 17 : 16, 700), { color: fg, letterSpacing: -0.1 }]}>{label}</Text> : null}
             {iconRight ? <Icon name={iconRight} size={lg ? 19 : 18} color={fg} /> : null}
           </>
         )}

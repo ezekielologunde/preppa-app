@@ -86,7 +86,7 @@ function ServicesMode() {
   return (
     <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={{ padding: 16, paddingBottom: 40 }}>
       <Press scale={0.985} onPress={() => router.push('/service-request')}>
-        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 14, backgroundColor: c.primary, borderRadius: radius.xl, padding: 16, ...shadow.brand }}>
+        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 14, backgroundColor: c.primaryD, borderRadius: radius.xl, padding: 16, ...shadow.brand }}>
           <View style={{ width: 46, height: 46, borderRadius: 14, backgroundColor: 'rgba(255,255,255,.2)', alignItems: 'center', justifyContent: 'center' }}><Icon name="chefhat" size={22} color="#fff" /></View>
           <View style={{ flex: 1 }}>
             <Text style={[type(16, 900), { color: '#fff' }]}>Book a prepper for your place</Text>
@@ -153,7 +153,7 @@ function KDeposit({ label, onPress }: { label: string; onPress: () => void }) {
   const c = useC();
   return (
     <Press scale={0.97} onPress={onPress}>
-      <View style={{ height: 44, borderRadius: radius.md, backgroundColor: c.primary, alignItems: 'center', justifyContent: 'center', ...shadow.brand }}>
+      <View style={{ height: 44, borderRadius: radius.md, backgroundColor: c.primaryD, alignItems: 'center', justifyContent: 'center', ...shadow.brand }}>
         <Text style={[type(14, 800), { color: '#fff' }]}>{label}</Text>
       </View>
     </Press>

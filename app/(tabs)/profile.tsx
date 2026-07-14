@@ -54,7 +54,7 @@ export default function Profile() {
       <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={{ paddingBottom: 40, maxWidth: 1040, alignSelf: 'center', width: '100%' }}>
         {/* hero */}
         <View style={{ backgroundColor: c.surface, paddingTop: insets.top + 20, paddingBottom: 20, paddingHorizontal: 16, alignItems: 'center', borderBottomWidth: 1, borderBottomColor: c.border2 }}>
-          <LinearGradient colors={['#FF8A4C', '#F26B1D']} start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }} style={{ width: 80, height: 80, borderRadius: 26, alignItems: 'center', justifyContent: 'center', ...shadow.brand }}>
+          <LinearGradient colors={['#FF8A4C', '#E24A38']} start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }} style={{ width: 80, height: 80, borderRadius: 26, alignItems: 'center', justifyContent: 'center', ...shadow.brand }}>
             <Text style={[type(32, 900), { color: '#fff' }]}>{initial}</Text>
           </LinearGradient>
           <Press scale={0.97} onPress={() => router.push('/edit-profile')} label="Edit profile">
@@ -68,7 +68,7 @@ export default function Profile() {
 
         {/* become a preppa — state-aware (themed: warm tint that adapts to dark) */}
         <View style={{ marginHorizontal: 16, borderRadius: radius.xl, padding: 18, flexDirection: 'row', alignItems: 'center', gap: 14, borderWidth: 1, borderColor: c.border2, backgroundColor: c.primaryL }}>
-          <LinearGradient colors={['#FF8A4C', '#F26B1D']} start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }} style={{ width: 52, height: 52, borderRadius: 16, alignItems: 'center', justifyContent: 'center', ...shadow.brand }}>
+          <LinearGradient colors={['#FF8A4C', '#E24A38']} start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }} style={{ width: 52, height: 52, borderRadius: 16, alignItems: 'center', justifyContent: 'center', ...shadow.brand }}>
             <Icon name={prepperStatus === 'pending' ? 'clock' : 'chefhat'} size={26} color="#fff" />
           </LinearGradient>
           <View style={{ flex: 1 }}>
@@ -109,7 +109,7 @@ export default function Profile() {
         {FLAGS.prepplus && Platform.OS === 'web' ? (
           <Press scale={0.98} onPress={() => router.push('/prepplus')} label="PrepPlus"
             style={{ marginHorizontal: 16, marginTop: 12, borderRadius: radius.xl, overflow: 'hidden', ...shadow.card }}>
-            <LinearGradient colors={['#7C3AED', '#F26B1D']} start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }}
+            <LinearGradient colors={['#6B4A93', '#E24A38']} start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }}
               style={{ padding: 16, flexDirection: 'row', alignItems: 'center', gap: 14 }}>
               <View style={{ width: 46, height: 46, borderRadius: 15, backgroundColor: 'rgba(255,255,255,.2)', alignItems: 'center', justifyContent: 'center' }}>
                 <Icon name="bolt" size={23} color="#fff" />

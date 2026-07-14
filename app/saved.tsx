@@ -70,7 +70,7 @@ export default function Saved() {
                 </View>
                 {f.mealOrderable && f.mealId ? (
                   <Press scale={0.98} onPress={() => { recordFeedEvent(f.id, 'open_meal'); router.push(`/meal/${f.mealId}`); }} style={{ marginTop: 8, alignSelf: 'flex-start' }}>
-                    <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6, height: 32, paddingHorizontal: 12, borderRadius: radius.pill, backgroundColor: c.primary }}>
+                    <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6, height: 32, paddingHorizontal: 12, borderRadius: radius.pill, backgroundColor: c.primaryD }}>
                       <Icon name="cart" size={14} color="#fff" />
                       <Text style={[type(12.5, 800), { color: '#fff' }]}>Order {f.mealName ?? 'dish'}{f.mealPriceCents != null ? ` · ${money(f.mealPriceCents / 100)}` : ''}</Text>
                     </View>

@@ -143,7 +143,7 @@ export function PrimaryWide({ label, onPress }: { label: string; onPress: () => 
   const c = useC();
   return (
     <Press scale={0.97} onPress={onPress} style={{ width: '100%', maxWidth: 340 }}>
-      <View style={{ height: 56, borderRadius: radius.pill, backgroundColor: c.primary, alignItems: 'center', justifyContent: 'center', ...shadow.brand }}>
+      <View style={{ height: 56, borderRadius: radius.pill, backgroundColor: c.primaryD, alignItems: 'center', justifyContent: 'center', ...shadow.brand }}>
         <Text style={[type(17, 800), { color: '#fff' }]}>{label}</Text>
       </View>
     </Press>
