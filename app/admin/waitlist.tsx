@@ -1,5 +1,5 @@
 import React, { useCallback, useEffect, useState } from 'react';
-import { View, Text, ScrollView } from 'react-native';
+import { View, Text, ScrollView, Alert } from 'react-native';
 import { useC } from '../../src/theme/ThemeContext';
 import { type, radius, tnum } from '../../src/theme/theme';
 import { Screen, Btn } from '../../src/ui';
@@ -9,17 +9,20 @@ import { DataTable, Column } from '../../src/components/admin/DataTable';
 import { AdminHeader } from '../../src/components/admin/AdminHeader';
 import { ErrorRetry } from '../../src/components/admin/states';
 import { fmtDateTime } from '../../src/components/admin/format';
+import { useStore } from '../../src/store/store';
 
 const PAGE = 50;
 
 export default function AdminWaitlist() {
   const c = useC();
+  const { toast } = useStore();
   const [rows, setRows] = useState<admin.AdminWaitlistEntry[]>([]);
   const [loading, setLoading] = useState(true);
   const [more, setMore] = useState(false);
   const [done, setDone] = useState(false);
   const [error, setError] = useState<Error | null>(null);
   const [sel, setSel] = useState<admin.AdminWaitlistEntry | null>(null);
+  const [deleting, setDeleting] = useState(false);
 
   const loadFirst = useCallback(async () => {
     setLoading(true);
@@ -52,6 +55,33 @@ export default function AdminWaitlist() {
     } finally {
       setMore(false);
     }
+  };
+
+  const confirmDelete = (entry: admin.AdminWaitlistEntry) => {
+    Alert.alert(
+      'Delete signup',
+      `Remove ${entry.email} from the waitlist? This can't be undone.`,
+      [
+        { text: 'Cancel', style: 'cancel' },
+        {
+          text: 'Delete',
+          style: 'destructive',
+          onPress: async () => {
+            setDeleting(true);
+            try {
+              await admin.deleteWaitlistEntry(entry.id);
+              setRows((prev) => prev.filter((r) => r.id !== entry.id));
+              setSel(null);
+              toast('Signup deleted', 'check', true);
+            } catch (e: any) {
+              toast(e?.message ?? 'Delete failed', 'info');
+            } finally {
+              setDeleting(false);
+            }
+          },
+        },
+      ],
+    );
   };
 
   const columns: Column<admin.AdminWaitlistEntry>[] = [
@@ -101,6 +131,13 @@ export default function AdminWaitlist() {
             <ARow c={c} k="ZIP" v={sel.zip ?? '—'} />
             <ARow c={c} k="Source" v={sel.source ?? '—'} />
             <ARow c={c} k="Joined" v={fmtDateTime(sel.created_at)} />
+            <Btn
+              label="Delete signup"
+              variant="ghost"
+              loading={deleting}
+              onPress={() => confirmDelete(sel)}
+              style={{ backgroundColor: c.redL, marginTop: 8 }}
+            />
           </View>
         ) : null}
       </Sheet>

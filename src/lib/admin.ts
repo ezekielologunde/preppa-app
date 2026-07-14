@@ -290,3 +290,9 @@ export async function listWaitlist(opts: { limit?: number; before?: string | nul
   if (error) throw error;
   return (data as AdminWaitlistEntry[]) ?? [];
 }
+
+export async function deleteWaitlistEntry(id: string): Promise<void> {
+  ensureWeb();
+  const { error } = await supabase.rpc('admin_delete_waitlist_entry', { p_id: id });
+  if (error) throw error;
+}
