@@ -146,7 +146,7 @@ Deno.serve(async (req) => {
       automatic_payment_methods: { enabled: true },
       ...(input.savePaymentMethod ? { setup_future_usage: 'off_session' as const } : {}),
       metadata: { order_id: order.id, customer_id: customerId, kitchen_id: input.kitchenId, tip_cents: String(tip), subtotal_cents: String(subtotal) },
-    });
+    }, { idempotencyKey: input.idempotencyKey });
     await db.from('payment_intents').insert({ order_id: order.id, stripe_payment_intent_id: pi.id, amount_cents: total, status: pi.status });
 
     return json(200, {

@@ -19,6 +19,14 @@ function admin() {
   return createClient(Deno.env.get('SUPABASE_URL') ?? '', Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? '', { auth: { persistSession: false } });
 }
 
+// Only the app's own domain is a valid post-KYC redirect target - this is the moment right
+// after a cook submits bank/identity info to Stripe, a high-trust window an open redirect
+// here would be worth exploiting.
+const ALLOWED_ORIGIN = 'https://app.preppa.live';
+function isAllowedRedirect(url: string): boolean {
+  try { return new URL(url).origin === ALLOWED_ORIGIN; } catch { return false; }
+}
+
 // Create (or reuse) the cook's Express connected account and return a Stripe-hosted
 // onboarding link (KYC/identity + payout bank). Preppa is the platform; the cook does
 // NOT set up their own Stripe account. Web return URLs by default; caller may override.
@@ -36,8 +44,10 @@ Deno.serve(async (req) => {
     const body = await req.json().catch(() => ({}));
     const kitchenId = body?.kitchenId;
     if (typeof kitchenId !== 'string') return json(400, { error: 'kitchenId required' });
-    const returnUrl = typeof body?.returnUrl === 'string' ? body.returnUrl : 'https://app.preppa.live/my-hub?connect=return';
-    const refreshUrl = typeof body?.refreshUrl === 'string' ? body.refreshUrl : 'https://app.preppa.live/my-hub?connect=refresh';
+    const returnUrl = (typeof body?.returnUrl === 'string' && isAllowedRedirect(body.returnUrl))
+      ? body.returnUrl : 'https://app.preppa.live/my-hub?connect=return';
+    const refreshUrl = (typeof body?.refreshUrl === 'string' && isAllowedRedirect(body.refreshUrl))
+      ? body.refreshUrl : 'https://app.preppa.live/my-hub?connect=refresh';
 
     const { data: kitchen } = await db.from('kitchens').select('id, owner_id, name').eq('id', kitchenId).single();
     if (!kitchen || kitchen.owner_id !== userId) return json(403, { error: 'not your kitchen' });
@@ -66,7 +76,10 @@ Deno.serve(async (req) => {
     });
     return json(200, { url: link.url });
   } catch (e) {
-    // Surface the Stripe message (e.g. "...Connect..." when the platform isn't enabled yet).
-    return json(500, { error: (e as any)?.message || 'Could not start payout setup. Please try again.' });
+    // Stripe-branded errors (e.g. "...Connect isn't enabled yet...") are safe/useful to
+    // surface during onboarding; anything else (network, unexpected runtime errors) falls
+    // back to the generic message so internals never leak to the client.
+    const isStripeError = typeof (e as any)?.type === 'string' && (e as any).type.startsWith('Stripe');
+    return json(500, { error: (isStripeError && (e as any)?.message) || 'Could not start payout setup. Please try again.' });
   }
 });
