@@ -22,11 +22,14 @@ export default function Orders() {
   const c = useC();
   const router = useRouter();
   const insets = useSafeAreaInsets();
-  const { orders, toast } = useStore();
+  const { orders, toast, refreshOrderStatus } = useStore();
   const [bookings, setBookings] = useState<BookingView[]>([]);
   const [busy, setBusy] = useState<string | null>(null);
   const load = useCallback(() => { listMyBookings().then(setBookings); }, []);
   useFocusEffect(useCallback(() => { load(); }, [load]));
+  useFocusEffect(useCallback(() => {
+    orders.filter((o) => o.dbId && o.status !== 'completed').forEach((o) => refreshOrderStatus(o.id));
+  }, [orders, refreshOrderStatus]));
 
   const cancelExp = async (b: BookingView) => {
     if (busy) return;

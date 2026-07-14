@@ -36,6 +36,7 @@ export default function Profile() {
     { ico: 'ticket', cls: 'amber', t: 'Your orders', act: () => router.push('/orders') },
     ...(FLAGS.plans ? [{ ico: 'repeat', cls: 'purple' as Tone, t: 'Your plans', act: () => router.push('/experiences?tab=mine') }] : []),
     { ico: 'heart', cls: 'pink', t: 'Favorites', act: () => router.push('/favorites') },
+    ...(FLAGS.feed ? [{ ico: 'bookmark', cls: 'blue' as Tone, t: 'Saved posts', act: () => router.push('/saved') }] : []),
   ];
   const wallet: Row[] = [
     { ico: 'pin', cls: 'blue', t: 'Addresses', act: () => router.push('/addresses') },

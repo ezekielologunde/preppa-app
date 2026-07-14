@@ -149,7 +149,7 @@ export function BalanceStrip() {
   return (
     <View style={{ marginHorizontal: 20, marginTop: 18, padding: 18, borderRadius: 22, backgroundColor: c.feature, overflow: 'hidden' }}>
       <View style={{ position: 'absolute', right: -50, top: -50, width: 170, height: 170, borderRadius: 85, backgroundColor: 'rgba(242,107,29,.28)' }} />
-      <Press scale={0.93} onPress={() => router.push('/hub/payout')} style={{ position: 'absolute', right: 18, top: 18, zIndex: 2 }}>
+      <Press scale={0.93} onPress={() => router.push('/hub/money')} style={{ position: 'absolute', right: 18, top: 18, zIndex: 2 }}>
         <View style={{ height: 36, paddingHorizontal: 16, borderRadius: radius.pill, backgroundColor: c.primary, flexDirection: 'row', alignItems: 'center', gap: 6, ...shadow.brand }}>
           <Icon name="bank" size={15} color="#fff" />
           <Text style={[type(13.5, 800), { color: '#fff' }]}>Pay out</Text>
@@ -325,6 +325,7 @@ const SHORTCUTS: { route: string; ic: string; tone: Tone; l: string }[] = [
   { route: '/hub/create-meal', ic: 'plus', tone: 'ic-amber', l: 'Add meal' },
   { route: '/hub/analytics', ic: 'bars', tone: 'ic-blue', l: 'Analytics' },
   { route: '/hub/post-reel', ic: 'play', tone: 'ic-purple', l: 'Post reel' },
+  { route: '/hub/go-live', ic: 'video', tone: 'ic-red', l: 'Go live' },
   { route: '/hub/tickets', ic: 'info', tone: 'ic-blue', l: 'Support' },
 ];
 
@@ -363,7 +364,8 @@ export default function MyHub() {
   const router = useRouter();
   const { ready, avail, toggleAvail, acted, acceptOrder, toast, prepperStatus, name, firstName } = useStore();
   const [dir, setDir] = useState<'focus' | 'brief'>('focus');
-  if (ready && prepperStatus !== 'approved') return <Redirect href="/(tabs)/home" />; // prepper-only
+  if (!ready) return null; // wait for persisted role to hydrate before deciding — otherwise the guard below is skipped
+  if (prepperStatus !== 'approved') return <Redirect href="/(tabs)/home" />; // prepper-only
 
   const queue: QItem[] = [];
   if (!avail) {

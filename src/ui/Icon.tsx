@@ -73,6 +73,8 @@ const PATHS: Record<string, string[]> = {
   power: ['M12 4v8', 'M7.5 7a7 7 0 109 0'],
   pin2: ['M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0118 0z', 'M12 10a2.6 2.6 0 100-.01'],
   reorder: ['M3 6h18M3 12h18M3 18h18'],
+  volume: ['M11 5L6 9H2v6h4l5 4V5z', 'M15.5 8.5a5 5 0 010 7', 'M18.5 5.5a9 9 0 010 13'],
+  volumeOff: ['M11 5L6 9H2v6h4l5 4V5z', 'M23 9l-6 6', 'M17 9l6 6'],
 };
 
 const FILLED: Record<string, string> = {

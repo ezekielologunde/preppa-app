@@ -128,6 +128,10 @@ export interface AccountState {
   firstName: string | null;
   isPrepPlus: boolean;
   prepplusUntil: string | null;
+  /** Real (Stripe Connect) payout readiness — a kitchen can't publish/accept paid orders without it. */
+  payoutsEnabled: boolean;
+  /** True exactly once: approved, and the one-time "you're approved" welcome hasn't been acknowledged yet. */
+  approvalNoticePending: boolean;
 }
 
 /**
@@ -139,7 +143,7 @@ export interface AccountState {
 export async function fetchAccountState(): Promise<AccountState> {
   const { data: sess } = await supabase.auth.getSession();
   const uid = sess.session?.user?.id;
-  if (!uid) return { signedIn: false, isAdmin: false, prepperStatus: 'none', displayName: null, firstName: null, isPrepPlus: false, prepplusUntil: null };
+  if (!uid) return { signedIn: false, isAdmin: false, prepperStatus: 'none', displayName: null, firstName: null, isPrepPlus: false, prepplusUntil: null, payoutsEnabled: false, approvalNoticePending: false };
 
   const { data: prof } = await supabase.from('profiles').select('role, display_name, first_name').eq('id', uid).maybeSingle();
   const role = (prof?.role as string) ?? 'customer';
@@ -152,12 +156,22 @@ export async function fetchAccountState(): Promise<AccountState> {
   // removed would otherwise leave the account showing My Hub with nothing to manage.
   const { data: k } = await supabase
     .from('kitchens')
-    .select('verification_status')
+    .select('id, verification_status, approval_notice_seen_at')
     .eq('owner_id', uid)
     .order('created_at', { ascending: false })
     .limit(1);
-  const kv = k?.[0]?.verification_status as string | undefined;
+  const kitchenRow = k?.[0] as { id: string; verification_status: string; approval_notice_seen_at: string | null } | undefined;
+  const kv = kitchenRow?.verification_status;
   const prepperStatus: PrepperStatusValue = kv === 'verified' ? 'approved' : kv === 'pending' ? 'pending' : 'none';
+
+  // Real Stripe Connect payout readiness — a kitchen can't publish/accept paid orders
+  // without it (server-enforced by a DB trigger + create-order; this is read-only UX).
+  let payoutsEnabled = false;
+  if (prepperStatus === 'approved' && kitchenRow) {
+    const { data: acct } = await supabase.from('stripe_accounts').select('payouts_enabled').eq('kitchen_id', kitchenRow.id).maybeSingle();
+    payoutsEnabled = !!acct?.payouts_enabled;
+  }
+  const approvalNoticePending = prepperStatus === 'approved' && !kitchenRow?.approval_notice_seen_at;
 
   // PrepPlus entitlement — cosmetic here (fee waivers are enforced server-side by
   // is_prepplus_member()). Mirrors that predicate: active/trialing (unexpired) or a 3-day
@@ -177,7 +191,13 @@ export async function fetchAccountState(): Promise<AccountState> {
     isPrepPlus = ((mem.status === 'active' || mem.status === 'trialing') && periodOk) || !!graceOk;
   }
 
-  return { signedIn: true, isAdmin, prepperStatus, displayName, firstName, isPrepPlus, prepplusUntil };
+  return { signedIn: true, isAdmin, prepperStatus, displayName, firstName, isPrepPlus, prepplusUntil, payoutsEnabled, approvalNoticePending };
+}
+
+/** Acknowledge the one-time "you're approved" welcome overlay (never shows again after this). */
+export async function ackApprovalNotice(): Promise<void> {
+  const { error } = await supabase.rpc('ack_approval_notice');
+  if (error) throw error;
 }
 
 /**
@@ -268,6 +288,21 @@ async function uploadPublicImage(file: Blob, ext: string, prefix: string): Promi
   return data.publicUrl;
 }
 
+/** Upload a feed-post video (public) to the owner-scoped `post-videos` bucket. */
+export async function uploadPostVideo(file: Blob, ext: string): Promise<string> {
+  const { data: sess } = await supabase.auth.getSession();
+  const uid = sess.session?.user?.id;
+  if (!uid) throw new Error('You need to be signed in.');
+  const path = `${uid}/post-${Date.now()}.${ext}`;
+  const { error } = await supabase.storage.from('post-videos').upload(path, file, {
+    upsert: true,
+    contentType: (file as any).type || `video/${ext}`,
+  });
+  if (error) throw error;
+  const { data } = supabase.storage.from('post-videos').getPublicUrl(path);
+  return data.publicUrl;
+}
+
 // ---- Social login (web) -------------------------------------------------------
 /** Start Google OAuth (web). Requires the Google provider to be enabled in Supabase. */
 export async function signInWithGoogle(): Promise<void> {
@@ -293,7 +328,7 @@ export interface ApplicationFields {
     // now handled by Stripe Connect Express onboarding, not raw photos.)
     docs?: { fridge: string[]; kitchen: string[] };
   };
-  foodHandlerCert?: string;
+  foodHandlerCert: string;
   story: string;
   agreementVersion: string;
 }
@@ -312,7 +347,7 @@ export async function submitPrepperApplication(f: ApplicationFields): Promise<st
     p_phone: f.phone,
     p_address: f.address,
     p_food_safety: f.foodSafety,
-    p_food_handler_cert: f.foodHandlerCert ?? null,
+    p_food_handler_cert: f.foodHandlerCert,
     p_agreement_version: f.agreementVersion,
     p_service_types: f.serviceTypes,
     p_service_area: f.serviceArea ?? null,

@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { View, Text, ScrollView, Image, Platform, ActivityIndicator } from 'react-native';
-import { useRouter } from 'expo-router';
+import { useRouter, useLocalSearchParams } from 'expo-router';
 import { useC } from '../../src/theme/ThemeContext';
 import { type, radius } from '../../src/theme/theme';
 import { useStore } from '../../src/store/store';
@@ -17,7 +17,10 @@ export default function PostReelFlow() {
   const c = useC();
   const router = useRouter();
   const { toast } = useStore();
-  const [coverUrl, setCoverUrl] = useState<string | null>(null);
+  // Handed off from record-video.tsx after an in-app recording is uploaded.
+  const { videoUrl: videoUrlParam, coverUrl: coverUrlParam } = useLocalSearchParams<{ videoUrl?: string; coverUrl?: string }>();
+  const [videoUrl, setVideoUrl] = useState<string | null>(videoUrlParam ?? null);
+  const [coverUrl, setCoverUrl] = useState<string | null>(coverUrlParam ?? null);
   const [uploading, setUploading] = useState(false);
   const [caption, setCaption] = useState('');
   const [tag, setTag] = useState('Reel');
@@ -43,6 +46,7 @@ export default function PostReelFlow() {
         const ext = (file.name.split('.').pop() || 'jpg').toLowerCase();
         const url = await uploadPostCover(file, ext);
         setCoverUrl(url);
+        setVideoUrl(null); // a freshly picked photo replaces any recorded video
       } catch { toast('Could not upload that photo. Try another.', 'info'); }
       finally { setUploading(false); }
     };
@@ -54,7 +58,7 @@ export default function PostReelFlow() {
     if (!valid) { toast('Add a photo and a caption', 'info'); return; }
     setBusy(true);
     try {
-      await createPost(coverUrl!, caption.trim(), tag, mealId || undefined);
+      await createPost(coverUrl!, caption.trim(), tag, mealId || undefined, videoUrl ?? undefined);
       setDone(true);
     } catch (e: any) {
       toast(e?.message || 'Could not publish your post.', 'info');
@@ -80,11 +84,19 @@ export default function PostReelFlow() {
     <Screen bg={c.surface}>
       <TopBar title="Post to the feed" onBack={() => router.back()} />
       <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={{ paddingHorizontal: 20, paddingBottom: 130 }}>
-        {/* photo */}
+        {/* photo / video */}
         <Press scale={0.99} onPress={pickPhoto} disabled={uploading} label="Add a photo" style={{ marginTop: 20 }}>
           <View style={{ height: 220, borderRadius: radius.lg, overflow: 'hidden', backgroundColor: c.bg2 ?? c.bg, borderWidth: 1, borderColor: c.border2, alignItems: 'center', justifyContent: 'center' }}>
             {coverUrl ? (
-              <Image source={{ uri: coverUrl }} style={{ width: '100%', height: '100%' }} resizeMode="cover" />
+              <>
+                <Image source={{ uri: coverUrl }} style={{ width: '100%', height: '100%' }} resizeMode="cover" />
+                {videoUrl ? (
+                  <View style={{ position: 'absolute', top: 10, left: 10, flexDirection: 'row', alignItems: 'center', gap: 5, height: 24, paddingHorizontal: 9, borderRadius: radius.pill, backgroundColor: 'rgba(0,0,0,.55)' }}>
+                    <Icon name="video" size={12} color="#fff" />
+                    <Text style={[type(11, 800), { color: '#fff' }]}>Video</Text>
+                  </View>
+                ) : null}
+              </>
             ) : uploading ? (
               <ActivityIndicator color={c.primary} />
             ) : (
@@ -98,12 +110,14 @@ export default function PostReelFlow() {
             )}
           </View>
         </Press>
-        {coverUrl ? (
-          <Press scale={0.98} onPress={pickPhoto} label="Change photo" style={{ alignSelf: 'center', marginTop: 10 }}>
-            <Text style={[type(13, 800), { color: c.primary }]}>Change photo</Text>
+        <View style={{ flexDirection: 'row', justifyContent: 'center', gap: 18, marginTop: 10 }}>
+          {coverUrl ? (
+            <Press scale={0.98} onPress={pickPhoto} label="Change photo"><Text style={[type(13, 800), { color: c.primary }]}>Change photo</Text></Press>
+          ) : null}
+          <Press scale={0.98} onPress={() => router.push('/hub/record-video')} label="Record a video">
+            <Text style={[type(13, 800), { color: c.primary }]}>{coverUrl ? 'Record a video instead' : 'Record a video'}</Text>
           </Press>
-        ) : null}
-        <Text style={[type(12, 600), { color: c.muted, marginTop: 10 }]}>Short video is coming soon — for now share a photo.</Text>
+        </View>
 
         <KField label="Caption"><KInput value={caption} onChange={setCaption} placeholder="Layering tonight's trays 🔥 fresh out at 5:30" multiline /></KField>
         <KField label="Tag">

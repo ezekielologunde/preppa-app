@@ -1,28 +1,70 @@
-import React, { useCallback, useState } from 'react';
-import { View, Text, FlatList, ActivityIndicator } from 'react-native';
+import React, { useCallback, useRef, useState } from 'react';
+import { View, Text, FlatList, ActivityIndicator, RefreshControl } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { useRouter, Redirect, useFocusEffect } from 'expo-router';
-import { LinearGradient } from 'expo-linear-gradient';
+import { Redirect, useFocusEffect, useRouter } from 'expo-router';
 import { FLAGS } from '../../src/config/flags';
-import { money } from '../../src/data/data';
-import { type, radius } from '../../src/theme/theme';
+import { type, shadow, radius } from '../../src/theme/theme';
 import { useStore } from '../../src/store/store';
-import { Icon, Press, GradBox } from '../../src/ui';
-import { shareAndNotify, SITE } from '../../src/lib/share';
-import { fetchFeed, togglePostLike, initialOf, FeedPost } from '../../src/lib/feed';
+import { Icon, Press } from '../../src/ui';
+import { fetchFeed, FeedPost } from '../../src/lib/feed';
+import { FeedReel } from '../../src/components/FeedReel';
+import { fetchLiveNow, type LiveStreamRow } from '../../src/lib/livestream';
+import { Sheet } from '../../src/ui/overlay';
 
 export default function Feeds() {
+  const insets = useSafeAreaInsets();
+  const router = useRouter();
+  const { prepperStatus } = useStore();
   const [h, setH] = useState(0);
   const [items, setItems] = useState<FeedPost[]>([]);
+  const [cursor, setCursor] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
+  const [loadingMore, setLoadingMore] = useState(false);
+  const [refreshing, setRefreshing] = useState(false);
+  const [tab, setTab] = useState<'all' | 'following'>('all');
+  const [activeId, setActiveId] = useState<string | null>(null);
+  const [liveNow, setLiveNow] = useState<LiveStreamRow[]>([]);
+  const [liveSheet, setLiveSheet] = useState(false);
+  const viewabilityConfig = useRef({ itemVisiblePercentThreshold: 90 }).current;
+  const onViewableItemsChanged = useRef(({ viewableItems }: any) => {
+    if (viewableItems.length > 0) setActiveId(viewableItems[0].item.id);
+  }).current;
   // Guard the route so a stale-cached direct URL can't render it when the flag is off.
   if (!FLAGS.feed) return <Redirect href="/(tabs)/home" />;
 
+  const following = tab === 'following';
+
   useFocusEffect(useCallback(() => {
     let alive = true;
-    fetchFeed().then((f) => { if (alive) { setItems(f); setLoading(false); } });
-    return () => { alive = false; };
-  }, []));
+    fetchFeed({ following }).then((r) => { if (alive) { setItems(r.posts); setCursor(r.nextCursor); setActiveId(r.posts[0]?.id ?? null); setLoading(false); } });
+    fetchLiveNow().then((l) => { if (alive) setLiveNow(l); }).catch(() => {});
+    return () => { alive = false; setActiveId(null); }; // pause any playing video when the tab loses focus
+  }, [following]));
+
+  const onRefresh = useCallback(async () => {
+    setRefreshing(true);
+    try { const r = await fetchFeed({ following }); setItems(r.posts); setCursor(r.nextCursor); setActiveId(r.posts[0]?.id ?? null); }
+    finally { setRefreshing(false); }
+  }, [following]);
+
+  const loadMore = useCallback(async () => {
+    if (loadingMore || !cursor) return;
+    setLoadingMore(true);
+    try {
+      const r = await fetchFeed({ cursor, following });
+      setItems((prev) => [...prev, ...r.posts]);
+      setCursor(r.nextCursor);
+    } finally { setLoadingMore(false); }
+  }, [cursor, loadingMore, following]);
+
+  // Switching tabs clears the list and shows the loader; the focus effect (dep: following) refetches.
+  const selectTab = useCallback((t: 'all' | 'following') => {
+    setTab((cur) => {
+      if (cur === t) return cur;
+      setLoading(true); setItems([]); setCursor(null); setActiveId(null);
+      return t;
+    });
+  }, []);
 
   return (
     <View style={{ flex: 1, backgroundColor: '#000' }} onLayout={(e) => setH(e.nativeEvent.layout.height)}>
@@ -30,17 +72,24 @@ export default function Feeds() {
         <View style={{ flex: 1, alignItems: 'center', justifyContent: 'center' }}><ActivityIndicator color="#fff" /></View>
       ) : items.length === 0 ? (
         <View style={{ flex: 1, alignItems: 'center', justifyContent: 'center', padding: 40 }}>
-          <Icon name="video" size={40} color="rgba(255,255,255,.5)" />
-          <Text style={[type(16, 900), { color: '#fff', marginTop: 14 }]}>No posts yet</Text>
+          <Icon name={following ? 'users' : 'video'} size={40} color="rgba(255,255,255,.5)" />
+          <Text style={[type(16, 900), { color: '#fff', marginTop: 14 }]}>{following ? 'Nothing here yet' : 'No posts yet'}</Text>
           <Text style={[type(13, 500), { color: 'rgba(255,255,255,.6)', textAlign: 'center', marginTop: 6, lineHeight: 19 }]}>
-            When cooks share their kitchen, their posts show up here.
+            {following ? 'Follow kitchens and their latest posts show up here.' : 'When cooks share their kitchen, their posts show up here.'}
           </Text>
+          {following ? (
+            <Press scale={0.96} onPress={() => selectTab('all')} label="See all posts" style={{ marginTop: 16 }}>
+              <View style={{ height: 38, paddingHorizontal: 18, borderRadius: radius.pill, backgroundColor: '#F26B1D', alignItems: 'center', justifyContent: 'center' }}>
+                <Text style={[type(13, 800), { color: '#fff' }]}>See all posts</Text>
+              </View>
+            </Press>
+          ) : null}
         </View>
       ) : h > 0 ? (
         <FlatList
           data={items}
           keyExtractor={(f) => f.id}
-          renderItem={({ item }) => <Reel f={item} height={h} />}
+          renderItem={({ item }) => <FeedReel f={item} height={h} isActive={item.id === activeId} />}
           pagingEnabled
           decelerationRate="fast"
           showsVerticalScrollIndicator={false}
@@ -48,92 +97,63 @@ export default function Feeds() {
           initialNumToRender={1}
           windowSize={3}
           maxToRenderPerBatch={2}
+          viewabilityConfig={viewabilityConfig}
+          onViewableItemsChanged={onViewableItemsChanged}
+          onEndReached={loadMore}
+          onEndReachedThreshold={0.5}
+          refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor="#fff" />}
+          ListFooterComponent={loadingMore ? <ActivityIndicator style={{ marginVertical: 16 }} color="#fff" /> : null}
         />
       ) : null}
-    </View>
-  );
-}
 
-const Reel = React.memo(function Reel({ f, height }: { f: FeedPost; height: number }) {
-  const insets = useSafeAreaInsets();
-  const router = useRouter();
-  const { toast } = useStore();
-  const [liked, setLiked] = useState(f.liked);
-  const [likes, setLikes] = useState(f.likeCount);
-  const [saved, setSaved] = useState(false);
-
-  const onLike = async () => {
-    const next = !liked;
-    setLiked(next); setLikes((n) => n + (next ? 1 : -1)); // optimistic
-    try { const real = await togglePostLike(f.id); if (real !== next) { setLiked(real); setLikes((n) => n + (real ? 1 : -1) - (next ? 1 : -1)); } }
-    catch { setLiked(!next); setLikes((n) => n + (next ? -1 : 1)); toast('Sign in to like posts', 'info'); }
-  };
-
-  return (
-    <View style={{ height, width: '100%' }}>
-      <GradBox grad={f.grad} img={f.coverUrl} style={{ ...StyleAbs }} />
-      <LinearGradient colors={['rgba(0,0,0,.35)', 'transparent', 'rgba(0,0,0,.72)']} locations={[0, 0.4, 1]} style={StyleAbs} />
-
-      {/* top */}
-      <View style={{ position: 'absolute', top: insets.top + 10, left: 16, right: 16, flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }}>
-        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6, height: 28, paddingHorizontal: 11, borderRadius: radius.pill, backgroundColor: 'rgba(0,0,0,.4)' }}>
-          <Text style={[type(11, 900), { color: '#fff' }]}>{f.tag ? f.tag.toUpperCase() : 'REEL'}</Text>
-        </View>
-        <Text style={[type(17, 900), { color: '#fff' }]}>Feed</Text>
-      </View>
-
-      {/* right rail */}
-      <View style={{ position: 'absolute', right: 12, bottom: 40, alignItems: 'center', gap: 20 }}>
-        <RailBtn icon={liked ? 'heartFill' : 'heart'} label={likes > 0 ? String(likes) : 'Like'} active={liked} onPress={onLike} />
-        <RailBtn icon="share" label="Share" onPress={() => shareAndNotify(toast, f.mealId ? { title: f.mealName ?? 'A dish on Preppa', url: `${SITE}/meal/${f.mealId}` } : { title: `${f.kitchenName} on Preppa`, url: `${SITE}/store/${f.kitchenId}` })} />
-        <RailBtn icon={saved ? 'bookmarkFill' : 'bookmark'} label={saved ? 'Saved' : 'Save'} active={saved} onPress={() => { setSaved((v) => !v); toast(saved ? 'Removed from saved' : 'Saved to your list', 'bookmark', !saved); }} />
-      </View>
-
-      {/* bottom */}
-      <View style={{ position: 'absolute', left: 16, right: 74, bottom: 24 }}>
-        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 9 }}>
-          <Press scale={0.9} onPress={() => router.push(`/store/${f.kitchenId}`)}>
-            <GradBox grad={f.grad} img={f.kitchenAvatarUrl ?? undefined} style={{ width: 40, height: 40, borderRadius: 13, borderWidth: 1.5, borderColor: '#fff', alignItems: 'center', justifyContent: 'center' }}>
-              {f.kitchenAvatarUrl ? null : <Text style={[type(15, 900), { color: '#fff' }]}>{initialOf(f.kitchenName)}</Text>}
-            </GradBox>
-          </Press>
-          <View style={{ flex: 1, flexDirection: 'row', alignItems: 'center', gap: 5 }}>
-            <Text style={[type(15, 900), { color: '#fff' }]}>{f.kitchenName}</Text>
-            <Icon name="shield" size={14} color="#fff" />
-          </View>
-        </View>
-        {f.caption ? <Text style={[type(13.5, 500), { color: '#fff', marginTop: 11, lineHeight: 19 }]}>{f.caption}</Text> : null}
-        {f.mealId ? (
-          <Press scale={0.98} onPress={() => router.push(`/meal/${f.mealId}`)} style={{ marginTop: 14 }}>
-            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 11, padding: 8, paddingLeft: 12, borderRadius: radius.lg, backgroundColor: 'rgba(255,255,255,.14)', borderWidth: 1, borderColor: 'rgba(255,255,255,.22)' }}>
-              <GradBox grad={f.grad} img={f.mealImageUrl ?? undefined} style={{ width: 42, height: 42, borderRadius: 11 }} />
-              <View style={{ flex: 1 }}>
-                <Text numberOfLines={1} style={[type(13, 800), { color: '#fff' }]}>{f.mealName}</Text>
-                <Text style={[type(12, 700), { color: 'rgba(255,255,255,.85)' }]}>by {f.kitchenName}{f.mealPriceCents != null ? ` · ${money(f.mealPriceCents / 100)}` : ''}</Text>
-              </View>
-              <View style={{ height: 38, paddingHorizontal: 16, borderRadius: radius.pill, backgroundColor: '#F26B1D', flexDirection: 'row', alignItems: 'center', gap: 6 }}>
-                <Icon name="cart" size={15} color="#fff" />
-                <Text style={[type(13.5, 800), { color: '#fff' }]}>Order</Text>
-              </View>
+      {/* All / Following segmented control — centered up top, clear of the reel's tag (left) and
+          "Feed" title (right). Defaults to All so an empty-following viewer still sees content. */}
+      <View style={{ position: 'absolute', top: insets.top + 8, alignSelf: 'center', flexDirection: 'row', backgroundColor: 'rgba(0,0,0,.42)', borderRadius: radius.pill, padding: 3 }}>
+        {(['all', 'following'] as const).map((t) => (
+          <Press key={t} scale={0.95} onPress={() => selectTab(t)} label={t === 'all' ? 'All posts' : 'Following'}>
+            <View style={{ paddingHorizontal: 16, height: 30, borderRadius: radius.pill, alignItems: 'center', justifyContent: 'center', backgroundColor: tab === t ? '#fff' : 'transparent' }}>
+              <Text style={[type(12.5, 800), { color: tab === t ? '#111' : '#fff' }]}>{t === 'all' ? 'All' : 'Following'}</Text>
             </View>
           </Press>
-        ) : null}
+        ))}
       </View>
+
+      {/* Approved preppers get a compose entry to the existing post flow.
+          Placed top-left below the per-reel tag pill so it clears the reel's title + mute controls. */}
+      {prepperStatus === 'approved' ? (
+        <Press scale={0.9} onPress={() => router.push('/hub/post-reel')} label="Post to the feed"
+          style={{ position: 'absolute', top: insets.top + 48, left: 14 }}>
+          <View style={{ height: 40, paddingHorizontal: 14, borderRadius: 20, backgroundColor: '#F26B1D', flexDirection: 'row', alignItems: 'center', gap: 7, ...shadow.brand }}>
+            <Icon name="plus" size={18} color="#fff" />
+            <Text style={[type(13.5, 800), { color: '#fff' }]}>Post</Text>
+          </View>
+        </Press>
+      ) : null}
+
+      {liveNow.length > 0 ? (
+        <Press scale={0.9} onPress={() => (liveNow.length === 1 ? router.push(`/store/${liveNow[0].kitchenId}/live`) : setLiveSheet(true))} label="Live now"
+          style={{ position: 'absolute', top: insets.top + 8, right: 14 }}>
+          <View style={{ height: 30, paddingHorizontal: 12, borderRadius: radius.pill, backgroundColor: '#E11D48', flexDirection: 'row', alignItems: 'center', gap: 6 }}>
+            <View style={{ width: 6, height: 6, borderRadius: 3, backgroundColor: '#fff' }} />
+            <Text style={[type(12, 800), { color: '#fff' }]}>Live{liveNow.length > 1 ? ` (${liveNow.length})` : ''}</Text>
+          </View>
+        </Press>
+      ) : null}
+
+      <Sheet visible={liveSheet} onClose={() => setLiveSheet(false)} title="Live now" scroll>
+        {liveNow.map((l) => (
+          <Press key={l.id} scale={0.98} onPress={() => { setLiveSheet(false); router.push(`/store/${l.kitchenId}/live`); }} style={{ marginBottom: 10 }}>
+            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 12, padding: 12, borderRadius: radius.lg, backgroundColor: 'rgba(0,0,0,.04)' }}>
+              <View style={{ width: 8, height: 8, borderRadius: 4, backgroundColor: '#E11D48' }} />
+              <View style={{ flex: 1 }}>
+                <Text style={[type(14.5, 800)]}>{l.kitchenName}</Text>
+                {l.title ? <Text style={[type(12, 600), { color: '#666', marginTop: 2 }]}>{l.title}</Text> : null}
+              </View>
+              <Icon name="chevRight" size={16} color="#999" />
+            </View>
+          </Press>
+        ))}
+      </Sheet>
     </View>
   );
-});
-
-function RailBtn({ icon, label, active, onPress }: { icon: string; label: string; active?: boolean; onPress: () => void }) {
-  return (
-    <Press scale={0.85} onPress={onPress}>
-      <View style={{ alignItems: 'center', gap: 5 }}>
-        <View style={{ width: 46, height: 46, borderRadius: 23, backgroundColor: active ? '#F26B1D' : 'rgba(0,0,0,.32)', alignItems: 'center', justifyContent: 'center' }}>
-          <Icon name={icon} size={24} color="#fff" />
-        </View>
-        <Text style={[type(11, 800), { color: '#fff' }]}>{label}</Text>
-      </View>
-    </Press>
-  );
 }
-
-const StyleAbs = { position: 'absolute' as const, top: 0, left: 0, right: 0, bottom: 0 };

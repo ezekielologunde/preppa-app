@@ -16,7 +16,9 @@ import { NotFound } from '../../src/components/NotFound';
 import { shareAndNotify, SITE } from '../../src/lib/share';
 import { FLAGS } from '../../src/config/flags';
 import { openThread } from '../../src/lib/messages';
+import { toggleFollow, fetchIsFollowing } from '../../src/lib/feed';
 import { fetchExperiencesForKitchen, type Experience } from '../../src/lib/experiences';
+import { fetchKitchenLivestream } from '../../src/lib/livestream';
 
 const _WD = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
 const _MO = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
@@ -51,6 +53,30 @@ function StoreExperiences({ kitchenId }: { kitchenId?: string }) {
   );
 }
 
+/** Banner shown only while a kitchen is actually broadcasting — silent otherwise. */
+function StoreLiveBanner({ kitchenId, cookParam }: { kitchenId?: string; cookParam: string }) {
+  const c = useC();
+  const router = useRouter();
+  const [live, setLive] = React.useState(false);
+  React.useEffect(() => {
+    if (!kitchenId) return;
+    fetchKitchenLivestream(kitchenId).then((s) => setLive(s?.status === 'live')).catch(() => {});
+  }, [kitchenId]);
+  if (!live) return null;
+  return (
+    <Press scale={0.985} onPress={() => router.push(`/store/${cookParam}/live`)} style={{ marginHorizontal: 16, marginTop: 14 }}>
+      <View style={{ flexDirection: 'row', alignItems: 'center', gap: 14, backgroundColor: '#E11D48', borderRadius: radius.xl, padding: 16 }}>
+        <View style={{ width: 8, height: 8, borderRadius: 4, backgroundColor: '#fff' }} />
+        <View style={{ flex: 1 }}>
+          <Text style={[type(15, 900), { color: '#fff' }]}>Live now</Text>
+          <Text style={[type(12, 600), { color: 'rgba(255,255,255,.85)', marginTop: 2 }]}>Tap to watch</Text>
+        </View>
+        <Icon name="chevRight" size={18} color="#fff" />
+      </View>
+    </Press>
+  );
+}
+
 /** Square "message" button — pre-sale DM to a kitchen from its storefront. */
 function MsgBtn({ onPress }: { onPress: () => void }) {
   const c = useC();
@@ -78,6 +104,13 @@ export default function CookStoreScreen() {
   const { data: kitchenRevs } = useKitchenReviews(isSeed ? KITCHEN_ID[cook as CookId] : cook);
   const { data: profile, loading: profLoading } = useKitchenProfile(isSeed ? undefined : cook);
 
+  // Hydrate real follow-state for the seed kitchens (KITCHEN_ID maps a seed id → its real UUID).
+  // Placed before the early return so hook order stays stable.
+  React.useEffect(() => {
+    if (!isSeed) return;
+    fetchIsFollowing(KITCHEN_ID[cook as CookId]).then(setFollowing).catch(() => {});
+  }, [cook, isSeed]);
+
   // Real (non-seed) verified kitchen — render from live data.
   if (!isSeed) {
     if (profLoading) return <Screen><View style={{ flex: 1, alignItems: 'center', justifyContent: 'center' }}><ActivityIndicator color={c.primary} /></View></Screen>;
@@ -92,9 +125,14 @@ export default function CookStoreScreen() {
   const plans = MARKET_PLANS.filter((p) => p.cook === id);
   const firstName = cd.name.replace(/^Chef\s+/, '').split(' ')[0];
 
-  const follow = () => {
-    setFollowing((f) => !f);
-    toast(following ? `Unfollowed ${cd.name}` : `Following ${cd.name} — you’ll see their drops first`, following ? 'x' : 'check', !following);
+  const follow = async () => {
+    const next = !following;
+    setFollowing(next); // optimistic
+    try {
+      const real = await toggleFollow(KITCHEN_ID[id]);
+      setFollowing(real);
+      toast(real ? `Following ${cd.name} — you’ll see their posts first` : `Unfollowed ${cd.name}`, real ? 'check' : 'x', real);
+    } catch { setFollowing(!next); toast('Sign in to follow kitchens', 'info'); }
   };
   const openChat = async () => {
     try { const tid = await openThread(KITCHEN_ID[id], 'store'); router.push(`/messages/${tid}`); }
@@ -191,6 +229,23 @@ export default function CookStoreScreen() {
 
         <StoreExperiences kitchenId={KITCHEN_ID[id]} />
 
+        <StoreLiveBanner kitchenId={KITCHEN_ID[id]} cookParam={id} />
+
+        {FLAGS.feed ? (
+          <Press scale={0.985} onPress={() => router.push(`/store/${id}/feed`)} style={{ marginHorizontal: 16, marginTop: 14 }}>
+            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 14, backgroundColor: c.surface, borderWidth: 1, borderColor: c.border2, borderRadius: radius.xl, padding: 16 }}>
+              <View style={{ width: 46, height: 46, borderRadius: 14, backgroundColor: c.primary, alignItems: 'center', justifyContent: 'center', ...shadow.brand }}>
+                <Icon name="video" size={22} color="#fff" />
+              </View>
+              <View style={{ flex: 1 }}>
+                <Text style={[type(15, 900), { color: c.ink, letterSpacing: -0.3 }]}>See {cd.name}'s posts</Text>
+                <Text style={[type(12, 600), { color: c.soft, marginTop: 3 }]}>Behind-the-scenes from the kitchen</Text>
+              </View>
+              <Icon name="chevRight" size={18} color={c.muted} />
+            </View>
+          </Press>
+        ) : null}
+
         <SectionHeader title="Reviews" right={revCount > 0 ? <Text style={[type(13, 800), { color: c.primary }]}>See all {revCount}</Text> : undefined} />
         <ReviewsBlock kitchenId={KITCHEN_ID[id]} />
 
@@ -221,6 +276,16 @@ function RealKitchenStore({ profile, meals, mealsLoading, revCount, revAvg, inse
   const router = useRouter();
   const { toast } = useStore();
   const [following, setFollowing] = useState(false);
+  React.useEffect(() => { fetchIsFollowing(profile.id).then(setFollowing).catch(() => {}); }, [profile.id]);
+  const onFollow = async () => {
+    const next = !following;
+    setFollowing(next); // optimistic
+    try {
+      const real = await toggleFollow(profile.id);
+      setFollowing(real);
+      toast(real ? `Following ${profile.name}` : `Unfollowed ${profile.name}`, real ? 'check' : 'x', real);
+    } catch { setFollowing(!next); toast('Sign in to follow kitchens', 'info'); }
+  };
   const initial = profile.name.trim()[0]?.toUpperCase() ?? 'K';
   const sub = [profile.cuisine, profile.area].filter(Boolean).join(' · ');
   return (
@@ -269,7 +334,7 @@ function RealKitchenStore({ profile, meals, mealsLoading, revCount, revAvg, inse
           <View style={{ flexDirection: 'row', gap: 10, marginTop: 14 }}>
             <View style={{ flex: 1 }}>
               <Btn label={following ? 'Following' : 'Follow'} icon={following ? 'check' : 'plus'} variant={following ? 'ghost' : 'pri'} block height={46}
-                onPress={() => { setFollowing((f) => !f); toast(following ? `Unfollowed ${profile.name}` : `Following ${profile.name}`, following ? 'x' : 'check', !following); }} />
+                onPress={onFollow} />
             </View>
             {FLAGS.chat ? (
               <MsgBtn onPress={async () => {
@@ -294,6 +359,23 @@ function RealKitchenStore({ profile, meals, mealsLoading, revCount, revAvg, inse
         )}
 
         <StoreExperiences kitchenId={profile.id} />
+
+        <StoreLiveBanner kitchenId={profile.id} cookParam={profile.id} />
+
+        {FLAGS.feed ? (
+          <Press scale={0.985} onPress={() => router.push(`/store/${profile.id}/feed`)} style={{ marginHorizontal: 16, marginTop: 14 }}>
+            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 14, backgroundColor: c.surface, borderWidth: 1, borderColor: c.border2, borderRadius: radius.xl, padding: 16 }}>
+              <View style={{ width: 46, height: 46, borderRadius: 14, backgroundColor: c.primary, alignItems: 'center', justifyContent: 'center', ...shadow.brand }}>
+                <Icon name="video" size={22} color="#fff" />
+              </View>
+              <View style={{ flex: 1 }}>
+                <Text style={[type(15, 900), { color: c.ink, letterSpacing: -0.3 }]}>See {profile.name}'s posts</Text>
+                <Text style={[type(12, 600), { color: c.soft, marginTop: 3 }]}>Behind-the-scenes from the kitchen</Text>
+              </View>
+              <Icon name="chevRight" size={18} color={c.muted} />
+            </View>
+          </Press>
+        ) : null}
 
         <SectionHeader title="Reviews" right={revCount > 0 ? <Text style={[type(13, 800), { color: c.primary }]}>See all {revCount}</Text> : undefined} />
         <ReviewsBlock kitchenId={profile.id} />

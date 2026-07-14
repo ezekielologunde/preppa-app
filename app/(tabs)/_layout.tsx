@@ -11,10 +11,11 @@ import { FLAGS } from '../../src/config/flags';
 const TABS: Record<string, { ico: string; lbl: string }> = {
   home: { ico: 'home', lbl: 'Home' },
   experiences: { ico: 'spark', lbl: 'Experiences' },
-  orders: { ico: 'bag', lbl: 'Orders' },
+  feeds: { ico: 'video', lbl: 'Feed' },
   'my-hub': { ico: 'chefhat', lbl: 'My Hub' },
   profile: { ico: 'user', lbl: 'Profile' },
-  // discover/feeds are reachable routes (from Home), not tab-bar entries.
+  // discover and orders are reachable routes (from Home / Profile → "Your orders"),
+  // not mobile tab-bar entries — the minimal mobile set is Home/Experiences/Feed/Profile.
 };
 
 function BottomNav({ state, navigation }: any) {

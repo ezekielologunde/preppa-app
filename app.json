@@ -13,7 +13,8 @@
       "buildNumber": "1",
       "supportsTablet": true,
       "infoPlist": {
-        "NSCameraUsageDescription": "Preppa uses the camera to scan the QR code at cash-on-delivery handoff and to add photos of your dishes.",
+        "NSCameraUsageDescription": "Preppa uses the camera to scan the QR code at cash-on-delivery handoff, to add photos of your dishes, and to record video posts.",
+        "NSMicrophoneUsageDescription": "Preppa uses the microphone to record audio for your video posts.",
         "NSLocationWhenInUseUsageDescription": "Preppa uses your location to show cooks and meals near you and to set your delivery address.",
         "NSPhotoLibraryUsageDescription": "Preppa lets cooks attach photos of their dishes from your photo library."
       }
@@ -43,7 +44,16 @@
           "resizeMode": "contain"
         }
       ],
-      "expo-image"
+      "expo-image",
+      "expo-video",
+      [
+        "expo-camera",
+        {
+          "cameraPermission": "Preppa uses the camera to record video posts and to scan QR codes at handoff.",
+          "microphonePermission": "Preppa uses the microphone to record audio for your video posts.",
+          "recordAudioAndroid": true
+        }
+      ]
     ]
   }
 }
