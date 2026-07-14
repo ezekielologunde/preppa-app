@@ -29,7 +29,7 @@ const input = z.object({
   eventDate: z.string().min(8).max(10).optional(),
   eventTime: z.string().max(8).optional(),
   address: z.string().max(300).optional(),
-  lat: z.number().optional(), lng: z.number().optional(),
+  lat: z.number().min(-90).max(90).finite().optional(), lng: z.number().min(-180).max(180).finite().optional(),
   approxArea: z.string().max(120).optional(),
   guests: z.number().int().min(1).max(1000).optional(),
   budgetCents: z.number().int().min(0).max(100000000).optional(),
@@ -50,6 +50,9 @@ Deno.serve(async (req) => {
     const parsed = input.safeParse(await req.json());
     if (!parsed.success) return json(400, { error: 'invalid input', issues: parsed.error.issues });
     const p = parsed.data;
+    if (p.answers && JSON.stringify(p.answers).length > 10_000) {
+      return json(400, { error: 'Your answers are too long. Please shorten them.' });
+    }
 
     const { data: cur } = await db.from('service_requests')
       .select('id, customer_id, status, category, lat, lng').eq('id', p.requestId).maybeSingle();

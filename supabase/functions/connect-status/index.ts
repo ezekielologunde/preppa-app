@@ -50,7 +50,7 @@ Deno.serve(async (req) => {
       .eq('kitchen_id', kitchenId);
 
     return json(200, { onboarded: details_submitted, chargesEnabled: charges_enabled, payoutsEnabled: payouts_enabled, detailsSubmitted: details_submitted });
-  } catch (e) {
-    return json(500, { error: (e as any)?.message || 'Could not check payout status.' });
+  } catch (_e) {
+    return json(500, { error: 'Could not check payout status. Please try again.' });
   }
 });

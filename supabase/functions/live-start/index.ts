@@ -20,6 +20,11 @@ function muxAuthHeader(): string {
   return 'Basic ' + btoa(`${id}:${secret}`);
 }
 
+// Real server-side kill switch, independent of the client-only FLAGS.live gate (which a
+// rebuilt/patched client could simply ignore). Fails closed: unset/missing = disabled, matching
+// the client's current FLAGS.live=false default. Flip via the LIVE_ENABLED Edge Function secret.
+const LIVE_ENABLED = Deno.env.get('LIVE_ENABLED') === 'true';
+
 // Start a live stream for the caller's verified kitchen: creates a real Mux Live Stream
 // (auto-recorded to VOD via new_asset_settings), stores the stream key service-role-only
 // (never client-readable again), and returns the RTMP ingest URL + stream key ONCE.
@@ -27,6 +32,8 @@ Deno.serve(async (req) => {
   if (req.method === 'OPTIONS') return new Response('ok', { headers: corsHeaders });
   if (req.method !== 'POST') return json(405, { error: 'method not allowed' });
   try {
+    if (!LIVE_ENABLED) return json(403, { error: 'Livestreaming is not enabled yet.' });
+
     const db = admin();
     const jwt = (req.headers.get('Authorization') ?? '').replace('Bearer ', '');
     const { data: userData } = await db.auth.getUser(jwt);
@@ -78,7 +85,7 @@ Deno.serve(async (req) => {
       streamKey,
       playbackId,
     });
-  } catch (e) {
-    return json(500, { error: (e as any)?.message || 'Could not start your live stream. Please try again.' });
+  } catch (_e) {
+    return json(500, { error: 'Could not start your live stream. Please try again.' });
   }
 });

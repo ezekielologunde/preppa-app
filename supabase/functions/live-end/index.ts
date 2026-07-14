@@ -51,7 +51,7 @@ Deno.serve(async (req) => {
     }
 
     return json(200, { ok: true });
-  } catch (e) {
-    return json(500, { error: (e as any)?.message || 'Could not end the stream.' });
+  } catch (_e) {
+    return json(500, { error: 'Could not end the stream. Please try again.' });
   }
 });

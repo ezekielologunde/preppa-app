@@ -34,7 +34,7 @@ const input = z.object({
   photoUrls: z.array(z.string().max(600)).max(8).optional(),
   locationType: z.enum(['prepper_place', 'customer_place', 'venue', 'virtual']).optional(),
   addressText: z.string().max(300).optional(),
-  meetingUrl: z.string().max(600).optional(),
+  meetingUrl: z.string().url().max(600).optional(),
   durationMin: z.number().int().min(15).max(1440).optional(),
   minGuests: z.number().int().min(1).max(200).optional(),
   maxGuests: z.number().int().min(1).max(200).optional(),
