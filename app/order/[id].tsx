@@ -1,6 +1,6 @@
-import React, { useState } from 'react';
+import React, { useCallback, useState } from 'react';
 import { View, Text, ScrollView, TextInput } from 'react-native';
-import { useLocalSearchParams, useRouter } from 'expo-router';
+import { useLocalSearchParams, useRouter, useFocusEffect } from 'expo-router';
 import { COOKS, money } from '../../src/data/data';
 import { useC } from '../../src/theme/ThemeContext';
 import { type, radius, shadow } from '../../src/theme/theme';
@@ -18,8 +18,10 @@ export default function OrderDetail() {
   const c = useC();
   const router = useRouter();
   const { id } = useLocalSearchParams<{ id: string }>();
-  const { orders, reorder, toast } = useStore();
+  const { orders, reorder, toast, refreshOrderStatus } = useStore();
   const o = orders.find((x) => x.id === id);
+
+  useFocusEffect(useCallback(() => { if (id) refreshOrderStatus(id); }, [id, refreshOrderStatus]));
 
   if (!o) {
     return (

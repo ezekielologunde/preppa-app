@@ -6,6 +6,7 @@ import { type, radius } from '../src/theme/theme';
 import { useStore } from '../src/store/store';
 import { Press, Btn, Icon } from '../src/ui';
 import { Screen, TopBar, Dock, Block } from '../src/ui/layout';
+import { Sheet } from '../src/ui/overlay';
 import { Burst } from '../src/components/shared';
 import {
   createServiceRequest, editServiceRequest, fetchServiceRequest,
@@ -97,6 +98,8 @@ export default function ServiceRequestScreen() {
   const [address, setAddress] = useState('');
   const [budget, setBudget] = useState('');
   const [notes, setNotes] = useState('');
+  const [dateSheet, setDateSheet] = useState(false);
+  const [timeSheet, setTimeSheet] = useState(false);
   const [busy, setBusy] = useState(false);
   const [done, setDone] = useState<{ targets: number; edited: boolean } | null>(null);
 
@@ -127,7 +130,7 @@ export default function ServiceRequestScreen() {
 
   const submit = async () => {
     if (busy) return;
-    if (!dateValid) { setStage('details'); toast('Enter the date as YYYY-MM-DD', 'info'); return; }
+    if (!dateValid) { setStage('details'); toast('Choose a date', 'info'); return; }
     setBusy(true);
     const body = {
       category, eventDate: eventDate.trim(),
@@ -233,10 +236,10 @@ export default function ServiceRequestScreen() {
         {stage === 'details' ? (
           <Block title={isPlan ? 'When & where' : 'When & where'}>
             <View style={{ gap: 14 }}>
-              <Field c={c} label={isPlan ? 'Start date (YYYY-MM-DD)' : 'Date (YYYY-MM-DD)'}><Input c={c} value={eventDate} onChange={setEventDate} placeholder="2026-08-15" /></Field>
+              <Field c={c} label={isPlan ? 'Start date' : 'Date'}><PickerButton c={c} icon="calendar" placeholder="Choose a date" value={eventDate ? formatDatePretty(eventDate) : ''} onPress={() => setDateSheet(true)} /></Field>
               {isPlan ? null : (
                 <View style={{ flexDirection: 'row', gap: 12 }}>
-                  <View style={{ flex: 1 }}><Field c={c} label="Time (optional)"><Input c={c} value={eventTime} onChange={setEventTime} placeholder="18:30" /></Field></View>
+                  <View style={{ flex: 1 }}><Field c={c} label="Time (optional)"><PickerButton c={c} icon="clock" placeholder="Any time" value={eventTime ? formatTimePretty(eventTime) : ''} onPress={() => setTimeSheet(true)} /></Field></View>
                   <View style={{ flex: 1 }}><Field c={c} label="Guests"><Input c={c} value={guests} onChange={setGuests} placeholder="6" keyboardType="number-pad" /></Field></View>
                 </View>
               )}
@@ -252,7 +255,7 @@ export default function ServiceRequestScreen() {
             <Block title="Review">
               <Row c={c} k="Service" v={SERVICE_LABELS[category]} />
               {qs.map((q) => { const t = answerText(answers[q.key]); return t ? <Row key={q.key} c={c} k={q.label.replace(/\?$/, '')} v={t} /> : null; })}
-              <Row c={c} k="Date" v={eventDate + (eventTime ? ` · ${eventTime}` : '')} />
+              <Row c={c} k="Date" v={formatDatePretty(eventDate) + (eventTime ? ` · ${formatTimePretty(eventTime)}` : '')} />
               {guests ? <Row c={c} k="Guests" v={guests} /> : null}
               {budget ? <Row c={c} k="Budget" v={`$${budget}`} /> : null}
               {notes.trim() ? <Row c={c} k="Notes" v={notes.trim()} /> : null}
@@ -276,7 +279,138 @@ export default function ServiceRequestScreen() {
           <Btn label={busy ? (editing ? 'Saving…' : 'Posting…') : editing ? 'Save changes' : isPlan ? 'Request plans' : 'Get quotes'} icon="send" block loading={busy} onPress={submit} />
         )}
       </Dock>
+
+      <CalendarSheet visible={dateSheet} onClose={() => setDateSheet(false)} value={eventDate} onSelect={setEventDate} />
+      <TimeSheet visible={timeSheet} onClose={() => setTimeSheet(false)} value={eventTime} onSelect={setEventTime} />
     </Screen>
+  );
+}
+
+// ---- date/time helpers (stored as 'YYYY-MM-DD' / 24h 'HH:MM' — same shape the API already expects) ----
+function pad2(n: number) { return String(n).padStart(2, '0'); }
+function toISODate(y: number, m: number, d: number) { return `${y}-${pad2(m + 1)}-${pad2(d)}`; }
+function parseISODate(s: string): { y: number; m: number; d: number } | null {
+  const mm = /^(\d{4})-(\d{2})-(\d{2})$/.exec(s.trim());
+  if (!mm) return null;
+  return { y: +mm[1], m: +mm[2] - 1, d: +mm[3] };
+}
+function formatDatePretty(s: string): string {
+  const p = parseISODate(s);
+  if (!p) return '';
+  return new Date(p.y, p.m, p.d).toLocaleDateString(undefined, { weekday: 'short', month: 'short', day: 'numeric', year: 'numeric' });
+}
+function formatTimePretty(hhmm: string): string {
+  const mm = /^(\d{2}):(\d{2})$/.exec(hhmm.trim());
+  if (!mm) return '';
+  let h = +mm[1];
+  const ap = h >= 12 ? 'PM' : 'AM';
+  h = h % 12 || 12;
+  return `${h}:${mm[2]} ${ap}`;
+}
+const MONTH_NAMES = ['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December'];
+const DOW = ['S', 'M', 'T', 'W', 'T', 'F', 'S'];
+const TIME_SLOTS: string[] = (() => {
+  const out: string[] = [];
+  for (let h = 7; h <= 22; h++) { out.push(`${pad2(h)}:00`); if (h < 22) out.push(`${pad2(h)}:30`); }
+  return out;
+})();
+
+/** Button that looks like the text inputs on this screen but opens a picker sheet instead of a keyboard. */
+function PickerButton({ c, icon, value, placeholder, onPress }: { c: any; icon: string; value: string; placeholder: string; onPress: () => void }) {
+  return (
+    <Press scale={0.98} onPress={onPress}>
+      <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10, height: 52, paddingHorizontal: 15, backgroundColor: c.bg2, borderWidth: 1.5, borderColor: c.border, borderRadius: radius.md }}>
+        <Icon name={icon} size={17} color={value ? c.ink2 : c.muted} />
+        <Text style={[type(15.5, 600), { color: value ? c.ink : c.muted, flex: 1 }]}>{value || placeholder}</Text>
+        <Icon name="chevDown" size={14} color={c.muted} />
+      </View>
+    </Press>
+  );
+}
+
+/** Calendar-grid date picker. Disables days before today — an event can't be scheduled in the past. */
+function CalendarSheet({ visible, onClose, value, onSelect }: { visible: boolean; onClose: () => void; value: string; onSelect: (iso: string) => void }) {
+  const c = useC();
+  const today = new Date();
+  const min = { y: today.getFullYear(), m: today.getMonth(), d: today.getDate() };
+  const [viewY, setViewY] = useState(min.y);
+  const [viewM, setViewM] = useState(min.m);
+
+  useEffect(() => {
+    if (!visible) return;
+    const p = parseISODate(value) ?? min;
+    setViewY(p.y); setViewM(p.m);
+  }, [visible]);
+
+  const selected = parseISODate(value);
+  const isBeforeMin = (y: number, m: number, d: number) => y < min.y || (y === min.y && m < min.m) || (y === min.y && m === min.m && d < min.d);
+  const canGoPrev = viewY > min.y || viewM > min.m;
+  const goPrev = () => { if (!canGoPrev) return; if (viewM === 0) { setViewY(viewY - 1); setViewM(11); } else setViewM(viewM - 1); };
+  const goNext = () => { if (viewM === 11) { setViewY(viewY + 1); setViewM(0); } else setViewM(viewM + 1); };
+
+  const dim = new Date(viewY, viewM + 1, 0).getDate();
+  const lead = new Date(viewY, viewM, 1).getDay();
+  const cells: (number | null)[] = [...Array(lead).fill(null), ...Array.from({ length: dim }, (_, i) => i + 1)];
+
+  return (
+    <Sheet visible={visible} onClose={onClose} title="Select a date">
+      <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: 4, marginBottom: 14 }}>
+        <Press label="Previous month" disabled={!canGoPrev} onPress={goPrev} hitSlop={8}>
+          <Icon name="chevLeft" size={20} color={canGoPrev ? c.ink : c.border} />
+        </Press>
+        <Text style={[type(15, 900), { color: c.ink }]}>{MONTH_NAMES[viewM]} {viewY}</Text>
+        <Press label="Next month" onPress={goNext} hitSlop={8}>
+          <Icon name="chevRight" size={20} color={c.ink} />
+        </Press>
+      </View>
+      <View style={{ flexDirection: 'row' }}>
+        {DOW.map((d, i) => (
+          <Text key={i} style={[type(11.5, 800), { color: c.muted, flex: 1, textAlign: 'center' }]}>{d}</Text>
+        ))}
+      </View>
+      <View style={{ flexDirection: 'row', flexWrap: 'wrap', marginTop: 4 }}>
+        {cells.map((d, i) => {
+          if (d === null) return <View key={i} style={{ width: `${100 / 7}%`, aspectRatio: 1 }} />;
+          const disabled = isBeforeMin(viewY, viewM, d);
+          const isSel = !!selected && selected.y === viewY && selected.m === viewM && selected.d === d;
+          return (
+            <Press key={i} disabled={disabled} label={`${MONTH_NAMES[viewM]} ${d}`} selected={isSel}
+              onPress={() => { onSelect(toISODate(viewY, viewM, d)); onClose(); }}
+              style={{ width: `${100 / 7}%`, aspectRatio: 1, alignItems: 'center', justifyContent: 'center' }}>
+              <View style={{ width: 36, height: 36, borderRadius: 18, alignItems: 'center', justifyContent: 'center', backgroundColor: isSel ? c.primary : 'transparent' }}>
+                <Text style={[type(14, isSel ? 900 : 600), { color: disabled ? c.muted : isSel ? '#fff' : c.ink }]}>{d}</Text>
+              </View>
+            </Press>
+          );
+        })}
+      </View>
+    </Sheet>
+  );
+}
+
+/** 30-minute time-slot picker. */
+function TimeSheet({ visible, onClose, value, onSelect }: { visible: boolean; onClose: () => void; value: string; onSelect: (hhmm: string) => void }) {
+  const c = useC();
+  return (
+    <Sheet visible={visible} onClose={onClose} title="Select a time" scroll>
+      <Press scale={0.98} onPress={() => { onSelect(''); onClose(); }}>
+        <View style={{ height: 46, borderRadius: radius.md, backgroundColor: !value ? c.primaryL : c.bg2, borderWidth: 1, borderColor: !value ? c.primary : c.border, alignItems: 'center', justifyContent: 'center', marginBottom: 10 }}>
+          <Text style={[type(13.5, 800), { color: !value ? c.primaryD : c.soft }]}>Flexible / any time</Text>
+        </View>
+      </Press>
+      <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 8 }}>
+        {TIME_SLOTS.map((t) => {
+          const on = t === value;
+          return (
+            <Press key={t} scale={0.96} onPress={() => { onSelect(t); onClose(); }} style={{ width: '31%' }}>
+              <View style={{ height: 44, borderRadius: radius.md, backgroundColor: on ? c.primary : c.bg2, borderWidth: 1, borderColor: on ? c.primary : c.border, alignItems: 'center', justifyContent: 'center' }}>
+                <Text style={[type(13, 800), { color: on ? '#fff' : c.ink }]}>{formatTimePretty(t)}</Text>
+              </View>
+            </Press>
+          );
+        })}
+      </View>
+    </Sheet>
   );
 }
 

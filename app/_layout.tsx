@@ -17,6 +17,7 @@ import { SplashOverlay } from '../src/components/Splash';
 import { OnboardingFlow } from '../src/components/Onboarding';
 import { SideRail } from '../src/components/SideRail';
 import { ErrorBoundary } from '../src/components/ErrorBoundary';
+import { ApprovalWelcomeOverlay } from '../src/components/ApprovalWelcomeOverlay';
 
 SplashScreen.preventAutoHideAsync().catch(() => {});
 
@@ -79,6 +80,7 @@ function AppShell() {
       <ToastHost />
       <CartFlash />
       {ready && !onboarded ? <OnboardingFlow /> : null}
+      {ready && onboarded ? <ApprovalWelcomeOverlay /> : null}
       {showSplash ? <SplashOverlay /> : null}
     </View>
   );

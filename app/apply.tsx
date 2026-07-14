@@ -164,6 +164,7 @@ export default function Apply() {
       if (!prep) return 'Please confirm clean prep & handling.';
       if (meals && fridgePhotos.length < 1) return 'Add at least one refrigeration photo.';
       if (meals && kitchenPhotos.length < 1) return 'Add at least one kitchen/stove photo.';
+      if (cert.trim().length < 3) return 'A food-handler certificate number is required.';
     }
     if (key === 'agreement' && !agree) return 'Please read and agree to the Cook Agreement.';
     return null;
@@ -187,6 +188,10 @@ export default function Apply() {
       setErr('Add at least one refrigeration photo and one kitchen/stove photo.');
       return;
     }
+    if (cert.trim().length < 3) {
+      setErr('A food-handler certificate number is required.');
+      return;
+    }
     setBusy(true); setErr(null);
     try {
       const kitchenId = await submitApplication({
@@ -201,10 +206,10 @@ export default function Apply() {
         experience: homeChef ? experience.trim() : undefined,
         // allergen disclosure is now accepted as part of the Cook Agreement (`agree`)
         foodSafety: {
-          refrigeration: meals ? fridge : true, foodPrep: prep, allergens: agree, note: cert.trim() || undefined,
+          refrigeration: meals ? fridge : true, foodPrep: prep, allergens: agree, note: cert.trim(),
           docs: { fridge: fridgePhotos.map((p) => p.path), kitchen: kitchenPhotos.map((p) => p.path) },
         },
-        foodHandlerCert: cert.trim() || undefined,
+        foodHandlerCert: cert.trim(),
         story: story.trim(),
         agreementVersion: COOK_AGREEMENT_VERSION,
       });
@@ -307,7 +312,7 @@ export default function Apply() {
                 <PhotoUploader label="Kitchen / stove area" hint="Your cooking area, stove and prep surfaces." group="kitchen" photos={kitchenPhotos} onChange={setKitchenPhotos} min={1} />
               </>
             ) : null}
-            <Field c={c} label="Food-handler certificate # (optional)" value={cert} onChange={setCert} placeholder="If you have one" autoCapitalize="characters" />
+            <Field c={c} label="Food-handler certificate #" value={cert} onChange={setCert} placeholder="e.g. FH-2026-118293" autoCapitalize="characters" />
             <Press scale={0.98} onPress={() => Linking.openURL(FOOD_CERT_URL).catch(() => toast('Couldn’t open the link', 'info'))}>
               <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10, padding: 13, borderRadius: radius.md, backgroundColor: c.primaryL, borderWidth: 1, borderColor: c.primary }}>
                 <Icon name="shield" size={18} color={c.primary} />
@@ -343,6 +348,7 @@ export default function Apply() {
               <Row c={c} k="What you cook" v={story} onEdit={() => goStep('kitchen')} />
               {homeChef ? <Row c={c} k="Travels" v={serviceArea ? `Within ${serviceArea}` : ''} onEdit={() => goStep('homechef')} /> : null}
               <Row c={c} k="Food safety" v={`${meals ? 'Refrigeration · ' : ''}Prep ✓`} onEdit={() => goStep('foodsafety')} />
+              <Row c={c} k="Food-handler cert #" v={cert} onEdit={() => goStep('foodsafety')} />
               <Row c={c} k="Agreement" v={agree ? 'Accepted ✓' : 'Not yet'} onEdit={() => goStep('agreement')} />
             </View>
             {meals ? (

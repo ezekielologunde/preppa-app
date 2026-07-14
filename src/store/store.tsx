@@ -1,4 +1,5 @@
 import React, { createContext, useContext, useState, useEffect, useCallback, useRef, useMemo } from 'react';
+import { AppState } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import {
   GradKey, CookId, Subscription, ServiceRequest, SEED_REQUESTS, genQuotes,
@@ -9,10 +10,12 @@ import { computeTotals } from '../data/totals';
 import {
   signOutUser, fetchAccountState, submitPrepperApplication, updateDisplayName,
   fetchNotifications, markNotificationRead, markAllNotificationsRead, setKitchenGeo,
+  ackApprovalNotice as ackApprovalNoticeApi,
   type ApplicationFields, type AppNotification,
 } from '../lib/supabase';
 import { supabase } from '../lib/supabase';
 import { threadUnreadCount, subscribeMyNotifications } from '../lib/messages';
+import { fetchOrderStatus } from '../lib/orders';
 import { setViewerCoords } from '../data/supabaseRepository';
 import { geocodeAddress, type LatLng } from '../lib/geo';
 export type { ApplicationFields };
@@ -118,6 +121,9 @@ interface Store {
   isAdmin: boolean; // server-derived (profiles.role='admin'); cosmetic gating only
   isPrepPlus: boolean; // PrepPlus member — cosmetic; fee waivers enforced server-side. Never cached.
   prepplusUntil: string | null; // current membership period end (ISO), for display
+  payoutsEnabled: boolean; // real Stripe Connect readiness; publish/paid-orders are server-gated on this
+  approvalNoticePending: boolean; // one-time "you're approved" welcome not yet acknowledged
+  ackApprovalNotice: () => Promise<void>;
   submitApplication: (f: ApplicationFields) => Promise<string>;
   isMine: (cook: CookId) => boolean; // true only for an approved prepper viewing their own listing
 
@@ -128,6 +134,7 @@ interface Store {
   placeOrder: (flow: OrderFlow, cook?: CookId, dbId?: string) => void;
   orders: CustomerOrder[];
   reorder: (id: string) => void;
+  refreshOrderStatus: (id: string) => void;
 
   subscription: Subscription | null;
   subscribe: (s: Subscription) => void;
@@ -193,6 +200,8 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
   const [firstName, setFirstName] = useState('');
   const [fav, setFav] = useState<Set<string>>(new Set());
   const [prepperStatus, setPrepperStatus] = useState<PrepperStatus>('none');
+  const [payoutsEnabled, setPayoutsEnabled] = useState(false);
+  const [approvalNoticePending, setApprovalNoticePending] = useState(false);
   const [isPrepPlus, setIsPrepPlus] = useState(false);
   const [prepplusUntil, setPrepplusUntil] = useState<string | null>(null);
   const [isAdmin, setIsAdmin] = useState(false);
@@ -277,6 +286,8 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
       // out, fetchAccountState returns 'none', so a stale cached role can never keep
       // My Hub visible to a guest/customer on a browser a prepper once used.
       setPrepperStatus(s.prepperStatus);
+      setPayoutsEnabled(s.payoutsEnabled);
+      setApprovalNoticePending(s.approvalNoticePending);
       // PrepPlus entitlement, same never-cached discipline as prepperStatus.
       setIsPrepPlus(s.isPrepPlus);
       setPrepplusUntil(s.prepplusUntil);
@@ -320,6 +331,22 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
     });
     return () => sub.subscription.unsubscribe();
   }, [ready, reconcileAccount]);
+
+  // Re-check approval/payout status when the app returns to the foreground — otherwise an
+  // approval that happened while the app was merely backgrounded (not a fresh sign-in) would
+  // never surface the welcome overlay until the next cold start.
+  useEffect(() => {
+    if (!ready) return;
+    const sub = AppState.addEventListener('change', (state) => {
+      if (state === 'active') reconcileAccount();
+    });
+    return () => sub.remove();
+  }, [ready, reconcileAccount]);
+
+  const ackApprovalNotice = useCallback(async () => {
+    setApprovalNoticePending(false); // optimistic — never re-shown even if the RPC is slow/offline
+    try { await ackApprovalNoticeApi(); } catch { /* best-effort; harmless if it re-appears once */ }
+  }, []);
 
   // Live in-app updates over Supabase Realtime, keyed on the signed-in user. New rows on the
   // per-user notifications channel light the bell AND refresh the messaging badge without a
@@ -448,6 +475,19 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
     lines.forEach((l) => addToCart({ key: l.key, name: l.name, cook: l.cook, price: l.price, grad: l.grad }, l.qty));
     toast(`Added to cart · ${lines.length} item${lines.length !== 1 ? 's' : ''}`, 'cart', true);
   }, [orders, addToCart, toast, isMine]);
+  // Pulls the real fulfillment status for a real (dbId-backed) order and patches it into local state.
+  const refreshOrderStatus = useCallback((id: string) => {
+    const o = orders.find((x) => x.id === id);
+    if (!o?.dbId || o.status === 'completed') return;
+    fetchOrderStatus(o.dbId).then((row) => {
+      if (!row) return;
+      const next: CustomerOrder['status'] | null =
+        row.status === 'ready' ? 'ready' : row.status === 'completed' ? 'completed'
+        : row.status === 'preparing' || row.status === 'confirmed' || row.status === 'pending' ? 'preparing'
+        : null; // cancelled or unrecognized: leave display as-is
+      if (next && next !== o.status) setOrders((os) => os.map((x) => (x.id === id ? { ...x, status: next } : x)));
+    }).catch(() => {});
+  }, [orders]);
 
   const resetOnboarding = useCallback(() => setOnboardedState(false), []);
   const logout = useCallback(() => { signOutUser(); setPrepperStatus('none'); setIsAdmin(false); setIsPrepPlus(false); setPrepplusUntil(null); setOnboardedState(false); }, []);
@@ -568,6 +608,9 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
     selectAddress,
     removeAddress,
     prepperStatus,
+    payoutsEnabled,
+    approvalNoticePending,
+    ackApprovalNotice,
     role,
     submitApplication,
     isAdmin,
@@ -580,6 +623,7 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
     placeOrder,
     orders,
     reorder,
+    refreshOrderStatus,
     subscription,
     subscribe,
     updateSub,

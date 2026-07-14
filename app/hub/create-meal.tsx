@@ -17,7 +17,7 @@ const DIETS = ['Vegetarian', 'Gluten-free', 'Halal', 'Dairy-free', 'Nut-free'];
 export default function CreateMealFlow() {
   const c = useC();
   const router = useRouter();
-  const { toast } = useStore();
+  const { toast, payoutsEnabled } = useStore();
   const [grad, setGrad] = useState<GradKey | null>(null);
   const [name, setName] = useState('');
   const [desc, setDesc] = useState('');
@@ -55,7 +55,18 @@ export default function CreateMealFlow() {
   if (done) {
     return (
       <Screen bg={c.surface}>
-        <Burst title="Meal published" body={`${name} is now live on your menu — customers near you can order it right away.`} actionLabel="Done" onAction={() => router.back()} />
+        {payoutsEnabled ? (
+          <Burst title="Meal published" body={`${name} is now live on your menu — customers near you can order it right away.`} actionLabel="Done" onAction={() => router.back()} />
+        ) : (
+          <Burst
+            title="Saved as a draft"
+            body={`${name} is saved to your menu but won't be visible to customers yet. Complete payout setup to publish it and start accepting paid orders.`}
+            actionLabel="Set up payouts"
+            onAction={() => router.replace('/hub/money')}
+            secondaryLabel="Done for now"
+            onSecondary={() => router.back()}
+          />
+        )}
       </Screen>
     );
   }
