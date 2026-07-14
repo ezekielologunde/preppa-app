@@ -38,10 +38,12 @@ Deno.serve(async (req) => {
     const { requestId, amountCents, depositCents, note } = parsed.data;
     if (depositCents > amountCents) return json(400, { error: 'Deposit cannot exceed the total.' });
 
-    // The caller must own a kitchen that this request was routed to.
+    // The caller must own a VERIFIED kitchen that this request was routed to. The
+    // verification_status check closes a security-review finding: a suspended kitchen
+    // could otherwise still submit new paid-service quotes.
     const { data: target } = await db.from('service_request_targets')
-      .select('kitchen_id, kitchens!inner(owner_id)')
-      .eq('request_id', requestId).eq('kitchens.owner_id', uid).limit(1).maybeSingle();
+      .select('kitchen_id, kitchens!inner(owner_id, verification_status)')
+      .eq('request_id', requestId).eq('kitchens.owner_id', uid).eq('kitchens.verification_status', 'verified').limit(1).maybeSingle();
     if (!target) return json(403, { error: 'This request was not sent to your kitchen.' });
     const kitchenId = (target as any).kitchen_id;
 
