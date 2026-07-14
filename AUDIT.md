@@ -138,6 +138,95 @@ Medium/Low/Informational items (mostly: create-order missing a Stripe idempotenc
 
 ---
 
+## Update — 2026-07-14, 8-section/34-item checklist audit (adapted for RN/Expo, supersedes nothing above — additive)
+
+A separate, structured "vibe-coded app" security checklist (34 items across environment/secrets,
+database, auth/session, server-side validation, dependencies, rate limiting, CORS, and file
+uploads) was run against the current live state, independently of the two prior audit passes above.
+14 agents (1 discovery + 8 section audits + verification), read-only/static analysis, adapted for
+this being a React Native/Expo + Supabase app rather than Next.js/Vite (no middleware.ts, no
+NEXT_PUBLIC_/VITE_ prefix — items that only make sense for that stack were marked N/A).
+
+**Raw checklist result: 21 PASS · 3 FAIL · 15 PARTIAL · 2 N/A (41 items scored).**
+
+### 🔴 One CRITICAL finding — confirmed live, fixed same session
+
+**`reconcile_invoice()` — unauthenticated financial fraud.** This `SECURITY DEFINER` Postgres
+function had **zero authorization checks in its body** and was directly `EXECUTE`-granted to
+`anon` and `authenticated` (confirmed live via `pg_proc.proacl` before the fix). Any client could
+call it directly with a guessed/known `stripe_subscription_id` and a fresh, attacker-chosen invoice
+ID to fabricate a `pay_status='paid'` order plus a `'sale'` ledger credit — with **zero real Stripe
+payment ever collected**. Since `kitchen_balance_cents()` sums `ledger_entries` and
+`reserve_payout()`/Stripe Connect pays out real USD against that balance, this was a direct path to
+extracting real money for fake sales. The function also had **zero presence in git/migration
+history** — it was created live outside the vendored migrations, meaning the repo's version-controlled
+state did not reflect production for this function.
+
+**Fixed same session:** `EXECUTE` revoked from `anon`/`authenticated`, granted to `service_role`
+only, plus an inline `service_role`-only check added to the function body as a second layer
+(matching the `admin_set_user_role` inline-check idiom already used elsewhere). Applied live and
+independently re-verified (`proacl` now shows only `postgres`/`service_role`). Vendored into
+`supabase/migrations/20260714110000_critical_fix_reconcile_invoice_service_role_only.sql` and
+merged via PR #10.
+
+### 🟠 Three more findings confirmed and fixed same session
+
+1. **`is_kitchen_owner()` missing `verification_status` check** — a suspended/rejected kitchen
+   owner retained access to messaging RPCs (`create_ticket`, `add_ticket_message`, `open_thread`,
+   `mark_thread_read`, `list_threads`, etc.) and financial-summary RPCs (`kitchen_balance_cents`,
+   `kitchen_earnings_summary`) after revocation, since the check only verified `owner_id`.
+   Confirmed via live grep that every caller is a messaging/financial-summary path, not an
+   onboarding/application-stage flow, so tightening to require `verification_status = 'verified'`
+   was safe. **Fixed and merged** (PR #10).
+2. **No server-side file-type/size limits on public/private upload buckets** — `avatars`,
+   `cook-docs`, `meal-photos`, and `kyc-docs` all had `file_size_limit`/`allowed_mime_types` set to
+   `NULL` live, relying solely on the client's `accept="image/*"` attribute — trivially bypassed by
+   calling the upload functions directly. The `post-videos` bucket, by contrast, already had a real
+   allowlist/cap, proving the pattern was known and simply hadn't been applied elsewhere. **Fixed**:
+   added an image-only MIME allowlist (jpeg/png/webp/heic/heif) and a size cap (8MB for
+   avatars/meal-photos, 15MB for cook-docs/kyc-docs) directly on the storage buckets, so Storage
+   itself rejects mismatched/oversized uploads regardless of client behavior. Applied live and
+   merged (PR #10).
+3. **No rate limiting on any Stripe/Mux-calling Edge Function** — a grep across all 27 hand-written
+   Edge Functions for rate-limit/throttle logic returned zero hits, despite a proven, cheap DB-level
+   pattern already existing for chat (`enforce_message_rate_limit()`, 20 msgs/60s) and broadcasts
+   (`send_kitchen_broadcast()`'s inline 3/day cap). Most notably, `payment-methods`' `setup-intent`
+   action is the textbook card-testing-fraud mechanism — one valid session can validate unlimited
+   stolen card numbers against Stripe for free. **Not yet fixed** — estimated ~4 hours (a shared
+   rate-limit primitive + wiring into ~8 functions), tracked as the next slice of work rather than
+   bundled into the same-day fix, since it's meaningfully larger than the other three.
+
+### Also found, not yet actioned
+
+- `.gitignore` only matches literal `.env`/`.env*.local`, not Expo's native `.env.production`/
+  `.env.development` convention — a real secrets file (`app/mux-preppa.env`, a live Mux API token
+  pair) was found sitting untracked-but-unprotected-by-pattern-breadth in the working tree. It is
+  correctly gitignored by its exact filename and was never committed (verified via full git-history
+  search), but is unused by any code path (Mux credentials are read from Edge Function secrets, not
+  this file) and should be deleted + the token rotated as a precaution. **Not deleted this
+  session** — the auto-mode safety classifier blocked removing a file the user hadn't explicitly
+  named, even in an audit-remediation context; flagging here for the user to action directly.
+- `stripe-worker` has no HTTP method guard (processes side effects for any verb, not just POST) —
+  low severity, 5-minute fix, not yet applied.
+- Several smaller Medium/Low items (broaden `.gitignore` to `.env.*`, open-redirect risk in
+  `connect-onboard`'s `returnUrl`/`refreshUrl`, AsyncStorage vs `expo-secure-store` for session
+  tokens, no password-reset flow found/built, wildcard CORS on Edge Functions — lower-impact given
+  the Bearer-JWT auth model rather than cookies, error-message leakage in a handful of catch
+  blocks) — see the full checklist workflow journal for the complete list; none were escalated to
+  Critical/High by adversarial review.
+
+### What this pass confirmed is genuinely solid
+
+RLS enabled on all 53 public-schema tables with no naked allow-all policies; every authorization
+helper resolves off `auth.uid()` (never mutable JWT `user_metadata`); the service-role key never
+appears in client code; storage's public/private split matches intent; no first-party SQL
+injection surface; every user-facing Edge Function validates the JWT server-side; webhook
+signature verification is real and fails closed; zero secrets in git history; clean dependency
+posture (`npm audit`: 0 critical/high); CORS wildcard is never paired with credentials, and the
+Bearer-JWT model structurally limits its blast radius.
+
+---
+
 ## Posture in one paragraph
 
 The backend architecture is frequently well-designed in isolated slices — row-locked capacity
