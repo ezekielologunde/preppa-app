@@ -1,9 +1,12 @@
 import React, { useEffect, useRef } from 'react';
 import { Animated, Text } from 'react-native';
+import { LinearGradient } from 'expo-linear-gradient';
 import { Icon } from '../ui/Icon';
-import { type, shadow, FILL } from '../theme/theme';
+import { type, shadow, FILL, GRAD } from '../theme/theme';
 
-/** Branded cold-launch splash: flame springs in, wordmark, fades out (~2.1s). */
+/** Branded cold-launch splash: flame springs in on the brand gradient, wordmark,
+ * fades out (~2.1s). Matches the Onboarding welcome step's gradient so there's no
+ * jarring color swap between the two. */
 export function SplashOverlay() {
   const op = useRef(new Animated.Value(0)).current;
   const sc = useRef(new Animated.Value(0.7)).current;
@@ -13,14 +16,13 @@ export function SplashOverlay() {
     Animated.timing(op, { toValue: 0, duration: 520, delay: 1560, useNativeDriver: true }).start();
   }, [op, sc]);
   return (
-    <Animated.View
-      pointerEvents="none"
-      style={[FILL, { backgroundColor: '#0E0E10', alignItems: 'center', justifyContent: 'center', opacity: op }]}
-    >
-      <Animated.View style={{ width: 80, height: 80, borderRadius: 26, backgroundColor: '#F26B1D', alignItems: 'center', justifyContent: 'center', transform: [{ scale: sc }], ...shadow.brand }}>
-        <Icon name="flame" size={42} color="#fff" />
-      </Animated.View>
-      <Text style={[type(32, 900), { color: '#fff', letterSpacing: -1.3, marginTop: 20 }]}>preppa</Text>
+    <Animated.View pointerEvents="none" style={[FILL, { opacity: op }]}>
+      <LinearGradient colors={GRAD.g4 as any} style={[FILL, { alignItems: 'center', justifyContent: 'center' }]}>
+        <Animated.View style={{ width: 84, height: 84, borderRadius: 26, backgroundColor: 'rgba(255,255,255,.18)', borderWidth: 1, borderColor: 'rgba(255,255,255,.3)', alignItems: 'center', justifyContent: 'center', transform: [{ scale: sc }], ...shadow.brand }}>
+          <Icon name="flame" size={42} color="#fff" />
+        </Animated.View>
+        <Text style={[type(32, 900), { color: '#fff', letterSpacing: -1.3, marginTop: 20 }]}>preppa</Text>
+      </LinearGradient>
     </Animated.View>
   );
 }
