@@ -1,219 +1,171 @@
 # PREPPA — Platform Integrity Audit (living report)
 
-Grounded audit of the whole platform: real-vs-mock, integrity, security, performance.
-Produced by an 8-agent audit fleet reading the actual code, database, Stripe (incl. the
-synced `stripe.*` mirror), edge-function logs, and the live sites. **67 findings.**
-Read-only — nothing was fabricated; every finding cites file:line, a query, or a URL.
+Grounded audit of the whole platform: real-vs-mock, integrity, security, orphans, red-team.
+Produced by a 23-agent audit fleet (16 subsystem audits + 6 security red-team categories +
+1 verdict-synthesis pass) reading the actual code and the live Supabase project. Read-only —
+nothing was fabricated; every finding cites file:line, a query, or live row data. Full
+per-subsystem traceability matrix and every red-team attempt: **[AUDIT_FULL.md](./AUDIT_FULL.md)**.
 
-_Last run: after the "buildable-now" deploy (commit `2b86b64`). App project: `fwidhpzwldneeaphrxgg`._
+_Last run: 2026-07-14. App project: `fwidhpzwldneeaphrxgg`. Verdict: **NO GO**._
 
 ---
 
 ## Posture in one paragraph
 
-**The transactional spine is genuinely real and well-built** — email-OTP auth, session
-restoration, server-authoritative roles with a self-escalation guard trigger, real Stripe
-card checkout + tokenized saved cards (Customer + SetupIntent, ownership-checked),
-signature-verified webhooks, RLS on all 18 tables, fully-constrained money columns, zero
-orphan rows, hardened storage. **The marketplace breadth is mostly mock** — the buyer
-catalog, cook profiles, reviews, recommendations, the prep-experience marketplace, meal
-plans, messaging, and livestream are in-memory fixtures, not the DB. The platform is a
-**solid real payment core wrapped in a mock storefront.** The honest path to "everything
-real" is a sequence gated on a first real transaction — not a single sprint.
+The backend architecture is frequently well-designed in isolated slices — row-locked capacity
+reservation, an append-only ledger, `SECURITY DEFINER` RPCs with real server-side re-checks, a
+genuine Stripe Connect payout flow, and a real app-controlled per-cycle subscription billing
+engine (not naive Stripe recurring — independently verified). But this pass found **16 Critical
+and 22 High** feature-level gaps spanning every primary journey, plus the red-team pass
+independently **confirmed 21 exploitable vulnerabilities** (of 49 attempted attacks), several of
+which move real money or expose the platform to unmoderated live production traffic today.
+Most of the previous audit's "mostly mock" framing is now **out of date** — the buyer catalog,
+reviews schema, and subscription engine are genuinely DB-backed — but a new, different set of
+critical gaps has taken its place, concentrated in **prepper-side management screens still wired
+to dead mock fixtures**, **missing concurrency locks on money-moving actions**, and **an
+unflagged livestreaming feature that violates the team's own launch-gating plan**.
 
 **Scorecard**
 
 | Subsystem | Verdict |
 |---|---|
-| Auth (email OTP, session, roles, RLS) | ✅ Real |
-| Stripe checkout + saved cards + webhook | ✅ Real (test mode, **web-only**) |
-| Database integrity (RLS, FKs, constraints) | ✅ Real |
-| Storage (avatars/meal-photos/kyc-docs) | ✅ Real, hardened |
-| Admin console (orders/users/audit/tickets) | ✅ Real |
-| Order → payment reconciliation | ✅ **Real** (trigger flips order→paid + writes ledger) |
-| **Cook payouts (Stripe Connect)** | ⚠️ **Not wired** (cooks can't be paid) |
-| **Native payments** | ⚠️ **Mock** (marks paid, never charges) |
-| Buyer catalog (read path) | ✅ **DB-backed** (Explore/Home/detail/storefront/favorites) |
-| Prep-experience marketplace | 🔲 Mock (no request/bid tables) |
-| Meal plans / subscriptions | 🔲 Mock (no recurring billing) |
-| Messaging / chat | 🔲 Mock (no tables, no realtime) |
-| Livestream / video | 🔲 Mock (no pipeline) |
-| Landing page (preppa.live) | ⚠️ Page good, **waitlist backend dead** |
+| Auth / roles / prepper application lifecycle | ✅ Real, server-authoritative — but only 4 of 8 spec'd lifecycle states exist; no suspend/ban capability |
+| Buyer catalog (read path) | ✅ Real, DB-backed (this reverses the prior audit's "100% mock" finding) |
+| Meal purchase-time integrity (create-order) | ✅ Real — re-validates & re-prices server-side, RLS blocks non-live reads |
+| Meal prepper-side management (edit/pause/archive/photo) | 🔴 **Missing entirely** — no RPC, no DB column, no working UI |
+| Prepper "My Hub" dashboard + "My menu" | 🔴 **Unsafe** — wired to permanently-empty legacy mock fixtures |
+| Meal Plans & Subscriptions (billing engine) | ✅ Real, well-built — but zero live production usage; legacy parallel Stripe-recurring system still deployed & reachable |
+| Experiences (instant booking) | ✅ Real — DB row-locked, oversell-safe |
+| Services / Request-and-Quote (bidding) | 🔴 Real money flow, but **no lock against double-booking on concurrent quote acceptance** (confirmed exploitable) |
+| Orders & fulfillment (web) | ✅ Real Stripe-backed | 
+| Orders — native (iOS/Android) checkout | 🔴 **Full mock** — marks "paid" with no charge, no order row |
+| Order tracking screen | 🔴 Hardcoded fixture data, disconnected from real order status |
+| Cook payouts (Stripe Connect) | 🔴 Wired and real, but **double-spend race** on the payout endpoint (confirmed exploitable) |
+| Reviews | 🔴 UI-only mock submission; correct RLS + schema, 0 real rows |
+| Messaging / chat | ✅ Real 1:1 threads + Realtime — but no rate limit on individual messages |
+| Feed / creator video | ✅ Real posts/likes/follows — but **no moderation gate**, arbitrary external media URLs accepted |
+| Livestreaming | 🔴 **Fully shipped, unflagged**, violating the team's own pre-launch gate; webhook fails **open** with no signing secret |
+| Admin control plane | ⚠️ Covers ~6 of ~24 required areas; **no suspend/ban, no refund/dispute view, no plans/subscriptions/quotes visibility** |
+| Kitchen capacity / vacation mode | 🔴 Vacation toggle never persists to DB; **the platform's only 2 real kitchens are stuck permanently unorderable** right now |
+| Tests / CI | 🔴 **Zero automated tests, zero CI/CD**, anywhere in the repo |
+| Source control of backend | 🔴 **All 31 live Edge Functions + ~108 SQL migrations exist only in the remote Supabase project** — no git history for any of them |
 
 ---
 
-## 🔴 Critical
+## 🔴 Critical (16)
 
-1. **Google OAuth client secret was pasted in chat — rotate it.** Not in the codebase
-   (leak vector is the transcript), but a disclosed OAuth secret lets an attacker
-   impersonate the app's Google identity in the token exchange. **Action (yours):** reset
-   it in Google Cloud → update in Supabase → invalidate the old. Stays critical until done.
+1. **connect-payout has no lock/idempotency key** on the Stripe Transfer call — any onboarded
+   prepper can double/multi-submit cash-out and extract more real money than their ledger
+   balance allows. **Confirmed exploitable.**
+2. **accept-quote-and-deposit has no row/advisory lock** — two different quotes on the same
+   service_request can both be accepted, paid, and confirmed, producing two paid bookings with
+   two cooks for one event. **Confirmed exploitable.**
+3. **Livestreaming (Mux) is fully live in production with no `FLAGS.live` gate**, directly
+   violating the team's own written pre-launch plan. Go-live/viewer screens are reachable by any
+   approved prepper with zero moderation, suspension-propagation, or kill switch.
+4. **mux-webhook fails OPEN** — if `MUX_WEBHOOK_SECRET` is unset it accepts and processes
+   unsigned events (can forge stream-state transitions / fabricate published VOD posts).
+5. **create_post accepts arbitrary externally-hosted media URLs** with no domain allowlist, and
+   Preppa's own storage objects are overwritable in place post-publish (bait-and-switch on
+   already-moderated/visible media).
+6. **Native (iOS/Android) checkout is a full UI mock** — marks orders "paid" client-side with no
+   Stripe call and no DB row. Zero revenue integrity on any native build.
+7. **No `update_meal`/`pause_meal`/`archive_meal` capability exists anywhere** (app or DB) — a
+   published meal can never be edited, paused, marked sold-out, or removed by its prepper.
+8. **Prepper "My Hub" dashboard and "My menu" are wired to permanently-empty legacy mock
+   fixtures** (`ORDERS`/`BALANCE`/`MY_MEALS` all zeroed) despite real order/ledger/meal data
+   existing one layer down.
+9. **Meal-order review submission is a UI-only mock** (fake toast, no DB write) despite a
+   correct, ready RLS policy and `reviews` table — 0 rows in production.
+10. **No user suspension/ban capability exists anywhere** (schema, RPC, or UI) — admin cannot
+    disable a bad-actor account short of manual DB surgery.
+11. **Kitchen "vacation mode" never persists to the database** (local-state-only), and kitchen
+    approval never sets `availability='open'` — **the platform's only 2 real prepper kitchens
+    are stuck permanently paused/unorderable in production right now.**
+12. **`app/track.tsx` (order tracking) is entirely hardcoded fixture data** (fake order id/ETA/
+    status) even though real order-status plumbing exists and is used correctly one screen away.
+13. **Zero automated tests exist anywhere in the repo** — no test runner configured for any of
+    31 live Edge Functions, ~108 migrations, or app logic.
+14. **No CI/CD pipeline exists** — 98 commits have landed on `main` with no automated
+    type-check, lint, or test gate.
+15. **All 31 live Supabase Edge Functions (including every payment-moving function) exist only
+    in the remote project with zero source control** — unrecoverable, unreviewable, undiffable.
+16. *(Carried context, not re-verified this pass)* Google OAuth client secret exposure from a
+    prior session — confirm rotation completed if not already done.
 
-## 🟠 High
+## 🟠 High (selected — full list of 22 in AUDIT_FULL.md)
 
-2. ✅ **FIXED — payment success now reconciles into app order state.** A `SECURITY DEFINER`
-   trigger (`reconcile_paid_pi` on `stripe.payment_intents`) fires when the sync engine
-   records a PI as `succeeded`, maps `metadata.order_id` back to the app, and flips
-   `orders.pay_status→'paid'` + `status→'confirmed'` + `payment_intents.status→'succeeded'`,
-   then writes the cook's `ledger_entries` credits (sale = subtotal, tip = 100%; the 10%
-   service fee is buyer-paid platform revenue, not credited to the kitchen). Idempotent and
-   exception-wrapped so it can never break Stripe sync. **Verified end-to-end:** all 7
-   historical orders backfilled to `paid` with correct ledger; a fresh probe order
-   auto-settled within seconds (paid/confirmed/ledger-credited) with no manual step. The
-   payout basis (`kitchen_balance_cents` = Σ ledger) is now real. _(Migration:
-   `reconcile_stripe_payment_to_order`.)_
+- Payout-gating (`kitchen_payouts_enabled`) is **missing entirely for subscription-plan
+  activation and for accepting a paid service quote** — unlike meals, which are gated twice.
+- **No suspend/deactivate capability for an already-verified kitchen**, despite the Cook
+  Agreement promising Preppa can pause/suspend/remove a kitchen at any time.
+- **Rejected/pending prepper applicants retain full ownership-based access to ~10 of 12
+  Prepper-only RPCs** because `is_kitchen_owner()` never checks `verification_status` —
+  rejection does not revoke capability. **Confirmed exploitable.**
+- A **legacy, fully-deployed parallel Stripe-native subscription system**
+  (`create-subscription`/`manage-subscription`) remains reachable by any authenticated user;
+  currently inert only by data-layer coincidence (`plans.stripe_price_id` never populated).
+- Admin has **zero visibility into plans/subscriptions, service-requests/quotes/bookings,
+  refunds, or disputes** — only 6 of ~24 target admin capability areas exist.
+- **`hub/subscribers.tsx`** (prep-rollup / subscriber roster / broadcast) is fully real and
+  DB-backed but has **zero navigation entry point** anywhere in the app.
+- Vacation-mode/availability is enforced only for single-order checkout — **not** for
+  subscription-cycle billing, plan/box signups, or experience bookings.
+- Meal photo upload at creation is fully fake (fixed gradient placeholders) — no
+  prepper-created meal has a real photo.
+- Individual 1:1 chat messages have **no rate limit** (unlike broadcasts) — inbox-flooding is
+  possible.
+- Refund paths (`cancel-booking`, `cancel-experience-booking`, `cancel-experience-session`) have
+  **no idempotency key or row lock** on the Stripe refund call — double-refund race.
 
-3. **Cook payouts are not wired.** `connect-onboard` / `connect-payout` edge functions are
-   deployed and real, but **no client code ever calls them** (`app/hub/payout.tsx` is a
-   hardcoded "Chase •••• 4242" mock; `stripe_accounts`/`payouts` = 0 rows). Cooks currently
-   cannot receive money. **Fix:** wire a cook onboarding + cash-out flow, or label payouts
-   as not-yet-functional.
+## Confirmed-exploitable red-team findings (21 of 49 attempts)
 
-4. **Native (iOS/Android) checkout is a mock that "completes" with no charge.** The real
-   Stripe path is gated on `Platform.OS==='web'`; the native branch calls
-   `placeOrder('paid')` with **no order row and no charge** (`checkout.tsx:103`). **Fix:**
-   integrate `@stripe/stripe-react-native` PaymentSheet, or block checkout on native.
+Six categories tested (identity/roles, marketplace abuse, payments, media/livestream, messaging/
+notifications, admin). 21 confirmed vulnerable, 24 not vulnerable, 4 inconclusive. The highest-
+severity confirmed items are the payout double-spend, the quote double-booking, the Mux webhook
+fail-open/forgery, and the arbitrary-media-URL substitution — all listed above. Full attack-by-
+attack detail (including the 24 *not*-vulnerable checks, which document real, working defenses
+worth preserving) is in **AUDIT_FULL.md**.
 
-5. **The buyer catalog is 100% in-memory mock, not the DB.** Every buyer screen imports
-   `MEALS`/`COOKS` from `src/data/data.ts` (8 hardcoded meals, 6 cooks, TheMealDB stock
-   photos). The real `meals` table (9 live rows, mirroring the mock) and `kitchens` (7) are
-   **never queried by any buyer screen**; the repository seam is bypassed (only admin uses
-   it). A DB edit (new meal, price change, sold-out) can never reach buyers. Ratings,
-   reviews, distance, verified badges, PrepScore, and "matches your taste" are all
-   fabricated constants. **Fix:** point buyer screens at the repository/DB before anything
-   else marketplace-related — this is the root of most "mock" findings.
+## Verdict: NO GO
 
-6. ✅ **FIXED — test-customer credential removed + neutralized.** `TEST_EMAIL`/`TEST_PW`
-   deleted from `supabase.ts`; `ensureAuth()` now returns the real session or throws
-   `AUTH_REQUIRED` (no shared-account fallback — safe because the onboarding gate can't
-   complete without a real OTP/Google session, so `onboarded ⟹ session`). Checkout catches
-   `AUTH_REQUIRED` and re-shows the sign-in gate. The already-leaked password (it shipped in
-   prior public bundles) was **rotated server-side** — verified the old value now returns
-   `400 invalid`. The account is kept (it owns the 7 test orders) but is inert to the app.
+Per the governing rule, GO is disallowed while any Critical/High finding is open or any primary
+journey is incomplete — both are true here by a wide margin. This was an **audit-only pass**;
+nothing above has been fixed yet.
 
-7. **preppa.live waitlist is silently broken.** The homepage's only CTA POSTs to
-   `nfwfnnfbikjxwflpmsnu.supabase.co/rest/v1/waitlist` — a **dead/paused project that
-   doesn't resolve in DNS** (the *same* ghost project you pointed the Google client at).
-   Signups are being captured **nowhere** (the catch shows "Network error"). `og:image`
-   also points at that dead host, so shared-link previews are broken. **Fix (landing repo):**
-   repoint the form to the live project (`fwidhpzwldneeaphrxgg`) with a `waitlist` table +
-   anon-insert RLS, or unpause the intended project; then test one real signup.
+### Recommended next slice (stop-the-bleeding, before any new feature work)
 
-## 🟡 Medium
+1. Add `FLAGS.live=false` and gate go-live / the "Live now" rail / the viewer screen behind it;
+   fix `mux-webhook` to fail **closed** (400) whenever `MUX_WEBHOOK_SECRET` is unset.
+2. Fix `connect-payout`'s double-spend race: wrap balance-read + Stripe transfer + ledger-insert
+   in a `pg_advisory_xact_lock` and pass a Stripe idempotency key (mirrors the pattern already
+   used in `reconcile_paid_pi`'s box-cycle lock).
+3. Fix `accept-quote-and-deposit`'s double-booking race the same way (advisory lock keyed on
+   `request_id`, or a partial unique index on `bookings(request_id)` for active statuses).
+4. Manually flip the 2 live real prepper kitchens to `availability='open'`, then ship the
+   vacation-mode toggle's DB write and default new approvals to `open` in `approve_kitchen`.
 
-8. **COD is a client-only mock** — `create-order` explicitly rejects `method:'cod'`, yet
-   the UI offers a full COD flow that only writes local state (no order row).
-9. ✅ **FIXED — reviews & ratings are now honest.** `ReviewsBlock` reads the real `reviews`
-   table (`useKitchenReviews`) and shows a "No reviews yet" empty state; the fabricated
-   `STORE_REVIEWS` testimonials are gone. Every rating display (storefront header, meal
-   cards, cook rail, meal detail) shows **"New"** because there are zero real reviews — no
-   invented 5★ numbers. Ratings populate for real as buyers review completed orders.
-10. **Recommendations / feed / PrepScore / "Today's drop" are hardcoded** — no engine, no
-    user signal. They imply personalization/quality scoring that doesn't exist.
-11. **Prep-experience marketplace is a timer-faked mock** — no `experience_requests`/
-    `experience_bids` tables; `genQuotes` returns 2 deterministic quotes after an 8s
-    `setTimeout`; customers can't title a request or set a free budget. *(This is the
-    highest-value breadth system to make real — it's core two-sided liquidity.)*
-12. **Messaging is a seeded mock** — no `conversations`/`messages` tables, **zero client
-    realtime subscriptions**, and orders don't auto-create a thread.
-13. **9 foreign-key columns lacked covering indexes.** ✅ **Fixed this pass** (migration
-    `audit_fk_indexes_and_hygiene`).
-14. **Financial ledger unexercised** — `ledger_entries`/`payouts`/`cod_handoffs` are
-    schema-ready but never written; no code demonstrably populates the ledger (ties to #2).
-15. **Web bundle is a single ~2.09 MB (533 KB gzip) chunk** — Expo `web.output:"single"`,
-    no route splitting; all ~48 screens load up front. Fine at 0 users; top perf lever later.
-16. **Catalog images hotlink TheMealDB** — no CDN/resize/format control; fragile + not
-    brand-safe for launch.
-17. **Google OAuth is web-only and unproven** — 0 google identities exist (no login has
-    completed); native has no `expo-auth-session` handler.
-18. **No footer links to Privacy/Terms + no dedicated account-deletion page** on preppa.live
-    — the pages exist but are unreachable/guess-only; app stores require both.
+Second slice (follow-on): native checkout, meal edit/pause/archive + real photo upload, wiring
+My Hub/My-menu off the dead mock fixtures, and real order-review submission.
 
-## 🟢 Low / hygiene
+## Incomplete primary journeys (all 7)
 
-- ~18 RLS policies call `auth.uid()` un-wrapped (per-row re-eval) — wrap as `(select auth.uid())` at scale.
-- Paired permissive SELECT policies on kitchens/meals/tickets — optional consolidation.
-- `tickets.order_id` is NOT NULL — can't file a non-order support ticket.
-- `kitchen_private` empty despite 7 kitchens — verify prepper-approval writes compliance fields there.
-- Leaked-password protection disabled (deferred; flows are passwordless anyway).
-- Bleeding-edge deps (Expo 57 / RN 0.86 / React 19) with `legacy-peer-deps=true` — more upgrade risk than an LTS stack.
-- `handle_new_user` provisions **profiles only** (there is no `preferences` table) — correct the "auto-creates preferences" expectation.
-- Admin SECURITY DEFINER RPCs are anon-executable per the advisor but **is_admin()-gated** (not leaks); `handle_new_user`/`rls_auto_enable` EXECUTE ✅ **revoked from anon this pass**.
+Customer meal order, prepper onboarding→payout, subscription lifecycle, service-request/quote
+lifecycle, feed-commerce, livestream, and admin all have at least one open Critical/High gap that
+breaks the journey end-to-end for some real user path. Detail in AUDIT_FULL.md.
 
-## ✅ Confirmed real (don't second-guess these)
+## Superseded from the prior audit (no longer true — do not re-fix)
 
-Email-OTP sign-in · session persistence/restoration (auth-lock-safe) · server-authoritative
-roles + `guard_profile_privileged_columns` blocking self-escalation · `create-order` real
-Stripe PI with server-side re-pricing + idempotency · Stripe Elements new-card + tokenized
-saved cards (ownership-checked, 403 on cross-tenant) · signature-verified webhook + hourly
-reconciliation worker · RLS on all 18 tables · PII scoped to owner/admin · storage buckets
-owner-scoped with no listing; KYC bucket fully private · money columns NOT NULL + non-negative
-+ `total = subtotal+fee+tip` CHECK · zero orphan rows · no XSS/SSRF sinks, no service-role key
-in client · anon + publishable keys public-by-design.
+- ~~Buyer catalog is 100% mock~~ — now genuinely DB-backed (Explore/Home/detail/storefront read
+  live `meals`/`kitchens`).
+- ~~Payment→order reconciliation is broken~~ — `reconcile_paid_pi` trigger works, verified.
+- ~~Reviews/ratings are fabricated~~ — schema and RLS are now honest and read-real; the *gap*
+  moved from "fake numbers" to "the submission UI never writes" (Critical #9 above).
+- ~~Meal plans/subscriptions are mock~~ — the billing engine is real and independently verified
+  as app-controlled, not naive Stripe recurring; the gap is zero live usage + a dangling legacy
+  parallel system, not mock-ness.
 
 ---
 
-## Risk registers
-
-**Architecture** — Two disconnected catalogs (mock vs DB) is the central architectural debt;
-the payment-reconciliation gap breaks the money loop; payouts unwired means the marketplace
-can't actually pay suppliers. **Data** — app order/payment state diverges from Stripe truth
-(reconciliation); compliance fields (`kitchen_private`) may be dropped. **Security** — Google
-secret (rotate), test-customer creds in bundle (remove), leaked-password off (deferred);
-otherwise strong. **Scaling** — buyer reads never touch Postgres yet, so RLS/query/pagination
-cost is *completely unexercised*; single JS bundle; per-row `auth.uid()` in RLS.
-
-## Technical-debt register (condensed)
-
-`R1` catalog→DB migration · ~~`R2` payment reconciliation (Stripe→orders)~~ ✅ **DONE** · ~~`R3` remove
-test-customer creds~~ ✅ **DONE** · `R4` Connect payout wiring · `R5` native
-payments (or block native) · `R6` COD server flow (or hide) · `R7` reviews from DB (or hide)
-· `R8` landing waitlist backend · `R9` RLS `(select auth.uid())` rewrite · `R10` bundle
-splitting · `R11` self-hosted meal images.
-
-## Recommended remediation sequence (gated, not a sprint)
-
-1. **Now — safe/cheap:** ✅ FK indexes + revokes (done). Rotate Google secret (yours). Fix
-   the landing waitlist backend (landing repo). Add the account-deletion page + footer links.
-2. **Before a first real sale can settle:** `R2` payment reconciliation (**the money loop
-   must close**) → `R3` remove test-customer creds → `R6`/`R8` de-mock COD + waitlist.
-3. **When there's supply (several cooks):** `R1` catalog→DB (unlocks real listings, search,
-   reviews-from-DB) → `R4` payouts (cooks get paid) → the **prep-experience reverse
-   marketplace** (`experience_requests`/`experience_bids`) + real **messaging** (auto-thread
-   on order).
-4. **When one-off orders convert & retain:** subscriptions/meal-plans, native payments,
-   then video/livestream if engagement justifies the infra cost.
-
-## Fixed since this audit
-- Added btree indexes on 9 unindexed FK columns (`audit_fk_indexes_and_hygiene`).
-- Revoked anon/authenticated EXECUTE on `handle_new_user` + `rls_auto_enable`.
-- **Closed the money loop (R2):** `reconcile_paid_pi` trigger — Stripe success now flips
-  order→paid/confirmed + writes the cook's ledger; verified end-to-end
-  (`reconcile_stripe_payment_to_order`).
-- Built the `waitlist` table (anon insert-only, reads denied) for the preppa.live landing
-  form (`waitlist_table`) — landing front-end still needs its Supabase URL/key repointed.
-
-- **Removed the shipped test-customer credential (R3):** `ensureAuth` now requires a real
-  session (throws `AUTH_REQUIRED`, handled by checkout); the leaked password was rotated
-  server-side (old value now rejected). `supabase.ts` + `checkout.tsx`.
-- **R1 slice 1 (catalog→DB):** `meals` enriched with display fields (slug/tags/protein/
-  image/grad/rating/labels); real `supabaseRepository` behind the seam; `getRepositories()`
-  flipped to Supabase; the **entire buyer catalog read path** — Explore, Home, meal detail,
-  cook storefront, favorites — reads meals from the DB via `useMeals`/`useMeal`
-  (loading/error states). Proven per screen with zero console errors, and a DB price edit
-  reflected live.
-- **R1 slice 4 (cart real-UUIDs):** DB meals now carry their real `meals.id`/`kitchen_id`
-  through the cart line; `createRealOrder` uses those directly and falls back to the static
-  key→UUID map only for add-ons/reordered items. So any DB-added meal is orderable, not just
-  the 6 seeded ones. Verified: `create-order` accepts the repository's UUIDs and the order
-  confirms + reconciles.
-- **R7 (reviews & ratings honest):** `ReviewsBlock` reads the real `reviews` table with a
-  "No reviews yet" empty state (fabricated `STORE_REVIEWS` gone); all rating displays show
-  "New" (zero real reviews) instead of invented numbers. Verified: storefront reads
-  coherently (New / No reviews yet) with zero console errors. Remaining tail: migrate cook
-  *profile* fields (name/cuisine/bio) to `kitchens`/`profiles` — the ratings are already real.
-
-## Next up (recommended order)
-Finish `R1` (migrate home/meal/store/favorites to the repo; carry real UUIDs through the
-cart so `create-order`'s key→UUID map can go) → `R4` cook payouts (Connect onboarding +
-cash-out) → the prep-experience reverse marketplace + real messaging.
+_Full traceability matrix (168 features across 16 subsystems, orphans, duplicates, and every
+red-team attempt with evidence/fix/regression-test) lives in **[AUDIT_FULL.md](./AUDIT_FULL.md)**._

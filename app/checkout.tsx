@@ -64,10 +64,18 @@ export default function Checkout() {
     : overCeiling
       ? `Cash is capped at ${money(COD_CEILING)} on your first order`
       : null;
+  // Card checkout only has a real charge path on web (@stripe/stripe-js). Rather than fake a
+  // "paid" order on native with no charge and no order row (audit Critical), online pay is
+  // blocked on native until a real native PaymentSheet integration ships.
+  const onlineUnavailableOnNative = Platform.OS !== 'web';
   const effectivePay: 'online' | 'cod' = pay === 'cod' && !codBlockedReason ? 'cod' : 'online';
+  const payBlockedReason = effectivePay === 'online' && onlineUnavailableOnNative
+    ? 'Card checkout is web-only right now — open preppa in a browser to pay online, or choose cash on delivery if your cook offers it.'
+    : null;
 
   const place = async () => {
     if (busy) return; // guard against double-fire / double-order
+    if (payBlockedReason) { toast(payBlockedReason, 'info'); return; }
     if (effectivePay === 'cod') { setBusy(true); router.push(`/cod?cook=${ck ?? ''}`); return; }
     const cookId = (ck ?? lines[0]?.cook) as string;
     setBusy(true);
@@ -106,9 +114,10 @@ export default function Checkout() {
         return;
       }
     }
-    // Native (no web Stripe yet) → mock so the demo flow still completes.
-    placeOrder('paid', ck);
-    router.replace(`/track?flow=paid&cook=${ck ?? ''}`);
+    // Unreachable in normal use (payBlockedReason above catches native+online, and cod/web
+    // both return above) — defensive fallback only, never silently fakes a paid order.
+    setBusy(false);
+    toast('Couldn’t start your payment. Please try again.', 'info');
   };
 
   // After a real card charge succeeds, mirror into local history + go to tracking.
@@ -142,7 +151,16 @@ export default function Checkout() {
         </Block>
 
         <Block title="Payment">
-          <PayOption on={effectivePay === 'online'} onPress={() => setPay('online')} icon="card" title="Pay online" tag="Stripe" tagTone="green" body={selectedCard ? `${brandName(selectedCard.brand)} •••• ${selectedCard.last4} · secure checkout` : 'Enter a card securely at payment'} />
+          <PayOption
+            on={effectivePay === 'online'}
+            disabled={onlineUnavailableOnNative}
+            onPress={() => setPay('online')}
+            icon="card"
+            title="Pay online"
+            tag={onlineUnavailableOnNative ? 'Web only' : 'Stripe'}
+            tagTone="green"
+            body={onlineUnavailableOnNative ? 'Open preppa in a browser to pay online' : (selectedCard ? `${brandName(selectedCard.brand)} •••• ${selectedCard.last4} · secure checkout` : 'Enter a card securely at payment')}
+          />
           {effectivePay === 'online' && Platform.OS === 'web' ? (
             <>
               <Press scale={0.98} onPress={() => setCardSheet(true)} label="Change payment card">
@@ -194,7 +212,13 @@ export default function Checkout() {
 
       <Dock>
         <DockTotal label="Total" value={money(t.total)} />
-        <Btn label={effectivePay === 'cod' ? 'Place order' : `Pay ${money(t.total)}`} flex={1} loading={busy && effectivePay !== 'cod'} onPress={place} />
+        <Btn
+          label={payBlockedReason ? 'Choose cash on delivery' : effectivePay === 'cod' ? 'Place order' : `Pay ${money(t.total)}`}
+          flex={1}
+          disabled={!!payBlockedReason && !theCook.acceptsCod}
+          loading={busy && effectivePay !== 'cod'}
+          onPress={place}
+        />
       </Dock>
 
       <AddressPickerSheet visible={addrSheet} onClose={() => setAddrSheet(false)} />

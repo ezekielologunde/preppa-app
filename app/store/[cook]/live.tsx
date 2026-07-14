@@ -8,6 +8,7 @@ import { KITCHEN_ID } from '../../../src/lib/supabase';
 import { type, radius } from '../../../src/theme/theme';
 import { Icon, Press } from '../../../src/ui';
 import { fetchKitchenLivestream, hlsUrl, type LiveStreamRow } from '../../../src/lib/livestream';
+import { FLAGS } from '../../../src/config/flags';
 
 /** Viewer-side live playback. Plain HLS via expo-video — no vendor SDK needed on this side;
  * the hard part (broadcasting) lives entirely on the go-live/publisher side. */
@@ -22,15 +23,29 @@ export default function KitchenLive() {
 
   useFocusEffect(useCallback(() => {
     let alive = true;
-    if (!kitchenId) { setStream(null); return; }
+    if (!FLAGS.live || !kitchenId) { setStream(null); return; }
     fetchKitchenLivestream(kitchenId).then((s) => { if (alive) setStream(s); }).catch(() => { if (alive) setStream(null); });
     return () => { alive = false; };
   }, [kitchenId]));
 
   useEffect(() => {
-    if (stream?.status === 'live') player.play();
+    if (FLAGS.live && stream?.status === 'live') player.play();
     return () => player.pause();
   }, [stream?.status, player]);
+
+  // Guarded route (audit Critical): livestreaming has no moderation/kill-switch yet. A stale
+  // deep link or cached "Live now" button can't reach real playback while the flag is off.
+  if (!FLAGS.live) {
+    return (
+      <View style={{ flex: 1, backgroundColor: '#000', alignItems: 'center', justifyContent: 'center', padding: 40 }}>
+        <Icon name="video" size={40} color="rgba(255,255,255,.5)" />
+        <Text style={[type(16, 900), { color: '#fff', marginTop: 14 }]}>Live isn't open yet</Text>
+        <Press scale={0.9} onPress={() => router.back()} label="Back" style={{ marginTop: 20 }}>
+          <Text style={[type(13, 700), { color: 'rgba(255,255,255,.8)' }]}>Go back</Text>
+        </Press>
+      </View>
+    );
+  }
 
   return (
     <View style={{ flex: 1, backgroundColor: '#000' }}>

@@ -59,10 +59,10 @@ function StoreLiveBanner({ kitchenId, cookParam }: { kitchenId?: string; cookPar
   const router = useRouter();
   const [live, setLive] = React.useState(false);
   React.useEffect(() => {
-    if (!kitchenId) return;
+    if (!FLAGS.live || !kitchenId) return;
     fetchKitchenLivestream(kitchenId).then((s) => setLive(s?.status === 'live')).catch(() => {});
   }, [kitchenId]);
-  if (!live) return null;
+  if (!FLAGS.live || !live) return null;
   return (
     <Press scale={0.985} onPress={() => router.push(`/store/${cookParam}/live`)} style={{ marginHorizontal: 16, marginTop: 14 }}>
       <View style={{ flexDirection: 'row', alignItems: 'center', gap: 14, backgroundColor: '#E11D48', borderRadius: radius.xl, padding: 16 }}>

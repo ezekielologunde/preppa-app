@@ -14,4 +14,6 @@ export const FLAGS = {
   rewards: false, // points / referral rewards — not live
   chat: true, // 1:1 messaging — real relationship threads (Supabase Realtime + RLS), live
   notifications: true, // real in-app notification center (DB-backed; generated on real events). No push yet.
+  live: false, // livestreaming (Mux) — schema + go-live/viewer plumbing exists but has no moderation,
+               // suspension-propagation, or kill switch yet. Kept off until those ship (audit Critical).
 } as const;
