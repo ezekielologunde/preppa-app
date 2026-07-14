@@ -17,6 +17,13 @@ export type GradKey = keyof typeof GRAD;
 export const BRAND_GRAD = ['#F26B1D', '#FF6B9D', '#7C3AED'] as const;
 export const WARM_GRAD = ['#FF8C42', '#EC4899'] as const;
 
+/** The brand orange/purple are theme-invariant (same value in `light` and `dark` below) —
+ *  these are the single source of truth for that, instead of re-hardcoding the hex in
+ *  every screen that wants the accent color outside a themed context (e.g. the cold-launch
+ *  splash and onboarding, which render before/outside the user's light/dark preference). */
+export const BRAND_PRIMARY = '#F26B1D';
+export const BRAND_PURPLE = '#7C3AED';
+
 export interface Palette {
   primary: string; primaryD: string; primaryL: string;
   purple: string; purpleL: string; purpleOn: string; // purpleOn = purple text/icon on purpleL (AA in dark)

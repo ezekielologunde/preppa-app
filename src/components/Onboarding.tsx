@@ -1,7 +1,6 @@
 import React, { useEffect, useRef, useState } from 'react';
 import { Animated, Easing, Pressable, StyleSheet, Text, TextInput, View, ScrollView } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import Svg, { Defs, RadialGradient, Stop, Rect } from 'react-native-svg';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useStore } from '../store/store';
 import { sendEmailOtp, verifyEmailOtp, signUpWithPassword, signInWithPassword, AUTH_TIMEOUT_MESSAGE } from '../lib/supabase';
@@ -11,28 +10,11 @@ import { useReducedMotion } from '../ui/useReducedMotion';
 import { type, GRAD, shadow, FILL } from '../theme/theme';
 
 const W = (o: number) => `rgba(255,255,255,${o})`;
+/** On-gradient accent — the brand orange itself would blend into the GRAD.g4
+ * background these screens now sit on, so active/selected states use white instead. */
+const ACCENT = '#fff';
 
-/* soft brand glow background */
-function Glow() {
-  return (
-    <Svg style={FILL}>
-      <Defs>
-        <RadialGradient id="o" cx="12%" cy="10%" r="60%">
-          <Stop offset="0" stopColor="#F26B1D" stopOpacity="0.32" />
-          <Stop offset="1" stopColor="#F26B1D" stopOpacity="0" />
-        </RadialGradient>
-        <RadialGradient id="p" cx="92%" cy="92%" r="60%">
-          <Stop offset="0" stopColor="#7C3AED" stopOpacity="0.24" />
-          <Stop offset="1" stopColor="#7C3AED" stopOpacity="0" />
-        </RadialGradient>
-      </Defs>
-      <Rect x="0" y="0" width="100%" height="100%" fill="url(#o)" />
-      <Rect x="0" y="0" width="100%" height="100%" fill="url(#p)" />
-    </Svg>
-  );
-}
-
-function Spinner({ size = 19 }: { size?: number }) {
+function Spinner({ size = 19, color = '#fff' }: { size?: number; color?: string }) {
   const r = useRef(new Animated.Value(0)).current;
   const reduced = useReducedMotion();
   useEffect(() => {
@@ -40,13 +22,16 @@ function Spinner({ size = 19 }: { size?: number }) {
     Animated.loop(Animated.timing(r, { toValue: 1, duration: 700, easing: Easing.linear, useNativeDriver: true })).start();
   }, [r, reduced]);
   const spin = r.interpolate({ inputRange: [0, 1], outputRange: ['0deg', '360deg'] });
-  return <Animated.View style={{ width: size, height: size, borderRadius: size / 2, borderWidth: 2.5, borderColor: W(0.3), borderTopColor: '#fff', transform: [{ rotate: spin }] }} />;
+  const trackColor = color === '#fff' ? W(0.3) : 'rgba(242,107,29,.25)';
+  return <Animated.View style={{ width: size, height: size, borderRadius: size / 2, borderWidth: 2.5, borderColor: trackColor, borderTopColor: color, transform: [{ rotate: spin }] }} />;
 }
 
 function Title({ parts }: { parts: (string | { g: string })[] }) {
   return (
     <Text style={[type(34, 900), { color: '#fff', letterSpacing: -1.5, lineHeight: 37, marginTop: 18 }]}>
-      {parts.map((p, i) => (typeof p === 'string' ? p : <Text key={i} style={{ color: '#FF8A4C' }}>{p.g}</Text>))}
+      {/* Highlight is warm cream, not brand orange — orange-on-orange (the GRAD.g4
+          background these screens sit on) would be invisible. */}
+      {parts.map((p, i) => (typeof p === 'string' ? p : <Text key={i} style={{ color: '#FFE29A' }}>{p.g}</Text>))}
     </Text>
   );
 }
@@ -54,69 +39,49 @@ function Lead({ children }: { children: React.ReactNode }) {
   return <Text style={[type(15.5, 500), { color: W(0.62), lineHeight: 24, marginTop: 14, maxWidth: 320 }]}>{children}</Text>;
 }
 
+/* Solid white, not the GRAD.g4 gradient — these screens now sit ON that same
+ * gradient, so a same-gradient button would nearly vanish into the background. */
 function ObtnPri({ label, icon, iconRight, onPress, disabled, busyLabel, busy }: { label: string; icon?: string; iconRight?: string; onPress?: () => void; disabled?: boolean; busyLabel?: string; busy?: boolean }) {
   return (
     <Press scale={0.97} onPress={disabled || busy ? undefined : onPress} style={{ opacity: disabled ? 0.45 : 1 }}>
-      <LinearGradient colors={GRAD.g4 as any} start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }} style={[stt.obtn, shadow.brand]}>
-        {busy ? <Spinner /> : icon ? <Icon name={icon} size={18} color="#fff" /> : null}
-        <Text style={[type(16, 800), { color: '#fff' }]}>{busy ? busyLabel : label}</Text>
-        {!busy && iconRight ? <Icon name={iconRight} size={18} color="#fff" /> : null}
-      </LinearGradient>
-    </Press>
-  );
-}
-function ObtnGlass({ label, icon, onPress }: { label: string; icon?: string; onPress?: () => void }) {
-  return (
-    <Press scale={0.97} onPress={onPress}>
-      <View style={[stt.obtn, { backgroundColor: W(0.08), borderWidth: 1, borderColor: W(0.12) }]}>
-        {icon ? <Icon name={icon} size={18} color="#fff" /> : null}
-        <Text style={[type(16, 800), { color: '#fff' }]}>{label}</Text>
+      <View style={[stt.obtn, { backgroundColor: '#fff' }, shadow.card]}>
+        {busy ? <Spinner color="#F26B1D" /> : icon ? <Icon name={icon} size={18} color="#F26B1D" /> : null}
+        <Text style={[type(16, 800), { color: '#F26B1D' }]}>{busy ? busyLabel : label}</Text>
+        {!busy && iconRight ? <Icon name={iconRight} size={18} color="#F26B1D" /> : null}
       </View>
     </Press>
   );
 }
-
 /* ---------- steps ---------- */
+function JoiningPill() {
+  return (
+    <View style={{ flexDirection: 'row', alignItems: 'center', alignSelf: 'center', gap: 10, backgroundColor: W(0.14), borderWidth: 1, borderColor: W(0.2), borderRadius: 999, paddingVertical: 8, paddingHorizontal: 14, marginTop: 22 }}>
+      <View style={{ flexDirection: 'row' }}>
+        {[GRAD.g3, GRAD.g7, GRAD.g6].map((g, i) => (
+          <GradBox key={i} grad={g as any} style={{ width: 22, height: 22, borderRadius: 11, marginLeft: i === 0 ? 0 : -8, borderWidth: 2, borderColor: 'rgba(255,255,255,.4)' }} />
+        ))}
+      </View>
+      <Text style={[type(12.5, 800), { color: '#fff' }]}>Local Preppas joining every week</Text>
+    </View>
+  );
+}
+
 function Welcome({ go }: { go: (s: string, m: 'signin' | 'signup') => void }) {
   return (
     <>
-      <View style={{ flex: 0.5 }} />
-      <View style={{ height: 190, position: 'relative' }}>
-        <Orb grad={GRAD.g4} size={120} style={{ left: '8%', top: 12 }} tag="Maria’s lasagna · 1.2 km" delay={0} />
-        <Orb grad={GRAD.g7} size={86} style={{ right: '14%', top: 0 }} tag="Live now 🔥" delay={1200} />
-        <Orb grad={GRAD.g3} size={64} style={{ right: '30%', bottom: 4 }} tag="4.9 ★" delay={2300} />
-      </View>
+      <View style={{ flex: 0.6 }} />
       <View style={[stt.mark, shadow.brand]}><Icon name="flame" size={38} color="#fff" /></View>
-      <Title parts={['Real food from ', { g: 'real local cooks.' }]} />
+      <Text style={[type(28, 900), { color: '#fff', letterSpacing: -1, marginTop: 16 }]}>preppa</Text>
+      <Title parts={['Real food from real local ', { g: 'Preppas' }, ' near you.']} />
       <Lead>Homemade meals, private chefs, weekly boxes and more — from verified neighbors who love to cook.</Lead>
+      <JoiningPill />
       <View style={{ flex: 1 }} />
-      <ObtnPri label="Create account" onPress={() => go('auth', 'signup')} />
-      <View style={{ height: 10 }} />
-      <ObtnGlass label="Sign in" onPress={() => go('auth', 'signin')} />
-      <Text style={[type(11.5, 600), { color: W(0.35), textAlign: 'center', marginTop: 14 }]}>By continuing you agree to Preppa’s Terms & Food Safety Standards.</Text>
+      <ObtnPri label="Get Started — It's Free" onPress={() => go('auth', 'signup')} />
+      <Pressable onPress={() => go('auth', 'signin')} style={{ marginTop: 16, alignSelf: 'center' }}>
+        <Text style={[type(14, 700), { color: W(0.85) }]}>Already a member? <Text style={{ textDecorationLine: 'underline' }}>Sign in →</Text></Text>
+      </Pressable>
+      <Text style={[type(11.5, 600), { color: W(0.5), textAlign: 'center', marginTop: 14 }]}>By continuing you agree to Preppa’s Terms & Food Safety Standards.</Text>
     </>
-  );
-}
-
-function Orb({ grad, size, style, tag, delay }: { grad: readonly string[]; size: number; style: any; tag: string; delay: number }) {
-  const y = useRef(new Animated.Value(0)).current;
-  const reduced = useReducedMotion();
-  useEffect(() => {
-    if (reduced) return;
-    const loop = Animated.loop(Animated.sequence([
-      Animated.timing(y, { toValue: -12, duration: 2500, easing: Easing.inOut(Easing.ease), useNativeDriver: true }),
-      Animated.timing(y, { toValue: 0, duration: 2500, easing: Easing.inOut(Easing.ease), useNativeDriver: true }),
-    ]));
-    const t = setTimeout(() => loop.start(), delay);
-    return () => { clearTimeout(t); loop.stop(); };
-  }, [y, delay, reduced]);
-  return (
-    <Animated.View style={[{ position: 'absolute', transform: [{ translateY: y }] }, style]}>
-      <GradBox grad={grad as any} style={{ width: size, height: size, borderRadius: size / 2, ...shadow.float }} />
-      <View style={{ position: 'absolute', bottom: -10, alignSelf: 'center', backgroundColor: W(0.94), borderRadius: 999, paddingHorizontal: 10, paddingVertical: 4 }}>
-        <Text style={[type(10.5, 900), { color: '#151210' }]}>{tag}</Text>
-      </View>
-    </Animated.View>
   );
 }
 
@@ -251,7 +216,7 @@ function Code({ email, onNext }: { email: string; onNext: () => void }) {
         {Array.from({ length: 6 }).map((_, i) => {
           const live = i === code.length && !busy;
           return (
-            <View key={i} style={[stt.otpBox, err ? { borderColor: '#F87171' } : live ? { borderColor: '#F26B1D' } : null]}>
+            <View key={i} style={[stt.otpBox, err ? { borderColor: '#F87171' } : live ? { borderColor: ACCENT } : null]}>
               <Text style={[type(23, 900), { color: '#fff' }]}>{code[i] || ''}</Text>
             </View>
           );
@@ -273,7 +238,7 @@ function Code({ email, onNext }: { email: string; onNext: () => void }) {
       <View style={{ flex: 1, minHeight: 24 }} />
       <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 6, paddingBottom: 4 }}>
         <Text style={[type(14, 600), { color: W(0.45) }]}>{resent ? 'Code re-sent ✓' : 'Didn’t get it?'}</Text>
-        {!resent ? <Pressable disabled={cool > 0} onPress={resend}><Text style={[type(14, 800), { color: cool > 0 ? W(0.35) : '#F26B1D' }]}>{cool > 0 ? `Resend in ${cool}s` : 'Resend code'}</Text></Pressable> : null}
+        {!resent ? <Pressable disabled={cool > 0} onPress={resend}><Text style={[type(14, 800), { color: cool > 0 ? W(0.35) : ACCENT, textDecorationLine: cool > 0 ? 'none' : 'underline' }]}>{cool > 0 ? `Resend in ${cool}s` : 'Resend code'}</Text></Pressable> : null}
       </View>
     </>
   );
@@ -296,13 +261,13 @@ function Goal({ onNext }: { onNext: () => void }) {
           const on = goal === g.id;
           return (
             <Press key={g.id} scale={0.98} onPress={() => setGoal(g.id)}>
-              <View style={[stt.goal, on ? { borderColor: '#F26B1D', backgroundColor: 'rgba(242,107,29,.14)' } : null]}>
+              <View style={[stt.goal, on ? { borderColor: ACCENT, backgroundColor: 'rgba(255,255,255,.16)' } : null]}>
                 <GradBox grad={g.grad as any} style={{ width: 46, height: 46, borderRadius: 14, alignItems: 'center', justifyContent: 'center' }}><Icon name={g.ico} size={21} color="#fff" /></GradBox>
                 <View style={{ flex: 1 }}>
                   <Text style={[type(15.5, 800), { color: '#fff' }]}>{g.t}</Text>
-                  <Text style={[type(12.5, 500), { color: W(0.55), marginTop: 2 }]}>{g.s}</Text>
+                  <Text style={[type(12.5, 500), { color: W(0.7), marginTop: 2 }]}>{g.s}</Text>
                 </View>
-                <View style={{ width: 24, height: 24, borderRadius: 12, borderWidth: 2, borderColor: on ? '#F26B1D' : W(0.2), backgroundColor: on ? '#F26B1D' : 'transparent', alignItems: 'center', justifyContent: 'center' }}>{on ? <Icon name="check" size={13} color="#fff" /> : null}</View>
+                <View style={{ width: 24, height: 24, borderRadius: 12, borderWidth: 2, borderColor: on ? ACCENT : W(0.3), backgroundColor: on ? ACCENT : 'transparent', alignItems: 'center', justifyContent: 'center' }}>{on ? <Icon name="check" size={13} color="#F26B1D" /> : null}</View>
               </View>
             </Press>
           );
@@ -328,7 +293,7 @@ function Cuisine({ onNext }: { onNext: () => void }) {
           return (
             <Press key={x} scale={0.94} onPress={() => toggle(x)}>
               {on ? (
-                <LinearGradient colors={GRAD.g4 as any} start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }} style={stt.cuisOn}><Text style={[type(14, 800), { color: '#fff' }]}>{x}</Text></LinearGradient>
+                <View style={[stt.cuisOn, { backgroundColor: '#fff' }]}><Text style={[type(14, 800), { color: '#F26B1D' }]}>{x}</Text></View>
               ) : (
                 <View style={stt.cuis}><Text style={[type(14, 700), { color: '#fff' }]}>{x}</Text></View>
               )}
@@ -405,14 +370,13 @@ export function OnboardingFlow() {
   const showTop = step !== 'welcome' && step !== 'finish';
   const canSkip = step === 'goal' || step === 'cuisine';
   return (
-    <View style={[FILL, { backgroundColor: '#100D0A', zIndex: 300 }]}>
-      <Glow />
+    <LinearGradient colors={GRAD.g4 as any} style={[FILL, { zIndex: 300 }]}>
       <ScrollView contentContainerStyle={{ flexGrow: 1, paddingTop: insets.top + 10, paddingBottom: insets.bottom + 26, paddingHorizontal: 24 }} keyboardShouldPersistTaps="handled">
         {showTop ? (
           <View style={{ flexDirection: 'row', alignItems: 'center', gap: 14, minHeight: 42 }}>
-            <Press scale={0.9} onPress={() => setStep(back)}><View style={{ width: 42, height: 42, borderRadius: 21, backgroundColor: W(0.08), borderWidth: 1, borderColor: W(0.12), alignItems: 'center', justifyContent: 'center' }}><Icon name="chevLeft" size={20} color="#fff" /></View></Press>
-            <View style={{ flex: 1, flexDirection: 'row', gap: 6 }}>{STEPS.map((s, i) => <View key={s} style={{ flex: 1, height: 4, borderRadius: 2, backgroundColor: i <= at ? '#F26B1D' : W(0.12) }} />)}</View>
-            {canSkip ? <Pressable onPress={() => setStep('finish')}><Text style={[type(14, 700), { color: W(0.55) }]}>Skip</Text></Pressable> : <View style={{ width: 30 }} />}
+            <Press scale={0.9} onPress={() => setStep(back)}><View style={{ width: 42, height: 42, borderRadius: 21, backgroundColor: W(0.14), borderWidth: 1, borderColor: W(0.2), alignItems: 'center', justifyContent: 'center' }}><Icon name="chevLeft" size={20} color="#fff" /></View></Press>
+            <View style={{ flex: 1, flexDirection: 'row', gap: 6 }}>{STEPS.map((s, i) => <View key={s} style={{ flex: 1, height: 4, borderRadius: 2, backgroundColor: i <= at ? ACCENT : W(0.2) }} />)}</View>
+            {canSkip ? <Pressable onPress={() => setStep('finish')}><Text style={[type(14, 700), { color: W(0.7) }]}>Skip</Text></Pressable> : <View style={{ width: 30 }} />}
           </View>
         ) : null}
         <Animated.View style={{ flex: 1, opacity: fade }}>
@@ -424,13 +388,13 @@ export function OnboardingFlow() {
           {step === 'finish' && <Finish onDone={() => setOnboarded(true)} />}
         </Animated.View>
       </ScrollView>
-    </View>
+    </LinearGradient>
   );
 }
 
 const stt = StyleSheet.create({
   obtn: { height: 56, borderRadius: 18, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 10 },
-  mark: { width: 74, height: 74, borderRadius: 24, backgroundColor: '#F26B1D', alignItems: 'center', justifyContent: 'center' },
+  mark: { width: 74, height: 74, borderRadius: 24, backgroundColor: 'rgba(255,255,255,.18)', borderWidth: 1, borderColor: 'rgba(255,255,255,.3)', alignItems: 'center', justifyContent: 'center' },
   input: { height: 56, borderRadius: 16, paddingHorizontal: 18, backgroundColor: W(0.07), borderWidth: 1.5, borderColor: W(0.12), color: '#fff', fontFamily: type(16, 600).fontFamily, fontSize: 16 },
   otpBox: { flex: 1, height: 60, borderRadius: 15, backgroundColor: W(0.07), borderWidth: 1.5, borderColor: W(0.12), alignItems: 'center', justifyContent: 'center' },
   goal: { flexDirection: 'row', alignItems: 'center', gap: 14, padding: 15, borderRadius: 18, backgroundColor: W(0.06), borderWidth: 1.5, borderColor: W(0.1) },
