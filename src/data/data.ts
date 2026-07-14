@@ -144,15 +144,6 @@ export const EXPERIENCES: Experience[] = [
 ];
 export const expById = (id: string) => EXPERIENCES.find((e) => e.id === id);
 
-export interface FeedItem { id: string; cook: CookId; meal: string; grad: GradKey; live: boolean; caption: string; likes: string; comments: number; tag: string; }
-export const FEED: FeedItem[] = [
-  { id: 'f1', cook: 'maria', meal: 'lasagna', grad: 'g4', live: true, caption: 'Layering tonight’s lasagna trays 🔥 fresh out at 5:30', likes: '1.2k', comments: 340, tag: 'LIVE' },
-  { id: 'f2', cook: 'amara', meal: 'jollof', grad: 'g1', live: false, caption: 'Smoky jollof the right way — party-rice energy 🎉', likes: '2.4k', comments: 512, tag: 'Reel' },
-  { id: 'f3', cook: 'david', meal: 'salmon', grad: 'g3', live: false, caption: 'Honey-garlic glaze hitting the pan 🐟 high protein', likes: '980', comments: 142, tag: 'Reel' },
-  { id: 'f4', cook: 'denise', meal: 'shortrib', grad: 'g6', live: false, caption: '6-hour short rib. Sunday cooking, any day 🥹', likes: '3.1k', comments: 620, tag: 'Reel' },
-  { id: 'f5', cook: 'lucia', meal: 'tacos', grad: 'g7', live: false, caption: 'Mole negro from scratch — 20 ingredients ✨', likes: '1.7k', comments: 288, tag: 'Reel' },
-];
-
 /** Where a notification takes you when tapped (validated against real data at render). */
 export interface NotifTarget { screen: 'track' | 'meal' | 'store' | 'rewards' | 'review'; param?: string; }
 export interface Notif { id: string; ico: string; cls: string; title: string; body: string; time: string; unread: boolean; target?: NotifTarget; }

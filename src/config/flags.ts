@@ -7,7 +7,7 @@
  */
 export const FLAGS = {
   experiences: true, // customer "Experiences" hub — request a cook, build/request a meal plan, manage requests (real, live)
-  feed: false, // video reels — demo only
+  feed: true, // creator feed — real DB-backed photo posts + likes (video reels are a later slice)
   plans: true, // weekly meal plans / subscriptions — real recurring billing (Stripe, test mode)
   services: true, // Food-Services marketplace (cook-at-home/catering request→quote→book→deposit) — real (Stripe test mode)
   prepplus: true, // PrepPlus membership — real (Stripe-native recurring, test mode). WEB-ONLY entry (IAP policy): gate native entry points with Platform.OS==='web'.

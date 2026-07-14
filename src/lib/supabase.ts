@@ -249,6 +249,11 @@ export async function uploadPlanCover(file: Blob, ext: string): Promise<string> 
   return uploadPublicImage(file, ext, 'plan-cover');
 }
 
+/** Upload a feed-post cover image (public) to the owner-scoped `avatars` bucket. */
+export async function uploadPostCover(file: Blob, ext: string): Promise<string> {
+  return uploadPublicImage(file, ext, 'post');
+}
+
 async function uploadPublicImage(file: Blob, ext: string, prefix: string): Promise<string> {
   const { data: sess } = await supabase.auth.getSession();
   const uid = sess.session?.user?.id;

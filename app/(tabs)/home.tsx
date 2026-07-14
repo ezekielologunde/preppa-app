@@ -145,7 +145,7 @@ export default function HomeScreen() {
           <BigCard c={c} wide={wide} grad={['#A855F7', '#7C3AED']} icon="repeat" title="Meal plans" body="Weekly boxes from a cook you love" onPress={() => router.push('/experiences?tab=plans')} />
           <BigCard c={c} wide={wide} grad={['#38BDF8', '#2563EB']} icon="bank" title="Subscriptions" body="Manage your recurring boxes" onPress={() => router.push('/experiences?tab=mine')} />
           <BigCard c={c} wide={wide} grad={['#FB7185', '#E11D48']} icon="gift" title="Experiences" body="Classes, supper clubs & events" onPress={() => router.push('/experiences?tab=experiences')} />
-          <BigCard c={c} wide={wide} grad={['#334155', '#0F172A']} icon="video" title="Feed" body="Watch cooks & meal drops" soon onPress={() => toast('The creator feed is coming soon', 'video')} />
+          <BigCard c={c} wide={wide} grad={['#334155', '#0F172A']} icon="video" title="Feed" body="See what cooks are making" onPress={() => router.push('/(tabs)/feeds')} />
         </View>
 
         {/* Cook-at-My-Place (services) banner */}
