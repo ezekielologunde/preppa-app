@@ -16,6 +16,7 @@ import {
 import { supabase } from '../lib/supabase';
 import { threadUnreadCount, subscribeMyNotifications } from '../lib/messages';
 import { fetchOrderStatus } from '../lib/orders';
+import { getMyKitchen, getKitchenAvailability, setKitchenAvailability } from '../lib/connect';
 import { setViewerCoords } from '../data/supabaseRepository';
 import { geocodeAddress, type LatLng } from '../lib/geo';
 export type { ApplicationFields };
@@ -543,12 +544,37 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
     setRequests((rs) => rs.map((r) => (r.id === id ? { ...r, status: 'booked', booked: q } : r)));
   }, []);
 
+  // Persists to kitchens.availability (audit Critical: this used to be local-device-only
+  // state, so a prepper's "paused" toggle never actually blocked orders server-side).
+  // Optimistic update with rollback on failure.
   const toggleAvail = useCallback(() => {
-    setAvail((a) => {
-      toast(a ? 'Kitchen paused' : 'You’re open for orders', a ? 'pause' : 'check', !a);
-      return !a;
+    setAvail((prevAvail) => {
+      const next = !prevAvail;
+      (async () => {
+        try {
+          const kitchen = await getMyKitchen();
+          if (!kitchen) throw new Error('No kitchen found for this account.');
+          await setKitchenAvailability(kitchen.id, next);
+          toast(next ? 'You’re open for orders' : 'Kitchen paused', next ? 'check' : 'pause', next);
+        } catch (e: any) {
+          setAvail(prevAvail); // rollback — the DB write failed, don't show a state that isn't real
+          toast(e?.message || 'Could not update availability. Please try again.', 'info');
+        }
+      })();
+      return next;
     });
   }, [toast]);
+
+  // Sync `avail` from the real DB column on load — the AsyncStorage-persisted value above
+  // is only a display cache now, never the source of truth for whether orders are blocked.
+  useEffect(() => {
+    let alive = true;
+    getMyKitchen().then((k) => {
+      if (!alive || !k) return;
+      getKitchenAvailability(k.id).then((open) => { if (alive) setAvail(open); });
+    });
+    return () => { alive = false; };
+  }, []);
   const acceptOrder = useCallback((id: string) => setActed((a) => [...a, id]), []);
 
   const showFlash = useCallback((item: { name: string; grad: GradKey }) => {

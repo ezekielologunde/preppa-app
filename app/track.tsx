@@ -1,6 +1,6 @@
-import React from 'react';
+import React, { useCallback, useEffect, useState } from 'react';
 import { View, Text, ScrollView } from 'react-native';
-import { useLocalSearchParams, useRouter } from 'expo-router';
+import { useLocalSearchParams, useRouter, useFocusEffect } from 'expo-router';
 import Svg, { Line } from 'react-native-svg';
 import { COOKS, CookId } from '../src/data/data';
 import { useC } from '../src/theme/ThemeContext';
@@ -8,26 +8,64 @@ import { type, radius } from '../src/theme/theme';
 import { useStore } from '../src/store/store';
 import { Icon, Avatar, Btn } from '../src/ui';
 import { Screen, TopBar } from '../src/ui/layout';
+import { fetchOrderStatus } from '../src/lib/orders';
+
+type RealStatus = 'pending' | 'confirmed' | 'preparing' | 'ready' | 'completed' | 'cancelled';
+
+/** Real order status → the 4 UI steps (audit Critical: this screen used to be entirely
+ * hardcoded fixture data — fake order id, fake ETA, fake status — even one screen away
+ * from real order-status plumbing that already existed for the cook's own order list). */
+function stepsFromStatus(status: RealStatus | null, pickup: boolean, theCookName: string, kitchenName: string) {
+  const doneUpTo: Record<RealStatus, number> = { pending: -1, confirmed: 0, preparing: 1, ready: 2, completed: 3, cancelled: -1 };
+  const idx = status ? doneUpTo[status] : -1;
+  const st = (n: number) => (status === 'cancelled' ? 'pending' : n <= idx ? 'done' : n === idx + 1 ? 'active' : 'pending');
+  return [
+    { t: 'Order confirmed', p: `${theCookName} accepted your order`, st: st(0) },
+    { t: 'Cooking now', p: 'Fresh on the stove', st: st(1) },
+    { t: pickup ? 'Ready for pickup' : 'Out for delivery', p: pickup ? `Head to ${kitchenName}` : 'On the way to you', st: st(2) },
+    { t: 'Delivered', p: 'Leave a review to earn points', st: st(3) },
+  ];
+}
 
 export default function Track() {
   const c = useC();
   const router = useRouter();
-  const { flow, cook } = useLocalSearchParams<{ flow: string; cook?: string }>();
+  const { flow, cook, orderId } = useLocalSearchParams<{ flow: string; cook?: string; orderId?: string }>();
   const { mode } = useStore();
   const cod = flow === 'cod';
   const ck = ((cook || 'maria') as CookId);
   const theCook = COOKS[ck];
+  const [live, setLive] = useState<{ status: string; fulfillment: string } | null>(null);
 
-  const STEPS = [
-    { t: 'Order confirmed', p: `${theCook.name} accepted your order`, st: 'done' },
-    { t: 'Cooking now', p: 'Fresh on the stove', st: cod ? 'done' : 'active' },
-    { t: mode === 'pickup' ? 'Ready for pickup' : 'Out for delivery', p: mode === 'pickup' ? `Head to ${theCook.kitchen}` : 'On the way to you', st: cod ? 'done' : 'pending' },
-    { t: cod ? 'Handed off · paid in cash' : 'Delivered', p: cod ? 'Confirmed by QR + code' : 'Leave a review to earn points', st: cod ? 'done' : 'pending' },
-  ];
+  const poll = useCallback(() => {
+    if (!orderId) return;
+    fetchOrderStatus(orderId).then(setLive).catch(() => {});
+  }, [orderId]);
+
+  useFocusEffect(useCallback(() => {
+    if (!orderId) return;
+    poll();
+    const t = setInterval(poll, 8000);
+    return () => clearInterval(t);
+  }, [poll, orderId]));
+
+  // Real order (has a real orderId, non-cod): reflect actual DB status. COD and any legacy
+  // link with no orderId fall back to the prior static presentation (COD's own mock status
+  // is a separate, already-tracked finding — not this screen's job to fix).
+  const pickup = live ? live.fulfillment === 'pickup' : mode === 'pickup';
+  const STEPS = orderId && !cod
+    ? stepsFromStatus((live?.status as RealStatus) ?? null, pickup, theCook.name, theCook.kitchen)
+    : [
+        { t: 'Order confirmed', p: `${theCook.name} accepted your order`, st: 'done' },
+        { t: 'Cooking now', p: 'Fresh on the stove', st: cod ? 'done' : 'active' },
+        { t: mode === 'pickup' ? 'Ready for pickup' : 'Out for delivery', p: mode === 'pickup' ? `Head to ${theCook.kitchen}` : 'On the way to you', st: cod ? 'done' : 'pending' },
+        { t: cod ? 'Handed off · paid in cash' : 'Delivered', p: cod ? 'Confirmed by QR + code' : 'Leave a review to earn points', st: cod ? 'done' : 'pending' },
+      ];
+  const realStatusLabel = live?.status === 'completed' ? 'Delivered' : live?.status === 'cancelled' ? 'Cancelled' : 'Live';
 
   return (
     <Screen>
-      <TopBar title={cod ? 'Order complete' : 'Track order'} sub="#PR-2048" onBack={() => router.replace('/home')} />
+      <TopBar title={cod ? 'Order complete' : 'Track order'} sub={orderId ? `#${orderId.slice(0, 8)}` : undefined} onBack={() => router.replace('/home')} />
       <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={{ paddingBottom: 40 }}>
         {/* map */}
         <View style={{ height: 180, backgroundColor: c.bg2, overflow: 'hidden' }}>
@@ -47,12 +85,14 @@ export default function Track() {
         <View style={{ backgroundColor: c.surface, borderTopLeftRadius: radius.xxl, borderTopRightRadius: radius.xxl, marginTop: -22, padding: 18, paddingTop: 20 }}>
           <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }}>
             <View>
-              <Text style={[type(12, 700), { color: c.muted, textTransform: 'uppercase' }]}>{cod ? 'Status' : 'Estimated arrival'}</Text>
-              <Text style={[type(24, 900), { color: c.ink, letterSpacing: -0.6 }]}>{cod ? 'Completed' : '5:32 PM'}</Text>
+              <Text style={[type(12, 700), { color: c.muted, textTransform: 'uppercase' }]}>Status</Text>
+              <Text style={[type(24, 900), { color: c.ink, letterSpacing: -0.6 }]}>
+                {cod ? 'Completed' : orderId ? (live ? realStatusLabel : 'Loading…') : 'Live'}
+              </Text>
             </View>
             <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6, height: 32, paddingHorizontal: 14, borderRadius: radius.pill, backgroundColor: c.greenL }}>
               <View style={{ width: 7, height: 7, borderRadius: 4, backgroundColor: c.green }} />
-              <Text style={[type(12.5, 900), { color: c.green }]}>{cod ? 'Delivered' : 'Live'}</Text>
+              <Text style={[type(12.5, 900), { color: c.green }]}>{cod ? 'Delivered' : orderId ? realStatusLabel : 'Live'}</Text>
             </View>
           </View>
 

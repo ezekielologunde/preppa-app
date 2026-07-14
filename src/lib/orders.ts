@@ -20,6 +20,22 @@ export interface KitchenOrderRow {
   item_count: number;
 }
 
+export interface KitchenDashboardSummary {
+  available_cents: number;
+  today_cents: number;
+  today_orders: number;
+  week_cents: number;
+  pending_orders: number;
+}
+
+/** Real My Hub dashboard numbers (audit Critical: this used to read permanently-empty
+ * mock fixtures — $0/0 regardless of actual activity). */
+export async function fetchDashboardSummary(): Promise<KitchenDashboardSummary> {
+  const { data, error } = await supabase.rpc('kitchen_dashboard_summary').single();
+  if (error) throw error;
+  return data as KitchenDashboardSummary;
+}
+
 export async function fetchKitchenOrders(): Promise<KitchenOrderRow[]> {
   const { data, error } = await supabase.rpc('kitchen_list_orders');
   if (error) throw error;
@@ -59,6 +75,26 @@ export async function fetchOrderStatus(orderId: string): Promise<{ status: strin
   const { data, error } = await supabase.from('orders').select('status,fulfillment').eq('id', orderId).maybeSingle();
   if (error) throw error;
   return data ?? null;
+}
+
+/** Customer-side: leave a review on a completed order. RLS (reviews_insert_own_completed_order)
+ * independently re-checks the order is the caller's own and status='completed' — the `reviews`
+ * table also has a UNIQUE(order_id) constraint, so this can never double-insert for one order.
+ * (Audit Critical: this used to be a UI-only mock — a fake toast with no DB write at all.) */
+export async function submitReview(orderId: string, rating: number, body: string): Promise<void> {
+  const { data: order, error: orderErr } = await supabase.from('orders').select('kitchen_id').eq('id', orderId).maybeSingle();
+  if (orderErr) throw orderErr;
+  if (!order?.kitchen_id) throw new Error('Could not find that order.');
+  const { data: auth } = await supabase.auth.getUser();
+  const uid = auth.user?.id;
+  if (!uid) throw new Error('AUTH_REQUIRED');
+  const { error } = await supabase.from('reviews').insert({
+    order_id: orderId, kitchen_id: order.kitchen_id, author_id: uid, rating, body: body || null,
+  });
+  if (error) {
+    if ((error as any).code === '23505') throw new Error('You already reviewed this order.');
+    throw new Error(error.message || 'Could not submit your review.');
+  }
 }
 
 export function timeAgo(iso: string): string {

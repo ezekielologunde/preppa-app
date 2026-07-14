@@ -7,6 +7,7 @@ import { type, radius } from '../../src/theme/theme';
 import { useStore } from '../../src/store/store';
 import { Icon, Press, Avatar, Btn } from '../../src/ui';
 import { Screen, TopBar, Dock, Block } from '../../src/ui/layout';
+import { submitReview } from '../../src/lib/orders';
 
 const TAGS = ['Delicious 😋', 'On time', 'Great packaging', 'Generous portion', 'Would reorder', 'Friendly cook'];
 
@@ -20,11 +21,30 @@ export default function Review() {
   const [stars, setStars] = useState(0);
   const [tags, setTags] = useState<string[]>([]);
   const [text, setText] = useState('');
+  const [busy, setBusy] = useState(false);
   const toggle = (t: string) => setTags((p) => (p.includes(t) ? p.filter((x) => x !== t) : [...p, t]));
 
-  const submit = () => {
-    toast('Thanks for your review! +40 pts', 'star', true);
-    router.back();
+  // Real DB write (audit Critical: this used to be a fake toast with no DB write at all).
+  // `o.dbId` is the real Supabase orders.id — a review is only ever left against that, never
+  // against the local mock order id, since reviews.order_id is a real FK.
+  const submit = async () => {
+    if (busy) return;
+    const orderDbId = o?.dbId;
+    if (!orderDbId) {
+      toast('This order can’t be reviewed yet.', 'info');
+      return;
+    }
+    setBusy(true);
+    try {
+      const note = [text.trim(), tags.length ? tags.join(', ') : null].filter(Boolean).join(' — ');
+      await submitReview(orderDbId, stars, note);
+      toast('Thanks for your review!', 'star', true);
+      router.back();
+    } catch (e: any) {
+      toast(e?.message || 'Could not submit your review.', 'info');
+    } finally {
+      setBusy(false);
+    }
   };
 
   return (
@@ -76,7 +96,7 @@ export default function Review() {
         )}
       </ScrollView>
       <Dock>
-        <Btn label={stars > 0 ? 'Submit review' : 'Rate to continue'} block flex={1} disabled={stars === 0} onPress={submit} />
+        <Btn label={stars > 0 ? 'Submit review' : 'Rate to continue'} block flex={1} disabled={stars === 0 || busy} loading={busy} onPress={submit} />
       </Dock>
     </Screen>
   );

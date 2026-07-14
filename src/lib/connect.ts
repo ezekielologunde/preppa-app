@@ -69,3 +69,16 @@ export async function getKitchenBalanceCents(kitchenId: string): Promise<number>
   if (error) return 0;
   return Number(data) || 0;
 }
+
+/** The kitchen's real, server-side availability ('open' means orderable). */
+export async function getKitchenAvailability(kitchenId: string): Promise<boolean> {
+  const { data, error } = await supabase.from('kitchens').select('availability').eq('id', kitchenId).maybeSingle();
+  if (error || !data) return false;
+  return data.availability === 'open';
+}
+
+/** Persist the vacation-mode toggle to the database (was previously local-device-only state). */
+export async function setKitchenAvailability(kitchenId: string, open: boolean): Promise<void> {
+  const { error } = await supabase.rpc('set_kitchen_availability', { p_kitchen_id: kitchenId, p_open: open });
+  if (error) throw new Error(error.message || 'Could not update availability.');
+}

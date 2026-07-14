@@ -240,6 +240,7 @@ export interface AdminUser {
   display_name: string | null;
   role: string;
   verification_status: string | null;
+  kitchen_id: string | null;
   kitchen_name: string | null;
   created_at: string;
 }
@@ -249,6 +250,20 @@ export async function listUsers(): Promise<AdminUser[]> {
   const { data, error } = await supabase.rpc('admin_list_users');
   if (error) throw error;
   return (data as AdminUser[]) ?? [];
+}
+
+/** Suspend an already-verified kitchen (audit Critical: no such capability existed at all,
+ * despite the Cook Agreement promising Preppa can pause/suspend/remove a kitchen). */
+export async function suspendKitchen(kitchenId: string, reason: string): Promise<void> {
+  ensureWeb();
+  const { error } = await supabase.rpc('admin_suspend_kitchen', { p_kitchen: kitchenId, p_reason: reason });
+  if (error) throw error;
+}
+
+export async function reinstateKitchen(kitchenId: string): Promise<void> {
+  ensureWeb();
+  const { error } = await supabase.rpc('admin_reinstate_kitchen', { p_kitchen: kitchenId });
+  if (error) throw error;
 }
 
 // --- Audit log (read-only, keyset-paginated) ---

@@ -37,7 +37,7 @@ export default function Feeds() {
   useFocusEffect(useCallback(() => {
     let alive = true;
     fetchFeed({ following }).then((r) => { if (alive) { setItems(r.posts); setCursor(r.nextCursor); setActiveId(r.posts[0]?.id ?? null); setLoading(false); } });
-    fetchLiveNow().then((l) => { if (alive) setLiveNow(l); }).catch(() => {});
+    if (FLAGS.live) fetchLiveNow().then((l) => { if (alive) setLiveNow(l); }).catch(() => {});
     return () => { alive = false; setActiveId(null); }; // pause any playing video when the tab loses focus
   }, [following]));
 

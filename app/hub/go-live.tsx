@@ -8,6 +8,7 @@ import { Icon, Press, Btn } from '../../src/ui';
 import { Screen, TopBar } from '../../src/ui/layout';
 import { getMyKitchen } from '../../src/lib/connect';
 import { startLivestream, endLivestream, fetchKitchenLivestream, type LiveStreamRow, type StartedStream } from '../../src/lib/livestream';
+import { FLAGS } from '../../src/config/flags';
 
 /**
  * Go live (Mux-backed). NOTE: there's no in-app camera broadcast yet — no official Mux React
@@ -38,6 +39,24 @@ export default function GoLive() {
     });
     return () => { alive = false; };
   }, []));
+
+  // Guarded route: livestreaming has no moderation/kill-switch/suspension-propagation yet
+  // (audit Critical). A stale deep link or cached button can't reach the real go-live flow
+  // while the flag is off — this must stay a real early return, not a hidden button, since
+  // startLivestream() below still works if called directly.
+  if (!FLAGS.live) {
+    return (
+      <Screen>
+        <TopBar title="Go live" onBack={() => router.back()} />
+        <View style={{ flex: 1, alignItems: 'center', justifyContent: 'center', padding: 24 }}>
+          <Text style={[type(16, 800), { color: c.ink, textAlign: 'center' }]}>Live isn't open yet</Text>
+          <Text style={[type(13, 500), { color: c.soft, textAlign: 'center', marginTop: 8 }]}>
+            We're still finishing moderation tools before turning on livestreaming.
+          </Text>
+        </View>
+      </Screen>
+    );
+  }
 
   const goLive = async () => {
     if (!kitchenId || busy) return;

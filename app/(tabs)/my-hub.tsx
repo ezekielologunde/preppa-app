@@ -1,13 +1,14 @@
 import React, { useState } from 'react';
 import { View, Text, ScrollView, StyleProp, ViewStyle, TextInput, LayoutChangeEvent } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { useRouter, Redirect } from 'expo-router';
+import { useRouter, Redirect, useFocusEffect } from 'expo-router';
 import { useC } from '../../src/theme/ThemeContext';
 import { Palette, GradKey, type, radius, shadow } from '../../src/theme/theme';
 import { useStore } from '../../src/store/store';
 import { Icon, Press, GradBox } from '../../src/ui';
 import { money } from '../../src/data/data';
-import { ME, ORDERS, myMeal, CATER_INCOMING, MY_BIDS, BALANCE, ANALYTICS } from '../../src/data/cook';
+import { ME } from '../../src/data/cook';
+import { fetchDashboardSummary, fetchKitchenOrders, updateOrderStatus, KitchenDashboardSummary, KitchenOrderRow } from '../../src/lib/orders';
 
 export type Tone = 'ic-amber' | 'ic-green' | 'ic-purple' | 'ic-blue' | 'ic-ink' | 'ic-red';
 export function well(c: Palette, t: Tone): [string, string] {
@@ -143,9 +144,11 @@ export function KBtn({ label, variant = 'pri', sm, block, icon, onPress, flex, s
 }
 
 /* ---------- balance strip (dark card) ---------- */
-export function BalanceStrip() {
+export function BalanceStrip({ summary }: { summary: KitchenDashboardSummary | null }) {
   const c = useC();
   const router = useRouter();
+  const availableDollars = (summary?.available_cents ?? 0) / 100;
+  const todayDollars = (summary?.today_cents ?? 0) / 100;
   return (
     <View style={{ marginHorizontal: 20, marginTop: 18, padding: 18, borderRadius: 22, backgroundColor: c.feature, overflow: 'hidden' }}>
       <View style={{ position: 'absolute', right: -50, top: -50, width: 170, height: 170, borderRadius: 85, backgroundColor: 'rgba(242,107,29,.28)' }} />
@@ -156,15 +159,15 @@ export function BalanceStrip() {
         </View>
       </Press>
       <Text style={[type(12, 800), { color: 'rgba(255,255,255,.6)', letterSpacing: 0.5, textTransform: 'uppercase' }]}>Available balance</Text>
-      <Text style={[type(34, 900), { color: '#fff', letterSpacing: -1.2, marginTop: 5 }]}>{money(BALANCE.available)}</Text>
+      <Text style={[type(34, 900), { color: '#fff', letterSpacing: -1.2, marginTop: 5 }]}>{summary ? money(availableDollars) : '—'}</Text>
       <View style={{ flexDirection: 'row', gap: 18, marginTop: 14 }}>
         <View>
-          <Text style={[type(15, 900), { color: '#fff', letterSpacing: -0.3 }]}>{money(BALANCE.today)}</Text>
-          <Text style={[type(11.5, 700), { color: 'rgba(255,255,255,.6)', marginTop: 2 }]}>Today · {BALANCE.todayOrders} orders</Text>
+          <Text style={[type(15, 900), { color: '#fff', letterSpacing: -0.3 }]}>{summary ? money(todayDollars) : '—'}</Text>
+          <Text style={[type(11.5, 700), { color: 'rgba(255,255,255,.6)', marginTop: 2 }]}>Today · {summary?.today_orders ?? 0} orders</Text>
         </View>
         <View>
-          <Text style={[type(15, 900), { color: '#fff', letterSpacing: -0.3 }]}>{money(BALANCE.pending)}</Text>
-          <Text style={[type(11.5, 700), { color: 'rgba(255,255,255,.6)', marginTop: 2 }]}>Pending</Text>
+          <Text style={[type(15, 900), { color: '#fff', letterSpacing: -0.3 }]}>{summary?.pending_orders ?? 0}</Text>
+          <Text style={[type(11.5, 700), { color: 'rgba(255,255,255,.6)', marginTop: 2 }]}>Need prep</Text>
         </View>
       </View>
     </View>
@@ -362,44 +365,50 @@ function ShortcutsGrid() {
 export default function MyHub() {
   const c = useC();
   const router = useRouter();
-  const { ready, avail, toggleAvail, acted, acceptOrder, toast, prepperStatus, name, firstName } = useStore();
+  const { ready, avail, toggleAvail, toast, prepperStatus, name, firstName } = useStore();
   const [dir, setDir] = useState<'focus' | 'brief'>('focus');
+  const [summary, setSummary] = useState<KitchenDashboardSummary | null>(null);
+  const [needsPrep, setNeedsPrep] = useState<KitchenOrderRow[]>([]);
+  const [actingOn, setActingOn] = useState<string | null>(null);
+
+  const load = React.useCallback(() => {
+    fetchDashboardSummary().then(setSummary).catch(() => {});
+    fetchKitchenOrders().then((rows) => setNeedsPrep(rows.filter((r) => r.status === 'confirmed'))).catch(() => {});
+  }, []);
+  useFocusEffect(React.useCallback(() => { load(); }, [load]));
+
   if (!ready) return null; // wait for persisted role to hydrate before deciding — otherwise the guard below is skipped
   if (prepperStatus !== 'approved') return <Redirect href="/(tabs)/home" />; // prepper-only
 
+  const startPrep = async (orderId: string) => {
+    setActingOn(orderId);
+    try {
+      await updateOrderStatus(orderId, 'preparing');
+      setNeedsPrep((rows) => rows.filter((r) => r.order_id !== orderId));
+      toast('Order moved to preparing', 'check', true);
+    } catch (e: any) {
+      toast(e?.message || 'Could not update this order.', 'info');
+    } finally {
+      setActingOn(null);
+    }
+  };
+
+  // Real "needs attention" queue (audit Critical: this used to be built from permanently-
+  // empty mock arrays — ORDERS/CATER_INCOMING/MY_BIDS — so it always rendered "All caught up"
+  // regardless of real order activity).
   const queue: QItem[] = [];
   if (!avail) {
     queue.push({ k: 'paused', kind: 'warn', tag: 'Paused', tone: 'ic-amber', ic: 'pause', ttl: 'Your kitchen is paused', mt: 'New customers can’t order until you reopen.', btn: 'Reopen', btnVariant: 'dark', onPrimary: toggleAvail });
   }
-  ORDERS.filter((o) => o.status === 'new' && !acted.includes(o.id)).forEach((o) => {
-    const m = myMeal(o.meal);
+  needsPrep.forEach((o) => {
     queue.push({
-      k: o.id, kind: 'new', tag: 'New order', tone: 'ic-amber', ic: 'box',
-      ttl: `${o.qty}× ${m.name}`,
-      mt: <Text style={[type(12.5, 600), { color: c.soft }]}><Text style={[type(12.5, 800), { color: c.ink }]}>{o.cust}</Text> · {money(o.total)} · {o.mode === 'pickup' ? 'Pickup' : 'Delivery'}</Text>,
-      when: o.when, btn: 'Accept', btnVariant: 'pri',
-      onPrimary: () => { acceptOrder(o.id); toast(`Accepted ${o.id} — now cooking`, 'check', true); },
-      sub: { label: 'Decline', onPress: () => { acceptOrder(o.id); toast(`Declined ${o.id}`, 'x'); } },
+      k: o.order_id, kind: 'new', tag: 'New order', tone: 'ic-amber', ic: 'box',
+      ttl: `${o.first_item_qty ?? 1}× ${o.first_item_name ?? 'Order'}${o.item_count > 1 ? ` +${o.item_count - 1} more` : ''}`,
+      mt: <Text style={[type(12.5, 600), { color: c.soft }]}><Text style={[type(12.5, 800), { color: c.ink }]}>{o.buyer_name ?? 'Customer'}</Text> · {money(o.total_cents / 100)} · {o.fulfillment === 'pickup' ? 'Pickup' : 'Delivery'}</Text>,
+      btn: actingOn === o.order_id ? 'Starting…' : 'Start preparing', btnVariant: 'pri',
+      onPrimary: () => startPrep(o.order_id),
     });
   });
-  CATER_INCOMING.forEach((r) => {
-    queue.push({
-      k: r.id, kind: 'cater', tag: 'Catering request', tone: 'ic-purple', ic: 'users',
-      ttl: r.title,
-      mt: <Text style={[type(12.5, 600), { color: c.soft }]}><Text style={[type(12.5, 800), { color: c.ink }]}>{r.host}</Text> · {r.guests} guests · {r.budget}</Text>,
-      when: r.date.split('·')[0].trim(), btn: 'Respond', btnVariant: 'dark',
-      onPrimary: () => router.push(`/hub/request/${r.id}`),
-    });
-  });
-  const won = MY_BIDS.find((b) => b.status === 'accepted');
-  if (won) {
-    queue.push({
-      k: won.id, kind: 'win', tag: 'Quote chosen', tone: 'ic-green', ic: 'trophy',
-      ttl: won.title,
-      mt: <Text style={[type(12.5, 600), { color: c.soft }]}>Your <Text style={[type(12.5, 800), { color: c.ink }]}>{money(won.amount)}</Text> quote was chosen — confirm to schedule.</Text>,
-      btn: 'Confirm', btnVariant: 'pri', onPrimary: () => toast('Event confirmed 🎉', 'check', true),
-    });
-  }
 
   const queueBlock = (
     <>
@@ -431,15 +440,15 @@ export default function MyHub() {
     <View style={{ flex: 1, backgroundColor: c.bg }}>
       <HubHeader name={name || firstName || 'Your kitchen'} showBell below={<KSeg options={[{ key: 'focus', label: 'Focus' }, { key: 'brief', label: 'Dashboard' }]} value={dir} onChange={(k) => setDir(k as 'focus' | 'brief')} />} />
       <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={{ paddingBottom: 40, maxWidth: 1040, alignSelf: 'center', width: '100%' }}>
-        <BalanceStrip />
+        <BalanceStrip summary={summary} />
 
         {dir === 'focus' ? (
           <>
             {queueBlock}
             <KSec title="This week" link="Analytics" onLink={() => router.push('/hub/analytics')} />
             <View style={{ flexDirection: 'row', gap: 12, paddingHorizontal: 20 }}>
-              <StatTile ic="wallet" tone="ic-green" value={money(BALANCE.week)} label="Earnings" onPress={() => router.push('/hub/money')} />
-              <StatTile ic="box" tone="ic-amber" value={String(ORDERS.length)} label="Orders" onPress={() => router.push('/hub/orders')} />
+              <StatTile ic="wallet" tone="ic-green" value={summary ? money(summary.week_cents / 100) : '—'} label="Earnings" onPress={() => router.push('/hub/money')} />
+              <StatTile ic="box" tone="ic-amber" value={String(summary?.pending_orders ?? 0)} label="Need prep" onPress={() => router.push('/hub/orders')} />
             </View>
             {shortcutsBlock}
           </>
@@ -448,12 +457,12 @@ export default function MyHub() {
             <KSec title="Today" />
             <View style={{ paddingHorizontal: 20, gap: 12 }}>
               <View style={{ flexDirection: 'row', gap: 12 }}>
-                <StatTile ic="wallet" tone="ic-green" value={money(BALANCE.today)} label="Earnings today" onPress={() => router.push('/hub/money')} />
-                <StatTile ic="box" tone="ic-amber" value={String(BALANCE.todayOrders)} label="Orders today" onPress={() => router.push('/hub/orders')} />
+                <StatTile ic="wallet" tone="ic-green" value={summary ? money(summary.today_cents / 100) : '—'} label="Earnings today" onPress={() => router.push('/hub/money')} />
+                <StatTile ic="box" tone="ic-amber" value={String(summary?.today_orders ?? 0)} label="Orders today" onPress={() => router.push('/hub/orders')} />
               </View>
               <View style={{ flexDirection: 'row', gap: 12 }}>
                 <StatTile ic="star" tone="ic-blue" value="—" label="No reviews yet" onPress={() => router.push('/hub/analytics')} />
-                <StatTile ic="trendUp" tone="ic-purple" value={`${ANALYTICS.repeat}%`} label="Repeat rate" delta="Analytics" deltaDir="flat" onPress={() => router.push('/hub/analytics')} />
+                <StatTile ic="users" tone="ic-purple" value={String(summary?.pending_orders ?? 0)} label="Need prep" onPress={() => router.push('/hub/orders')} />
               </View>
             </View>
             {queueBlock}
