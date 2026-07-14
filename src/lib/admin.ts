@@ -286,3 +286,28 @@ export async function listAudit(opts: { limit?: number; before?: string | null }
   if (error) throw error;
   return (data as AdminAuditEntry[]) ?? [];
 }
+
+// --- Waitlist (read-only, keyset-paginated) — captured by the marketing landing page ---
+export interface AdminWaitlistEntry {
+  id: string;
+  email: string;
+  zip: string | null;
+  source: string | null;
+  created_at: string;
+}
+
+export async function listWaitlist(opts: { limit?: number; before?: string | null } = {}): Promise<AdminWaitlistEntry[]> {
+  ensureWeb();
+  const { data, error } = await supabase.rpc('admin_list_waitlist', {
+    p_limit: opts.limit ?? 100,
+    p_before: opts.before ?? null,
+  });
+  if (error) throw error;
+  return (data as AdminWaitlistEntry[]) ?? [];
+}
+
+export async function deleteWaitlistEntry(id: string): Promise<void> {
+  ensureWeb();
+  const { error } = await supabase.rpc('admin_delete_waitlist_entry', { p_id: id });
+  if (error) throw error;
+}
