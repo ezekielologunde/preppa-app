@@ -22,6 +22,8 @@ const COMMANDS: Command[] = [
   { label: 'Overview', hint: 'Dashboard home', icon: 'grid', route: '/admin' },
   { label: 'Applications', hint: 'Prepper review queue', icon: 'chefhat', route: '/admin/applications' },
   { label: 'Orders & payments', hint: 'Transactions', icon: 'bag', route: '/admin/orders' },
+  { label: 'Plans & subscriptions', hint: 'Meal plans & subscribers', icon: 'repeat', route: '/admin/plans' },
+  { label: 'Requests & bookings', hint: 'RFQs, quotes & bookings', icon: 'calendar', route: '/admin/bookings' },
   { label: 'Support tickets', hint: 'Disputes & issues', icon: 'ticket', route: '/admin/tickets' },
   { label: 'Users', hint: 'Accounts & roles', icon: 'users', route: '/admin/users' },
   { label: 'Audit log', hint: 'Admin action trail', icon: 'clock', route: '/admin/audit' },

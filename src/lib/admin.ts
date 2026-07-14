@@ -319,3 +319,244 @@ export async function deleteWaitlistEntry(id: string): Promise<void> {
   const { error } = await supabase.rpc('admin_delete_waitlist_entry', { p_id: id });
   if (error) throw error;
 }
+
+// --- Meal plans & subscriptions (read-only) ---
+export interface AdminPlan {
+  plan_id: string;
+  kitchen_id: string;
+  kitchen_name: string | null;
+  name: string;
+  status: string;
+  price_cents: number;
+  selection_model: string;
+  fulfillment: string;
+  subscriber_count: number;
+  created_at: string;
+}
+
+export interface AdminPlanItem {
+  meal_name: string;
+  qty: number;
+  price_cents: number;
+}
+
+export interface AdminPlanSubscriber {
+  subscription_id: string;
+  customer_name: string | null;
+  lifecycle: string;
+  created_at: string;
+}
+
+export interface AdminPlanDetail {
+  plan_id: string;
+  kitchen_name: string | null;
+  name: string;
+  description: string | null;
+  status: string;
+  price_cents: number;
+  fulfillment: string;
+  selection_model: string;
+  per_meal_cents: number | null;
+  per_delivery_cents: number | null;
+  meals_per_delivery: number | null;
+  servings: number | null;
+  min_commitment: number;
+  trial_price_cents: number | null;
+  trial_cycles: number;
+  created_at: string;
+  items: AdminPlanItem[];
+  subscribers: AdminPlanSubscriber[];
+}
+
+export async function listPlans(): Promise<AdminPlan[]> {
+  ensureWeb();
+  const { data, error } = await supabase.rpc('admin_list_plans');
+  if (error) throw error;
+  return (data as AdminPlan[]) ?? [];
+}
+
+export async function planDetail(planId: string): Promise<AdminPlanDetail | null> {
+  ensureWeb();
+  const { data, error } = await supabase.rpc('admin_plan_detail', { p_plan: planId });
+  if (error) throw error;
+  const row = data?.[0] as AdminPlanDetail | undefined;
+  if (!row) return null;
+  return {
+    ...row,
+    items: Array.isArray(row.items) ? row.items : [],
+    subscribers: Array.isArray(row.subscribers) ? row.subscribers : [],
+  };
+}
+
+export interface AdminSubscription {
+  subscription_id: string;
+  kitchen_name: string | null;
+  customer_name: string | null;
+  plan_name: string | null;
+  kind: string;
+  lifecycle: string;
+  fulfillment: string | null;
+  preferred_day: string | null;
+  next_cycle_date: string | null;
+  created_at: string;
+}
+
+export interface AdminSubscriptionCycle {
+  cycle_id: string;
+  status: string;
+  payment_status: string;
+  cycle_start: string;
+  cycle_end: string;
+  delivery_date: string;
+  billing_date: string;
+  total_cents: number;
+  skipped: boolean;
+}
+
+export interface AdminSubscriptionDetail {
+  subscription_id: string;
+  kitchen_name: string | null;
+  customer_name: string | null;
+  plan_name: string | null;
+  kind: string;
+  lifecycle: string;
+  fulfillment: string | null;
+  preferred_day: string | null;
+  billing_anchor: string | null;
+  next_cycle_date: string | null;
+  pause_until: string | null;
+  cancel_at_cycle_end: boolean;
+  failed_charge_count: number;
+  trial_cycles_remaining: number;
+  created_at: string;
+  cycles: AdminSubscriptionCycle[];
+}
+
+export async function listSubscriptions(): Promise<AdminSubscription[]> {
+  ensureWeb();
+  const { data, error } = await supabase.rpc('admin_list_subscriptions');
+  if (error) throw error;
+  return (data as AdminSubscription[]) ?? [];
+}
+
+export async function subscriptionDetail(subscriptionId: string): Promise<AdminSubscriptionDetail | null> {
+  ensureWeb();
+  const { data, error } = await supabase.rpc('admin_subscription_detail', { p_subscription: subscriptionId });
+  if (error) throw error;
+  const row = data?.[0] as AdminSubscriptionDetail | undefined;
+  if (!row) return null;
+  return { ...row, cycles: Array.isArray(row.cycles) ? row.cycles : [] };
+}
+
+// --- Service requests, quotes & bookings (read-only) ---
+export interface AdminServiceRequest {
+  request_id: string;
+  customer_name: string | null;
+  category: string;
+  status: string;
+  event_date: string;
+  budget_cents: number | null;
+  quote_count: number;
+  created_at: string;
+}
+
+export interface AdminServiceRequestQuote {
+  quote_id: string;
+  kitchen_name: string | null;
+  amount_cents: number;
+  deposit_cents: number;
+  status: string;
+  note: string | null;
+  created_at: string;
+}
+
+export interface AdminServiceRequestBooking {
+  booking_id: string;
+  status: string;
+  amount_cents: number;
+  deposit_cents: number;
+  balance_cents: number | null;
+  created_at: string;
+}
+
+export interface AdminServiceRequestDetail {
+  request_id: string;
+  customer_name: string | null;
+  category: string;
+  status: string;
+  event_date: string;
+  event_time: string | null;
+  approx_area: string | null;
+  address_text: string | null;
+  guests: number | null;
+  budget_cents: number | null;
+  details: string | null;
+  answers: Record<string, unknown> | null;
+  created_at: string;
+  quotes: AdminServiceRequestQuote[];
+  booking: AdminServiceRequestBooking | null;
+}
+
+export async function listServiceRequests(): Promise<AdminServiceRequest[]> {
+  ensureWeb();
+  const { data, error } = await supabase.rpc('admin_list_service_requests');
+  if (error) throw error;
+  return (data as AdminServiceRequest[]) ?? [];
+}
+
+export async function serviceRequestDetail(requestId: string): Promise<AdminServiceRequestDetail | null> {
+  ensureWeb();
+  const { data, error } = await supabase.rpc('admin_service_request_detail', { p_request: requestId });
+  if (error) throw error;
+  const row = data?.[0] as AdminServiceRequestDetail | undefined;
+  if (!row) return null;
+  return { ...row, quotes: Array.isArray(row.quotes) ? row.quotes : [] };
+}
+
+export interface AdminBooking {
+  booking_id: string;
+  booking_kind: string;
+  kitchen_name: string | null;
+  customer_name: string | null;
+  status: string;
+  amount_cents: number;
+  deposit_cents: number;
+  balance_cents: number | null;
+  event_date: string;
+  created_at: string;
+}
+
+export interface AdminBookingDetail {
+  booking_id: string;
+  booking_kind: string;
+  kitchen_name: string | null;
+  customer_name: string | null;
+  status: string;
+  amount_cents: number;
+  deposit_cents: number;
+  service_fee_cents: number;
+  balance_cents: number | null;
+  event_date: string;
+  address_text: string | null;
+  guests: number | null;
+  created_at: string;
+  confirmed_at: string | null;
+  completed_at: string | null;
+  cancelled_at: string | null;
+  request: { request_id: string; category: string; details: string | null; answers: Record<string, unknown> } | null;
+  quote: { quote_id: string; amount_cents: number; deposit_cents: number; note: string | null } | null;
+}
+
+export async function listBookings(): Promise<AdminBooking[]> {
+  ensureWeb();
+  const { data, error } = await supabase.rpc('admin_list_bookings');
+  if (error) throw error;
+  return (data as AdminBooking[]) ?? [];
+}
+
+export async function bookingDetail(bookingId: string): Promise<AdminBookingDetail | null> {
+  ensureWeb();
+  const { data, error } = await supabase.rpc('admin_booking_detail', { p_booking: bookingId });
+  if (error) throw error;
+  return (data?.[0] as AdminBookingDetail) ?? null;
+}
