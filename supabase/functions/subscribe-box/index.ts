@@ -61,6 +61,14 @@ Deno.serve(async (req) => {
     const { data: meals } = await db.from('meals').select('id, kitchen_id, status, price_cents').in('id', mealIds);
     if (!meals || meals.length !== mealIds.length) return json(400, { error: 'Some meals are unavailable.' });
     for (const m of meals as any[]) if (m.status !== 'live') return json(409, { error: 'A meal in your box is no longer available.' });
+    // Vacation mode (audit High finding): meal.status='live' doesn't imply the kitchen is
+    // currently orderable -- a paused kitchen's meals can stay flagged 'live'. Check each
+    // distinct kitchen in the box explicitly (single-order checkout already does this).
+    const kitchenIds = [...new Set((meals as any[]).map((m) => m.kitchen_id))];
+    for (const kid of kitchenIds) {
+      const { data: orderable } = await db.rpc('is_kitchen_orderable', { kid });
+      if (!orderable) return json(409, { error: 'A kitchen in your box is not taking orders right now.' });
+    }
     // can't include your own kitchen's meals (you'd be paying yourself)
     const { data: myKitchen } = await db.from('kitchens').select('id').eq('owner_id', uid);
     const mine = new Set((myKitchen ?? []).map((k: any) => k.id));

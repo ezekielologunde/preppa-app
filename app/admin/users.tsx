@@ -20,8 +20,22 @@ export default function AdminUsers() {
   const { data, loading, error } = useAdminUsers(nonce);
   const [target, setTarget] = useState<admin.AdminUser | null>(null);
   const [reason, setReason] = useState('');
+  const [roleTarget, setRoleTarget] = useState<admin.AdminUser | null>(null);
   const [busy, setBusy] = useState(false);
   const refetch = () => setNonce((n) => n + 1);
+
+  // Audit High finding: role changes previously happened out-of-band with no audit trail.
+  const doSetRole = async (role: 'customer' | 'prepper' | 'admin') => {
+    if (!roleTarget) return;
+    setBusy(true);
+    try {
+      await admin.setUserRole(roleTarget.user_id, role);
+      toast(`${roleTarget.display_name ?? 'User'} is now ${role}`, 'check', true);
+      setRoleTarget(null); refetch();
+    } catch (e: any) {
+      toast(e?.message ?? 'Role change failed', 'info');
+    } finally { setBusy(false); }
+  };
 
   // Audit Critical #10: there was no capability anywhere to suspend/reinstate an
   // already-verified kitchen, despite the Cook Agreement promising Preppa can do exactly
@@ -69,16 +83,16 @@ export default function AdminUsers() {
     { key: 'verif', header: 'Verification', width: 118, hideBelow: 620, render: (u) => (u.verification_status ? <StatusTag label={humanize(u.verification_status)} tone={u.verification_status === 'verified' ? 'success' : u.verification_status === 'suspended' ? 'danger' : 'neutral'} /> : <Text style={[type(12.5, 600), { color: c.muted }]}>—</Text>) },
     { key: 'joined', header: 'Joined', width: 80, hideBelow: 700, render: (u) => <Text style={[type(12.5, 600), { color: c.muted }]}>{fmtDate(u.created_at)}</Text> },
     {
-      key: 'action', header: '', width: 100, render: (u) => {
-        if (!u.kitchen_id) return null;
-        if (u.verification_status === 'verified') {
-          return <Press scale={0.95} onPress={() => { setTarget(u); setReason(''); }}><Text style={[type(12.5, 800), { color: c.red }]}>Suspend</Text></Press>;
-        }
-        if (u.verification_status === 'suspended') {
-          return <Press scale={0.95} onPress={() => doReinstate(u)}><Text style={[type(12.5, 800), { color: c.green }]}>Reinstate</Text></Press>;
-        }
-        return null;
-      },
+      key: 'action', header: '', width: 170, render: (u) => (
+        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 14 }}>
+          {u.kitchen_id && u.verification_status === 'verified' ? (
+            <Press scale={0.95} onPress={() => { setTarget(u); setReason(''); }}><Text style={[type(12.5, 800), { color: c.red }]}>Suspend</Text></Press>
+          ) : u.kitchen_id && u.verification_status === 'suspended' ? (
+            <Press scale={0.95} onPress={() => doReinstate(u)}><Text style={[type(12.5, 800), { color: c.green }]}>Reinstate</Text></Press>
+          ) : null}
+          <Press scale={0.95} onPress={() => setRoleTarget(u)}><Text style={[type(12.5, 800), { color: c.primary }]}>Role</Text></Press>
+        </View>
+      ),
     },
   ];
 
@@ -119,6 +133,17 @@ export default function AdminUsers() {
         />
         <View style={{ marginTop: 12 }}>
           <Btn label="Suspend kitchen" variant="ghost" loading={busy} disabled={busy} onPress={doSuspend} />
+        </View>
+      </Sheet>
+
+      <Sheet visible={!!roleTarget} onClose={() => setRoleTarget(null)} title={`Change role — ${roleTarget?.display_name ?? 'User'}`}>
+        <Text style={[type(13, 600), { color: c.soft, marginBottom: 12 }]}>
+          Current role: {roleTarget?.role}. This writes to the audit log.
+        </Text>
+        <View style={{ gap: 10 }}>
+          {(['customer', 'prepper', 'admin'] as const).map((r) => (
+            <Btn key={r} label={`Set to ${r}`} variant={roleTarget?.role === r ? 'dark' : 'ghost'} disabled={busy || roleTarget?.role === r} loading={busy} onPress={() => doSetRole(r)} />
+          ))}
         </View>
       </Sheet>
     </Screen>

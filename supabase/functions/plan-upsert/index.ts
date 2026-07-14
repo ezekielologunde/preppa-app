@@ -72,6 +72,12 @@ Deno.serve(async (req) => {
     if (p.planId) {
       const { data: owned } = await db.from('plans').select('id').eq('id', p.planId).eq('kitchen_id', kitchen.id).maybeSingle();
       if (!owned) return json(404, { error: 'Plan not found.' });
+    } else {
+      // New plans go straight to status:'active' below (there's no draft state for plans),
+      // so this is the only gate before a customer could subscribe and be billed for a
+      // kitchen that can never actually get paid. Mirrors create_meal's payouts_enabled gate.
+      const { data: acct } = await db.from('stripe_accounts').select('payouts_enabled').eq('kitchen_id', kitchen.id).maybeSingle();
+      if (!acct?.payouts_enabled) return json(409, { error: 'Finish payout setup before publishing a meal plan.' });
     }
 
     // cross-field validation

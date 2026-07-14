@@ -45,7 +45,10 @@ Deno.serve(async (req) => {
     let refunded = false;
     if ((bk as any).status === 'confirmed' && (bk as any).deposit_pi_id) {
       try {
-        await stripe.refunds.create({ payment_intent: (bk as any).deposit_pi_id });
+        // Idempotency key (audit High finding: no key/lock here before -- a double-submit
+        // or retry-after-timeout could fire two separate Stripe refunds). Deterministic on
+        // the booking id, so any retry of the same cancellation dedupes on Stripe's side.
+        await stripe.refunds.create({ payment_intent: (bk as any).deposit_pi_id }, { idempotencyKey: `refund_${bookingId}` });
         refunded = true;
         // Reverse the cook's credited sale (append-only — a new negative refund entry).
         const cookCredit = Math.max((bk as any).deposit_cents - (bk as any).service_fee_cents, 0);

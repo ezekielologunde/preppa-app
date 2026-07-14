@@ -1,12 +1,14 @@
 import React from 'react';
 import { View, Text, ScrollView } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
+import { Redirect } from 'expo-router';
 import { useC } from '../src/theme/ThemeContext';
 import { type, radius, shadow, WARM_GRAD } from '../src/theme/theme';
 import { useStore } from '../src/store/store';
 import { Icon, Press, Btn } from '../src/ui';
 import { Screen, TopBar, Block } from '../src/ui/layout';
 import { shareAndNotify, copyText, SITE } from '../src/lib/share';
+import { FLAGS } from '../src/config/flags';
 
 type Tone = 'amber' | 'purple' | 'blue' | 'pink' | 'green';
 
@@ -15,6 +17,10 @@ const REFERRAL_CODE = 'JORDAN-PREPPA';
 export default function Rewards() {
   const c = useC();
   const { toast } = useStore();
+  // Audit High finding: FLAGS.rewards=false documented this as "not live", but the route had
+  // no actual guard -- a fully-fabricated points balance/referral code was reachable by
+  // direct URL in production. Guard the route itself (matching the FLAGS.feed pattern).
+  if (!FLAGS.rewards) return <Redirect href="/(tabs)/home" />;
   const copyCode = async () => {
     const ok = await copyText(REFERRAL_CODE);
     toast(ok ? 'Code copied' : 'Copy not available on this device', ok ? 'check' : 'info', ok);

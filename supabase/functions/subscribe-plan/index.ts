@@ -75,6 +75,19 @@ Deno.serve(async (req) => {
     const { data: kitchen } = await db.from('kitchens').select('owner_id').eq('id', plan.kitchen_id).maybeSingle();
     if (kitchen?.owner_id === uid) return json(400, { error: "You can't subscribe to your own plan." });
 
+    // Defense-in-depth (plan-upsert already blocks creating a new plan without this) --
+    // a plan created before that gate shipped, or one whose kitchen's payouts lapsed since
+    // publishing, must still not be subscribable.
+    const { data: acct } = await db.from('stripe_accounts').select('payouts_enabled').eq('kitchen_id', plan.kitchen_id).maybeSingle();
+    if (!acct?.payouts_enabled) return json(409, { error: 'This plan is not accepting subscribers right now.' });
+
+    // Vacation mode (audit High finding): only single-order checkout respected this before.
+    // Scope note: this blocks NEW signups only -- whether an in-progress subscriber's cycles
+    // should also pause when their kitchen goes on vacation mid-subscription is a separate
+    // product decision, not changed here.
+    const { data: orderable } = await db.rpc('is_kitchen_orderable', { kid: plan.kitchen_id });
+    if (!orderable) return json(409, { error: 'This kitchen is not taking new plan subscribers right now.' });
+
     // one active subscription per plan
     const { data: dupe } = await db.from('subscriptions').select('id')
       .eq('customer_id', uid).eq('plan_id', plan.id)

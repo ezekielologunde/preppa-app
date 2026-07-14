@@ -53,7 +53,8 @@ Deno.serve(async (req) => {
       let refundCents = 0;
       if (b.status === 'confirmed') {
         refundCents = b.deposit_cents ?? 0;
-        if (refundCents > 0 && b.deposit_pi_id) { try { await stripe.refunds.create({ payment_intent: b.deposit_pi_id }); } catch (_e) { /* continue; admin can reconcile */ } }
+        // Idempotency key (audit High finding): dedupes a double-submit/retry on Stripe's side.
+        if (refundCents > 0 && b.deposit_pi_id) { try { await stripe.refunds.create({ payment_intent: b.deposit_pi_id }, { idempotencyKey: `refund_${b.id}` }); } catch (_e) { /* continue; admin can reconcile */ } }
       } else {
         await db.rpc('release_experience_seats', { p_booking: b.id });
       }
