@@ -61,8 +61,10 @@ Deno.serve(async (req) => {
     if (!parsed.success) return json(400, { error: 'invalid input', issues: parsed.error.issues });
     const p = parsed.data;
 
-    const { data: kitchen } = await db.from('kitchens').select('id, name').eq('owner_id', uid).limit(1).maybeSingle();
-    if (!kitchen) return json(400, { error: 'Create your kitchen first.' });
+    // verification_status='verified' here (not just owner_id) closes a security-review
+    // finding: a pending/rejected/suspended kitchen could otherwise still create/edit plans.
+    const { data: kitchen } = await db.from('kitchens').select('id, name').eq('owner_id', uid).eq('verification_status', 'verified').limit(1).maybeSingle();
+    if (!kitchen) return json(400, { error: 'Your kitchen must be verified to manage meal plans.' });
 
     const mealIds = [...new Set(p.items.map((i) => i.mealId))];
     const { data: meals } = await db.from('meals').select('id, kitchen_id').in('id', mealIds);
