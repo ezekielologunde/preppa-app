@@ -1,8 +1,12 @@
 # Preppa Platform Integration Audit — 2026-07-14
 
-Read-only, 23-agent audit (16 subsystem + 6 red-team + 1 verdict). No code changed.
+Read-only, 23-agent audit (16 subsystem + 6 red-team + 1 verdict). No code changed at the time
+this was written. **This snapshot is now historical** — [PR #1](https://github.com/ezekielologunde/preppa-app/pull/1)
+merged fixes for all 16 Critical findings below; see the "Update — 2026-07-14, post-fix-merge"
+section at the top of [AUDIT.md](./AUDIT.md) for current per-item status (fixed-and-live vs.
+fixed-but-pending-deploy) before treating anything in this file as still-open.
 
-## Verdict: **NO GO**
+## Verdict: **NO GO** _(at time of writing — see AUDIT.md for current status)_
 
 This audit covered 16 subsystems plus 6 security red-team categories across the Preppa marketplace (customer meal ordering, prepper onboarding/payouts, subscriptions, service-request/quote bidding, feed/creator video, livestreaming, and the admin console). The backend architecture is frequently well-designed in isolated slices (row-locked capacity reservation, append-only ledger, SECURITY DEFINER RPCs with server-side re-checks, real Stripe Connect payout flow, real per-cycle subscription billing engine) but the audit surfaced a large number of Critical and High severity gaps spanning every primary journey, plus several actively exploitable, confirmed-vulnerable money-moving and trust-and-safety holes. Most striking: a fully-built, unflagged production livestreaming feature that directly violates the team's own written pre-launch gating plan (no FLAGS.live key exists, a stream-key-issuing endpoint is reachable by any verified prepper with zero moderation/kill-switch, and the Mux webhook fails OPEN -- processes unsigned events -- whenever its signing secret is unset); a real financial double-spend path on cook payouts (no lock or idempotency key on the Stripe Transfer call, confirmed exploitable by any onboarded prepper); a real double-booking/double-charge path on service-request quote acceptance (two quotes on one request can both be paid and confirmed); a fully-mocked native (iOS/Android) checkout that silently "completes" orders with no real charge and no DB row; the platform's only two real (non-seed) prepper kitchens currently stuck permanently paused/unorderable in production because kitchen approval never sets availability and the client's vacation-mode toggle never reaches the database; an orphaned meal-review write path (the reviews table has 0 rows in production); no capability anywhere to suspend/deactivate a verified bad-actor kitchen or to ban/suspend a user account; zero automated tests and zero CI/CD anywhere in the repo; and all 31 live Supabase Edge Functions plus 108 SQL migrations existing only in the remote project with no source control at all. This is an audit-only pass -- no remediation has started.
 

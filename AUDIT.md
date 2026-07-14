@@ -10,6 +10,20 @@ _Last run: 2026-07-14. App project: `fwidhpzwldneeaphrxgg`. Verdict: **NO GO**._
 
 ---
 
+## Update — 2026-07-14, post-fix-merge
+
+[PR #1](https://github.com/ezekielologunde/preppa-app/pull/1) merged to `main` (squash `2659588`): all **16 Critical** findings below have a real code fix in the repo now (status marked inline on each item below). Summary:
+
+- **Fixed and fully live already:** #5 create_post media allowlist + storage fix (pure DB RPC, no Edge Function involved), #6 native checkout blocked, #9 review submission, #11 order tracking — plus the client-side livestream gating for #3.
+- **Fixed in code, DB migration already applied live, but the Edge Function that calls the new RPC still needs redeploying:** #1 (connect-payout), #2 (accept-quote-and-deposit).
+- **Fixed in code, held for a deploy step not yet authorized:** #4 (mux-webhook fail-closed — needs redeploy), #7 (meal edit/pause/archive — needs migration `20260714070000`), #8 (My Hub/My-menu — same migration), #10 (kitchen suspend — needs migration `20260714060000`), #12 (kitchen-availability persistence — needs migration `20260714050400`, which includes a one-time data-fix for the 2 real kitchens currently stuck paused).
+- **Partially addressed:** #13 (tests/CI) — a typecheck CI gate now exists and runs on every PR; a full regression test suite does not.
+- **Not started:** the ~22 High-severity findings (payout-gating gaps on plans/quotes, legacy Stripe-subscription cleanup, admin visibility gaps, chat rate limits, refund idempotency, etc.), real meal-photo upload (needs a new native dependency), and a fresh independent re-verification pass.
+
+**Verdict is unchanged at NO GO.** Per this doc's own rule, GO requires nothing Critical/High open and no incomplete primary journey — the pending deploy step, the full High-severity batch, and independent re-verification are all still open. Re-run the verdict once the pending migrations/Edge Functions are deployed and the High batch is addressed.
+
+---
+
 ## Posture in one paragraph
 
 The backend architecture is frequently well-designed in isolated slices — row-locked capacity
@@ -54,44 +68,45 @@ unflagged livestreaming feature that violates the team's own launch-gating plan*
 
 ## 🔴 Critical (16)
 
-1. **connect-payout has no lock/idempotency key** on the Stripe Transfer call — any onboarded
-   prepper can double/multi-submit cash-out and extract more real money than their ledger
-   balance allows. **Confirmed exploitable.**
-2. **accept-quote-and-deposit has no row/advisory lock** — two different quotes on the same
-   service_request can both be accepted, paid, and confirmed, producing two paid bookings with
-   two cooks for one event. **Confirmed exploitable.**
-3. **Livestreaming (Mux) is fully live in production with no `FLAGS.live` gate**, directly
-   violating the team's own written pre-launch plan. Go-live/viewer screens are reachable by any
-   approved prepper with zero moderation, suspension-propagation, or kill switch.
-4. **mux-webhook fails OPEN** — if `MUX_WEBHOOK_SECRET` is unset it accepts and processes
-   unsigned events (can forge stream-state transitions / fabricate published VOD posts).
-5. **create_post accepts arbitrary externally-hosted media URLs** with no domain allowlist, and
-   Preppa's own storage objects are overwritable in place post-publish (bait-and-switch on
-   already-moderated/visible media).
-6. **Native (iOS/Android) checkout is a full UI mock** — marks orders "paid" client-side with no
-   Stripe call and no DB row. Zero revenue integrity on any native build.
-7. **No `update_meal`/`pause_meal`/`archive_meal` capability exists anywhere** (app or DB) — a
-   published meal can never be edited, paused, marked sold-out, or removed by its prepper.
-8. **Prepper "My Hub" dashboard and "My menu" are wired to permanently-empty legacy mock
-   fixtures** (`ORDERS`/`BALANCE`/`MY_MEALS` all zeroed) despite real order/ledger/meal data
-   existing one layer down.
-9. **Meal-order review submission is a UI-only mock** (fake toast, no DB write) despite a
-   correct, ready RLS policy and `reviews` table — 0 rows in production.
-10. **No user suspension/ban capability exists anywhere** (schema, RPC, or UI) — admin cannot
-    disable a bad-actor account short of manual DB surgery.
-11. **Kitchen "vacation mode" never persists to the database** (local-state-only), and kitchen
-    approval never sets `availability='open'` — **the platform's only 2 real prepper kitchens
-    are stuck permanently paused/unorderable in production right now.**
-12. **`app/track.tsx` (order tracking) is entirely hardcoded fixture data** (fake order id/ETA/
-    status) even though real order-status plumbing exists and is used correctly one screen away.
-13. **Zero automated tests exist anywhere in the repo** — no test runner configured for any of
-    31 live Edge Functions, ~108 migrations, or app logic.
-14. **No CI/CD pipeline exists** — 98 commits have landed on `main` with no automated
-    type-check, lint, or test gate.
-15. **All 31 live Supabase Edge Functions (including every payment-moving function) exist only
-    in the remote project with zero source control** — unrecoverable, unreviewable, undiffable.
-16. *(Carried context, not re-verified this pass)* Google OAuth client secret exposure from a
-    prior session — confirm rotation completed if not already done.
+1. ✅🟡 **FIXED, pending Edge Function deploy.** ~~connect-payout has no lock/idempotency key~~
+   on the Stripe Transfer call — any onboarded prepper could double/multi-submit cash-out and
+   extract more real money than their ledger balance allows. **Confirmed exploitable.** DB-side
+   lock (`reserve_payout`/`finalize_payout`) is live; `connect-payout` still needs redeploying to
+   actually call it.
+2. ✅🟡 **FIXED, pending Edge Function deploy.** ~~accept-quote-and-deposit has no row/advisory
+   lock~~ — two different quotes on the same service_request could both be accepted, paid, and
+   confirmed. **Confirmed exploitable.** DB-side lock (`accept_quote`) is live; the Edge Function
+   still needs redeploying to call it.
+3. ✅ **FIXED.** ~~Livestreaming (Mux) is fully live in production with no `FLAGS.live` gate~~ —
+   `FLAGS.live=false` added and every entry point (feed, storefront, go-live, viewer) gated.
+4. ✅🟡 **FIXED, pending Edge Function deploy.** ~~mux-webhook fails OPEN~~ — the fixed version
+   (fails closed with 400 when unsigned/unconfigured) is written but not yet redeployed.
+5. ✅ **FIXED, live.** ~~create_post accepts arbitrary externally-hosted media URLs~~ — domain
+   allowlist + storage-overwrite fix applied live (pure DB RPC, no Edge Function involved).
+6. ✅ **FIXED, live.** ~~Native (iOS/Android) checkout is a full UI mock~~ — now blocked with a
+   clear message instead of faking a paid order.
+7. ✅🟡 **FIXED, pending migration.** ~~No `update_meal`/`pause_meal`/`archive_meal` capability
+   exists anywhere~~ — RPCs + UI written; needs migration `20260714070000` applied.
+8. ✅🟡 **FIXED, pending migration.** ~~Prepper "My Hub" dashboard and "My menu" wired to
+   permanently-empty legacy mock fixtures~~ — rewired to real queries; needs the same migration
+   as #7 for the meal-status RPCs it calls.
+9. ✅ **FIXED, live.** ~~Meal-order review submission is a UI-only mock~~ — now a real insert
+   against the existing (already-correct) `reviews` table/RLS.
+10. ✅🟡 **FIXED, pending migration.** ~~No user suspension/ban capability exists anywhere~~ —
+    kitchen suspend/reinstate RPCs + admin UI written; needs migration `20260714060000`.
+11. ✅🟡 **FIXED, pending migration.** ~~Kitchen "vacation mode" never persists to the database~~
+    — real DB persistence + a data-fix for the 2 stuck real kitchens written; needs migration
+    `20260714050400` applied (recommend prioritizing this one — it directly restores order-ability).
+12. ✅ **FIXED, live.** ~~`app/track.tsx` (order tracking) is entirely hardcoded fixture data~~ —
+    now polls real order status.
+13. 🟡 **PARTIALLY ADDRESSED.** ~~Zero automated tests exist anywhere in the repo~~ — a typecheck
+    CI gate now runs on every PR; a real regression test suite still does not exist.
+14. ✅ **FIXED.** ~~No CI/CD pipeline exists~~ — `.github/workflows/ci.yml` runs `tsc --noEmit`
+    on every push/PR.
+15. ✅ **FIXED.** ~~All 31 live Supabase Edge Functions... exist only in the remote project with
+    zero source control~~ — all 30 functions + 6 new migrations are now vendored in `supabase/`.
+16. ⬜ **NOT ADDRESSED THIS PASS.** *(Carried context, not re-verified)* Google OAuth client
+    secret exposure from a prior session — confirm rotation completed if not already done.
 
 ## 🟠 High (selected — full list of 22 in AUDIT_FULL.md)
 
