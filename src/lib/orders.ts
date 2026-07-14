@@ -20,6 +20,22 @@ export interface KitchenOrderRow {
   item_count: number;
 }
 
+export interface KitchenDashboardSummary {
+  available_cents: number;
+  today_cents: number;
+  today_orders: number;
+  week_cents: number;
+  pending_orders: number;
+}
+
+/** Real My Hub dashboard numbers (audit Critical: this used to read permanently-empty
+ * mock fixtures — $0/0 regardless of actual activity). */
+export async function fetchDashboardSummary(): Promise<KitchenDashboardSummary> {
+  const { data, error } = await supabase.rpc('kitchen_dashboard_summary').single();
+  if (error) throw error;
+  return data as KitchenDashboardSummary;
+}
+
 export async function fetchKitchenOrders(): Promise<KitchenOrderRow[]> {
   const { data, error } = await supabase.rpc('kitchen_list_orders');
   if (error) throw error;
