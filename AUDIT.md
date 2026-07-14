@@ -227,6 +227,100 @@ Bearer-JWT model structurally limits its blast radius.
 
 ---
 
+## Update — 2026-07-14, extended follow-on audit (Edge Function hardening, payment lifecycle, admin control-plane, supply-chain/CI-CD, feature flags, detection gaps)
+
+A second, separate follow-on pass (independent of the 8-section checklist audit above) extended
+coverage into six areas: static/read-only hardening review of the 30 live Edge Functions against
+malformed input, the full payment/payout/subscription-cycle lifecycle under an ambiguous-response
+threat model, the admin control-plane assuming an admin credential is compromised, GitHub/CI-CD and
+dependency supply-chain posture, the server-side reality behind every client feature flag, and what
+detection/alerting exists once a control is bypassed. No new Critical was found. **7 findings were
+confirmed** after adversarial verification (2 were detection-recommendations, not defects); **5 real
+fixes were applied and merged same session** (PR #12).
+
+### Fixed and merged same session
+
+1. **`create-order` missing `idempotencyKey` on the Stripe PaymentIntent call** — the one
+   money-moving Stripe call in the reviewed set missing it, unlike every other charge/refund/
+   transfer call site. **Fixed.**
+2. **`lat`/`lng` accepted `Infinity`/unbounded magnitudes** in `create-service-request`/
+   `edit-service-request` (zod only rejects `NaN`, not infinite values), feeding a `NaN` into the
+   haversine distance match and silently zero-matching kitchens. **Fixed** — bounded to real
+   coordinate ranges. Also capped the free-form `answers` blob at 10KB (resource-exhaustion guard;
+   every other free-text field in these functions was already bounded).
+3. **`plans`/`experiences` `cover_url`/`photo_urls` had no domain allowlist** — same vulnerability
+   class already fixed for `create_post`'s media URLs (`is_allowed_media_url`), just unpatched on
+   these two tables. **Fixed** — added matching DB-level CHECK constraints (verified against zero
+   existing violations before adding). `experience-upsert`'s `meetingUrl` now also requires a
+   well-formed URL.
+4. **`connect-onboard`'s `returnUrl`/`refreshUrl` had no allowlist** before being handed to Stripe's
+   `accountLinks.create()` — an open-redirect risk in the highest-trust window of the whole app
+   (immediately after a cook submits bank/identity info to Stripe). **Fixed** — allowlisted to the
+   app's own origin. Also stopped 4 other functions (`connect-status`, `live-start`, `live-end`,
+   `mux-webhook`) from leaking raw exception messages to the client.
+5. **`FLAGS.live` read as a kill switch in its own code comments but had no server-side
+   enforcement** — any verified-kitchen-owner account could `POST` directly to `live-start`
+   regardless of the flag or a future redeploy meant to disable it. **Fixed** — added a real
+   `LIVE_ENABLED` server-side check (fails closed by default, matching the client's current
+   `FLAGS.live=false`), independent of the client bundle.
+6. Also closed as part of the same PR: `admin_delete_waitlist_entry`/`admin_list_users`/
+   `admin_list_waitlist` had needless `PUBLIC`/`anon` EXECUTE grants (every other `admin_*`
+   function is authenticated-only) — tightened. `audit_log` had blanket `anon`/`authenticated`
+   table grants including `TRUNCATE` (not governed by RLS at all, unlike SELECT/INSERT/UPDATE/
+   DELETE which RLS already default-denies with zero policies) — revoked; all writes go through
+   `SECURITY DEFINER` RPCs that run as the function owner regardless, so nothing broke.
+
+### Confirmed, not fixed this session (real, but larger/needs more input)
+
+- **Ambiguous Stripe error handling risks a real double-payout or double-charge** in
+  `connect-payout`/`charge-due-cycles` — both treat *any* exception (including a network timeout
+  where Stripe may have already processed the transfer/charge) identically to a definite decline,
+  freeing the resource for a fresh-keyed retry. This can happen from ordinary infra latency, not
+  just attacker action. Needs careful design (classify definitive-decline vs. ambiguous errors,
+  then either same-key retry or a reconciliation job) rather than a same-day patch to live payment
+  code. **~3 hours, next slice.**
+- **No rate limiting on any state-mutating admin RPC** (`admin_suspend_kitchen`,
+  `admin_set_user_role`, etc.) — a compromised admin JWT can script a tight loop to suspend every
+  verified kitchen or mass-demote/promote accounts in seconds; nothing slows this down and nothing
+  alerts on it. Needs a new rate-limit table/trigger wired across ~8 RPCs. **Next slice.**
+- **No detection/alerting layer exists at all** beyond `audit_log` itself. Two ready-to-run SQL
+  detection queries were produced (role-escalation bursts, kitchen suspend/reinstate churn) — the
+  data already exists, no new instrumentation needed — but routing them to an actual alert
+  destination needs a Slack/email webhook URL, which requires your input.
+- **GitHub account-level settings, not this repo's code**: Dependabot vulnerability alerts +
+  security updates are disabled; `main` has zero branch protection (no required review, no
+  required status check, force-push/deletion both allowed). Both are one-click fixes in repo
+  Settings → Security / Branches — flagged for you to action directly rather than changed
+  autonomously, since they're outside the Supabase-project trust boundary this session operated in.
+- **`app/mux-preppa.env`** (a real, unused, gitignored Mux API token pair) still sits on disk —
+  same as the prior pass, deletion was blocked since the file wasn't explicitly named. Recommend
+  deleting it and rotating the token in the Mux dashboard as a precaution.
+
+### Also found, explicitly not independently re-verified (Medium/Low, reported at face value)
+
+`cancel-booking`'s ledger insert isn't lock-protected and its `dedupe_key` is left NULL (a
+double-tap can double-deduct a cook's balance on refund); `subscribe-box` has no duplicate-
+subscription check (a double-submit creates two independently-billed subscriptions); only 18 of
+132 live migrations are vendored (the base billing/ledger/booking schema has zero source-controlled
+history); 11 moderate `npm audit` findings tracing to one transitive `uuid` dependency via Expo
+build tooling (not shipped runtime code); GitHub Actions reference mutable tags (`@v4`) rather than
+pinned SHAs; no `CODEOWNERS` file. Full detail in the workflow journal.
+
+### What this pass confirmed is genuinely solid
+
+Every hand-written Edge Function derives identity from a verified JWT, never a client-supplied ID.
+Idempotency keys are correctly applied on `accept-quote-and-deposit`, `book-experience`,
+`charge-due-cycles`, Connect transfers, and all refund call sites. `reserve_payout`/
+`finalize_payout`/`accept_quote` independently re-read live: correct ownership checks, advisory
+locks, DB-intent-before-Stripe-call ordering. Capacity/booking claims correctly use row locks/
+`SKIP LOCKED`. No admin-scoped mass-action RPC exists anywhere in the schema. Every mutating
+`admin_*` function writes to `audit_log`, and the append-only design holds up under direct
+inspection. Role self-escalation via direct table UPDATE is blocked by a trigger requiring an
+explicit privileged-session flag only ever set inside `SECURITY DEFINER` admin RPCs. Secret
+scanning + push protection are enabled on GitHub; the lockfile is committed and fully semver-pinned.
+
+---
+
 ## Posture in one paragraph
 
 The backend architecture is frequently well-designed in isolated slices — row-locked capacity
