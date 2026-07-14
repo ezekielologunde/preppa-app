@@ -61,6 +61,26 @@ export async function fetchOrderStatus(orderId: string): Promise<{ status: strin
   return data ?? null;
 }
 
+/** Customer-side: leave a review on a completed order. RLS (reviews_insert_own_completed_order)
+ * independently re-checks the order is the caller's own and status='completed' — the `reviews`
+ * table also has a UNIQUE(order_id) constraint, so this can never double-insert for one order.
+ * (Audit Critical: this used to be a UI-only mock — a fake toast with no DB write at all.) */
+export async function submitReview(orderId: string, rating: number, body: string): Promise<void> {
+  const { data: order, error: orderErr } = await supabase.from('orders').select('kitchen_id').eq('id', orderId).maybeSingle();
+  if (orderErr) throw orderErr;
+  if (!order?.kitchen_id) throw new Error('Could not find that order.');
+  const { data: auth } = await supabase.auth.getUser();
+  const uid = auth.user?.id;
+  if (!uid) throw new Error('AUTH_REQUIRED');
+  const { error } = await supabase.from('reviews').insert({
+    order_id: orderId, kitchen_id: order.kitchen_id, author_id: uid, rating, body: body || null,
+  });
+  if (error) {
+    if ((error as any).code === '23505') throw new Error('You already reviewed this order.');
+    throw new Error(error.message || 'Could not submit your review.');
+  }
+}
+
 export function timeAgo(iso: string): string {
   const ms = Date.now() - new Date(iso).getTime();
   const min = Math.floor(ms / 60000);

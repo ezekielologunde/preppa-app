@@ -93,7 +93,7 @@ export default function Checkout() {
           await confirmSavedCardPayment(clientSecret, selectedCard!.id);
           setBusy(false);
           placeOrder('paid', ck, orderId);
-          router.replace(`/track?flow=paid&cook=${ck ?? ''}`);
+          router.replace(`/track?flow=paid&cook=${ck ?? ''}&orderId=${orderId}`);
           return;
         }
         // New card → collect it in the sheet and confirm there.
@@ -124,7 +124,7 @@ export default function Checkout() {
   const onCardPaid = () => {
     setCardPayOpen(false);
     placeOrder('paid', ck, cardOrderId ?? undefined);
-    router.replace(`/track?flow=paid&cook=${ck ?? ''}`);
+    router.replace(`/track?flow=paid&cook=${ck ?? ''}${cardOrderId ? `&orderId=${cardOrderId}` : ''}`);
   };
 
   return (
