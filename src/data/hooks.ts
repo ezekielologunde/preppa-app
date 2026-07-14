@@ -170,3 +170,15 @@ export function useAdminUsers(nonce = 0): AsyncState<admin.AdminUser[]> {
 export function useAdminAudit(nonce = 0): AsyncState<admin.AdminAuditEntry[]> {
   return useAsync(() => admin.listAudit(), [nonce]);
 }
+export function useAdminPlans(nonce = 0): AsyncState<admin.AdminPlan[]> {
+  return useAsync(() => admin.listPlans(), [nonce]);
+}
+export function useAdminSubscriptions(nonce = 0): AsyncState<admin.AdminSubscription[]> {
+  return useAsync(() => admin.listSubscriptions(), [nonce]);
+}
+export function useAdminServiceRequests(nonce = 0): AsyncState<admin.AdminServiceRequest[]> {
+  return useAsync(() => admin.listServiceRequests(), [nonce]);
+}
+export function useAdminBookings(nonce = 0): AsyncState<admin.AdminBooking[]> {
+  return useAsync(() => admin.listBookings(), [nonce]);
+}
