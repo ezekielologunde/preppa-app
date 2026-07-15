@@ -385,6 +385,36 @@ export async function createMeal(m: NewMeal): Promise<string> {
   return data as string;
 }
 
+/** The signed-in prepper's most-recent kitchen id (null if none). Mirrors create_meal's
+ *  server-side resolution; used to build the owner-scoped meal-photo upload path. */
+export async function getMyKitchenId(): Promise<string | null> {
+  const { data: sess } = await supabase.auth.getSession();
+  const uid = sess.session?.user?.id;
+  if (!uid) return null;
+  const { data } = await supabase.from('kitchens').select('id').eq('owner_id', uid).order('created_at', { ascending: false }).limit(1);
+  return (data?.[0]?.id as string) ?? null;
+}
+
+/** Upload a public meal photo to the `meal-photos` bucket; returns its public URL. The path
+ *  MUST start with the kitchen id — the bucket's INSERT policy checks is_kitchen_owner on the
+ *  first folder segment. Web-first (native has no file picker). */
+export async function uploadMealPhoto(file: Blob, ext: string, kitchenId: string): Promise<string> {
+  const path = `${kitchenId}/${Date.now()}-${Math.round(Math.random() * 1e9)}.${ext}`;
+  const { error } = await supabase.storage.from('meal-photos').upload(path, file, {
+    upsert: true,
+    contentType: (file as any).type || `image/${ext}`,
+  });
+  if (error) throw error;
+  const { data } = supabase.storage.from('meal-photos').getPublicUrl(path);
+  return data.publicUrl;
+}
+
+/** Set (or clear, with null) a meal's photo via the owner-gated set_meal_photo RPC. */
+export async function setMealPhoto(mealId: string, imageUrl: string | null): Promise<void> {
+  const { error } = await supabase.rpc('set_meal_photo', { p_meal_id: mealId, p_image_url: imageUrl });
+  if (error) throw error;
+}
+
 /** Upload a verification photo/document to the private, owner-scoped `cook-docs`
  *  bucket, grouped by kind (`govid` | `selfie` | `fridge` | `kitchen`). Returns the
  *  stored path (kept in the application's food_safety.docs). */
