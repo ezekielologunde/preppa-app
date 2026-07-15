@@ -75,7 +75,13 @@ export default function Checkout() {
 
   const place = async () => {
     if (busy) return; // guard against double-fire / double-order
-    if (payBlockedReason) { toast(payBlockedReason, 'info'); return; }
+    if (payBlockedReason) {
+      // The "Choose cash on delivery" CTA: if COD is genuinely available, actually switch to
+      // it instead of just toasting the block reason (this tap used to be a dead-end).
+      if (!codBlockedReason) { setPay('cod'); return; }
+      toast(payBlockedReason, 'info');
+      return;
+    }
     if (effectivePay === 'cod') { setBusy(true); router.push(`/cod?cook=${ck ?? ''}`); return; }
     const cookId = (ck ?? lines[0]?.cook) as string;
     setBusy(true);
@@ -108,6 +114,11 @@ export default function Checkout() {
         if (msg === 'AUTH_REQUIRED') {
           toast('Please sign in again to place your order.', 'info');
           resetOnboarding(); // re-show the sign-in gate
+        } else if (/no longer available|are unavailable|taking orders|payouts are set up/i.test(msg)) {
+          // Server rejected on live availability (item sold out / kitchen paused / not payout-ready).
+          // These messages are already customer-friendly — surface them instead of a generic error
+          // so a paused kitchen or sold-out item doesn't read as a payment bug.
+          toast(msg, 'info');
         } else {
           toast(msg.includes('card') ? 'Your card couldn’t be charged. Check the details or try another card.' : 'Couldn’t start your payment. Please try again.', 'info');
         }
@@ -188,6 +199,13 @@ export default function Checkout() {
           <View style={{ height: 10 }} />
           <PayOption on={effectivePay === 'cod'} disabled={!!codBlockedReason} onPress={() => setPay('cod')} icon="cash" title="Cash on delivery" tag={codBlockedReason ? 'Unavailable' : 'In person'} tagTone="purple" body={codBlockedReason ?? 'Confirm the amount together at handoff'} />
         </Block>
+
+        {payBlockedReason && codBlockedReason ? (
+          <View style={{ flexDirection: 'row', alignItems: 'flex-start', gap: 10, marginHorizontal: 16, marginTop: 14, paddingVertical: 12, paddingHorizontal: 14, borderRadius: radius.md, backgroundColor: c.primaryL, borderWidth: 1, borderColor: c.primary }}>
+            <Icon name="lock" size={18} color={c.primaryD} />
+            <Text style={[type(12.5, 700), { color: c.primaryD, flex: 1, lineHeight: 18 }]}>{theCook.name} takes card only, and card checkout is web-only right now. Open preppa.live in a browser to place this order.</Text>
+          </View>
+        ) : null}
 
         {effectivePay === 'cod' ? (
           <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10, marginHorizontal: 16, marginTop: 14, paddingVertical: 12, paddingHorizontal: 14, borderRadius: radius.md, backgroundColor: c.purpleL, borderWidth: 1, borderColor: c.purple }}>
