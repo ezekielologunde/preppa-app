@@ -7,6 +7,7 @@ import { type, radius, shadow } from '../../src/theme/theme';
 import { useStore } from '../../src/store/store';
 import { Icon, Press, Avatar, Btn } from '../../src/ui';
 import { Screen, TopBar, Empty } from '../../src/ui/layout';
+import { OrderLineRow } from '../../src/components/shared';
 import { createOrderTicket, TICKET_CATEGORIES, TicketCategory } from '../../src/lib/tickets';
 import { FLAGS } from '../../src/config/flags';
 import { KITCHEN_ID } from '../../src/lib/supabase';
@@ -99,12 +100,9 @@ export default function OrderDetail() {
         {/* receipt */}
         <View style={{ backgroundColor: c.surface, borderRadius: radius.card, borderWidth: 1, borderColor: c.border2, padding: 16, gap: 8 }}>
           <Text style={[type(12, 900), { color: c.muted, textTransform: 'uppercase', letterSpacing: 0.5, marginBottom: 2 }]}>Receipt</Text>
-          {o.lines.map((l, i) => (
-            <View key={i} style={{ flexDirection: 'row', justifyContent: 'space-between' }}>
-              <Text style={[type(14, 600), { color: c.ink }]}>{l.qty}× {l.name}</Text>
-              <Text style={[type(14, 700), { color: c.ink }]}>{money(l.price * l.qty)}</Text>
-            </View>
-          ))}
+          <View style={{ marginTop: 2 }}>
+            {o.lines.map((l, i) => <OrderLineRow key={l.key ?? i} line={l} first={i === 0} />)}
+          </View>
           <View style={{ height: 1, backgroundColor: c.border, marginVertical: 4 }} />
           <RRow label="Subtotal" value={money(o.subtotal)} c={c} />
           <RRow label={o.mode === 'pickup' ? 'Pickup' : 'Delivery'} value="Free" c={c} green />

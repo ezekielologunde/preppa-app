@@ -37,7 +37,7 @@ export function QuickCartSheet({ visible, onClose }: { visible: boolean; onClose
         <>
           {cart.map((l) => (
             <View key={l.key} style={{ flexDirection: 'row', alignItems: 'center', gap: 12, paddingVertical: 10 }}>
-              <GradBox grad={l.grad} img={thumb(l.img)} style={{ width: 48, height: 48, borderRadius: radius.md }} />
+              <GradBox grad={l.grad} img={thumb(l.img)} fallbackIcon="utensils" fallbackSize={20} style={{ width: 48, height: 48, borderRadius: radius.md }} />
               <View style={{ flex: 1, minWidth: 0 }}>
                 <Text numberOfLines={1} style={[type(14.5, 800), { color: c.ink }]}>{l.name}</Text>
                 <Text style={[type(13, 700), { color: c.soft, marginTop: 2 }]}>{money(l.price * l.qty)}</Text>

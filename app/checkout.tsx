@@ -9,7 +9,7 @@ import { type, radius } from '../src/theme/theme';
 import { useStore } from '../src/store/store';
 import { Icon, Press, Btn } from '../src/ui';
 import { Screen, TopBar, Dock, DockTotal, Block, MiniTag, Empty } from '../src/ui/layout';
-import { useTotals, Summary } from '../src/components/shared';
+import { useTotals, Summary, OrderLineRow } from '../src/components/shared';
 import { ModeToggle } from '../src/components/ModeToggle';
 import { AddressPickerSheet, CardPickerSheet } from '../src/components/PickerSheets';
 import { CardPaymentSheet } from '../src/components/CardPaymentSheet';
@@ -131,6 +131,10 @@ export default function Checkout() {
     <Screen>
       <TopBar title="Checkout" sub={`From ${theCook.name}`} />
       <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={{ paddingBottom: 120 }}>
+        <Block title="Your order">
+          {lines.map((l, i) => <OrderLineRow key={l.key} line={l} first={i === 0} />)}
+        </Block>
+
         <Block title={mode === 'pickup' ? 'Pick up from' : 'Deliver to'}>
           <View style={{ marginBottom: 14 }}><ModeToggle sm /></View>
           <View style={{ flexDirection: 'row', gap: 12, alignItems: 'flex-start' }}>

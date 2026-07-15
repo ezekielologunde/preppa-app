@@ -3,13 +3,13 @@ import { View, Text } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useRouter } from 'expo-router';
 import { CartLine } from '../store/store';
-import { COOKS, CookId, money } from '../data/data';
+import { COOKS, CookId, money, thumb } from '../data/data';
 import { computeTotals, Totals } from '../data/totals';
 export { computeTotals } from '../data/totals';
 export type { Totals } from '../data/totals';
 import { useC } from '../theme/ThemeContext';
 import { type, radius, shadow, tnum } from '../theme/theme';
-import { Icon, Press, Avatar } from '../ui';
+import { Icon, Press, Avatar, GradBox } from '../ui';
 import { MiniTag } from '../ui/layout';
 
 export function useTotals(cart: CartLine[], tip: number, mode: 'delivery' | 'pickup'): Totals {
@@ -57,6 +57,22 @@ export function Row({ label, value, strong }: { label: string; value: string; st
     <View style={{ flexDirection: 'row', justifyContent: 'space-between', paddingVertical: 6 }}>
       <Text style={[type(14, 600), { color: c.soft }]}>{label}</Text>
       <Text style={[type(14, strong ? 800 : 600), { color: strong ? c.ink : c.soft }]}>{value}</Text>
+    </View>
+  );
+}
+
+/** One item line — photo thumbnail + name + qty + line price. Shared by the
+ *  checkout "Your order" summary and the order-detail receipt so they never drift. */
+export function OrderLineRow({ line, first }: { line: CartLine; first?: boolean }) {
+  const c = useC();
+  return (
+    <View style={{ flexDirection: 'row', alignItems: 'center', gap: 12, paddingVertical: 10, borderTopWidth: first ? 0 : 1, borderTopColor: c.border2 }}>
+      <GradBox grad={line.grad} img={thumb(line.img)} fallbackIcon="utensils" fallbackSize={18} style={{ width: 44, height: 44, borderRadius: radius.md }} />
+      <View style={{ flex: 1, minWidth: 0 }}>
+        <Text numberOfLines={1} style={[type(13.5, 800), { color: c.ink }]}>{line.name}</Text>
+        <Text style={[type(12.5, 700), { color: c.soft, marginTop: 2 }]}>Qty {line.qty}</Text>
+      </View>
+      <Text style={[type(13.5, 800), { color: c.ink }, tnum]}>{money(line.price * line.qty)}</Text>
     </View>
   );
 }

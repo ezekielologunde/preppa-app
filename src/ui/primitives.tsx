@@ -80,25 +80,37 @@ export function GradBox({
   children,
   radius: r,
   img,
+  fallbackIcon,
+  fallbackSize = 22,
 }: {
   grad: GradKey | Grad | string;
   style?: StyleProp<ViewStyle>;
   children?: React.ReactNode;
   radius?: number;
   img?: string;
+  fallbackIcon?: string; // centered glyph shown on the gradient when there's no photo
+  fallbackSize?: number;
 }) {
   const [err, setErr] = useState(false);
+  const showImg = !!img && !err;
   return (
     <LinearGradient
       colors={gradColors(grad)}
       start={{ x: 0, y: 0 }}
       end={{ x: 1, y: 1 }}
-      style={[r ? { borderRadius: r } : null, img ? { overflow: 'hidden' } : null, style]}
+      style={[r ? { borderRadius: r } : null, img ? { overflow: 'hidden' } : null, { overflow: 'hidden' }, style]}
     >
-      {img && !err ? (
+      {showImg ? (
         // expo-image: memory+disk cache (repeat views are instant), a soft fade-in, and a real
         // lazy-loaded <img> on web. The gradient behind is the placeholder / error fallback.
         <Image source={{ uri: img }} onError={() => setErr(true)} contentFit="cover" cachePolicy="memory-disk" transition={150} style={FILL as any} />
+      ) : null}
+      {!showImg && fallbackIcon ? (
+        // "photo pending" mark — reads as intentional (real cooks' meals have no photo yet),
+        // not a broken/empty color block.
+        <View style={[FILL as any, { alignItems: 'center', justifyContent: 'center' }]} pointerEvents="none">
+          <Icon name={fallbackIcon as any} size={fallbackSize} color="rgba(255,255,255,0.55)" />
+        </View>
       ) : null}
       {children}
     </LinearGradient>

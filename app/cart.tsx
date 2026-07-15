@@ -49,7 +49,7 @@ export default function Cart() {
               </Press>
               {lines.map((l) => (
                 <View key={l.key} style={{ flexDirection: 'row', alignItems: 'center', gap: 12, paddingVertical: 12, paddingHorizontal: 14, borderBottomWidth: 1, borderBottomColor: c.border2 }}>
-                  <GradBox grad={l.grad} img={thumb(l.img)} style={{ width: 52, height: 52, borderRadius: radius.md }} />
+                  <GradBox grad={l.grad} img={thumb(l.img)} fallbackIcon="utensils" fallbackSize={22} style={{ width: 52, height: 52, borderRadius: radius.md }} />
                   <View style={{ flex: 1 }}>
                     <Text numberOfLines={1} style={[type(14, 800), { color: c.ink }]}>{l.name}</Text>
                     <Text style={[type(14, 900), { color: c.primary, marginTop: 4 }]}>{money(l.price * l.qty)}</Text>
