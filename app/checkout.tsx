@@ -38,6 +38,10 @@ export default function Checkout() {
   const [selectedCardId, setSelectedCardId] = useState<string | null>(null);
   const [saveNewCard, setSaveNewCard] = useState(true);
   const [pickedCard, setPickedCard] = useState(false); // has the user chosen explicitly?
+  // Stable idempotency key for this checkout visit. Retries (double-tap, network retry, a
+  // failed-card re-attempt) reuse it, so create-order + Stripe DEDUPE instead of creating a
+  // second order / second charge. A fresh checkout visit mints a new key = a genuinely new order.
+  const [idemKey] = useState(() => `${ck ?? 'cart'}-${Date.now().toString(36)}-${Math.round(Math.random() * 1e9).toString(36)}`);
   useEffect(() => {
     if (pickedCard || Platform.OS !== 'web') return;
     if (methods.length > 0) setSelectedCardId(defaultId ?? methods[0].id);
@@ -91,7 +95,7 @@ export default function Checkout() {
         const useSaved = !!selectedCard;
         const { orderId, clientSecret } = await createRealOrder({
           cook: cookId, lines, mode, tipDollars: tip,
-          idempotencyKey: `${cookId}-${Date.now()}`,
+          idempotencyKey: idemKey,
           savePaymentMethod: useSaved ? false : saveNewCard,
         });
         if (useSaved) {
