@@ -32,6 +32,7 @@ export interface CartLine {
   price: number;
   grad: GradKey;
   qty: number;
+  img?: string; // public meal photo; GradBox falls back to `grad` when absent/errored
   mealUuid?: string; // real DB meals.id when the item came from the Supabase catalog
   kitchenUuid?: string; // real DB kitchens.id
 }
@@ -473,7 +474,7 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
     if (!o) return;
     const lines = o.lines.filter((l) => !isMine(l.cook)); // never re-buy your own listing
     if (lines.length === 0) { toast('That order is from your own kitchen', 'info'); return; }
-    lines.forEach((l) => addToCart({ key: l.key, name: l.name, cook: l.cook, price: l.price, grad: l.grad }, l.qty));
+    lines.forEach((l) => addToCart({ key: l.key, name: l.name, cook: l.cook, price: l.price, grad: l.grad, img: l.img }, l.qty));
     toast(`Added to cart · ${lines.length} item${lines.length !== 1 ? 's' : ''}`, 'cart', true);
   }, [orders, addToCart, toast, isMine]);
   // Pulls the real fulfillment status for a real (dbId-backed) order and patches it into local state.

@@ -2,7 +2,7 @@ import React, { useCallback, useState } from 'react';
 import { View, Text, ScrollView } from 'react-native';
 import { useRouter, useFocusEffect } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { COOKS, money } from '../../src/data/data';
+import { COOKS, money, thumb } from '../../src/data/data';
 import { useC } from '../../src/theme/ThemeContext';
 import { type, radius, shadow } from '../../src/theme/theme';
 import { useStore, CustomerOrder } from '../../src/store/store';
@@ -106,8 +106,8 @@ export default function Orders() {
                   return (
                     <Press key={o.id} scale={0.99} onPress={() => router.push(`/order/${o.id}`)}>
                       <View style={{ flexDirection: 'row', alignItems: 'center', gap: 12, backgroundColor: c.surface, borderRadius: radius.card, borderWidth: 1, borderColor: c.border2, padding: 14, ...shadow.card }}>
-                        <GradBox grad={cook.grad} style={{ width: 52, height: 52, borderRadius: radius.md, alignItems: 'center', justifyContent: 'center' }}>
-                          <Text style={[type(20, 900), { color: '#fff' }]}>{cook.initial}</Text>
+                        <GradBox grad={cook.grad} img={thumb(o.lines[0]?.img)} style={{ width: 52, height: 52, borderRadius: radius.md, alignItems: 'center', justifyContent: 'center' }}>
+                          {o.lines[0]?.img ? null : <Text style={[type(20, 900), { color: '#fff' }]}>{cook.initial}</Text>}
                         </GradBox>
                         <View style={{ flex: 1, minWidth: 0 }}>
                           <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
