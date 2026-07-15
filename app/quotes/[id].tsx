@@ -18,7 +18,7 @@ function ReqStatusChip({ r }: { r: { status: string; quotes: { length: number }[
   const c = useC();
   const n = Array.isArray(r.quotes) ? r.quotes.length : 0;
   if (r.status === 'booked') return <View style={[_chip, { backgroundColor: c.greenL }]}><Icon name="check" size={11} color={c.green} /><Text style={[type(10.5, 900), { color: c.green, textTransform: 'uppercase', letterSpacing: 0.4 }]}>Booked</Text></View>;
-  if (r.status === 'quoted') return <View style={[_chip, { backgroundColor: c.primaryL }]}><View style={{ width: 6, height: 6, borderRadius: 3, backgroundColor: c.primary }} /><Text style={[type(10.5, 900), { color: c.primary, textTransform: 'uppercase', letterSpacing: 0.4 }]}>{n} quote{n !== 1 ? 's' : ''}</Text></View>;
+  if (r.status === 'quoted') return <View style={[_chip, { backgroundColor: c.primaryL }]}><View style={{ width: 6, height: 6, borderRadius: 3, backgroundColor: c.primary }} /><Text style={[type(10.5, 900), { color: c.accentText, textTransform: 'uppercase', letterSpacing: 0.4 }]}>{n} quote{n !== 1 ? 's' : ''}</Text></View>;
   return <View style={[_chip, { backgroundColor: c.bg2 }]}><View style={{ width: 6, height: 6, borderRadius: 3, backgroundColor: c.soft }} /><Text style={[type(10.5, 900), { color: c.soft, textTransform: 'uppercase', letterSpacing: 0.4 }]}>Finding cooks</Text></View>;
 }
 

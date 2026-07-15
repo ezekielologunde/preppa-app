@@ -112,10 +112,10 @@ export default function PostReelFlow() {
         </Press>
         <View style={{ flexDirection: 'row', justifyContent: 'center', gap: 18, marginTop: 10 }}>
           {coverUrl ? (
-            <Press scale={0.98} onPress={pickPhoto} label="Change photo"><Text style={[type(13, 800), { color: c.primary }]}>Change photo</Text></Press>
+            <Press scale={0.98} onPress={pickPhoto} label="Change photo"><Text style={[type(13, 800), { color: c.accentText }]}>Change photo</Text></Press>
           ) : null}
           <Press scale={0.98} onPress={() => router.push('/hub/record-video')} label="Record a video">
-            <Text style={[type(13, 800), { color: c.primary }]}>{coverUrl ? 'Record a video instead' : 'Record a video'}</Text>
+            <Text style={[type(13, 800), { color: c.accentText }]}>{coverUrl ? 'Record a video instead' : 'Record a video'}</Text>
           </Press>
         </View>
 

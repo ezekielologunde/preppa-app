@@ -112,7 +112,7 @@ export function KSec({ title, count, link, onLink }: { title: string; count?: nu
         <Text style={[type(17, 900), { color: c.ink, letterSpacing: -0.5 }]}>{title}</Text>
         {count != null && count > 0 ? <Text style={[type(13, 800), { color: c.muted, marginLeft: 8 }]}>{count}</Text> : null}
       </View>
-      {link ? <Press onPress={onLink}><Text style={[type(13.5, 800), { color: c.primary }]}>{link}</Text></Press> : null}
+      {link ? <Press onPress={onLink}><Text style={[type(13.5, 800), { color: c.accentText }]}>{link}</Text></Press> : null}
     </View>
   );
 }

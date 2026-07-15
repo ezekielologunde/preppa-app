@@ -87,7 +87,7 @@ function RequestStatusChip({ r }: { r: RequestView }) {
     return <View style={[chip, { backgroundColor: c.bg2 }]}><Text style={[type(10.5, 900), { color: c.muted, textTransform: 'uppercase', letterSpacing: 0.4 }]}>{r.status === 'expired' ? 'Expired' : 'Cancelled'}</Text></View>;
   }
   if (nq > 0) {
-    return <View style={[chip, { backgroundColor: c.primaryL }]}><View style={{ width: 6, height: 6, borderRadius: 3, backgroundColor: c.primary }} /><Text style={[type(10.5, 900), { color: c.primary, textTransform: 'uppercase', letterSpacing: 0.4 }]}>{nq} quote{nq !== 1 ? 's' : ''}</Text></View>;
+    return <View style={[chip, { backgroundColor: c.primaryL }]}><View style={{ width: 6, height: 6, borderRadius: 3, backgroundColor: c.primary }} /><Text style={[type(10.5, 900), { color: c.accentText, textTransform: 'uppercase', letterSpacing: 0.4 }]}>{nq} quote{nq !== 1 ? 's' : ''}</Text></View>;
   }
   return <View style={[chip, { backgroundColor: c.bg2 }]}><View style={{ width: 6, height: 6, borderRadius: 3, backgroundColor: c.soft }} /><Text style={[type(10.5, 900), { color: c.soft, textTransform: 'uppercase', letterSpacing: 0.4 }]}>Finding cooks</Text></View>;
 }
@@ -107,7 +107,7 @@ function RealReqCard({ r, onPress }: { r: RequestView; onPress: () => void }) {
           {r.eventDate}{r.guests ? ` · ${r.guests} guests` : ''}{r.budgetCents ? ` · ${money2(r.budgetCents)} budget` : ''}
         </Text>
         <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6, marginTop: 11 }}>
-          <Text style={[type(12.5, 800), { color: c.primary }]}>{foot}</Text>
+          <Text style={[type(12.5, 800), { color: c.accentText }]}>{foot}</Text>
           <Icon name="chevRight" size={15} color={c.primary} />
         </View>
       </View>

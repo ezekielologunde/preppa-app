@@ -303,7 +303,7 @@ export default function CreateExperienceFlow() {
           })}
           <Press scale={0.98} onPress={addSession}>
             <View style={{ height: 46, borderRadius: 12, borderWidth: 1.5, borderStyle: 'dashed', borderColor: c.border, alignItems: 'center', justifyContent: 'center', flexDirection: 'row', gap: 7 }}>
-              <Icon name="plus" size={16} color={c.primary} /><Text style={[type(13.5, 800), { color: c.primary }]}>Add session</Text>
+              <Icon name="plus" size={16} color={c.primary} /><Text style={[type(13.5, 800), { color: c.accentText }]}>Add session</Text>
             </View>
           </Press>
         </View>

@@ -102,7 +102,7 @@ function ServicesMode() {
       ) : loadError ? (
         <View style={{ alignItems: 'center', paddingVertical: 30, paddingHorizontal: 24 }}>
           <Text style={[type(13.5, 600), { color: c.red, textAlign: 'center', marginBottom: 10 }]}>{loadError}</Text>
-          <Press scale={0.96} onPress={load}><Text style={[type(13.5, 800), { color: c.primary }]}>Try again</Text></Press>
+          <Press scale={0.96} onPress={load}><Text style={[type(13.5, 800), { color: c.accentText }]}>Try again</Text></Press>
         </View>
       ) : requests.length === 0 ? (
         <View style={{ alignItems: 'center', paddingVertical: 30, paddingHorizontal: 24 }}>

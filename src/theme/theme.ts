@@ -25,16 +25,19 @@ export const GRAD = {
 } as const;
 export type GradKey = keyof typeof GRAD;
 
-/** Brand washes — recoloured to a single warm-coral family (was orange→pink→purple rainbow). */
-export const BRAND_GRAD = ['#E9724A', '#E24A38', '#B93A22'] as const;
-export const WARM_GRAD = ['#E9724A', '#E24A38'] as const;
+/** Brand washes — bright-orange family, unified with the preppa.live landing (was warm coral). */
+export const BRAND_GRAD = ['#FF7A47', '#FF5A24', '#E0490F'] as const;
+export const WARM_GRAD = ['#FF7A47', '#FF5A24'] as const;
 
 /** Theme-invariant brand marks (splash / onboarding / adaptive icon parity). */
-export const BRAND_PRIMARY = '#E24A38';
+export const BRAND_PRIMARY = '#FF5A24';
 export const BRAND_PURPLE = '#6B4A93';
 
 export interface Palette {
   primary: string; primaryD: string; primaryL: string;
+  /** Accent TEXT on the page bg — deep on light (AA), bright on dark. Use for orange text
+   *  (prices, links, labels); `primary` is the bright FILL/logo color, too light as text on white. */
+  accentText: string;
   purple: string; purpleL: string; purpleOn: string; // "purple" is now the reserved PREMIUM plum
   ink: string; ink2: string; soft: string; muted: string;
   surface: string; bg: string; bg2: string; border: string; border2: string;
@@ -49,27 +52,29 @@ export interface Palette {
 
 /** Light — warm near-white canvas, one persimmon accent, warmth carried by ink + insets + imagery. */
 export const light: Palette = {
-  primary: '#E24A38', primaryD: '#B93A22', primaryL: '#FBEBE6', // primaryD = accent TEXT + button FILL (white-on = 5.7:1)
+  primary: '#FF5A24', primaryD: '#E0490F', primaryL: '#FFE3D6', // bright orange (landing brand); primaryD = button FILL (white-on ≈ 5:1)
+  accentText: '#E0490F', // deep orange text on light — AA (~5:1); matches the landing's accent-text
   purple: '#6B4A93', purpleL: '#F1EAF8', purpleOn: '#5A3E7E',
   ink: '#221E1B', ink2: '#34302B', soft: '#6A645E', muted: '#67615A',
-  surface: '#FFFFFF', bg: '#FAFAF9', bg2: '#F3F1EE', border: '#EAE6E1', border2: '#F0ECE7',
-  borderF: '#948F86',
+  surface: '#FFFFFF', bg: '#FFF6F0', bg2: '#FBEEE4', border: '#F3E4DA', border2: '#F8EDE4',
+  borderF: '#B08E7E',
   feature: '#1E1A16',
   green: '#127C43', green2: '#1F9D57', greenL: '#E6F3EC',
-  blue: '#0B6FA8', blueL: '#E3F1FA', pink: '#DB2777', pinkL: '#FCE7F1', red: '#D93A2B', redL: '#FDECEC', star: '#B7801A',
-  unread: '#FFF6F3',
+  blue: '#0B6FA8', blueL: '#E3F1FA', pink: '#FF3D7F', pinkL: '#FFE1EC', red: '#D93A2B', redL: '#FDECEC', star: '#B7801A',
+  unread: '#FFF3EC',
 };
 
 /** Dark — warm charcoal, same accent, brighter semantics (dark bg lifts contrast). */
 export const dark: Palette = {
-  primary: '#E24A38', primaryD: '#B93A22', primaryL: '#3A241E',
+  primary: '#FF6A3D', primaryD: '#E0490F', primaryL: '#3A241E',
+  accentText: '#FF7A4E', // bright orange text on dark charcoal — high contrast
   purple: '#9E7FD0', purpleL: '#2A2136', purpleOn: '#C9AEF0',
   ink: '#F4EFE8', ink2: '#E7DFD4', soft: '#B4A99B', muted: '#A09687',
   surface: '#201C17', bg: '#15120F', bg2: '#2A241D', border: '#332C23', border2: '#2A241D',
   borderF: '#776C60',
   feature: '#241C15',
   green: '#22C55E', green2: '#22C55E', greenL: '#16281B',
-  blue: '#38BDF8', blueL: '#122836', pink: '#F472A6', pinkL: '#331A28', red: '#F26558', redL: '#3A1D1D', star: '#E0A020',
+  blue: '#38BDF8', blueL: '#122836', pink: '#FF5C93', pinkL: '#331A28', red: '#F26558', redL: '#3A1D1D', star: '#E0A020',
   unread: 'rgba(226,74,56,.09)',
 };
 

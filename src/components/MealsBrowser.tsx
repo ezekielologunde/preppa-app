@@ -116,7 +116,7 @@ export function MealsBrowser({ initialCat, initialGoal }: { initialCat?: string;
       <Sheet visible={filterOpen} onClose={() => setFilterOpen(false)}>
         <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: 4, paddingBottom: 6 }}>
           <Text style={[type(19, 900), { color: c.ink, letterSpacing: -0.4 }]}>Filters</Text>
-          {activeCount ? <Press scale={0.95} onPress={clearFilters} label="Clear filters"><Text style={[type(14, 800), { color: c.primary }]}>Clear all</Text></Press> : null}
+          {activeCount ? <Press scale={0.95} onPress={clearFilters} label="Clear filters"><Text style={[type(14, 800), { color: c.accentText }]}>Clear all</Text></Press> : null}
         </View>
         <ScrollView showsVerticalScrollIndicator={false} style={{ flexShrink: 1 }} contentContainerStyle={{ paddingBottom: 10 }}>
           <FSec title="Sort by">{SORTS.map((s) => <Chip key={s.key} label={s.label} on={sort === s.key} onPress={() => setSort(sort === s.key ? null : s.key)} />)}</FSec>

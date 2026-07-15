@@ -52,7 +52,7 @@ export default function Cart() {
                   <GradBox grad={l.grad} img={thumb(l.img)} fallbackIcon="utensils" fallbackSize={22} style={{ width: 52, height: 52, borderRadius: radius.md }} />
                   <View style={{ flex: 1 }}>
                     <Text numberOfLines={1} style={[type(14, 800), { color: c.ink }]}>{l.name}</Text>
-                    <Text style={[type(14, 900), { color: c.primary, marginTop: 4 }]}>{money(l.price * l.qty)}</Text>
+                    <Text style={[type(14, 900), { color: c.accentText, marginTop: 4 }]}>{money(l.price * l.qty)}</Text>
                   </View>
                   {l.qty <= 1 ? (
                     <Press scale={0.9} onPress={() => removeLine(l.key)} label="Remove item" hitSlop={8}>

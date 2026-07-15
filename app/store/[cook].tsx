@@ -165,7 +165,7 @@ export default function CookStoreScreen() {
           <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 7, marginTop: 12 }}>
             <View style={{ flexDirection: 'row', alignItems: 'center', gap: 5, height: 28, paddingHorizontal: 12, borderRadius: radius.pill, backgroundColor: c.primaryL }}>
               <Icon name="flame" size={12} color={c.primary} />
-              <Text style={[type(12, 800), { color: c.primary }]}>PrepScore {cd.prepscore}</Text>
+              <Text style={[type(12, 800), { color: c.accentText }]}>PrepScore {cd.prepscore}</Text>
             </View>
             {(STORE_SPECIALTIES[id] ?? []).map((t) => (
               <View key={t} style={{ height: 28, paddingHorizontal: 12, borderRadius: radius.pill, backgroundColor: c.bg2, alignItems: 'center', justifyContent: 'center' }}>
@@ -246,7 +246,7 @@ export default function CookStoreScreen() {
           </Press>
         ) : null}
 
-        <SectionHeader title="Reviews" right={revCount > 0 ? <Text style={[type(13, 800), { color: c.primary }]}>See all {revCount}</Text> : undefined} />
+        <SectionHeader title="Reviews" right={revCount > 0 ? <Text style={[type(13, 800), { color: c.accentText }]}>See all {revCount}</Text> : undefined} />
         <ReviewsBlock kitchenId={KITCHEN_ID[id]} />
 
         {FLAGS.services && !isMine(id) ? (
@@ -377,7 +377,7 @@ function RealKitchenStore({ profile, meals, mealsLoading, revCount, revAvg, inse
           </Press>
         ) : null}
 
-        <SectionHeader title="Reviews" right={revCount > 0 ? <Text style={[type(13, 800), { color: c.primary }]}>See all {revCount}</Text> : undefined} />
+        <SectionHeader title="Reviews" right={revCount > 0 ? <Text style={[type(13, 800), { color: c.accentText }]}>See all {revCount}</Text> : undefined} />
         <ReviewsBlock kitchenId={profile.id} />
 
         {FLAGS.services ? (

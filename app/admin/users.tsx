@@ -90,7 +90,7 @@ export default function AdminUsers() {
           ) : u.kitchen_id && u.verification_status === 'suspended' ? (
             <Press scale={0.95} onPress={() => doReinstate(u)}><Text style={[type(12.5, 800), { color: c.green }]}>Reinstate</Text></Press>
           ) : null}
-          <Press scale={0.95} onPress={() => setRoleTarget(u)}><Text style={[type(12.5, 800), { color: c.primary }]}>Role</Text></Press>
+          <Press scale={0.95} onPress={() => setRoleTarget(u)}><Text style={[type(12.5, 800), { color: c.accentText }]}>Role</Text></Press>
         </View>
       ),
     },

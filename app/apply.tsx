@@ -271,7 +271,7 @@ export default function Apply() {
               <Press scale={0.98} onPress={detectNeighborhood} style={{ marginTop: 8 }}>
                 <View style={{ flexDirection: 'row', alignItems: 'center', gap: 7, alignSelf: 'flex-start' }}>
                   {detecting ? <ActivityIndicator size="small" color={c.primary} /> : <Icon name="pin" size={15} color={c.primary} />}
-                  <Text style={[type(13, 800), { color: c.primary }]}>{detecting ? 'Detecting…' : 'Use my current location'}</Text>
+                  <Text style={[type(13, 800), { color: c.accentText }]}>{detecting ? 'Detecting…' : 'Use my current location'}</Text>
                 </View>
               </Press>
             </View>

@@ -156,7 +156,7 @@ export default function Checkout() {
               ) : address ? (
                 <><Text numberOfLines={1} style={[type(14.5, 800), { color: c.ink }]}>{address.label} · {address.line1}</Text>{address.line2 ? <Text numberOfLines={1} style={[type(13, 500), { color: c.soft, marginTop: 2 }]}>{address.line2}</Text> : null}</>
               ) : (
-                <Text style={[type(14, 700), { color: c.primary }]}>Add a delivery address</Text>
+                <Text style={[type(14, 700), { color: c.accentText }]}>Add a delivery address</Text>
               )}
             </View>
             {mode === 'pickup' ? null : (
@@ -180,7 +180,7 @@ export default function Checkout() {
             <>
               <Press scale={0.98} onPress={() => setCardSheet(true)} label="Change payment card">
                 <View style={{ flexDirection: 'row', alignItems: 'center', gap: 5, alignSelf: 'flex-start', marginTop: 8, marginLeft: 2 }}>
-                  <Text style={[type(13, 800), { color: c.primary }]}>{methods.length > 0 ? 'Change card' : 'Add a card'}</Text>
+                  <Text style={[type(13, 800), { color: c.accentText }]}>{methods.length > 0 ? 'Change card' : 'Add a card'}</Text>
                   <Icon name="chevRight" size={14} color={c.primary} />
                 </View>
               </Press>

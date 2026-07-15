@@ -41,7 +41,7 @@ export function CartFlash() {
             <Text numberOfLines={1} style={[type(14, 800), { color: '#fff', marginTop: 1 }]}>{flash.name}</Text>
           </View>
           <View style={{ flexDirection: 'row', alignItems: 'center', gap: 4 }}>
-            <Text style={[type(14, 800), { color: c.primary }]}>View cart</Text>
+            <Text style={[type(14, 800), { color: c.accentText }]}>View cart</Text>
             <Icon name="arrow" size={16} color={c.primary} />
           </View>
         </View>

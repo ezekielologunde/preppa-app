@@ -273,7 +273,7 @@ export function SubCard({ s, busy, onAct, onEditMeals, onMessage }: {
           )}
           {canEditMeals ? (
             <Press scale={0.97} onPress={onEditMeals} style={{ marginTop: 8, alignSelf: 'flex-start' }}>
-              <Text style={[type(12.5, 800), { color: c.primary }]}>Choose meals ›</Text>
+              <Text style={[type(12.5, 800), { color: c.accentText }]}>Choose meals ›</Text>
             </Press>
           ) : null}
         </View>

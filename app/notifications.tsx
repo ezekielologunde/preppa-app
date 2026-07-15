@@ -41,7 +41,7 @@ export default function Notifications() {
   return (
     <Screen>
       <TopBar title="Notifications" right={notifCount > 0 ? (
-        <Press scale={0.95} onPress={markAllRead} label="Mark all read"><Text style={[type(13, 800), { color: c.primary }]}>Mark all read</Text></Press>
+        <Press scale={0.95} onPress={markAllRead} label="Mark all read"><Text style={[type(13, 800), { color: c.accentText }]}>Mark all read</Text></Press>
       ) : undefined} />
       <View style={{ backgroundColor: c.surface, borderBottomWidth: 1, borderBottomColor: c.border2, flexDirection: 'row', gap: 8, paddingHorizontal: 16, paddingBottom: 12 }}>
         <Seg label="Alerts" count={unreadAlerts} on={tab === 'alerts'} onPress={() => setTab('alerts')} />

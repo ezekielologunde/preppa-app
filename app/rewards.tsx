@@ -68,7 +68,7 @@ export default function Rewards() {
                 <Text style={[type(14.5, 800), { color: c.ink }]}>{e.t}</Text>
                 <Text style={[type(12.5, 500), { color: c.soft, marginTop: 2 }]}>{e.s}</Text>
               </View>
-              <Text style={[type(13, 900), { color: c.primary }]}>{earnPts[i]}</Text>
+              <Text style={[type(13, 900), { color: c.accentText }]}>{earnPts[i]}</Text>
             </View>
           ))}
         </Block>
@@ -83,7 +83,7 @@ export default function Rewards() {
             <Press scale={0.94} onPress={copyCode}>
               <View style={{ height: 48, paddingHorizontal: 16, borderRadius: radius.md, backgroundColor: c.primaryL, alignItems: 'center', justifyContent: 'center', flexDirection: 'row', gap: 6 }}>
                 <Icon name="card" size={16} color={c.primary} />
-                <Text style={[type(13.5, 800), { color: c.primary }]}>Copy</Text>
+                <Text style={[type(13.5, 800), { color: c.accentText }]}>Copy</Text>
               </View>
             </Press>
           </View>

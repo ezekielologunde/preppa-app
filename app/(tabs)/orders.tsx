@@ -81,10 +81,10 @@ export default function Orders() {
                         <Text numberOfLines={1} style={[type(12.5, 600), { color: c.soft, marginTop: 2 }]}>{isExp ? `${b.kitchenName} · ` : ''}{b.eventDate} · {money(b.amountCents / 100)} · {statusLabel}</Text>
                       </View>
                       {isExp && b.status === 'confirmed' && b.locationType === 'virtual' && !isPast ? (
-                        <Press scale={0.95} onPress={() => joinLink(b)} label="Join online session"><Text style={[type(12, 800), { color: c.primary }]}>Join</Text></Press>
+                        <Press scale={0.95} onPress={() => joinLink(b)} label="Join online session"><Text style={[type(12, 800), { color: c.accentText }]}>Join</Text></Press>
                       ) : isExp && b.status === 'confirmed' && isPast ? (
                         b.reviewed ? <Text style={[type(11.5, 800), { color: c.star }]}>Rated ★</Text>
-                          : <Press scale={0.95} onPress={() => router.push(`/rate-experience/${b.id}`)} label="Rate experience"><Text style={[type(12, 800), { color: c.primary }]}>Rate</Text></Press>
+                          : <Press scale={0.95} onPress={() => router.push(`/rate-experience/${b.id}`)} label="Rate experience"><Text style={[type(12, 800), { color: c.accentText }]}>Rate</Text></Press>
                       ) : isExp && b.status === 'confirmed' ? (
                         <Press scale={0.95} onPress={() => cancelExp(b)} label="Cancel booking"><Text style={[type(12, 800), { color: busy === b.id ? c.muted : c.red }]}>{busy === b.id ? '…' : 'Cancel'}</Text></Press>
                       ) : b.balanceCents > 0 && (b.status === 'confirmed') ? <Text style={[type(11.5, 700), { color: c.muted }]}>{money(b.balanceCents / 100)} due</Text> : null}

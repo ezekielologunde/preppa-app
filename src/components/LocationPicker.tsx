@@ -35,7 +35,7 @@ export function LocationPicker({ visible, onClose }: { visible: boolean; onClose
       <Press scale={0.99} onPress={useCurrent} label="Use my current location">
         <View style={{ flexDirection: 'row', alignItems: 'center', gap: 12, paddingVertical: 14, paddingHorizontal: 12, marginBottom: 6, borderRadius: radius.md, backgroundColor: c.primaryL }}>
           {busy ? <ActivityIndicator size="small" color={c.primary} /> : <Icon name="pin" size={18} color={c.primary} />}
-          <Text style={[type(15, 800), { color: c.primary, flex: 1 }]}>{busy ? 'Getting your location…' : 'Use my current location'}</Text>
+          <Text style={[type(15, 800), { color: c.accentText, flex: 1 }]}>{busy ? 'Getting your location…' : 'Use my current location'}</Text>
         </View>
       </Press>
       {AREAS.map((a) => {

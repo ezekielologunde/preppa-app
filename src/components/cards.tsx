@@ -174,7 +174,7 @@ export function GoalBadge({ goal, size = 'sm' }: { goal: PlanGoal; size?: 'sm' |
   const c = useC();
   // `goal` is free text on real plans (fed via `as any`) — render nothing for values
   // outside the known set rather than crashing on `meta.color`.
-  const meta = ({ cut: { label: 'Cut', color: c.green }, bulk: { label: 'Bulk', color: c.primary }, maintain: { label: 'Maintain', color: c.purple } } as Record<string, { label: string; color: string }>)[goal];
+  const meta = ({ cut: { label: 'Cut', color: c.green }, bulk: { label: 'Bulk', color: c.accentText }, maintain: { label: 'Maintain', color: c.purple } } as Record<string, { label: string; color: string }>)[goal];
   if (!meta) return null;
   const md = size === 'md';
   return (
@@ -443,7 +443,7 @@ export const ExpCard = React.memo(function ExpCard({ e, style }: { e: Experience
           </View>
           <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginTop: 10 }}>
             <Text style={[type(15, 900), { color: c.ink }]}>{money(e.price)}<Text style={type(11, 700)}> /seat</Text></Text>
-            <Text style={[type(11, 800), { color: c.primary, backgroundColor: c.primaryL, paddingHorizontal: 9, paddingVertical: 4, borderRadius: radius.pill, overflow: 'hidden' }]}>{e.spots}</Text>
+            <Text style={[type(11, 800), { color: c.accentText, backgroundColor: c.primaryL, paddingHorizontal: 9, paddingVertical: 4, borderRadius: radius.pill, overflow: 'hidden' }]}>{e.spots}</Text>
           </View>
         </View>
       </View>
