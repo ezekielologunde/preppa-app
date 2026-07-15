@@ -6,7 +6,7 @@ import { useC } from '../src/theme/ThemeContext';
 import { type, radius } from '../src/theme/theme';
 import { useStore } from '../src/store/store';
 import { Icon, Press, GradBox, Avatar, Stepper, Btn } from '../src/ui';
-import { Screen, TopBar, Empty } from '../src/ui/layout';
+import { Screen, TopBar, Empty, Dock, DockTotal } from '../src/ui/layout';
 import { ModeToggle } from '../src/components/ModeToggle';
 
 export default function Cart() {
@@ -24,11 +24,13 @@ export default function Cart() {
   }
 
   const cooks = Array.from(new Set(cart.map((l) => l.cook))) as CookId[];
+  const grandTotal = cart.reduce((s, l) => s + l.price * l.qty, 0);
+  const isMulti = cooks.length > 1;
 
   return (
     <Screen>
       <TopBar title="Your cart" sub={`${cartCount} item${cartCount !== 1 ? 's' : ''} · ${cooks.length} kitchen${cooks.length !== 1 ? 's' : ''}`} />
-      <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={{ paddingBottom: 40 }}>
+      <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={{ paddingBottom: 120 }}>
         <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: 16, paddingTop: 14 }}>
           <Text style={[type(13, 800), { color: c.soft }]}>How you’ll get it</Text>
           <ModeToggle sm />
@@ -70,16 +72,20 @@ export default function Cart() {
                   <Text style={[type(11.5, 700), { color: c.muted }]}>Subtotal</Text>
                   <Text style={[type(16, 900), { color: c.ink }]}>{money(subtotal)}</Text>
                 </View>
-                <Btn label="Checkout" iconRight="arrow" onPress={() => router.push(`/checkout?cook=${ck}`)} />
+                {isMulti ? <Btn label="Checkout" iconRight="arrow" onPress={() => router.push(`/checkout?cook=${ck}`)} /> : null}
               </View>
             </View>
           );
         })}
 
-        {cooks.length > 1 ? (
-          <Text style={[type(12, 600), { color: c.muted, textAlign: 'center', marginTop: 16, marginHorizontal: 32, lineHeight: 18 }]}>Ordering from more than one kitchen? Each checks out separately.</Text>
+        {isMulti ? (
+          <Text style={[type(12, 600), { color: c.soft, textAlign: 'center', marginTop: 16, marginHorizontal: 28, lineHeight: 18 }]}>You’re ordering from {cooks.length} kitchens — that’s {cooks.length} separate orders, one payment each. Check out each kitchen above.</Text>
         ) : null}
       </ScrollView>
+      <Dock>
+        <DockTotal label={isMulti ? `${cartCount} items · ${cooks.length} kitchens` : 'Total'} value={money(grandTotal)} />
+        {isMulti ? null : <Btn label="Checkout" iconRight="arrow" flex={1} onPress={() => router.push(`/checkout?cook=${cooks[0]}`)} />}
+      </Dock>
     </Screen>
   );
 }
