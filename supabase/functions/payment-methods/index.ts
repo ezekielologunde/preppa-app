@@ -55,6 +55,24 @@ Deno.serve(async (req) => {
 
     const body = await req.json().catch(() => ({}));
     const action = body?.action as string;
+
+    // Rate limit before touching Stripe at all -- setup-intent is the textbook
+    // card-testing-fraud mechanism (an attacker can hammer it to probe stolen cards), so it
+    // gets the tightest window; the others are generous headroom for real usage.
+    const RATE_LIMITS: Record<string, [number, string]> = {
+      'setup-intent': [6, '10 minutes'],
+      'list': [40, '5 minutes'],
+      'detach': [15, '10 minutes'],
+      'default': [15, '10 minutes'],
+    };
+    const rl = RATE_LIMITS[action];
+    if (rl) {
+      const { error: rlErr } = await db.rpc('check_rate_limit', {
+        p_action: `payment_methods_${action.replace(/-/g, '_')}`, p_max_count: rl[0], p_window: rl[1], p_subject: uid,
+      });
+      if (rlErr) return json(429, { error: 'Too many attempts. Please wait a few minutes and try again.' });
+    }
+
     const customer = await getOrCreateCustomer(db, uid, email);
 
     if (action === 'setup-intent') {

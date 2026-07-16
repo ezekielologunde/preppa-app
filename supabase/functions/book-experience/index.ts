@@ -38,6 +38,11 @@ Deno.serve(async (req) => {
     const { data: userData, error: userErr } = await userClient.auth.getUser();
     if (userErr || !userData.user) return json(401, { error: 'unauthorized' });
 
+    const { error: rlErr } = await userClient.rpc('check_rate_limit', {
+      p_action: 'book_experience', p_max_count: 15, p_window: '10 minutes',
+    });
+    if (rlErr) return json(429, { error: 'Too many attempts. Please wait a few minutes and try again.' });
+
     const parsed = input.safeParse(await req.json());
     if (!parsed.success) return json(400, { error: 'invalid input', issues: parsed.error.issues });
     const p = parsed.data;

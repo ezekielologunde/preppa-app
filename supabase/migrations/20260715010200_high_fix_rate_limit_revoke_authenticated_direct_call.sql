@@ -1,0 +1,11 @@
+-- Security-advisor finding (authenticated_security_definer_function_executable): any signed-in
+-- user could call check_rate_limit directly via /rest/v1/rpc/check_rate_limit. The p_subject
+-- restriction already stops this from affecting anyone but the caller's own bucket (self-harm
+-- only, not exploitable against others), but there's no legitimate reason to expose it as a
+-- public RPC: the 4 admin RPCs call it internally via `perform` and work purely on function
+-- ownership (SECURITY DEFINER executes as the owner, unaffected by this grant), and Edge
+-- Functions only ever call it through the service-role client. Tightening to service_role-only,
+-- matching this project's existing minimal-grants convention.
+--
+-- NOTE: applied live via Supabase MCP apply_migration before this file was backfilled to git.
+revoke execute on function public.check_rate_limit(text, int, interval, uuid) from authenticated;

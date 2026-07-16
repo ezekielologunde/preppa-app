@@ -39,6 +39,11 @@ Deno.serve(async (req) => {
     const userId = userData.user?.id;
     if (!userId) return json(401, { error: 'unauthorized' });
 
+    const { error: rlErr } = await db.rpc('check_rate_limit', {
+      p_action: 'connect_payout', p_max_count: 10, p_window: '10 minutes', p_subject: userId,
+    });
+    if (rlErr) return json(429, { error: 'Too many attempts. Please wait a few minutes and try again.' });
+
     const { kitchenId } = await req.json();
     if (typeof kitchenId !== 'string') return json(400, { error: 'kitchenId required' });
 

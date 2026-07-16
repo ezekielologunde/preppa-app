@@ -67,6 +67,11 @@ Deno.serve(async (req) => {
     const uid = userData.user.id;
     const email = userData.user.email ?? null;
 
+    const { error: rlErr } = await db.rpc('check_rate_limit', {
+      p_action: 'subscribe_prepplus', p_max_count: 10, p_window: '10 minutes', p_subject: uid,
+    });
+    if (rlErr) return json(429, { error: 'Too many attempts. Please wait a few minutes and try again.' });
+
     const parsed = input.safeParse(await req.json().catch(() => ({})));
     if (!parsed.success) return json(400, { error: 'invalid input', issues: parsed.error.issues });
     const { interval, paymentMethodId } = parsed.data;
