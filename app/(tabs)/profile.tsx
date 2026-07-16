@@ -1,10 +1,10 @@
 import React from 'react';
-import { View, Text, ScrollView, Pressable, Alert, Platform } from 'react-native';
+import { View, Text, ScrollView, Pressable, Alert, Platform, Image } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useC } from '../../src/theme/ThemeContext';
-import { type, radius, shadow } from '../../src/theme/theme';
+import { type, radius, shadow, BRAND_GRAD } from '../../src/theme/theme';
 import { useStore } from '../../src/store/store';
 import { Icon, Press, Switch } from '../../src/ui';
 import { SectionLabel } from '../../src/ui/layout';
@@ -17,7 +17,7 @@ export default function Profile() {
   const c = useC();
   const insets = useSafeAreaInsets();
   const router = useRouter();
-  const { resetOnboarding, darkMode, setDarkMode, logout, deleteAccount, toast, prepperStatus, isAdmin, isPrepPlus, name, location } = useStore();
+  const { darkMode, setDarkMode, logout, deleteAccount, toast, prepperStatus, isAdmin, isPrepPlus, name, location, avatarUrl } = useStore();
   const initial = (name || '?').trim()[0]?.toUpperCase() ?? '?';
 
   const confirmDelete = () => {
@@ -34,7 +34,6 @@ export default function Profile() {
   // grouped so the screen reads as clear sections instead of one long list
   const activity: Row[] = [
     { ico: 'ticket', cls: 'amber', t: 'Your orders', act: () => router.push('/orders') },
-    ...(FLAGS.plans ? [{ ico: 'repeat', cls: 'purple' as Tone, t: 'Your plans', act: () => router.push('/experiences?tab=mine') }] : []),
     { ico: 'heart', cls: 'pink', t: 'Favorites', act: () => router.push('/favorites') },
     ...(FLAGS.feed ? [{ ico: 'bookmark', cls: 'blue' as Tone, t: 'Saved posts', act: () => router.push('/saved') }] : []),
   ];
@@ -45,18 +44,21 @@ export default function Profile() {
   const support: Row[] = [
     { ico: 'info', cls: 'purple', t: 'Your support requests', act: () => router.push('/tickets') },
   ];
-  const prefs: Row[] = [
-    { ico: 'repeat', cls: '', t: 'Replay onboarding', act: resetOnboarding },
-  ];
 
   return (
     <View style={{ flex: 1, backgroundColor: c.bg }}>
       <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={{ paddingBottom: 40, maxWidth: 1040, alignSelf: 'center', width: '100%' }}>
         {/* hero */}
         <View style={{ backgroundColor: c.surface, paddingTop: insets.top + 20, paddingBottom: 20, paddingHorizontal: 16, alignItems: 'center', borderBottomWidth: 1, borderBottomColor: c.border2 }}>
-          <LinearGradient colors={['#FF8A4C', '#E24A38']} start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }} style={{ width: 80, height: 80, borderRadius: 26, alignItems: 'center', justifyContent: 'center', ...shadow.brand }}>
-            <Text style={[type(32, 900), { color: '#fff' }]}>{initial}</Text>
-          </LinearGradient>
+          <View style={{ borderRadius: 26, ...shadow.brand }}>
+            {avatarUrl ? (
+              <Image source={{ uri: avatarUrl }} style={{ width: 80, height: 80, borderRadius: 26, backgroundColor: c.bg2 }} resizeMode="cover" />
+            ) : (
+              <LinearGradient colors={BRAND_GRAD as any} start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }} style={{ width: 80, height: 80, borderRadius: 26, alignItems: 'center', justifyContent: 'center' }}>
+                <Text style={[type(32, 900), { color: '#fff' }]}>{initial}</Text>
+              </LinearGradient>
+            )}
+          </View>
           <Press scale={0.97} onPress={() => router.push('/edit-profile')} label="Edit profile">
             <View style={{ flexDirection: 'row', alignItems: 'center', gap: 7, marginTop: 12 }}>
               <Text style={[type(21, 900), { color: c.ink, letterSpacing: -0.6 }]}>{name || 'Add your name'}</Text>
@@ -68,7 +70,7 @@ export default function Profile() {
 
         {/* become a preppa — state-aware (themed: warm tint that adapts to dark) */}
         <View style={{ marginHorizontal: 16, borderRadius: radius.xl, padding: 18, flexDirection: 'row', alignItems: 'center', gap: 14, borderWidth: 1, borderColor: c.border2, backgroundColor: c.primaryL }}>
-          <LinearGradient colors={['#FF8A4C', '#E24A38']} start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }} style={{ width: 52, height: 52, borderRadius: 16, alignItems: 'center', justifyContent: 'center', ...shadow.brand }}>
+          <LinearGradient colors={BRAND_GRAD as any} start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }} style={{ width: 52, height: 52, borderRadius: 16, alignItems: 'center', justifyContent: 'center', ...shadow.brand }}>
             <Icon name={prepperStatus === 'pending' ? 'clock' : 'chefhat'} size={26} color="#fff" />
           </LinearGradient>
           <View style={{ flex: 1 }}>
@@ -109,7 +111,7 @@ export default function Profile() {
         {FLAGS.prepplus && Platform.OS === 'web' ? (
           <Press scale={0.98} onPress={() => router.push('/prepplus')} label="PrepPlus"
             style={{ marginHorizontal: 16, marginTop: 12, borderRadius: radius.xl, overflow: 'hidden', ...shadow.card }}>
-            <LinearGradient colors={['#6B4A93', '#E24A38']} start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }}
+            <LinearGradient colors={['#6B4A93', '#E0490F']} start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }}
               style={{ padding: 16, flexDirection: 'row', alignItems: 'center', gap: 14 }}>
               <View style={{ width: 46, height: 46, borderRadius: 15, backgroundColor: 'rgba(255,255,255,.2)', alignItems: 'center', justifyContent: 'center' }}>
                 <Icon name="bolt" size={23} color="#fff" />
@@ -152,16 +154,14 @@ export default function Profile() {
         </Group>
 
         <Group label="Preferences">
-          <Pressable onPress={() => setDarkMode(!darkMode)} style={rowStyle(c, false)} accessibilityRole="switch" accessibilityLabel="Dark mode" accessibilityState={{ checked: darkMode }}>
+          <Pressable onPress={() => setDarkMode(!darkMode)} style={rowStyle(c, true)} accessibilityRole="switch" accessibilityLabel="Dark mode" accessibilityState={{ checked: darkMode }}>
             <IconWell ico={darkMode ? 'bolt' : 'settings'} tone="purple" />
             <Text style={[type(15, 700), { color: c.ink, flex: 1 }]}>Dark mode</Text>
             <Switch on={darkMode} />
           </Pressable>
-          {prefs.map((r, i) => <RowItem key={r.t} {...r} last={i === prefs.length - 1} />)}
         </Group>
 
-        <View style={{ height: 12 }} />
-        <View style={{ backgroundColor: c.surface, borderRadius: radius.card, marginHorizontal: 16, borderWidth: 1, borderColor: c.border2, overflow: 'hidden' }}>
+        <Group>
           <Pressable onPress={logout} style={rowStyle(c, false)}>
             <IconWell ico="logout" tone="" />
             <Text style={[type(15, 700), { color: c.ink, flex: 1 }]}>Log out</Text>
@@ -172,7 +172,7 @@ export default function Profile() {
             </View>
             <Text style={[type(15, 700), { color: c.red, flex: 1 }]}>Delete account</Text>
           </Pressable>
-        </View>
+        </Group>
 
         <Text style={[type(12, 700), { color: c.muted, textAlign: 'center', padding: 20 }]}>preppa · v1.0</Text>
       </ScrollView>
@@ -184,12 +184,12 @@ function rowStyle(c: any, last: boolean) {
   return { flexDirection: 'row' as const, alignItems: 'center' as const, gap: 13, paddingVertical: 15, paddingHorizontal: 16, borderBottomWidth: last ? 0 : 1, borderBottomColor: c.border2 };
 }
 
-function Group({ label, children }: { label: string; children: React.ReactNode }) {
+function Group({ label, children }: { label?: string; children: React.ReactNode }) {
   const c = useC();
   return (
     <>
-      <SectionLabel style={{ marginLeft: 20, marginRight: 20, marginTop: 20, marginBottom: 8 }}>{label}</SectionLabel>
-      <View style={{ backgroundColor: c.surface, borderRadius: radius.card, marginHorizontal: 16, borderWidth: 1, borderColor: c.border2, overflow: 'hidden' }}>
+      {label ? <SectionLabel style={{ marginLeft: 20, marginRight: 20, marginTop: 20, marginBottom: 8 }}>{label}</SectionLabel> : null}
+      <View style={{ backgroundColor: c.surface, borderRadius: radius.card, marginHorizontal: 16, marginTop: label ? 0 : 20, borderWidth: 1, borderColor: c.border2, overflow: 'hidden' }}>
         {children}
       </View>
     </>
