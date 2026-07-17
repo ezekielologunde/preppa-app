@@ -29,6 +29,32 @@ async function resolvePaymentMethod(db: any, customerId: string | null, pmId: st
   return list.data[0]?.id ?? null;
 }
 
+// Same audit finding as connect-payout: a network/API-level error means the charge's real
+// outcome is unknown. claim_cycles_for_charge() already set payment_status='charging' before this
+// runs, and that status is excluded from future claims — so as long as we do NOT call
+// mark_cycle_failed/mark_cycle_action_required on an ambiguous error, the cycle simply stays
+// 'charging' and can't be auto-retried with a fresh (different) idempotency key, which is what
+// would risk a real double-charge if the original PaymentIntent actually went through. Retrying
+// with the SAME idempotency key first (Stripe replays the original result) resolves most of these
+// immediately instead of leaving the cycle stuck.
+function isAmbiguousStripeError(err: any): boolean {
+  const type = err?.type ?? err?.raw?.type;
+  return type === 'StripeConnectionError' || type === 'StripeAPIError' || type === 'StripeTimeoutError';
+}
+async function createPaymentIntentWithRetry(params: any, idempotencyKey: string, maxAttempts = 3) {
+  let lastErr: any;
+  for (let attempt = 1; attempt <= maxAttempts; attempt++) {
+    try {
+      return await stripe.paymentIntents.create(params, { idempotencyKey });
+    } catch (err) {
+      lastErr = err;
+      if (!isAmbiguousStripeError(err) || attempt === maxAttempts) throw err;
+      await new Promise((r) => setTimeout(r, 400 * attempt));
+    }
+  }
+  throw lastErr;
+}
+
 Deno.serve(async (req) => {
   if (req.method !== 'POST') return json(405, { error: 'method not allowed' });
 
@@ -54,7 +80,7 @@ Deno.serve(async (req) => {
         results.push({ cycleId, status: 'failed', reason: 'no_payment_method' });
         continue;
       }
-      const pi = await stripe.paymentIntents.create(
+      const pi = await createPaymentIntentWithRetry(
         {
           amount: c.total_cents,
           currency: 'usd',
@@ -69,7 +95,7 @@ Deno.serve(async (req) => {
             kind: 'cycle',
           },
         },
-        { idempotencyKey: `cyc_${cycleId}_a${attempt}` },
+        `cyc_${cycleId}_a${attempt}`,
       );
       if (pi.status === 'succeeded' || pi.status === 'processing' || pi.status === 'requires_capture') {
         await db.rpc('mark_cycle_charged', { p_cycle: cycleId, p_pi: pi.id });
@@ -84,7 +110,13 @@ Deno.serve(async (req) => {
     } catch (e: any) {
       const code = e?.code ?? e?.raw?.code ?? '';
       const piId = e?.raw?.payment_intent?.id ?? null;
-      if (code === 'authentication_required') {
+      if (isAmbiguousStripeError(e)) {
+        // Unknown outcome even after same-key retries — do NOT mark failed (would reset
+        // payment_status to something claim_cycles_for_charge could pick up again with a fresh,
+        // different idempotency key). Leaving it 'charging' needs manual reconciliation against
+        // Stripe (search PaymentIntents for idempotency key `cyc_${cycleId}_a${attempt}`).
+        results.push({ cycleId, status: 'ambiguous', reason: e?.type ?? 'connection_error' });
+      } else if (code === 'authentication_required') {
         await db.rpc('mark_cycle_action_required', { p_cycle: cycleId, p_pi: piId, p_err: code });
         results.push({ cycleId, status: 'action_required', reason: code });
       } else {

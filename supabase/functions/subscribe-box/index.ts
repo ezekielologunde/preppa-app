@@ -79,6 +79,13 @@ Deno.serve(async (req) => {
     const mine = new Set((myKitchen ?? []).map((k: any) => k.id));
     if ((meals as any[]).some((m) => mine.has(m.kitchen_id))) return json(400, { error: "You can't add your own meals to a box." });
 
+    // One box per customer (audit Medium finding): a double-submit used to create two
+    // independently-billed box subscriptions. This pre-check gives a clean message in the common
+    // case; the actual race is closed by a DB-level partial unique index (caught below on insert).
+    const { data: existingBox } = await db.from('subscriptions').select('id')
+      .eq('customer_id', uid).eq('kind', 'box').not('lifecycle', 'in', '(cancelled,completed)').maybeSingle();
+    if (existingBox) return json(409, { error: 'You already have an active box. Manage it from Experiences → My Plans.' });
+
     const stripeCustomerId = await getOrCreateCustomer(db, uid, email);
     let pmId = inp.paymentMethodId;
     if (!pmId) { const list = await stripe.paymentMethods.list({ customer: stripeCustomerId, type: 'card', limit: 1 }); pmId = list.data[0]?.id; }
@@ -98,7 +105,12 @@ Deno.serve(async (req) => {
       stripe_payment_method_id: pmId, preferred_day: inp.preferredDay ?? null,
       discount_bps: DISCOUNT_BPS, service_fee_bps: BOX_FEE_BPS,
     }).select('id').single();
-    if (sErr) throw sErr;
+    if (sErr) {
+      // 23505 = unique_violation -- the partial index caught a genuine race (two near-simultaneous
+      // submits both passed the pre-check above before either committed).
+      if ((sErr as any).code === '23505') return json(409, { error: 'You already have an active box. Manage it from Experiences → My Plans.' });
+      throw sErr;
+    }
     const subId = sub.id as string;
 
     // standing box selection (trigger freezes kitchen_id + unit price from the meal)

@@ -17,6 +17,30 @@ function admin() {
   return createClient(Deno.env.get('SUPABASE_URL') ?? '', Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? '', { auth: { persistSession: false } });
 }
 
+// A network/API-level Stripe error means we genuinely don't know whether the transfer was
+// created — treating it the same as a definite decline (audit High finding) risks a real
+// double-payout: finalize_payout(..., false) marks the reservation 'failed', which frees the
+// amount for a fresh reserve_payout() call using a DIFFERENT idempotency key, so if the original
+// transfer actually went through, a retry creates a second, real one. Stripe guarantees replaying
+// the SAME idempotency key returns the original result (success or the original error) rather
+// than creating a new transfer, so retrying with the same key first is always safe.
+function isAmbiguousStripeError(err: any): boolean {
+  return err?.type === 'StripeConnectionError' || err?.type === 'StripeAPIError' || err?.type === 'StripeTimeoutError';
+}
+async function createTransferWithRetry(params: any, idempotencyKey: string, maxAttempts = 3) {
+  let lastErr: any;
+  for (let attempt = 1; attempt <= maxAttempts; attempt++) {
+    try {
+      return await stripe.transfers.create(params, { idempotencyKey });
+    } catch (err) {
+      lastErr = err;
+      if (!isAmbiguousStripeError(err) || attempt === maxAttempts) throw err;
+      await new Promise((r) => setTimeout(r, 400 * attempt));
+    }
+  }
+  throw lastErr;
+}
+
 // reserve_payout relies on auth.uid() for its ownership check, so it must be called with the
 // caller's own JWT. finalize_payout is service_role-only (never callable by the client directly) —
 // it's invoked below via the admin() client, after this function has itself confirmed (via
@@ -59,16 +83,25 @@ Deno.serve(async (req) => {
     const { payout_id, amount_cents, stripe_account_id } = reserved as any;
 
     try {
-      const transfer = await stripe.transfers.create({
+      const transfer = await createTransferWithRetry({
         amount: amount_cents,
         currency: 'usd',
         destination: stripe_account_id,
         metadata: { kitchen_id: kitchenId, payout_id },
-      }, { idempotencyKey: `payout_${payout_id}` });
+      }, `payout_${payout_id}`);
 
       await db.rpc('finalize_payout', { p_payout_id: payout_id, p_stripe_transfer_id: transfer.id, p_success: true });
       return json(200, { amountCents: amount_cents });
-    } catch (stripeErr) {
+    } catch (stripeErr: any) {
+      if (isAmbiguousStripeError(stripeErr)) {
+        // Genuinely unknown outcome even after same-key retries. Do NOT call finalize_payout —
+        // leaving the payout row 'pending' keeps its amount counted as reserved (reserve_payout's
+        // v_pending sum only excludes 'failed'/'paid'), so the cook can't trigger a second real
+        // transfer for the same funds. This needs manual reconciliation against the Stripe
+        // dashboard (search transfers for idempotency key `payout_${payout_id}`) — there's no
+        // automated reconciliation job yet.
+        return json(202, { error: 'We couldn’t confirm your payout went through. Please check back shortly before trying again, or contact support if it doesn’t appear.' });
+      }
       await db.rpc('finalize_payout', { p_payout_id: payout_id, p_stripe_transfer_id: null, p_success: false });
       throw stripeErr;
     }
