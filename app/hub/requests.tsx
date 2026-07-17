@@ -8,15 +8,19 @@ import { Press, Icon } from '../../src/ui';
 import { Screen, TopBar } from '../../src/ui/layout';
 import { money } from '../../src/data/data';
 import { KBtn } from '../(tabs)/my-hub';
-import { listIncomingRequests, submitQuote, SERVICE_LABELS, type IncomingRequest } from '../../src/lib/services';
+import { listIncomingRequests, submitQuote, SERVICE_LABELS, type IncomingRequest, listMyKitchenBookings, completeBooking, cancelBooking, type KitchenBookingView } from '../../src/lib/services';
 
 export default function HubRequests() {
   const c = useC();
   const router = useRouter();
   const { toast } = useStore();
   const [items, setItems] = useState<IncomingRequest[]>([]);
+  const [bookings, setBookings] = useState<KitchenBookingView[]>([]);
   const [loading, setLoading] = useState(true);
-  const load = useCallback(() => { setLoading(true); listIncomingRequests().then((r) => { setItems(r); setLoading(false); }); }, []);
+  const load = useCallback(() => {
+    setLoading(true);
+    Promise.all([listIncomingRequests(), listMyKitchenBookings()]).then(([r, b]) => { setItems(r); setBookings(b); setLoading(false); });
+  }, []);
   useFocusEffect(useCallback(() => { load(); }, [load]));
 
   return (
@@ -24,7 +28,7 @@ export default function HubRequests() {
       <TopBar title="Service requests" sub={loading ? '' : `${items.length} incoming`} onBack={() => router.back()} />
       {loading ? (
         <View style={{ flex: 1, alignItems: 'center', justifyContent: 'center' }}><ActivityIndicator color={c.primary} /></View>
-      ) : items.length === 0 ? (
+      ) : items.length === 0 && bookings.length === 0 ? (
         <View style={{ alignItems: 'center', paddingVertical: 50, paddingHorizontal: 24 }}>
           <View style={{ width: 56, height: 56, borderRadius: 18, backgroundColor: c.bg2, alignItems: 'center', justifyContent: 'center' }}><Icon name="chefhat" size={26} color={c.muted} /></View>
           <Text style={[type(16, 900), { color: c.ink, marginTop: 12 }]}>No requests yet</Text>
@@ -32,10 +36,64 @@ export default function HubRequests() {
         </View>
       ) : (
         <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={{ padding: 16, paddingBottom: 40, gap: 12 }}>
-          {items.map((r) => <RequestCard key={r.requestId} r={r} onQuoted={load} toast={toast} />)}
+          {bookings.length ? (
+            <>
+              <Text style={[type(12, 900), { color: c.muted, textTransform: 'uppercase', letterSpacing: 0.5 }]}>Active bookings</Text>
+              {bookings.map((b) => <BookingCard key={b.id} b={b} onChanged={load} toast={toast} />)}
+            </>
+          ) : null}
+          {items.length ? (
+            <>
+              {bookings.length ? <Text style={[type(12, 900), { color: c.muted, textTransform: 'uppercase', letterSpacing: 0.5, marginTop: 6 }]}>Incoming</Text> : null}
+              {items.map((r) => <RequestCard key={r.requestId} r={r} onQuoted={load} toast={toast} />)}
+            </>
+          ) : null}
         </ScrollView>
       )}
     </Screen>
+  );
+}
+
+function BookingCard({ b, onChanged, toast }: { b: KitchenBookingView; onChanged: () => void; toast: (m: string, i?: string, ok?: boolean) => void }) {
+  const c = useC();
+  const [busy, setBusy] = useState<'complete' | 'cancel' | null>(null);
+
+  const complete = async () => {
+    if (busy) return;
+    setBusy('complete');
+    try {
+      const res = await completeBooking(b.id);
+      toast(res.balanceChargeError ? 'Marked complete — balance charge failed, will retry' : 'Booking marked complete', res.balanceChargeError ? 'info' : 'check', !res.balanceChargeError);
+      onChanged();
+    } catch (e: any) { toast(e?.message || 'Could not complete the booking', 'info'); }
+    finally { setBusy(null); }
+  };
+  const cancel = async () => {
+    if (busy) return;
+    if (typeof window !== 'undefined' && !window.confirm(`Cancel this booking with ${b.customerName}? The deposit will be refunded.`)) return;
+    setBusy('cancel');
+    try {
+      const res = await cancelBooking(b.id);
+      toast(res.refunded ? 'Booking cancelled and refunded' : 'Booking cancelled', res.refunded ? 'check' : 'x', res.refunded);
+      onChanged();
+    } catch (e: any) { toast(e?.message || 'Could not cancel the booking', 'info'); }
+    finally { setBusy(null); }
+  };
+
+  return (
+    <View style={{ backgroundColor: c.surface, borderWidth: 1, borderColor: c.border2, borderRadius: radius.xl, padding: 16, ...shadow.card }}>
+      <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }}>
+        <Text style={[type(15.5, 900), { color: c.ink }]}>{b.customerName}</Text>
+        <Text style={[type(12.5, 700), { color: c.soft }]}>{b.eventDate}</Text>
+      </View>
+      <Text style={[type(12.5, 600), { color: c.soft, marginTop: 3 }]}>
+        {money(b.amountCents / 100)} total{b.balanceCents > 0 ? ` · ${money(b.balanceCents / 100)} due on completion` : ' · paid in full'}
+      </Text>
+      <View style={{ flexDirection: 'row', gap: 10, marginTop: 12 }}>
+        <KBtn label={busy === 'cancel' ? '…' : 'Cancel'} variant="ghost" flex={1} onPress={cancel} />
+        <KBtn label={busy === 'complete' ? '…' : 'Mark complete'} variant="pri" icon="check" flex={2} onPress={complete} />
+      </View>
+    </View>
   );
 }
 

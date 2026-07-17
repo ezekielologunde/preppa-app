@@ -3,7 +3,8 @@ import { supabase } from './supabase';
 /**
  * Food-Services marketplace client: request → quote → book → deposit. Preppa is the hub —
  * the deposit is charged on Preppa; the cook is credited (net of the Stripe fee) via the
- * reconcile trigger; the balance is settled offline. Web-first (Stripe.js for the deposit).
+ * reconcile trigger; the balance is auto-charged to the customer's saved card when the booking
+ * is marked complete (see completeBooking()). Web-first (Stripe.js for the deposit).
  */
 
 export type ServiceCategory = 'cook_at_home' | 'private_dinner' | 'catering' | 'consultation' | 'class' | 'meal_plan';
@@ -31,6 +32,9 @@ export interface BookingView {
 export interface IncomingRequest {
   requestId: string; kitchenId: string; category: ServiceCategory; eventDate: string; approxArea: string | null;
   guests: number | null; budgetCents: number | null; details: string | null; myQuoteId: string | null; myAmountCents: number | null;
+}
+export interface KitchenBookingView {
+  id: string; customerName: string; status: string; amountCents: number; depositCents: number; balanceCents: number; eventDate: string;
 }
 
 const num = (v: any) => Number(v) || 0;
@@ -111,6 +115,19 @@ export async function listMyBookings(): Promise<BookingView[]> {
   return rows.map((b) => ({ id: b.id, kitchenName: b.kitchens?.name ?? 'A prepper', status: b.status, amountCents: num(b.amount_cents), depositCents: num(b.deposit_cents), balanceCents: num(b.balance_cents), eventDate: b.event_date, kind: b.booking_kind ?? 'rfq', title: b.experiences?.title ?? null, reviewed: reviewed.has(b.id), experienceId: b.experience_id ?? null, locationType: b.experiences?.location_type ?? null }));
 }
 
+/** A prepper's already-accepted rfq bookings (confirmed/in_progress) — ready to complete or cancel.
+ *  Goes through prepper_active_bookings() rather than a direct query: profiles' RLS only lets a
+ *  cook read their own profile or another verified cook's, not a customer's, so a plain join
+ *  would silently return no name. */
+export async function listMyKitchenBookings(): Promise<KitchenBookingView[]> {
+  const { data, error } = await supabase.rpc('prepper_active_bookings');
+  if (error || !data) return [];
+  return (data as any[]).map((b) => ({
+    id: b.booking_id, customerName: b.customer_name ?? 'A customer', status: b.status,
+    amountCents: num(b.amount_cents), depositCents: num(b.deposit_cents), balanceCents: num(b.balance_cents), eventDate: b.event_date,
+  }));
+}
+
 /** A prepper's incoming (routed) requests. */
 export async function listIncomingRequests(): Promise<IncomingRequest[]> {
   const { data, error } = await supabase.rpc('prepper_incoming_requests');
@@ -139,11 +156,13 @@ export async function acceptQuoteAndDeposit(quoteId: string): Promise<{ bookingI
   return { bookingId: data.bookingId, clientSecret: data.clientSecret, depositCents: data.depositCents };
 }
 
-export async function completeBooking(bookingId: string): Promise<void> {
+export async function completeBooking(bookingId: string): Promise<{ balanceCharged: boolean; balanceChargeError: string | null }> {
   const { data, error } = await supabase.functions.invoke('complete-booking', { body: { bookingId } });
   if (error || data?.error) throw new Error(data?.error || error?.message || 'Could not update the booking.');
+  return { balanceCharged: !!data?.balanceCharged, balanceChargeError: data?.balanceChargeError ?? null };
 }
-export async function cancelBooking(bookingId: string): Promise<void> {
+export async function cancelBooking(bookingId: string): Promise<{ refunded: boolean }> {
   const { data, error } = await supabase.functions.invoke('cancel-booking', { body: { bookingId } });
   if (error || data?.error) throw new Error(data?.error || error?.message || 'Could not cancel the booking.');
+  return { refunded: !!data?.refunded };
 }

@@ -8,7 +8,7 @@ import { type, radius, shadow } from '../../src/theme/theme';
 import { useStore, CustomerOrder } from '../../src/store/store';
 import { Icon, Press, GradBox, Btn } from '../../src/ui';
 import { Empty } from '../../src/ui/layout';
-import { listMyBookings, type BookingView } from '../../src/lib/services';
+import { listMyBookings, completeBooking, cancelBooking, type BookingView } from '../../src/lib/services';
 import { cancelExperienceBooking, fetchExperienceMeetingUrl } from '../../src/lib/experiences';
 
 const STATUS: Record<CustomerOrder['status'], { label: string; bg: (c: any) => string; fg: (c: any) => string }> = {
@@ -40,6 +40,30 @@ export default function Orders() {
       toast(res.refundedCents > 0 ? `Cancelled — ${money(res.refundedCents / 100)} refunded` : 'Booking cancelled', res.refundedCents > 0 ? 'check' : 'x', res.refundedCents > 0);
       load();
     } catch (e: any) { toast(e?.message || 'Could not cancel', 'info'); }
+    finally { setBusy(null); }
+  };
+
+  const completeRfq = async (b: BookingView) => {
+    if (busy) return;
+    if (typeof window !== 'undefined' && !window.confirm(`Mark this booking with ${b.kitchenName} as complete?${b.balanceCents > 0 ? ` The remaining ${money(b.balanceCents / 100)} will be charged.` : ''}`)) return;
+    setBusy(b.id);
+    try {
+      const res = await completeBooking(b.id);
+      toast(res.balanceChargeError ? 'Marked complete — balance charge failed, we’ll retry' : 'Booking marked complete', res.balanceChargeError ? 'info' : 'check', !res.balanceChargeError);
+      load();
+    } catch (e: any) { toast(e?.message || 'Could not complete the booking', 'info'); }
+    finally { setBusy(null); }
+  };
+
+  const cancelRfq = async (b: BookingView) => {
+    if (busy) return;
+    if (typeof window !== 'undefined' && !window.confirm(`Cancel this booking with ${b.kitchenName}? Any deposit paid will be refunded.`)) return;
+    setBusy(b.id);
+    try {
+      const res = await cancelBooking(b.id);
+      toast(res.refunded ? 'Booking cancelled and refunded' : 'Booking cancelled', res.refunded ? 'check' : 'x', res.refunded);
+      load();
+    } catch (e: any) { toast(e?.message || 'Could not cancel the booking', 'info'); }
     finally { setBusy(null); }
   };
 
@@ -78,7 +102,7 @@ export default function Orders() {
                       <View style={{ width: 46, height: 46, borderRadius: 14, backgroundColor: c.primaryL, alignItems: 'center', justifyContent: 'center' }}><Icon name={isExp ? 'spark' : 'chefhat'} size={21} color={c.primary} /></View>
                       <View style={{ flex: 1, minWidth: 0 }}>
                         <Text numberOfLines={1} style={[type(15, 900), { color: c.ink }]}>{isExp && b.title ? b.title : b.kitchenName}</Text>
-                        <Text numberOfLines={1} style={[type(12.5, 600), { color: c.soft, marginTop: 2 }]}>{isExp ? `${b.kitchenName} · ` : ''}{b.eventDate} · {money(b.amountCents / 100)} · {statusLabel}</Text>
+                        <Text numberOfLines={1} style={[type(12.5, 600), { color: c.soft, marginTop: 2 }]}>{isExp ? `${b.kitchenName} · ` : ''}{b.eventDate} · {money(b.amountCents / 100)} · {statusLabel}{!isExp && b.status === 'confirmed' && b.balanceCents > 0 ? ` · ${money(b.balanceCents / 100)} due` : ''}</Text>
                       </View>
                       {isExp && b.status === 'confirmed' && b.locationType === 'virtual' && !isPast ? (
                         <Press scale={0.95} onPress={() => joinLink(b)} label="Join online session"><Text style={[type(12, 800), { color: c.accentText }]}>Join</Text></Press>
@@ -87,7 +111,12 @@ export default function Orders() {
                           : <Press scale={0.95} onPress={() => router.push(`/rate-experience/${b.id}`)} label="Rate experience"><Text style={[type(12, 800), { color: c.accentText }]}>Rate</Text></Press>
                       ) : isExp && b.status === 'confirmed' ? (
                         <Press scale={0.95} onPress={() => cancelExp(b)} label="Cancel booking"><Text style={[type(12, 800), { color: busy === b.id ? c.muted : c.red }]}>{busy === b.id ? '…' : 'Cancel'}</Text></Press>
-                      ) : b.balanceCents > 0 && (b.status === 'confirmed') ? <Text style={[type(11.5, 700), { color: c.muted }]}>{money(b.balanceCents / 100)} due</Text> : null}
+                      ) : !isExp && b.status === 'confirmed' ? (
+                        <View style={{ alignItems: 'flex-end', gap: 6 }}>
+                          <Press scale={0.95} onPress={() => completeRfq(b)} label="Mark complete"><Text style={[type(12, 800), { color: busy === b.id ? c.muted : c.accentText }]}>{busy === b.id ? '…' : 'Complete'}</Text></Press>
+                          <Press scale={0.95} onPress={() => cancelRfq(b)} label="Cancel booking"><Text style={[type(11, 700), { color: busy === b.id ? c.muted : c.red }]}>Cancel</Text></Press>
+                        </View>
+                      ) : null}
                     </View>
                   );
                 })}

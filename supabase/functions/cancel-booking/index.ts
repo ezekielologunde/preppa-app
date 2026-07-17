@@ -50,20 +50,20 @@ Deno.serve(async (req) => {
     let refunded = false;
     if ((bk as any).status === 'confirmed' && (bk as any).deposit_pi_id) {
       try {
-        // Idempotency key (audit High finding: no key/lock here before -- a double-submit
-        // or retry-after-timeout could fire two separate Stripe refunds). Deterministic on
-        // the booking id, so any retry of the same cancellation dedupes on Stripe's side.
+        // Idempotency key: dedupes a double-submit/retry on Stripe's side.
         await stripe.refunds.create({ payment_intent: (bk as any).deposit_pi_id }, { idempotencyKey: `refund_${bookingId}` });
         refunded = true;
-        // Reverse the cook's credited sale (append-only — a new negative refund entry).
-        const cookCredit = Math.max((bk as any).deposit_cents - (bk as any).service_fee_cents, 0);
-        if (cookCredit > 0) {
-          await db.from('ledger_entries').insert({ kitchen_id: (bk as any).kitchen_id, booking_id: bookingId, kind: 'refund', amount_cents: -cookCredit, memo: 'Booking refund ' + bookingId.slice(0, 8) });
-        }
       } catch (_e) { /* refund failed — still cancel; reconcile of a failed refund is manual */ }
     }
 
-    await db.from('bookings').update({ status: refunded ? 'refunded' : 'cancelled', cancelled_at: new Date().toISOString() }).eq('id', bookingId);
+    // finalize_booking_cancel does the ledger reversal + status update under an advisory lock,
+    // re-checking status before writing — closes a real race where two concurrent cancel calls
+    // (double-tap, or a client retry racing a slow first request) could each independently insert
+    // a refund ledger entry for the same booking, double-deducting the cook's balance even though
+    // Stripe's idempotency key ensures only one real refund happens.
+    const { error: finErr } = await db.rpc('finalize_booking_cancel', { p_booking_id: bookingId, p_refunded: refunded });
+    if (finErr) return json(500, { error: 'Could not finalize the cancellation.' });
+
     await db.from('quotes').update({ status: 'declined' }).eq('id', (bk as any).quote_id ?? '00000000-0000-0000-0000-000000000000');
     const other = uid === ownerId ? (bk as any).customer_id : ownerId;
     try { await db.rpc('notify', { p_user: other, p_kind: 'booking', p_title: 'Booking cancelled', p_body: refunded ? 'A booking was cancelled and the deposit refunded.' : 'A booking was cancelled.' }); } catch (_e) { /* best-effort */ }
