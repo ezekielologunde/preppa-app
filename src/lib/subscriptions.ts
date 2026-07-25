@@ -40,6 +40,8 @@ export interface Plan {
   coverUrl?: string | null;
   dietaryTags?: string[];
   allergens?: string[];
+  cadenceWeeks?: number;        // NEW: 1=weekly, 2=biweekly (cook-chosen)
+  rotating?: boolean;           // NEW: meals rotate weekly (not fixed)
 }
 
 export type Lifecycle =
@@ -116,7 +118,7 @@ function planItems(rows: any[] | null | undefined): PlanItem[] {
 }
 
 const PLAN_SELECT =
-  'id, kitchen_id, name, description, price_cents, fulfillment, goal, selection_model, meals_per_delivery, servings, per_meal_cents, per_delivery_cents, service_fee_bps, delivery_days, cutoff_hours, lead_time_hours, min_commitment, trial_price_cents, trial_cycles, cover_url, dietary_tags, allergens, kitchens(name), plan_items(qty, meal_id, meals(id, name, price_cents))';
+  'id, kitchen_id, name, description, price_cents, fulfillment, goal, selection_model, meals_per_delivery, servings, per_meal_cents, per_delivery_cents, service_fee_bps, delivery_days, cutoff_hours, lead_time_hours, min_commitment, trial_price_cents, trial_cycles, cadence_weeks, rotating, cover_url, dietary_tags, allergens, kitchens(name), plan_items(qty, meal_id, meals(id, name, price_cents))';
 
 function rowToPlan(p: any): Plan {
   return {
@@ -144,6 +146,8 @@ function rowToPlan(p: any): Plan {
     coverUrl: p.cover_url ?? null,
     dietaryTags: p.dietary_tags ?? [],
     allergens: p.allergens ?? [],
+    cadenceWeeks: p.cadence_weeks ?? 1,    // NEW: default to weekly
+    rotating: p.rotating ?? false,         // NEW: default to fixed menu
   };
 }
 
