@@ -52,6 +52,8 @@ export default function CreatePlanFlow() {
   const [coverBusy, setCoverBusy] = useState(false);
   const [days, setDays] = useState<string[]>([]); // delivery days (lowercase)
   const [capacity, setCapacity] = useState('');   // max meal portions per delivery day ('' = unlimited)
+  const [cadenceWeeks, setCadenceWeeks] = useState<1 | 2>(1); // NEW: 1=weekly, 2=biweekly
+  const [rotating, setRotating] = useState(false); // NEW: meals rotate weekly
   const [busy, setBusy] = useState(false);
   const [done, setDone] = useState(false);
 
@@ -70,6 +72,8 @@ export default function CreatePlanFlow() {
           setMealsPerDelivery(pl.mealsPerDelivery ? String(pl.mealsPerDelivery) : '');
           setServings(pl.servings ? String(pl.servings) : '');
           setDietary(pl.dietaryTags ?? []); setAllergens(pl.allergens ?? []);
+          setCadenceWeeks(pl.cadenceWeeks === 2 ? 2 : 1); // NEW
+          setRotating(pl.rotating ?? false); // NEW
           if (pl.cutoffHours != null) setCutoff(String(pl.cutoffHours));
           if (pl.leadTimeHours != null) setLead(String(pl.leadTimeHours));
           if (pl.minCommitment != null) setMinCommit(String(pl.minCommitment));
@@ -110,7 +114,7 @@ export default function CreatePlanFlow() {
   // Weekly price shown to the cook: fixed = the bundle price; customer-choice ≈ per-meal × picks.
   const weeklyCents = choice ? perMealCents * mpd : priceCents;
   const valid = !!name.trim() && items.length > 0 && (choice ? perMealCents >= 100 && mpd > 0 : priceCents > 0);
-  const advancedSummary = [trialOn ? 'Trial' : null, `${cutoff || '48'}h cutoff`, minCommit && minCommit !== '1' ? `${minCommit}wk min` : null].filter(Boolean).join(' · ');
+  const advancedSummary = [cadenceWeeks === 2 ? 'Biweekly' : null, rotating ? 'Rotating' : null, trialOn ? 'Trial' : null, `${cutoff || '48'}h cutoff`, minCommit && minCommit !== '1' ? `${minCommit}wk min` : null].filter(Boolean).join(' · ');
   const clampInt = (s: string, lo: number, hi: number) => Math.min(hi, Math.max(lo, parseInt(s, 10) || lo));
 
   const submit = async () => {
@@ -133,6 +137,8 @@ export default function CreatePlanFlow() {
         servings: servings.trim() ? Math.max(1, parseInt(servings, 10) || 1) : undefined,
         dietaryTags: dietary.length ? dietary : undefined,
         allergens: allergens.length ? allergens : undefined,
+        cadenceWeeks, // NEW
+        rotating, // NEW
         cutoffHours: cutoff.trim() ? clampInt(cutoff, 0, 336) : undefined,
         leadTimeHours: lead.trim() ? clampInt(lead, 0, 336) : undefined,
         minCommitment: minCommit.trim() ? clampInt(minCommit, 1, 52) : undefined,
@@ -297,6 +303,18 @@ export default function CreatePlanFlow() {
               <View style={{ flex: 1 }}><KField label="Lead time (hrs)"><KInput value={lead} onChange={setLead} placeholder="48" /></KField></View>
             </View>
             <KField label="Minimum commitment (weeks)"><KInput value={minCommit} onChange={setMinCommit} placeholder="1" /></KField>
+            <KField label="Cadence">
+              <KSeg options={[{ key: '1', label: 'Weekly' }, { key: '2', label: 'Biweekly' }]} value={String(cadenceWeeks)} onChange={(v) => setCadenceWeeks(parseInt(v) as 1 | 2)} />
+              <Text style={[type(11.5, 600), { color: c.muted, marginTop: 6, lineHeight: 16 }]}>
+                Customers are charged and receive meals every {cadenceWeeks === 1 ? 'week' : 'two weeks'}.
+              </Text>
+            </KField>
+            <KField label="Rotating Menu">
+              <KSeg options={[{ key: 'fixed', label: 'Fixed meals' }, { key: 'rotating', label: 'Meals rotate weekly' }]} value={rotating ? 'rotating' : 'fixed'} onChange={(v) => setRotating(v === 'rotating')} />
+              <Text style={[type(11.5, 600), { color: c.muted, marginTop: 6, lineHeight: 16 }]}>
+                Fixed: same meals every week. Rotating: new meals each week.
+              </Text>
+            </KField>
             <KField label="Intro trial">
               <KSeg options={[{ key: 'off', label: 'No trial' }, { key: 'on', label: 'Offer a trial' }]} value={trialOn ? 'on' : 'off'} onChange={(v) => setTrialOn(v === 'on')} />
               <Text style={[type(11.5, 600), { color: c.muted, marginTop: 6, lineHeight: 16 }]}>A discounted (or free) first weeks to win subscribers — then the normal price kicks in.</Text>

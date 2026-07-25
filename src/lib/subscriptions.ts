@@ -439,7 +439,7 @@ export interface UpsertPlanInput {
   selectionModel?: SelectionModel; perMealCents?: number; perDeliveryCents?: number;
   mealsPerDelivery?: number; servings?: number; mealsPerWeek?: number;
   deliveryDays?: string[]; cutoffHours?: number; leadTimeHours?: number; minCommitment?: number;
-  trialPriceCents?: number; trialCycles?: number; rotating?: boolean;
+  trialPriceCents?: number; trialCycles?: number; cadenceWeeks?: 1 | 2; rotating?: boolean;
   coverUrl?: string; photoUrls?: string[]; dietaryTags?: string[]; allergens?: string[];
 }
 export async function upsertPlan(input: UpsertPlanInput): Promise<string> {
