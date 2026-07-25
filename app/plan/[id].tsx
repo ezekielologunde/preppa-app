@@ -230,6 +230,15 @@ function RealPlanDetail({ plan }: { plan: Plan }) {
 
           {plan.description ? (<><SectionLabel>About this plan</SectionLabel><Text style={[type(14.5, 500), { color: c.soft, lineHeight: 23 }]}>{plan.description}</Text></>) : null}
 
+          {plan.cadenceWeeks === 2 ? (
+            <Text style={[type(13, 600), { color: c.soft, marginTop: 8 }]}>Billed biweekly</Text>
+          ) : (
+            <Text style={[type(13, 600), { color: c.soft, marginTop: 8 }]}>Billed weekly</Text>
+          )}
+          {plan.rotating && (
+            <Text style={[type(13, 600), { color: c.soft, marginTop: 2 }]}>Meals rotate weekly</Text>
+          )}
+
           <SectionLabel>{selModel === 'customer_choice' ? 'Choose from' : 'In your weekly box'}</SectionLabel>
           {plan.items.map((it, i) => (
             <View key={i} style={{ flexDirection: 'row', alignItems: 'center', gap: 12, paddingVertical: 8 }}>
