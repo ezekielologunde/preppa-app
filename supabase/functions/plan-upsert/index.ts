@@ -40,6 +40,7 @@ const input = z.object({
   minCommitment: z.number().int().min(1).max(52).optional(),
   trialPriceCents: z.number().int().min(0).max(500_000).optional(),
   trialCycles: z.number().int().min(0).max(12).optional(),
+  cadenceWeeks: z.number().int().min(1).max(2).optional(),  // NEW: 1=weekly, 2=biweekly
   rotating: z.boolean().optional(),
   coverUrl: z.string().max(600).optional(),
   photoUrls: z.array(z.string().max(600)).max(8).optional(),
@@ -92,6 +93,7 @@ Deno.serve(async (req) => {
       if (!(p.priceCents && p.priceCents >= 100)) return json(400, { error: 'Set a weekly price (at least $1).' });
     }
     if (p.trialCycles && p.trialCycles > 0 && p.trialPriceCents == null) return json(400, { error: 'Set a trial price.' });
+    if (p.cadenceWeeks && (p.cadenceWeeks !== 1 && p.cadenceWeeks !== 2)) return json(400, { error: 'Cadence must be weekly (1) or biweekly (2).' });
 
     // build fields: only keys actually provided (partial update never nulls omitted config)
     const f: any = {};
@@ -114,6 +116,7 @@ Deno.serve(async (req) => {
     set('min_commitment', p.minCommitment);
     set('trial_price_cents', p.trialPriceCents);
     set('trial_cycles', p.trialCycles);
+    set('cadence_weeks', p.cadenceWeeks);  // NEW
     set('rotating', p.rotating);
     if (p.coverUrl !== undefined) f.cover_url = p.coverUrl || null;
     set('photo_urls', p.photoUrls);
