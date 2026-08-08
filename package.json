@@ -12,7 +12,7 @@
     "@stripe/stripe-react-native": "0.64.0",
     "@supabase/supabase-js": "^2.110.1",
     "babel-preset-expo": "~57.0.1",
-    "expo": "~57.0.2",
+    "expo": "~57.0.10",
     "expo-blur": "~57.0.2",
     "expo-camera": "~57.0.1",
     "expo-clipboard": "~57.0.0",
