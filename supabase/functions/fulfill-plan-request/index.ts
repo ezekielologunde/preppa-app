@@ -12,8 +12,13 @@ const corsHeaders = {
 function json(status: number, body: unknown): Response {
   return new Response(JSON.stringify(body), { status, headers: { ...corsHeaders, 'content-type': 'application/json' } });
 }
+function requireEnv(name: string): string {
+  const v = Deno.env.get(name);
+  if (!v) throw new Error(`Missing required secret: ${name}`);
+  return v;
+}
 function admin() {
-  return createClient(Deno.env.get('SUPABASE_URL') ?? '', Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? '', { auth: { persistSession: false } });
+  return createClient(requireEnv('SUPABASE_URL'), requireEnv('SUPABASE_SERVICE_ROLE_KEY'), { auth: { persistSession: false } });
 }
 const input = z.object({ requestId: z.string().uuid(), planId: z.string().uuid() });
 

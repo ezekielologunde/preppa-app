@@ -13,8 +13,13 @@ const corsHeaders = {
 function json(status: number, body: unknown): Response {
   return new Response(JSON.stringify(body), { status, headers: { ...corsHeaders, 'content-type': 'application/json' } });
 }
+function requireEnv(name: string): string {
+  const v = Deno.env.get(name);
+  if (!v) throw new Error(`Missing required secret: ${name}`);
+  return v;
+}
 function admin() {
-  return createClient(Deno.env.get('SUPABASE_URL') ?? '', Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? '', { auth: { persistSession: false } });
+  return createClient(requireEnv('SUPABASE_URL'), requireEnv('SUPABASE_SERVICE_ROLE_KEY'), { auth: { persistSession: false } });
 }
 function distanceKm(a: {lat:number,lng:number}, b: {lat:number,lng:number}): number {
   const R = 6371, dLat = (b.lat-a.lat)*Math.PI/180, dLng = (b.lng-a.lng)*Math.PI/180;

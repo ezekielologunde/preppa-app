@@ -1,7 +1,13 @@
 // deno-lint-ignore-file no-explicit-any
-// subscribe-prepplus: the caller starts a PrepPlus membership (Stripe-native recurring on Preppa's
-// account, off-session on their saved card). Writes the memberships row SYNCHRONOUSLY for instant
-// entitlement; the stripe.subscriptions mirror trigger reconciles status changes thereafter.
+// subscribe-cook-pro: the caller (must own the kitchen) starts a Preppa Pro membership for
+// that kitchen (Stripe-native recurring on Preppa's account, off-session on their saved card).
+// Mirrors subscribe-prepplus exactly, keyed on kitchen_id instead of customer_uid -- see
+// cook_memberships / is_cook_pro_member / sync_cook_pro_membership (migration
+// high_add_cook_pro_membership) for why: every cook-money construct in this schema is
+// kitchen-scoped, not user-scoped, and a person could in principle own kitchens independent
+// of any personal PrepPlus membership. Writes the cook_memberships row synchronously for
+// instant entitlement; the stripe.subscriptions mirror trigger reconciles status changes
+// thereafter (renewals, cancellations, dunning).
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.45.4';
 import Stripe from 'https://esm.sh/stripe@16.12.0?target=deno';
 import { z } from 'https://esm.sh/zod@3.23.8';
@@ -37,26 +43,25 @@ async function getOrCreateCustomer(db: any, uid: string, email: string | null): 
   return customer.id;
 }
 
-// Lazy-ensure the PrepPlus product + monthly/annual Prices (keyed by lookup_key so they're created
-// exactly once, no dashboard step). Cached in module scope after the first success.
 let PRICES: { month: string; year: string } | null = null;
 async function ensurePrices(): Promise<{ month: string; year: string }> {
   if (PRICES) return PRICES;
   const [m, a] = await Promise.all([
-    stripe.prices.list({ lookup_keys: ['prepplus_monthly_v1'], active: true, limit: 1 }),
-    stripe.prices.list({ lookup_keys: ['prepplus_annual_v1'], active: true, limit: 1 }),
+    stripe.prices.list({ lookup_keys: ['cookpro_monthly_v1'], active: true, limit: 1 }),
+    stripe.prices.list({ lookup_keys: ['cookpro_annual_v1'], active: true, limit: 1 }),
   ]);
   let month = m.data[0]?.id; let year = a.data[0]?.id;
   if (!month || !year) {
-    const product = await stripe.products.create({ name: 'PrepPlus Membership', metadata: { app: 'preppa', kind: 'prepplus' } });
-    if (!month) month = (await stripe.prices.create({ product: product.id, currency: 'usd', unit_amount: MONTHLY_CENTS, recurring: { interval: 'month' }, lookup_key: 'prepplus_monthly_v1' })).id;
-    if (!year) year = (await stripe.prices.create({ product: product.id, currency: 'usd', unit_amount: ANNUAL_CENTS, recurring: { interval: 'year' }, lookup_key: 'prepplus_annual_v1' })).id;
+    const product = await stripe.products.create({ name: 'Preppa Pro (Cook Membership)', metadata: { app: 'preppa', kind: 'cook_pro' } });
+    if (!month) month = (await stripe.prices.create({ product: product.id, currency: 'usd', unit_amount: MONTHLY_CENTS, recurring: { interval: 'month' }, lookup_key: 'cookpro_monthly_v1' })).id;
+    if (!year) year = (await stripe.prices.create({ product: product.id, currency: 'usd', unit_amount: ANNUAL_CENTS, recurring: { interval: 'year' }, lookup_key: 'cookpro_annual_v1' })).id;
   }
   PRICES = { month, year };
   return PRICES;
 }
 
 const input = z.object({
+  kitchenId: z.string().uuid(),
   interval: z.enum(['month', 'year']).default('month'),
   paymentMethodId: z.string().min(3).max(120).optional(),
 });
@@ -73,17 +78,19 @@ Deno.serve(async (req) => {
     const email = userData.user.email ?? null;
 
     const { error: rlErr } = await db.rpc('check_rate_limit', {
-      p_action: 'subscribe_prepplus', p_max_count: 10, p_window: '10 minutes', p_subject: uid,
+      p_action: 'subscribe_cook_pro', p_max_count: 10, p_window: '10 minutes', p_subject: uid,
     });
     if (rlErr) return json(429, { error: 'Too many attempts. Please wait a few minutes and try again.' });
 
     const parsed = input.safeParse(await req.json().catch(() => ({})));
     if (!parsed.success) return json(400, { error: 'invalid input', issues: parsed.error.issues });
-    const { interval, paymentMethodId } = parsed.data;
+    const { kitchenId, interval, paymentMethodId } = parsed.data;
 
-    // Idempotency / double-tap: already a live member -> return it, don't stack subscriptions.
-    const { data: existing } = await db.from('memberships')
-      .select('status, current_period_end, trial_consumed').eq('customer_id', uid).maybeSingle();
+    const { data: kitchen } = await db.from('kitchens').select('id, owner_id').eq('id', kitchenId).maybeSingle();
+    if (!kitchen || kitchen.owner_id !== uid) return json(403, { error: 'not your kitchen' });
+
+    const { data: existing } = await db.from('cook_memberships')
+      .select('status, current_period_end, trial_consumed').eq('kitchen_id', kitchenId).maybeSingle();
     if (existing && ['active', 'trialing'].includes(existing.status)
         && existing.current_period_end && new Date(existing.current_period_end) > new Date()) {
       return json(200, { status: existing.status, already: true });
@@ -92,7 +99,6 @@ Deno.serve(async (req) => {
 
     const stripeCustomerId = await getOrCreateCustomer(db, uid, email);
 
-    // Require a saved card (off_session). No card -> client runs the setup-intent flow, then retries.
     let pmId = paymentMethodId;
     if (!pmId) {
       const list = await stripe.paymentMethods.list({ customer: stripeCustomerId, type: 'card', limit: 1 });
@@ -113,16 +119,15 @@ Deno.serve(async (req) => {
         off_session: true,
         payment_behavior: 'error_if_incomplete',
         ...(trialDays > 0 ? { trial_period_days: trialDays } : {}),
-        metadata: { kind: 'prepplus', customer_uid: uid },
-      }, { idempotencyKey: `prepplus_sub_${uid}_${interval}` });
+        metadata: { kind: 'cook_pro', kitchen_id: kitchenId },
+      }, { idempotencyKey: `cookpro_sub_${kitchenId}_${interval}` });
     } catch (e: any) {
       return json(402, { error: e?.message || 'Your card was declined.', code: 'charge_failed' });
     }
 
     const startedTrial = sub.status === 'trialing';
-    // SYNCHRONOUS write -> instant entitlement (mirror trigger only reconciles later).
-    await db.from('memberships').upsert({
-      customer_id: uid,
+    await db.from('cook_memberships').upsert({
+      kitchen_id: kitchenId,
       stripe_subscription_id: sub.id,
       stripe_price_id: priceId,
       plan_interval: interval,
@@ -131,7 +136,7 @@ Deno.serve(async (req) => {
       cancel_at_period_end: sub.cancel_at_period_end ?? false,
       ...(startedTrial ? { trial_consumed: true } : {}),
       updated_at: new Date().toISOString(),
-    }, { onConflict: 'customer_id' });
+    }, { onConflict: 'kitchen_id' });
 
     return json(200, { status: sub.status, subscriptionId: sub.id, trial: startedTrial, currentPeriodEnd: sub.current_period_end });
   } catch (_e) {

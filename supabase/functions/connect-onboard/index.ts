@@ -2,6 +2,12 @@
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.45.4';
 import Stripe from 'https://esm.sh/stripe@16.12.0?target=deno';
 
+function requireEnv(name: string): string {
+  const v = Deno.env.get(name);
+  if (!v) throw new Error(`Missing required secret: ${name}`);
+  return v;
+}
+
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
@@ -11,12 +17,12 @@ function json(status: number, body: unknown): Response {
   return new Response(JSON.stringify(body), { status, headers: { ...corsHeaders, 'content-type': 'application/json' } });
 }
 
-const stripe = new Stripe(Deno.env.get('STRIPE_SECRET_KEY') ?? '', {
+const stripe = new Stripe(requireEnv('STRIPE_SECRET_KEY'), {
   apiVersion: '2024-06-20',
   httpClient: Stripe.createFetchHttpClient(),
 });
 function admin() {
-  return createClient(Deno.env.get('SUPABASE_URL') ?? '', Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? '', { auth: { persistSession: false } });
+  return createClient(requireEnv('SUPABASE_URL'), requireEnv('SUPABASE_SERVICE_ROLE_KEY'), { auth: { persistSession: false } });
 }
 
 // Only the app's own domain is a valid post-KYC redirect target - this is the moment right

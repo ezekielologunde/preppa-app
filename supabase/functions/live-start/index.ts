@@ -1,6 +1,12 @@
 // deno-lint-ignore-file no-explicit-any
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.45.4';
 
+function requireEnv(name: string): string {
+  const v = Deno.env.get(name);
+  if (!v) throw new Error(`Missing required secret: ${name}`);
+  return v;
+}
+
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
@@ -11,7 +17,7 @@ function json(status: number, body: unknown): Response {
 }
 
 function admin() {
-  return createClient(Deno.env.get('SUPABASE_URL') ?? '', Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? '', { auth: { persistSession: false } });
+  return createClient(requireEnv('SUPABASE_URL'), requireEnv('SUPABASE_SERVICE_ROLE_KEY'), { auth: { persistSession: false } });
 }
 
 function muxAuthHeader(): string {

@@ -18,9 +18,14 @@ const corsHeaders = {
 function json(status: number, body: unknown): Response {
   return new Response(JSON.stringify(body), { status, headers: { ...corsHeaders, 'content-type': 'application/json' } });
 }
-const stripe = new Stripe(Deno.env.get('STRIPE_SECRET_KEY') ?? '', { apiVersion: '2024-06-20', httpClient: Stripe.createFetchHttpClient() });
+function requireEnv(name: string): string {
+  const v = Deno.env.get(name);
+  if (!v) throw new Error(`Missing required secret: ${name}`);
+  return v;
+}
+const stripe = new Stripe(requireEnv('STRIPE_SECRET_KEY'), { apiVersion: '2024-06-20', httpClient: Stripe.createFetchHttpClient() });
 function admin() {
-  return createClient(Deno.env.get('SUPABASE_URL') ?? '', Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? '', { auth: { persistSession: false } });
+  return createClient(requireEnv('SUPABASE_URL'), requireEnv('SUPABASE_SERVICE_ROLE_KEY'), { auth: { persistSession: false } });
 }
 
 const input = z.object({ bookingId: z.string().uuid() });
@@ -62,7 +67,7 @@ Deno.serve(async (req) => {
         // bookings (fully-prepaid quotes, or a completion retry after a prior success) --
         // only surface a message for anything else.
         if (!/no balance owed|already charged/i.test(reserveErr.message ?? '')) {
-          balanceChargeError = reserveErr.message ?? 'balance_reserve_failed';
+          balanceChargeError = 'balance_reserve_failed';
         }
       } else if (reserved && (reserved as any).balance_cents > 0) {
         const balanceCents = (reserved as any).balance_cents as number;
@@ -94,7 +99,7 @@ Deno.serve(async (req) => {
             await db.rpc('finalize_balance_charge', { p_booking_id: bookingId, p_stripe_pi_id: null, p_success: false });
           }
         } catch (e: any) {
-          balanceChargeError = e?.code ?? e?.raw?.code ?? e?.message ?? 'charge_failed';
+          balanceChargeError = e?.code ?? e?.raw?.code ?? 'charge_failed';
           await db.rpc('finalize_balance_charge', { p_booking_id: bookingId, p_stripe_pi_id: null, p_success: false });
         }
       }

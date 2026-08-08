@@ -1,17 +1,24 @@
 # Edge Functions Manifest
 
-Metadata pulled from the live Supabase project (fwidhpzwldneeaphrxgg, "Preppa") on 2026-07-14.
-This is NOT recoverable from the vendored source files themselves — `verify_jwt` in particular
-is a per-function deployment setting (not code) and matters a lot: webhook-receiving functions
-(`stripe-webhook`, `stripe-setup`, `stripe-worker`, `charge-due-cycles`) have `verify_jwt:false`
-on purpose (cron/webhook callers, not end-user JWTs). Redeploying any of them with
-`verify_jwt:true` by mistake would break them.
+Metadata pulled from the live Supabase project (fwidhpzwldneeaphrxgg, "Preppa"), most recently
+updated 2026-08-08. This is NOT recoverable from the vendored source files themselves —
+`verify_jwt` in particular is a per-function deployment setting (not code) and matters a lot:
+webhook-receiving functions (`stripe-webhook`, `stripe-setup`, `stripe-worker`,
+`charge-due-cycles`, `send-push`, `mux-webhook`) have `verify_jwt:false` on purpose
+(cron/webhook/worker callers, not end-user JWTs). Redeploying any of them with `verify_jwt:true`
+by mistake would break them.
 
 The list below reflects what `list_edge_functions` returned at audit time (30 functions total,
 not 31 as originally estimated). `connect-payout`, `accept-quote-and-deposit`, and `mux-webhook`
 are intentionally EXCLUDED from this vendoring pass — a separate task is changing their logic as
 part of active security fixes, and their current (soon-to-be-superseded) source doesn't need to
 be vendored here. They already have their own in-progress directories under `supabase/functions/`.
+
+**2026-08-08 update:** a security audit found 5 functions deployed live (all created 2026-08-08)
+with no source anywhere in this repo — `upload-media`, `delete-account`, `connect-link-oneoff`,
+`subscribe-cook-pro`, `manage-cook-pro`. Fetched their live source via the Supabase MCP and
+vendored them below to close that gap; `send-push` (also 2026-08-08, already vendored locally)
+was simply missing from this table and is added too.
 
 | slug | verify_jwt | version | status | vendored |
 |---|---|---|---|---|
@@ -45,6 +52,12 @@ be vendored here. They already have their own in-progress directories under `sup
 | live-start | true | 1 | ACTIVE | yes |
 | live-end | true | 1 | ACTIVE | yes |
 | mux-webhook | **false** | 1 | ACTIVE | **skipped** (separate security-fix task) |
+| send-push | **false** | — | ACTIVE | yes (was already vendored, just missing from this table) |
+| upload-media | true | 2 | ACTIVE | yes (added 2026-08-08 remediation) |
+| delete-account | true | 3 | ACTIVE | yes (added 2026-08-08 remediation) |
+| connect-link-oneoff | true | 3 | ACTIVE | yes — retired stub, 410 always, no Stripe access (added 2026-08-08 remediation) |
+| subscribe-cook-pro | true | 2 | ACTIVE | yes (added 2026-08-08 remediation) |
+| manage-cook-pro | true | 2 | ACTIVE | yes (added 2026-08-08 remediation) |
 
 ## Notes
 

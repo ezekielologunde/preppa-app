@@ -8,13 +8,19 @@ import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.45.4';
 import Stripe from 'https://esm.sh/stripe@16.12.0?target=deno';
 import { corsHeaders, json } from './_shared/cors.ts';
 
-const stripe = new Stripe(Deno.env.get('STRIPE_SECRET_KEY') ?? '', {
+function requireEnv(name: string): string {
+  const v = Deno.env.get(name);
+  if (!v) throw new Error(`Missing required secret: ${name}`);
+  return v;
+}
+
+const stripe = new Stripe(requireEnv('STRIPE_SECRET_KEY'), {
   apiVersion: '2024-06-20',
   httpClient: Stripe.createFetchHttpClient(),
 });
 
 function admin() {
-  return createClient(Deno.env.get('SUPABASE_URL') ?? '', Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? '', { auth: { persistSession: false } });
+  return createClient(requireEnv('SUPABASE_URL'), requireEnv('SUPABASE_SERVICE_ROLE_KEY'), { auth: { persistSession: false } });
 }
 
 // A network/API-level Stripe error means we genuinely don't know whether the transfer was
@@ -46,7 +52,7 @@ async function createTransferWithRetry(params: any, idempotencyKey: string, maxA
 // it's invoked below via the admin() client, after this function has itself confirmed (via
 // reserve_payout, which checked ownership) that a real Stripe transfer either succeeded or failed.
 function asUser(jwt: string) {
-  return createClient(Deno.env.get('SUPABASE_URL') ?? '', Deno.env.get('SUPABASE_ANON_KEY') ?? '', {
+  return createClient(requireEnv('SUPABASE_URL'), requireEnv('SUPABASE_ANON_KEY'), {
     global: { headers: { Authorization: `Bearer ${jwt}` } },
     auth: { persistSession: false },
   });
