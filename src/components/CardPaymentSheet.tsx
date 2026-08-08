@@ -5,6 +5,7 @@ import { useC } from '../theme/ThemeContext';
 import { type, radius } from '../theme/theme';
 import { Btn, Sheet } from '../ui';
 import { getStripe } from '../lib/payments';
+import { STRIPE_PK } from '../lib/supabase';
 
 /**
  * Real card entry (web only) — mounts a Stripe Elements Card into the shared
@@ -91,7 +92,9 @@ export function CardPaymentSheet({
             ref={mountRef}
             style={{ minHeight: 46, borderWidth: 1.5, borderColor: c.border, borderRadius: radius.md, backgroundColor: c.bg2, paddingHorizontal: 14, justifyContent: 'center' }}
           />
-          <Text style={[type(11.5, 600), { color: c.muted, marginTop: 8 }]}>Test mode — use 4242 4242 4242 4242, any future date, any CVC.</Text>
+          <Text style={[type(11.5, 600), { color: c.muted, marginTop: 8 }]}>
+            {STRIPE_PK.startsWith('pk_live_') ? 'Your card is charged securely via Stripe.' : 'Test mode — use 4242 4242 4242 4242, any future date, any CVC.'}
+          </Text>
           {err ? <Text style={[type(13, 700), { color: c.red, marginTop: 8 }]}>{err}</Text> : null}
           <View style={{ marginTop: 14 }}>
             <Btn label={mode === 'save' ? 'Save card' : `Pay ${amountLabel}`} icon="lock" block loading={busy} disabled={!ready} onPress={pay} />

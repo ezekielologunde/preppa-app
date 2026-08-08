@@ -3,7 +3,7 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import { geocodeAddress } from './geo';
 
 /**
- * Supabase + Stripe connection for real (test-mode) card payments.
+ * Supabase + Stripe connection for real card payments (LIVE mode).
  * URL + anon key + Stripe publishable key are all PUBLIC by design.
  * The Stripe SECRET key lives only as a Supabase Edge Function secret — never here.
  */
@@ -12,7 +12,7 @@ const SUPABASE_ANON =
   'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImZ3aWRocHp3bGRuZWVhcGhyeGdnIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODMyMTk2ODMsImV4cCI6MjA5ODc5NTY4M30.KH8x-bMEq__ADEv47lqeqDM12B4hu6CkVhZQzbqsh2E';
 
 export const STRIPE_PK =
-  'pk_test_51TbwCHJP8OvIS2L3l7DC5FGiyKJ4AdivhkShTMqO71jQ7r1DHYRGa2bEFvEnxAiufrnqSdrsMoB1QfPYs0bXqjHd00lw0UZ41x';
+  'pk_live_51TbwCHJP8OvIS2L35vHSgDpR4OmVA4SzZflR0Mf3j6NBZDDlylNpLGVHrGeHdZhuowi0LFGg17KFKWWnrvqa1Hwg00Mu4qxbQ0';
 
 export const supabase = createClient(SUPABASE_URL, SUPABASE_ANON, {
   // detectSessionInUrl is OFF: login is email-OTP only, which never uses URL tokens.

@@ -32,8 +32,8 @@ export function getStripe(): Promise<Stripe | null> {
 }
 
 /**
- * Create a real (test-mode) order + PaymentIntent via the `create-order` edge
- * function and return its client secret for confirmation with a real card.
+ * Create a real order + PaymentIntent via the `create-order` edge function and
+ * return its client secret for confirmation with a real card.
  */
 export async function createRealOrder(opts: OrderOpts): Promise<{ orderId: string; clientSecret: string }> {
   // Prefer the real DB UUIDs carried on the cart (Supabase catalog); fall back to
@@ -118,21 +118,15 @@ export async function confirmSavedCardPayment(clientSecret: string, paymentMetho
 }
 
 /**
- * Real (test-mode) card charge for one cook's cart.
- * Web: create-order edge function (real PaymentIntent) -> confirm with Stripe.js using a
- * test payment method. Native: same PaymentIntent, confirmed via Stripe's native PaymentSheet
- * (a real card-entry UI — test card 4242 4242 4242 4242 works in this test-mode project).
- * Returns the Supabase order id on success.
+ * Real card charge for one cook's cart, native only.
+ * Web checkout collects the card itself (CardPaymentSheet / saved-card picker in
+ * checkout.tsx) rather than calling this — there is no legitimate web caller. Native:
+ * create-order edge function (real PaymentIntent) -> Stripe's native PaymentSheet, a real
+ * card-entry UI. Returns the Supabase order id on success.
  */
 export async function payWithCard(opts: OrderOpts): Promise<{ orderId: string }> {
+  if (Platform.OS === 'web') throw new Error('payWithCard is native-only — web checkout collects the card itself');
   const { orderId, clientSecret } = await createRealOrder(opts);
-  if (Platform.OS === 'web') {
-    const stripe = await getStripe();
-    if (!stripe) throw new Error('Stripe.js failed to load');
-    const res = await stripe.confirmCardPayment(clientSecret, { payment_method: 'pm_card_visa' });
-    if (res.error) throw new Error(res.error.message || 'card payment failed');
-    return { orderId };
-  }
   // Fetch a fresh ephemeral key per checkout (Stripe's own recommendation — they're
   // short-lived and single-purpose) so PaymentSheet shows this buyer's saved cards.
   // Best-effort: a failure here still lets the sheet collect a brand-new card.
