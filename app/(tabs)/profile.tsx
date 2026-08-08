@@ -14,11 +14,11 @@ type Tone = '' | 'amber' | 'purple' | 'blue' | 'pink' | 'green';
 interface Row { ico: string; cls: Tone; t: string; act: () => void }
 
 // Required for App Store / Play Store review — a discoverable in-app link to the privacy
-// policy and terms, served from the marketing site's help center (preppa.live), not this app.
-const HELP_URL = 'https://preppa.live/help-site';
-const CONTACT_URL = 'https://preppa.live/help-site/support';
-const PRIVACY_URL = 'https://preppa.live/help-site/legal/privacy';
-const TERMS_URL = 'https://preppa.live/help-site/legal/terms';
+// policy and terms, served from the real help-center subdomain (help.preppa.live), not this app.
+const HELP_URL = 'https://help.preppa.live';
+const CONTACT_URL = 'https://help.preppa.live/support';
+const PRIVACY_URL = 'https://help.preppa.live/legal/privacy';
+const TERMS_URL = 'https://help.preppa.live/legal/terms';
 
 export default function Profile() {
   const c = useC();
