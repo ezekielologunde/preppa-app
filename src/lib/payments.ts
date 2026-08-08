@@ -1,5 +1,6 @@
 import { Platform } from 'react-native';
 import type { Stripe } from '@stripe/stripe-js';
+import { confirmPayment, initPaymentSheet, presentPaymentSheet } from './nativeStripe';
 import { supabase, ensureAuth, KITCHEN_ID, MEAL_ID, STRIPE_PK } from './supabase';
 import type { CartLine } from '../store/store';
 
@@ -78,6 +79,12 @@ export async function createSetupIntent(): Promise<{ clientSecret: string }> {
   return pmAction<{ clientSecret: string }>('setup-intent');
 }
 
+/** Native-only: a short-lived ephemeral key so PaymentSheet can show/reuse this buyer's
+ *  saved cards (never expose the raw Stripe Customer id to the client for this purpose). */
+export async function createEphemeralKey(): Promise<{ customerId: string; ephemeralKeySecret: string }> {
+  return pmAction<{ customerId: string; ephemeralKeySecret: string }>('ephemeral-key');
+}
+
 /** List the buyer's saved cards + which is the default. */
 export async function listPaymentMethods(): Promise<{ methods: SavedCard[]; defaultId: string | null }> {
   const data = await pmAction<{ methods: SavedCard[]; defaultId: string | null }>('list');
@@ -94,28 +101,53 @@ export async function setDefaultPaymentMethod(paymentMethodId: string): Promise<
   await pmAction('default', { paymentMethodId });
 }
 
-/** Confirm the given order's PaymentIntent with an already-saved card (no retype). Web-only. */
+/** Confirm the given order's PaymentIntent with an already-saved card (no retype). */
 export async function confirmSavedCardPayment(clientSecret: string, paymentMethodId: string): Promise<void> {
-  if (Platform.OS !== 'web') throw new Error('card payment is web-only for now');
-  const stripe = await getStripe();
-  if (!stripe) throw new Error('Stripe.js failed to load');
-  const res = await stripe.confirmCardPayment(clientSecret, { payment_method: paymentMethodId });
-  if (res.error) throw new Error(res.error.message || 'card payment failed');
+  if (Platform.OS === 'web') {
+    const stripe = await getStripe();
+    if (!stripe) throw new Error('Stripe.js failed to load');
+    const res = await stripe.confirmCardPayment(clientSecret, { payment_method: paymentMethodId });
+    if (res.error) throw new Error(res.error.message || 'card payment failed');
+    return;
+  }
+  const { error } = await confirmPayment(clientSecret, {
+    paymentMethodType: 'Card',
+    paymentMethodData: { paymentMethodId },
+  });
+  if (error) throw new Error(error.message || 'card payment failed');
 }
 
 /**
  * Real (test-mode) card charge for one cook's cart.
- * Flow: sign in -> create-order edge function (real PaymentIntent) -> confirm with
- * Stripe.js using a test payment method. Web-only for now (@stripe/stripe-js is a
- * browser SDK); native throws and the caller falls back to the mock.
+ * Web: create-order edge function (real PaymentIntent) -> confirm with Stripe.js using a
+ * test payment method. Native: same PaymentIntent, confirmed via Stripe's native PaymentSheet
+ * (a real card-entry UI — test card 4242 4242 4242 4242 works in this test-mode project).
  * Returns the Supabase order id on success.
  */
 export async function payWithCard(opts: OrderOpts): Promise<{ orderId: string }> {
-  if (Platform.OS !== 'web') throw new Error('card payment is web-only for now');
   const { orderId, clientSecret } = await createRealOrder(opts);
-  const stripe = await getStripe();
-  if (!stripe) throw new Error('Stripe.js failed to load');
-  const res = await stripe.confirmCardPayment(clientSecret, { payment_method: 'pm_card_visa' });
-  if (res.error) throw new Error(res.error.message || 'card payment failed');
+  if (Platform.OS === 'web') {
+    const stripe = await getStripe();
+    if (!stripe) throw new Error('Stripe.js failed to load');
+    const res = await stripe.confirmCardPayment(clientSecret, { payment_method: 'pm_card_visa' });
+    if (res.error) throw new Error(res.error.message || 'card payment failed');
+    return { orderId };
+  }
+  // Fetch a fresh ephemeral key per checkout (Stripe's own recommendation — they're
+  // short-lived and single-purpose) so PaymentSheet shows this buyer's saved cards.
+  // Best-effort: a failure here still lets the sheet collect a brand-new card.
+  const cust = await createEphemeralKey().catch(() => null);
+  const init = await initPaymentSheet({
+    paymentIntentClientSecret: clientSecret,
+    merchantDisplayName: 'Preppa',
+    customerId: cust?.customerId,
+    customerEphemeralKeySecret: cust?.ephemeralKeySecret,
+  });
+  if (init.error) throw new Error(init.error.message || 'could not open payment sheet');
+  const present = await presentPaymentSheet();
+  if (present.error) {
+    if (present.error.code === 'Canceled') throw new Error('Payment canceled');
+    throw new Error(present.error.message || 'card payment failed');
+  }
   return { orderId };
 }

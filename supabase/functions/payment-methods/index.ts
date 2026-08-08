@@ -64,6 +64,7 @@ Deno.serve(async (req) => {
       'list': [40, '5 minutes'],
       'detach': [15, '10 minutes'],
       'default': [15, '10 minutes'],
+      'ephemeral-key': [20, '5 minutes'],
     };
     const rl = RATE_LIMITS[action];
     if (rl) {
@@ -74,6 +75,14 @@ Deno.serve(async (req) => {
     }
 
     const customer = await getOrCreateCustomer(db, uid, email);
+
+    if (action === 'ephemeral-key') {
+      // Native-only: Stripe's PaymentSheet needs a short-lived ephemeral key (never the
+      // customer id alone) to fetch/display this customer's saved cards client-side.
+      // apiVersion must match the account default used elsewhere in this function.
+      const key = await stripe.ephemeralKeys.create({ customer }, { apiVersion: '2024-06-20' });
+      return json(200, { customerId: customer, ephemeralKeySecret: key.secret });
+    }
 
     if (action === 'setup-intent') {
       const si = await stripe.setupIntents.create({ customer, usage: 'off_session', automatic_payment_methods: { enabled: true } });

@@ -1,5 +1,5 @@
 import React from 'react';
-import { View, Text, ScrollView, Pressable, Alert, Platform, Image } from 'react-native';
+import { View, Text, ScrollView, Pressable, Alert, Platform, Image, Linking } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
 import { LinearGradient } from 'expo-linear-gradient';
@@ -13,12 +13,20 @@ import { FLAGS } from '../../src/config/flags';
 type Tone = '' | 'amber' | 'purple' | 'blue' | 'pink' | 'green';
 interface Row { ico: string; cls: Tone; t: string; act: () => void }
 
+// Required for App Store / Play Store review — a discoverable in-app link to the privacy
+// policy and terms, served from the marketing site's help center (preppa.live), not this app.
+const HELP_URL = 'https://preppa.live/help-site';
+const CONTACT_URL = 'https://preppa.live/help-site/support';
+const PRIVACY_URL = 'https://preppa.live/help-site/legal/privacy';
+const TERMS_URL = 'https://preppa.live/help-site/legal/terms';
+
 export default function Profile() {
   const c = useC();
   const insets = useSafeAreaInsets();
   const router = useRouter();
   const { darkMode, setDarkMode, logout, deleteAccount, toast, prepperStatus, isAdmin, isPrepPlus, name, location, avatarUrl } = useStore();
   const initial = (name || '?').trim()[0]?.toUpperCase() ?? '?';
+  const openLink = (url: string) => Linking.openURL(url).catch(() => toast('Couldn’t open the link', 'info'));
 
   const confirmDelete = () => {
     Alert.alert(
@@ -52,6 +60,10 @@ export default function Profile() {
   ];
   const support: Row[] = [
     { ico: 'info', cls: 'purple', t: 'Your support requests', act: () => router.push('/tickets') },
+    { ico: 'chat', cls: 'green', t: 'Contact support', act: () => openLink(CONTACT_URL) },
+    { ico: 'help', cls: '', t: 'Help center', act: () => openLink(HELP_URL) },
+    { ico: 'shield', cls: '', t: 'Privacy policy', act: () => openLink(PRIVACY_URL) },
+    { ico: 'lock', cls: '', t: 'Terms of service', act: () => openLink(TERMS_URL) },
   ];
 
   return (
@@ -78,7 +90,7 @@ export default function Profile() {
         </View>
 
         {/* become a preppa — state-aware (themed: warm tint that adapts to dark) */}
-        <View style={{ marginHorizontal: 16, borderRadius: radius.xl, padding: 18, flexDirection: 'row', alignItems: 'center', gap: 14, borderWidth: 1, borderColor: c.border2, backgroundColor: c.primaryL }}>
+        <View style={{ marginHorizontal: 16, marginTop: 16, borderRadius: radius.xl, padding: 18, flexDirection: 'row', alignItems: 'center', gap: 14, borderWidth: 1, borderColor: c.border2, backgroundColor: c.primaryL }}>
           <LinearGradient colors={BRAND_GRAD as any} start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }} style={{ width: 52, height: 52, borderRadius: 16, alignItems: 'center', justifyContent: 'center', ...shadow.brand }}>
             <Icon name={prepperStatus === 'pending' ? 'clock' : 'chefhat'} size={26} color="#fff" />
           </LinearGradient>
@@ -119,7 +131,7 @@ export default function Profile() {
         {/* PrepPlus — web-only entry (IAP policy). State-aware upsell vs member badge. */}
         {FLAGS.prepplus && Platform.OS === 'web' ? (
           <Press scale={0.98} onPress={() => router.push('/prepplus')} label="PrepPlus"
-            style={{ marginHorizontal: 16, marginTop: 12, borderRadius: radius.xl, overflow: 'hidden', ...shadow.card }}>
+            style={{ marginHorizontal: 16, marginTop: 16, borderRadius: radius.xl, overflow: 'hidden', ...shadow.card }}>
             <LinearGradient colors={['#6B4A93', '#E0490F']} start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }}
               style={{ padding: 16, flexDirection: 'row', alignItems: 'center', gap: 14 }}>
               <View style={{ width: 46, height: 46, borderRadius: 15, backgroundColor: 'rgba(255,255,255,.2)', alignItems: 'center', justifyContent: 'center' }}>

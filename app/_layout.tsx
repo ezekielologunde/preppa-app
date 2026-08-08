@@ -24,6 +24,7 @@ import { SideRail } from '../src/components/SideRail';
 import { ErrorBoundary } from '../src/components/ErrorBoundary';
 import { ApprovalWelcomeOverlay } from '../src/components/ApprovalWelcomeOverlay';
 import { useNotificationTapNavigation } from '../src/lib/push';
+import { StripeRoot } from '../src/components/StripeRoot';
 
 SplashScreen.preventAutoHideAsync().catch(() => {});
 
@@ -45,9 +46,11 @@ export default function RootLayout() {
   return (
     <GestureHandlerRootView style={{ flex: 1 }}>
       <SafeAreaProvider>
-        <StoreProvider>
-          <Themed />
-        </StoreProvider>
+        <StripeRoot>
+          <StoreProvider>
+            <Themed />
+          </StoreProvider>
+        </StripeRoot>
       </SafeAreaProvider>
     </GestureHandlerRootView>
   );

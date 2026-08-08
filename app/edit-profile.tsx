@@ -1,5 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { View, Text, ScrollView, TextInput, Platform, ActivityIndicator, Image } from 'react-native';
+import * as ImagePicker from 'expo-image-picker';
 import { useRouter } from 'expo-router';
 import { useC } from '../src/theme/ThemeContext';
 import { type, radius } from '../src/theme/theme';
@@ -45,29 +46,51 @@ export default function EditProfile() {
   const toggleDiet = (d: string) => setDietary((xs) => (xs.includes(d) ? xs.filter((x) => x !== d) : [...xs, d]));
 
   const pickAvatar = () => {
-    if (Platform.OS !== 'web' || typeof document === 'undefined') {
-      toast('Photo upload is on the web app for now', 'info');
+    if (Platform.OS === 'web' && typeof document !== 'undefined') {
+      const input = document.createElement('input');
+      input.type = 'file';
+      input.accept = 'image/*';
+      input.onchange = async () => {
+        const file = input.files && input.files[0];
+        if (!file) return;
+        const ext = (file.name.split('.').pop() || 'jpg').toLowerCase();
+        await doUpload(file, ext);
+      };
+      input.click();
       return;
     }
-    const input = document.createElement('input');
-    input.type = 'file';
-    input.accept = 'image/*';
-    input.onchange = async () => {
-      const file = input.files && input.files[0];
-      if (!file) return;
-      const ext = (file.name.split('.').pop() || 'jpg').toLowerCase();
-      setUploading(true);
-      try {
-        const url = await uploadAvatar(file, ext);
-        setAvatarUrl(url);
-        toast('Photo updated', 'check', true);
-      } catch {
-        toast('Couldn’t upload the photo. Please try again.', 'info');
-      } finally {
-        setUploading(false);
-      }
-    };
-    input.click();
+    pickAvatarNative();
+  };
+
+  // Native: expo-image-picker returns a local file URI; fetch() reads it into a real
+  // Blob so it flows through the exact same uploadAvatar()/proxy path as the web File.
+  const pickAvatarNative = async () => {
+    const perm = await ImagePicker.requestMediaLibraryPermissionsAsync();
+    if (!perm.granted) { toast('Photo library access is off — enable it in Settings to change your photo.', 'info'); return; }
+    const result = await ImagePicker.launchImageLibraryAsync({
+      mediaTypes: ImagePicker.MediaTypeOptions.Images,
+      allowsEditing: true,
+      aspect: [1, 1],
+      quality: 0.85,
+    });
+    if (result.canceled || !result.assets?.[0]) return;
+    const asset = result.assets[0];
+    const ext = (asset.uri.split('.').pop() || 'jpg').toLowerCase();
+    const blob = await (await fetch(asset.uri)).blob();
+    await doUpload(blob, ext);
+  };
+
+  const doUpload = async (file: Blob, ext: string) => {
+    setUploading(true);
+    try {
+      const url = await uploadAvatar(file, ext);
+      setAvatarUrl(url);
+      toast('Photo updated', 'check', true);
+    } catch {
+      toast('Couldn’t upload the photo. Please try again.', 'info');
+    } finally {
+      setUploading(false);
+    }
   };
 
   const save = async () => {
