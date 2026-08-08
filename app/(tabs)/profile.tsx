@@ -23,10 +23,19 @@ export default function Profile() {
   const confirmDelete = () => {
     Alert.alert(
       'Delete account',
-      'This permanently removes your account, orders, and saved data. This can’t be undone.',
+      'This disables sign-in and removes your personal info. Order history is kept in anonymized form for records. This can’t be undone.',
       [
         { text: 'Cancel', style: 'cancel' },
-        { text: 'Delete', style: 'destructive', onPress: () => { deleteAccount(); toast('Account deleted', 'x'); } },
+        {
+          text: 'Delete', style: 'destructive', onPress: async () => {
+            try {
+              await deleteAccount();
+              toast('Account deleted', 'x');
+            } catch (e: any) {
+              toast(e?.message || 'Could not delete your account. Please try again.', 'info');
+            }
+          },
+        },
       ],
     );
   };

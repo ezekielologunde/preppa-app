@@ -78,17 +78,17 @@ export function useKitchenReviews(kitchenId?: string): AsyncState<KitchenReviewS
 export interface KitchenCard {
   id: string; name: string; slug: string; cuisine: string; area: string;
   avatarUrl: string | null; lat?: number; lng?: number; specialties: string[];
-  ratingAvg: number; ratingCount: number; distKm?: number; dist?: string;
+  ratingAvg: number; ratingCount: number; distKm?: number; dist?: string; isPro?: boolean;
 }
 export interface KitchenProfile extends KitchenCard {
   bio: string | null; coverUrl: string | null; yearsActive: number | null; availability: string;
 }
 
-const KP_COLS = 'id,name,slug,cuisine,bio,approx_area,approx_lat,approx_lng,avatar_url,cover_url,specialties,years_active,availability';
+const KP_COLS = 'id,name,slug,cuisine,bio,approx_area,approx_lat,approx_lng,avatar_url,cover_url,specialties,years_active,availability,is_pro';
 
 async function fetchKitchensRaw(): Promise<KitchenCard[]> {
   const [{ data: ks, error }, { data: rs }] = await Promise.all([
-    supabase.from('kitchen_public').select('id,name,slug,cuisine,approx_area,approx_lat,approx_lng,avatar_url,specialties'),
+    supabase.from('kitchen_public').select('id,name,slug,cuisine,approx_area,approx_lat,approx_lng,avatar_url,specialties,is_pro'),
     supabase.from('kitchen_rating').select('kitchen_id,rating_avg,rating_count'),
   ]);
   if (error) throw error;
@@ -101,16 +101,21 @@ async function fetchKitchensRaw(): Promise<KitchenCard[]> {
       id: k.id, name: k.name, slug: k.slug, cuisine: k.cuisine ?? '', area: k.approx_area ?? '',
       avatarUrl: k.avatar_url ?? null, lat: Number.isFinite(lat) ? lat : undefined, lng: Number.isFinite(lng) ? lng : undefined,
       specialties: (k.specialties as string[]) ?? [], ratingAvg: r ? Number(r.rating_avg) : 0, ratingCount: r ? Number(r.rating_count) : 0,
+      isPro: !!k.is_pro,
     } as KitchenCard;
   });
 }
+// Preppa Pro kitchens sort ahead of non-members at the same tier first (the "priority
+// placement" membership perk), distance/name only breaking ties within the same pro/non-pro
+// group — mirrors applyProximity's identical treatment of the meals catalog.
 function sortKitchens(list: KitchenCard[], coords: LatLng | null): KitchenCard[] {
   const out = [...list];
+  const proRank = (k: KitchenCard) => (k.isPro ? 0 : 1);
   if (coords) {
     for (const k of out) if (typeof k.lat === 'number' && typeof k.lng === 'number') { k.distKm = distanceKm(coords, { lat: k.lat, lng: k.lng }); k.dist = distanceLabel(k.distKm); }
-    return out.sort((a, b) => (a.distKm ?? Infinity) - (b.distKm ?? Infinity) || a.name.localeCompare(b.name));
+    return out.sort((a, b) => proRank(a) - proRank(b) || (a.distKm ?? Infinity) - (b.distKm ?? Infinity) || a.name.localeCompare(b.name));
   }
-  return out.sort((a, b) => a.name.localeCompare(b.name));
+  return out.sort((a, b) => proRank(a) - proRank(b) || a.name.localeCompare(b.name));
 }
 /** The directory of verified kitchens — cached once; nearest-first re-sort is client-side. */
 export function useKitchens(): AsyncState<KitchenCard[]> {
@@ -128,6 +133,7 @@ function buildProfile(k: any, r: any): KitchenProfile {
     avatarUrl: k.avatar_url ?? null, lat: Number.isFinite(lat) ? lat : undefined, lng: Number.isFinite(lng) ? lng : undefined,
     specialties: (k.specialties as string[]) ?? [], ratingAvg: r ? Number(r.rating_avg) : 0, ratingCount: r ? Number(r.rating_count) : 0,
     bio: k.bio ?? null, coverUrl: k.cover_url ?? null, yearsActive: k.years_active ?? null, availability: k.availability ?? 'open',
+    isPro: !!k.is_pro,
   };
 }
 async function fetchKitchenProfile(idOrSlug: string): Promise<KitchenProfile | null> {

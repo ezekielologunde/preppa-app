@@ -30,7 +30,7 @@ export function setViewerCoords(c: LatLng | null) { viewerCoords = c; }
 // Embeds the parent kitchen (to-one) so real kitchens can render under their own
 // identity + coordinates instead of a seed cook.
 const MEAL_COLS =
-  'id,slug,name,kitchen_id,price_cents,grad,rating,review_count,prep_label,tags,is_match,kcal,protein_g,serves,description,image_url,photos,kitchens(name,cuisine,approx_area,approx_lat,approx_lng)';
+  'id,slug,name,kitchen_id,price_cents,grad,rating,review_count,prep_label,tags,is_match,kcal,protein_g,serves,description,image_url,photos,kitchens(name,cuisine,approx_area,approx_lat,approx_lng,is_pro)';
 
 function rowToMeal(r: any): Meal {
   const seedCook = KITCHEN_TO_COOK[r.kitchen_id]; // defined only for the 6 seed kitchens
@@ -66,15 +66,17 @@ function rowToMeal(r: any): Meal {
     kitchenName: seedCook ? undefined : (k?.name ?? 'Kitchen'),
     kitchenCuisine: seedCook ? undefined : (k?.cuisine ?? undefined),
     kitchenArea: seedCook ? undefined : (k?.approx_area ?? undefined),
+    kitchenIsPro: seedCook ? false : !!k?.is_pro,
     kitchenLat: Number.isFinite(lat) ? lat : undefined,
     kitchenLng: Number.isFinite(lng) ? lng : undefined,
   };
 }
 
-// Fill in real distance from the viewer's coords, and sort nearest-first. Kitchens
-// without coordinates (e.g. the seed cooks) get no distance and sort after those
-// that do; with no viewer location we keep a stable alphabetical order.
+// Fill in real distance from the viewer's coords, and sort nearest-first — but Preppa Pro
+// kitchens sort ahead of non-members at the same tier first (the "priority placement"
+// membership perk), distance/name only breaking ties within the same pro/non-pro group.
 function applyProximity(meals: Meal[]): Meal[] {
+  const proRank = (m: Meal) => (m.kitchenIsPro ? 0 : 1);
   if (viewerCoords) {
     for (const m of meals) {
       if (typeof m.kitchenLat === 'number' && typeof m.kitchenLng === 'number') {
@@ -83,12 +85,14 @@ function applyProximity(meals: Meal[]): Meal[] {
       }
     }
     return meals.sort((a, b) => {
+      const pr = proRank(a) - proRank(b);
+      if (pr !== 0) return pr;
       const da = a.distKm ?? Infinity;
       const db = b.distKm ?? Infinity;
       return da === db ? a.name.localeCompare(b.name) : da - db;
     });
   }
-  return meals.sort((a, b) => a.name.localeCompare(b.name));
+  return meals.sort((a, b) => proRank(a) - proRank(b) || a.name.localeCompare(b.name));
 }
 
 /** Pure client-side filter over the (cached) catalog — mirrors the old in-`list` filters. */

@@ -10,13 +10,14 @@ import { computeTotals } from '../data/totals';
 import {
   signOutUser, fetchAccountState, submitPrepperApplication, updateDisplayName,
   fetchNotifications, markNotificationRead, markAllNotificationsRead, setKitchenGeo,
-  ackApprovalNotice as ackApprovalNoticeApi,
+  ackApprovalNotice as ackApprovalNoticeApi, deleteAccountServerSide,
   type ApplicationFields, type AppNotification,
 } from '../lib/supabase';
 import { supabase } from '../lib/supabase';
 import { threadUnreadCount, subscribeMyNotifications } from '../lib/messages';
 import { fetchOrderStatus } from '../lib/orders';
 import { getMyKitchen, getKitchenAvailability, setKitchenAvailability } from '../lib/connect';
+import { registerForPushNotifications } from '../lib/push';
 import { setViewerCoords } from '../data/supabaseRepository';
 import { geocodeAddress, type LatLng } from '../lib/geo';
 export type { ApplicationFields };
@@ -86,7 +87,8 @@ interface Store {
   darkMode: boolean;
   setDarkMode: (v: boolean) => void;
   logout: () => void;
-  deleteAccount: () => void;
+  /** Throws (with a user-facing reason) if the server blocks deletion — see src/lib/supabase.ts. */
+  deleteAccount: () => Promise<void>;
 
   cart: CartLine[];
   cartCount: number;
@@ -106,7 +108,9 @@ interface Store {
   // signed-in user identity (Supabase profile; empty when signed out / before load)
   name: string; // profiles.display_name
   firstName: string; // profiles.first_name
+  avatarUrl: string | null; // profiles.avatar_url — shown on the profile hero; null → initials fallback
   saveName: (fullName: string) => Promise<void>; // edit own name (RLS: profiles_update_self)
+  setAvatarUrl: (url: string | null) => void; // reflect a just-saved photo without a full re-sync
 
   addresses: Address[];
   address: Address | null; // currently selected
@@ -200,6 +204,7 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
   const [coords, setCoordsState] = useState<LatLng | null>(null);
   const [name, setName] = useState('');
   const [firstName, setFirstName] = useState('');
+  const [avatarUrl, setAvatarUrl] = useState<string | null>(null);
   const [fav, setFav] = useState<Set<string>>(new Set());
   const [prepperStatus, setPrepperStatus] = useState<PrepperStatus>('none');
   const [payoutsEnabled, setPayoutsEnabled] = useState(false);
@@ -298,9 +303,14 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
       if (s.signedIn) {
         if (s.displayName) setName(s.displayName);
         if (s.firstName) setFirstName(s.firstName);
+        setAvatarUrl(s.avatarUrl); // authoritative — set even when null so a removed photo clears
         try { setNotifs(await fetchNotifications()); } catch { /* keep last */ }
         try { setThreadUnread(await threadUnreadCount()); } catch { /* keep last */ }
+        // Fire-and-forget: no-ops on web / before an EAS project is linked, and never
+        // throws (see src/lib/push.ts) — safe to leave unawaited here.
+        registerForPushNotifications();
       } else {
+        setAvatarUrl(null);
         setNotifs([]); // signed out — no notifications
         setThreadUnread(0);
       }
@@ -493,10 +503,13 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
 
   const resetOnboarding = useCallback(() => setOnboardedState(false), []);
   const logout = useCallback(() => { signOutUser(); setPrepperStatus('none'); setIsAdmin(false); setIsPrepPlus(false); setPrepplusUntil(null); setOnboardedState(false); }, []);
-  const deleteAccount = useCallback(() => {
-    // Apple 5.1.1(v) / Google Play: account-deletion path. Clears the local session and
-    // signs out of Supabase. TODO(Phase 1): also call a `delete-account` edge function to
-    // remove the auth user + profile server-side (needs service-role; can't be done client-side).
+  const deleteAccount = useCallback(async () => {
+    // Apple 5.1.1(v) / Google Play: account-deletion path. Calls the real delete-account edge
+    // function FIRST (anonymizes the profile, soft-deletes the auth user so sign-in is
+    // actually disabled) — local state is only cleared once that has genuinely succeeded.
+    // Throws (with a specific, user-facing reason) if a cook's kitchen has in-flight orders,
+    // an uncashed balance, or active subscribers — the caller must surface that, not swallow it.
+    await deleteAccountServerSide();
     signOutUser();
     AsyncStorage.removeItem(LS).catch(() => {});
     setCart([]);
@@ -513,6 +526,7 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
     setCoordsState(null); setViewerCoords(null);
     setName('');
     setFirstName('');
+    setAvatarUrl(null);
     setDarkModeState(false);
     setAvail(true);
     setActed([]);
@@ -626,7 +640,9 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
     setCoords,
     name,
     firstName,
+    avatarUrl,
     saveName,
+    setAvatarUrl,
     addresses,
     address,
     addressId,

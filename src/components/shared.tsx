@@ -80,7 +80,7 @@ export function OrderLineRow({ line, first }: { line: CartLine; first?: boolean 
 /** .cookrow — tappable prepper/kitchen identity row that opens the storefront.
  *  Pass a seed `cook` for the six seeded kitchens, or `name`/`initial` (+ `onPress`)
  *  to render a real kitchen that has no seed CookId. */
-export function CookRow({ cook, name, initial, meta, goIcon = 'chevRight', onPress }: { cook?: CookId; name?: string; initial?: string; meta?: string; goIcon?: string; onPress?: () => void }) {
+export function CookRow({ cook, name, initial, meta, goIcon = 'chevRight', onPress, isPro }: { cook?: CookId; name?: string; initial?: string; meta?: string; goIcon?: string; onPress?: () => void; isPro?: boolean }) {
   const c = useC();
   const router = useRouter();
   const cd = cook ? COOKS[cook] : null;
@@ -99,6 +99,11 @@ export function CookRow({ cook, name, initial, meta, goIcon = 'chevRight', onPre
           <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
             <Text style={[type(15, 900), { color: c.ink }]}>{displayName}</Text>
             <Icon name="shield" size={15} color={c.green} />
+            {isPro ? (
+              <View style={{ paddingHorizontal: 6, height: 16, borderRadius: radius.pill, backgroundColor: c.primaryL, alignItems: 'center', justifyContent: 'center' }}>
+                <Text style={[type(9, 900), { color: c.primaryD, letterSpacing: 0.2 }]}>PRO</Text>
+              </View>
+            ) : null}
           </View>
           {metaText ? <Text style={[type(12, 600), { color: c.soft, marginTop: 2 }]}>{metaText}</Text> : null}
         </View>

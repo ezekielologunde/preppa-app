@@ -40,13 +40,12 @@
       [
         "expo-splash-screen",
         {
-          "backgroundColor": "#151210",
-          "image": "./assets/splash-logo.png",
-          "resizeMode": "contain"
+          "backgroundColor": "#FB5C24"
         }
       ],
       "expo-image",
       "expo-video",
+      "expo-notifications",
       [
         "expo-camera",
         {

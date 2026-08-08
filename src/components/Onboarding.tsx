@@ -1,20 +1,18 @@
 import React, { useEffect, useRef, useState } from 'react';
 import { Animated, Easing, Pressable, StyleSheet, Text, TextInput, View, ScrollView } from 'react-native';
-import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { LinearGradient } from 'expo-linear-gradient';
+import { BlurView } from 'expo-blur';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useStore } from '../store/store';
 import { sendEmailOtp, verifyEmailOtp, signUpWithPassword, signInWithPassword, AUTH_TIMEOUT_MESSAGE } from '../lib/supabase';
+import { captureCurrentLocation } from '../lib/geo';
 import { Icon } from '../ui/Icon';
-import { Press, GradBox } from '../ui/primitives';
+import { Press, GradBox, Btn } from '../ui/primitives';
 import { useReducedMotion } from '../ui/useReducedMotion';
-import { type, GRAD, shadow, FILL } from '../theme/theme';
+import { useC } from '../theme/ThemeContext';
+import { type, GRAD, shadow, radius, FILL, ONBOARD_GRAD } from '../theme/theme';
 
-const W = (o: number) => `rgba(255,255,255,${o})`;
-/** On-gradient accent — the brand orange itself would blend into the GRAD.g4
- * background these screens now sit on, so active/selected states use white instead. */
-const ACCENT = '#fff';
-
-function Spinner({ size = 19, color = '#fff' }: { size?: number; color?: string }) {
+function Spinner({ size = 19, color = '#fff', track }: { size?: number; color?: string; track?: string }) {
   const r = useRef(new Animated.Value(0)).current;
   const reduced = useReducedMotion();
   useEffect(() => {
@@ -22,46 +20,81 @@ function Spinner({ size = 19, color = '#fff' }: { size?: number; color?: string 
     Animated.loop(Animated.timing(r, { toValue: 1, duration: 700, easing: Easing.linear, useNativeDriver: true })).start();
   }, [r, reduced]);
   const spin = r.interpolate({ inputRange: [0, 1], outputRange: ['0deg', '360deg'] });
-  const trackColor = color === '#fff' ? W(0.3) : 'rgba(242,107,29,.25)';
-  return <Animated.View style={{ width: size, height: size, borderRadius: size / 2, borderWidth: 2.5, borderColor: trackColor, borderTopColor: color, transform: [{ rotate: spin }] }} />;
+  return <Animated.View style={{ width: size, height: size, borderRadius: size / 2, borderWidth: 2.5, borderColor: track ?? color, opacity: track ? 1 : 0.3, borderTopColor: color, transform: [{ rotate: spin }] }} />;
 }
 
 function Title({ parts }: { parts: (string | { g: string })[] }) {
+  const c = useC();
   return (
-    <Text style={[type(34, 900), { color: '#fff', letterSpacing: -1.5, lineHeight: 37, marginTop: 18 }]}>
-      {/* Highlight is warm cream, not brand orange — orange-on-orange (the GRAD.g4
-          background these screens sit on) would be invisible. */}
-      {parts.map((p, i) => (typeof p === 'string' ? p : <Text key={i} style={{ color: '#FFE29A' }}>{p.g}</Text>))}
+    <Text style={[type(34, 900), { color: c.ink, letterSpacing: -1.5, lineHeight: 37, marginTop: 18 }]}>
+      {parts.map((p, i) => (typeof p === 'string' ? p : <Text key={i} style={{ color: c.accentText }}>{p.g}</Text>))}
     </Text>
   );
 }
 function Lead({ children }: { children: React.ReactNode }) {
-  return <Text style={[type(15.5, 500), { color: W(0.62), lineHeight: 24, marginTop: 14, maxWidth: 320 }]}>{children}</Text>;
+  const c = useC();
+  return <Text style={[type(15.5, 500), { color: c.soft, lineHeight: 24, marginTop: 14, maxWidth: 320 }]}>{children}</Text>;
 }
 
-/* Solid white, not the GRAD.g4 gradient — these screens now sit ON that same
- * gradient, so a same-gradient button would nearly vanish into the background. */
-function ObtnPri({ label, icon, iconRight, onPress, disabled, busyLabel, busy }: { label: string; icon?: string; iconRight?: string; onPress?: () => void; disabled?: boolean; busyLabel?: string; busy?: boolean }) {
-  return (
-    <Press scale={0.97} onPress={disabled || busy ? undefined : onPress} style={{ opacity: disabled ? 0.45 : 1 }}>
-      <View style={[stt.obtn, { backgroundColor: '#fff' }, shadow.card]}>
-        {busy ? <Spinner color="#E24A38" /> : icon ? <Icon name={icon} size={18} color="#E24A38" /> : null}
-        <Text style={[type(16, 800), { color: '#E24A38' }]}>{busy ? busyLabel : label}</Text>
-        {!busy && iconRight ? <Icon name={iconRight} size={18} color="#E24A38" /> : null}
-      </View>
-    </Press>
-  );
-}
 /* ---------- steps ---------- */
 function JoiningPill() {
+  const c = useC();
   return (
-    <View style={{ flexDirection: 'row', alignItems: 'center', alignSelf: 'center', gap: 10, backgroundColor: W(0.14), borderWidth: 1, borderColor: W(0.2), borderRadius: 999, paddingVertical: 8, paddingHorizontal: 14, marginTop: 22 }}>
+    <View style={{ flexDirection: 'row', alignItems: 'center', alignSelf: 'center', gap: 10, backgroundColor: c.surface, borderWidth: 1, borderColor: c.border, borderRadius: radius.pill, paddingVertical: 8, paddingHorizontal: 14, marginTop: 22, ...shadow.soft }}>
       <View style={{ flexDirection: 'row' }}>
         {[GRAD.g3, GRAD.g7, GRAD.g6].map((g, i) => (
-          <GradBox key={i} grad={g as any} style={{ width: 22, height: 22, borderRadius: 11, marginLeft: i === 0 ? 0 : -8, borderWidth: 2, borderColor: 'rgba(255,255,255,.4)' }} />
+          <GradBox key={i} grad={g as any} style={{ width: 22, height: 22, borderRadius: 11, marginLeft: i === 0 ? 0 : -8, borderWidth: 2, borderColor: c.surface }} />
         ))}
       </View>
-      <Text style={[type(12.5, 800), { color: '#fff' }]}>Local Preppas joining every week</Text>
+      <Text style={[type(12.5, 800), { color: c.ink }]}>Local Preppas joining every week</Text>
+    </View>
+  );
+}
+
+/** Welcome-only pill on the brand gradient — real frosted glass (BlurView), plain white
+ *  avatar dots (no per-cook tint, the gradient itself already carries the color). */
+function WelcomeJoiningPill() {
+  return (
+    <View style={{ alignSelf: 'center', marginTop: 26, borderRadius: radius.pill, overflow: 'hidden', borderWidth: 1, borderColor: 'rgba(255,255,255,0.35)' }}>
+      <BlurView intensity={30} tint="light" style={{ flexDirection: 'row', alignItems: 'center', gap: 10, paddingVertical: 9, paddingHorizontal: 16 }}>
+        <View style={{ flexDirection: 'row' }}>
+          {[0, 1, 2].map((i) => (
+            <View key={i} style={{ width: 22, height: 22, borderRadius: 11, marginLeft: i === 0 ? 0 : -9, backgroundColor: '#fff', borderWidth: 1.5, borderColor: 'rgba(255,255,255,0.5)' }} />
+          ))}
+        </View>
+        <Text style={[type(13, 800), { color: '#fff' }]}>Local Preppas joining now</Text>
+      </BlurView>
+    </View>
+  );
+}
+
+/** Same treatment as Splash's mark — solid `primaryD` circle — so cold-launch → welcome
+ *  reads as one continuous brand mark, not a color swap. */
+function Mark({ size = 74, iconSize = 38 }: { size?: number; iconSize?: number }) {
+  const c = useC();
+  return (
+    <View style={{ width: size, height: size, borderRadius: radius.xxl, backgroundColor: c.primaryD, alignItems: 'center', justifyContent: 'center', ...shadow.brand }}>
+      <Icon name="flame" size={iconSize} color="#fff" />
+    </View>
+  );
+}
+
+/** Welcome-only mark — matches Splash's frosted-glass badge exactly (BlurView + hairline
+ *  highlight + real elevation), so cold-launch → welcome is one continuous glass mark. */
+function WelcomeMark() {
+  return (
+    <View style={{ width: 108, height: 108, borderRadius: 30, alignItems: 'center', justifyContent: 'center', backgroundColor: 'rgba(255,255,255,0.08)' }}>
+      <View
+        style={{
+          width: 80, height: 80, borderRadius: 24, overflow: 'hidden', alignItems: 'center', justifyContent: 'center',
+          borderWidth: 1, borderColor: 'rgba(255,255,255,0.4)',
+          shadowColor: '#000', shadowOpacity: 0.18, shadowRadius: 24, shadowOffset: { width: 0, height: 10 },
+        }}
+      >
+        <BlurView intensity={40} tint="light" style={[FILL, { alignItems: 'center', justifyContent: 'center' }]}>
+          <Icon name="flame" size={38} color="#fff" />
+        </BlurView>
+      </View>
     </View>
   );
 }
@@ -70,22 +103,22 @@ function Welcome({ go }: { go: (s: string, m: 'signin' | 'signup') => void }) {
   return (
     <>
       <View style={{ flex: 0.6 }} />
-      <View style={[stt.mark, shadow.brand]}><Icon name="flame" size={38} color="#fff" /></View>
-      <Text style={[type(28, 900), { color: '#fff', letterSpacing: -1, marginTop: 16 }]}>preppa</Text>
-      <Title parts={['Real food from real local ', { g: 'Preppas' }, ' near you.']} />
-      <Lead>Homemade meals, private chefs, weekly boxes and more — from verified neighbors who love to cook.</Lead>
-      <JoiningPill />
+      <View style={{ alignSelf: 'center' }}><WelcomeMark /></View>
+      <Text style={[type(28, 900), { color: '#fff', letterSpacing: -1, marginTop: 16, alignSelf: 'center' }]}>preppa</Text>
+      <Text style={[type(19, 600), { color: 'rgba(255,255,255,0.85)', lineHeight: 26, marginTop: 18, textAlign: 'center' }]}>Real food from real local Preppas near you.</Text>
+      <WelcomeJoiningPill />
       <View style={{ flex: 1 }} />
-      <ObtnPri label="Get Started — It's Free" onPress={() => go('auth', 'signup')} />
+      <Btn label="Get Started — It's Free" onPress={() => go('auth', 'signup')} block lg style={{ backgroundColor: 'rgba(255,255,255,0.2)', borderWidth: 1, borderColor: 'rgba(255,255,255,0.35)' }} />
       <Pressable onPress={() => go('auth', 'signin')} style={{ marginTop: 16, alignSelf: 'center' }}>
-        <Text style={[type(14, 700), { color: W(0.85) }]}>Already a member? <Text style={{ textDecorationLine: 'underline' }}>Sign in →</Text></Text>
+        <Text style={[type(14, 700), { color: 'rgba(255,255,255,0.85)' }]}>Already a member? <Text style={{ textDecorationLine: 'underline' }}>Sign in →</Text></Text>
       </Pressable>
-      <Text style={[type(11.5, 600), { color: W(0.5), textAlign: 'center', marginTop: 14 }]}>By continuing you agree to Preppa’s Terms & Food Safety Standards.</Text>
+      <Text style={[type(11.5, 600), { color: 'rgba(255,255,255,0.65)', textAlign: 'center', marginTop: 14 }]}>By continuing you agree to Preppa’s Terms & Food Safety Standards.</Text>
     </>
   );
 }
 
 function Auth({ mode, onNext }: { mode: 'signin' | 'signup'; onNext: (email: string, authed: boolean) => void }) {
+  const c = useC();
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [fullName, setFullName] = useState('');
@@ -150,6 +183,8 @@ function Auth({ mode, onNext }: { mode: 'signin' | 'signup'; onNext: (email: str
     }
   };
 
+  const inputStyle = (hasErr: boolean) => [stt.input, { backgroundColor: c.surface, borderColor: hasErr ? c.red : c.border, color: c.ink }];
+
   return (
     <>
       <Title parts={[mode === 'signin' ? 'Welcome back.' : 'Create your account.']} />
@@ -157,28 +192,32 @@ function Auth({ mode, onNext }: { mode: 'signin' | 'signup'; onNext: (email: str
       <Animated.View style={{ marginTop: 24, transform: [{ translateX: shake.x }] }}>
         {mode === 'signup' ? (
           <View style={{ marginBottom: 14 }}>
-            <Text style={[type(12.5, 800), { color: W(0.55), marginBottom: 8 }]}>Full name</Text>
-            <TextInput value={fullName} onChangeText={(t) => { setFullName(t); clearMsgs(); }} autoCapitalize="words" autoComplete="name" textContentType="name" placeholder="Your name" placeholderTextColor={W(0.3)} style={stt.input} />
+            <Text style={[type(12.5, 800), { color: c.soft, marginBottom: 8 }]}>Full name</Text>
+            <TextInput value={fullName} onChangeText={(t) => { setFullName(t); clearMsgs(); }} autoCapitalize="words" autoComplete="name" textContentType="name" placeholder="Your name" placeholderTextColor={c.muted} style={inputStyle(false)} />
           </View>
         ) : null}
-        <Text style={[type(12.5, 800), { color: W(0.55), marginBottom: 8 }]}>Email address</Text>
-        <TextInput value={email} onChangeText={(t) => { setEmail(t); clearMsgs(); }} keyboardType="email-address" autoCapitalize="none" autoComplete="email" textContentType="emailAddress" placeholder="you@example.com" placeholderTextColor={W(0.3)} style={[stt.input, err ? { borderColor: '#F87171' } : null]} />
+        <Text style={[type(12.5, 800), { color: c.soft, marginBottom: 8 }]}>Email address</Text>
+        <TextInput value={email} onChangeText={(t) => { setEmail(t); clearMsgs(); }} keyboardType="email-address" autoCapitalize="none" autoComplete="email" textContentType="emailAddress" placeholder="you@example.com" placeholderTextColor={c.muted} style={inputStyle(!!err)} />
         <View style={{ height: 14 }} />
-        <Text style={[type(12.5, 800), { color: W(0.55), marginBottom: 8 }]}>Password</Text>
-        <TextInput value={password} onChangeText={(t) => { setPassword(t); clearMsgs(); }} onSubmitEditing={submit} secureTextEntry autoCapitalize="none" autoComplete={mode === 'signup' ? 'password-new' : 'password'} textContentType={mode === 'signup' ? 'newPassword' : 'password'} placeholder={mode === 'signup' ? 'At least 8 characters' : 'Your password'} placeholderTextColor={W(0.3)} style={[stt.input, err ? { borderColor: '#F87171' } : null]} />
-        {err ? <View style={{ flexDirection: 'row', alignItems: 'center', gap: 7, marginTop: 9 }}><Icon name="info" size={15} color="#FCA5A5" /><Text style={[type(13, 700), { color: '#FCA5A5', flex: 1 }]}>{err}</Text></View> : null}
-        {info ? <View style={{ flexDirection: 'row', alignItems: 'center', gap: 7, marginTop: 9 }}><Icon name="check" size={15} color="#86EFAC" /><Text style={[type(13, 700), { color: '#86EFAC', flex: 1 }]}>{info}</Text></View> : null}
+        <Text style={[type(12.5, 800), { color: c.soft, marginBottom: 8 }]}>Password</Text>
+        <TextInput value={password} onChangeText={(t) => { setPassword(t); clearMsgs(); }} onSubmitEditing={submit} secureTextEntry autoCapitalize="none" autoComplete={mode === 'signup' ? 'password-new' : 'password'} textContentType={mode === 'signup' ? 'newPassword' : 'password'} placeholder={mode === 'signup' ? 'At least 8 characters' : 'Your password'} placeholderTextColor={c.muted} style={inputStyle(!!err)} />
+        {err ? <View style={{ flexDirection: 'row', alignItems: 'center', gap: 7, marginTop: 9 }}><Icon name="info" size={15} color={c.red} /><Text style={[type(13, 700), { color: c.red, flex: 1 }]}>{err}</Text></View> : null}
+        {info ? <View style={{ flexDirection: 'row', alignItems: 'center', gap: 7, marginTop: 9 }}><Icon name="check" size={15} color={c.green} /><Text style={[type(13, 700), { color: c.green, flex: 1 }]}>{info}</Text></View> : null}
       </Animated.View>
       <View style={{ flex: 1, minHeight: 24 }} />
-      <ObtnPri label={mode === 'signin' ? 'Sign in' : 'Create account'} iconRight="arrow" busy={busy} busyLabel={mode === 'signin' ? 'Signing in…' : 'Creating…'} onPress={submit} />
+      <Btn
+        label={busy ? (mode === 'signin' ? 'Signing in…' : 'Creating…') : (mode === 'signin' ? 'Sign in' : 'Create account')}
+        iconRight={busy ? undefined : 'arrow'} loading={busy} onPress={submit} block lg
+      />
       <Pressable onPress={emailCode} style={{ marginTop: 16, alignSelf: 'center' }}>
-        <Text style={[type(13.5, 700), { color: W(0.6) }]}>{codeBusy ? 'Sending code…' : 'Email me a sign-in code instead'}</Text>
+        <Text style={[type(13.5, 700), { color: c.soft }]}>{codeBusy ? 'Sending code…' : 'Email me a sign-in code instead'}</Text>
       </Pressable>
     </>
   );
 }
 
 function Code({ email, onNext }: { email: string; onNext: () => void }) {
+  const c = useC();
   const [code, setCode] = useState('');
   const [busy, setBusy] = useState(false);
   const [err, setErr] = useState<string | null>(null);
@@ -187,7 +226,7 @@ function Code({ email, onNext }: { email: string; onNext: () => void }) {
   const ref = useRef<TextInput>(null);
   const shake = useShake();
   useEffect(() => { const t = setTimeout(() => ref.current?.focus(), 300); return () => clearTimeout(t); }, []);
-  useEffect(() => { if (cool <= 0) return; const t = setTimeout(() => setCool((c) => c - 1), 1000); return () => clearTimeout(t); }, [cool]);
+  useEffect(() => { if (cool <= 0) return; const t = setTimeout(() => setCool((v) => v - 1), 1000); return () => clearTimeout(t); }, [cool]);
   useEffect(() => {
     // NB: depend on `code` only. If `busy` were a dep, flipping it in setBusy(true)
     // would re-run this effect and cancel the in-flight verify before it resolves.
@@ -211,13 +250,13 @@ function Code({ email, onNext }: { email: string; onNext: () => void }) {
   return (
     <>
       <Title parts={['Check your inbox.']} />
-      <Lead>We sent a 6-digit code to <Text style={{ color: '#fff', fontFamily: type(15.5, 700).fontFamily }}>{email}</Text>.</Lead>
+      <Lead>We sent a 6-digit code to <Text style={{ color: c.ink, fontFamily: type(15.5, 700).fontFamily }}>{email}</Text>.</Lead>
       <Animated.View style={{ flexDirection: 'row', gap: 9, marginTop: 22, transform: [{ translateX: shake.x }] }}>
         {Array.from({ length: 6 }).map((_, i) => {
           const live = i === code.length && !busy;
           return (
-            <View key={i} style={[stt.otpBox, err ? { borderColor: '#F87171' } : live ? { borderColor: ACCENT } : null]}>
-              <Text style={[type(23, 900), { color: '#fff' }]}>{code[i] || ''}</Text>
+            <View key={i} style={[stt.otpBox, { backgroundColor: c.surface, borderColor: err ? c.red : live ? c.primary : c.border }]}>
+              <Text style={[type(23, 900), { color: c.ink }]}>{code[i] || ''}</Text>
             </View>
           );
         })}
@@ -233,12 +272,12 @@ function Code({ email, onNext }: { email: string; onNext: () => void }) {
           style={[FILL, { color: 'transparent', fontSize: 24, textAlign: 'center' }] as any}
         />
       </Animated.View>
-      {err ? <View style={{ flexDirection: 'row', alignItems: 'center', gap: 7, marginTop: 12 }}><Icon name="info" size={15} color="#FCA5A5" /><Text style={[type(13, 700), { color: '#FCA5A5' }]}>{err}</Text></View> : null}
-      {busy ? <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8, marginTop: 12 }}><Spinner size={15} /><Text style={[type(13, 700), { color: W(0.6) }]}>Verifying…</Text></View> : null}
+      {err ? <View style={{ flexDirection: 'row', alignItems: 'center', gap: 7, marginTop: 12 }}><Icon name="info" size={15} color={c.red} /><Text style={[type(13, 700), { color: c.red }]}>{err}</Text></View> : null}
+      {busy ? <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8, marginTop: 12 }}><Spinner size={15} color={c.primaryD} track={c.border} /><Text style={[type(13, 700), { color: c.soft }]}>Verifying…</Text></View> : null}
       <View style={{ flex: 1, minHeight: 24 }} />
       <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 6, paddingBottom: 4 }}>
-        <Text style={[type(14, 600), { color: W(0.45) }]}>{resent ? 'Code re-sent ✓' : 'Didn’t get it?'}</Text>
-        {!resent ? <Pressable disabled={cool > 0} onPress={resend}><Text style={[type(14, 800), { color: cool > 0 ? W(0.35) : ACCENT, textDecorationLine: cool > 0 ? 'none' : 'underline' }]}>{cool > 0 ? `Resend in ${cool}s` : 'Resend code'}</Text></Pressable> : null}
+        <Text style={[type(14, 600), { color: c.muted }]}>{resent ? 'Code re-sent ✓' : 'Didn’t get it?'}</Text>
+        {!resent ? <Pressable disabled={cool > 0} onPress={resend}><Text style={[type(14, 800), { color: cool > 0 ? c.muted : c.primary, textDecorationLine: cool > 0 ? 'none' : 'underline' }]}>{cool > 0 ? `Resend in ${cool}s` : 'Resend code'}</Text></Pressable> : null}
       </View>
     </>
   );
@@ -251,6 +290,7 @@ const GOALS = [
   { id: 'events', ico: 'gift', grad: GRAD.g6, t: 'Events & experiences', s: 'Book a chef, class or supper club' },
 ];
 function Goal({ onNext }: { onNext: () => void }) {
+  const c = useC();
   const [goal, setGoal] = useState<string | null>(null);
   return (
     <>
@@ -261,26 +301,27 @@ function Goal({ onNext }: { onNext: () => void }) {
           const on = goal === g.id;
           return (
             <Press key={g.id} scale={0.98} onPress={() => setGoal(g.id)}>
-              <View style={[stt.goal, on ? { borderColor: ACCENT, backgroundColor: 'rgba(255,255,255,.16)' } : null]}>
+              <View style={[stt.goal, { backgroundColor: c.surface, borderColor: on ? c.primary : c.border2 }, on ? shadow.card : null]}>
                 <GradBox grad={g.grad as any} style={{ width: 46, height: 46, borderRadius: 14, alignItems: 'center', justifyContent: 'center' }}><Icon name={g.ico} size={21} color="#fff" /></GradBox>
                 <View style={{ flex: 1 }}>
-                  <Text style={[type(15.5, 800), { color: '#fff' }]}>{g.t}</Text>
-                  <Text style={[type(12.5, 500), { color: W(0.7), marginTop: 2 }]}>{g.s}</Text>
+                  <Text style={[type(15.5, 800), { color: c.ink }]}>{g.t}</Text>
+                  <Text style={[type(12.5, 500), { color: c.soft, marginTop: 2 }]}>{g.s}</Text>
                 </View>
-                <View style={{ width: 24, height: 24, borderRadius: 12, borderWidth: 2, borderColor: on ? ACCENT : W(0.3), backgroundColor: on ? ACCENT : 'transparent', alignItems: 'center', justifyContent: 'center' }}>{on ? <Icon name="check" size={13} color="#E24A38" /> : null}</View>
+                <View style={{ width: 24, height: 24, borderRadius: 12, borderWidth: 2, borderColor: on ? c.primary : c.border2, backgroundColor: on ? c.primary : 'transparent', alignItems: 'center', justifyContent: 'center' }}>{on ? <Icon name="check" size={13} color="#fff" /> : null}</View>
               </View>
             </Press>
           );
         })}
       </View>
       <View style={{ flex: 1, minHeight: 20 }} />
-      <ObtnPri label="Continue" iconRight="arrow" disabled={!goal} onPress={onNext} />
+      <Btn label="Continue" iconRight="arrow" disabled={!goal} onPress={onNext} block lg />
     </>
   );
 }
 
 const CUIS = ['Italian', 'West African', 'Halal', 'Mexican', 'Soul food', 'Desi', 'Healthy', 'Seafood', 'Vegan', 'BBQ', 'Desserts', 'Comfort'];
 function Cuisine({ onNext }: { onNext: () => void }) {
+  const c = useC();
   const [sel, setSel] = useState<string[]>([]);
   const toggle = (x: string) => setSel((p) => (p.includes(x) ? p.filter((y) => y !== x) : [...p, x]));
   return (
@@ -292,23 +333,22 @@ function Cuisine({ onNext }: { onNext: () => void }) {
           const on = sel.includes(x);
           return (
             <Press key={x} scale={0.94} onPress={() => toggle(x)}>
-              {on ? (
-                <View style={[stt.cuisOn, { backgroundColor: '#fff' }]}><Text style={[type(14, 800), { color: '#E24A38' }]}>{x}</Text></View>
-              ) : (
-                <View style={stt.cuis}><Text style={[type(14, 700), { color: '#fff' }]}>{x}</Text></View>
-              )}
+              <View style={[stt.cuis, { backgroundColor: on ? c.primaryL : c.surface, borderColor: on ? c.primaryL : c.border2 }]}>
+                <Text style={[type(14, on ? 800 : 700), { color: on ? c.accentText : c.ink }]}>{x}</Text>
+              </View>
             </Press>
           );
         })}
       </View>
       <View style={{ flex: 1, minHeight: 20 }} />
-      <ObtnPri label={sel.length ? `Start exploring · ${sel.length} picked` : 'Start exploring'} onPress={onNext} />
+      <Btn label={sel.length ? `Start exploring · ${sel.length} picked` : 'Start exploring'} onPress={onNext} block lg />
     </>
   );
 }
 
 const FIN = ['Personalizing your feed', 'Finding verified cooks nearby', 'Securing your account'];
 function Finish({ onDone }: { onDone: () => void }) {
+  const c = useC();
   const [idx, setIdx] = useState(0);
   useEffect(() => {
     // Progress the setup checklist, then finish. This is the last step after the
@@ -320,17 +360,17 @@ function Finish({ onDone }: { onDone: () => void }) {
   }, [idx]);
   return (
     <View style={{ flex: 1, alignItems: 'center', justifyContent: 'center' }}>
-      <View style={[stt.mark, { width: 64, height: 64, borderRadius: 20 }, shadow.brand]}><Icon name="flame" size={32} color="#fff" /></View>
-      <Text style={[type(26, 900), { color: '#fff', letterSpacing: -1, marginTop: 22 }]}>Setting up your kitchen…</Text>
+      <Mark size={64} iconSize={32} />
+      <Text style={[type(26, 900), { color: c.ink, letterSpacing: -1, marginTop: 22 }]}>Setting up your kitchen…</Text>
       <View style={{ marginTop: 30, maxWidth: 300, gap: 15, width: '100%', paddingHorizontal: 20 }}>
         {FIN.map((s, i) => {
           const done = i < idx, live = i === idx;
           return (
             <View key={s} style={{ flexDirection: 'row', alignItems: 'center', gap: 13 }}>
-              <View style={{ width: 28, height: 28, borderRadius: 14, alignItems: 'center', justifyContent: 'center', backgroundColor: done ? '#16A34A' : W(0.08), borderWidth: !done && !live ? 1 : 0, borderColor: W(0.12) }}>
-                {done ? <Icon name="check" size={14} color="#fff" /> : live ? <Spinner size={14} /> : <View style={{ width: 6, height: 6, borderRadius: 3, backgroundColor: W(0.3) }} />}
+              <View style={{ width: 28, height: 28, borderRadius: 14, alignItems: 'center', justifyContent: 'center', backgroundColor: done ? c.green : c.bg2, borderWidth: !done && !live ? 1 : 0, borderColor: c.border }}>
+                {done ? <Icon name="check" size={14} color="#fff" /> : live ? <Spinner size={14} color={c.primaryD} track={c.border} /> : <View style={{ width: 6, height: 6, borderRadius: 3, backgroundColor: c.border2 }} />}
               </View>
-              <Text style={[type(14.5, 700), { color: done || live ? '#fff' : W(0.4) }]}>{s}{done ? ' ✓' : ''}</Text>
+              <Text style={[type(14.5, 700), { color: done || live ? c.ink : c.muted }]}>{s}{done ? ' ✓' : ''}</Text>
             </View>
           );
         })}
@@ -357,7 +397,19 @@ function useShake() {
 }
 
 export function OnboardingFlow() {
-  const { setOnboarded } = useStore();
+  const c = useC();
+  const { setOnboarded, coords, setLocation, setCoords } = useStore();
+  // Assistive: the moment the user starts signing in, quietly resolve their location in the
+  // background so the app lands already location-aware (nearby cooks, distances) with no
+  // separate "set your location" step. Fire-and-forget; runs once; silent on denial.
+  const prefetched = useRef(false);
+  const prefetchContext = () => {
+    if (prefetched.current || coords) return; // once; never override an existing fix
+    prefetched.current = true;
+    captureCurrentLocation()
+      .then((loc) => { setLocation(loc.label); setCoords({ lat: loc.lat, lng: loc.lng }); })
+      .catch(() => { /* permission denied / unavailable — keep the default, no nag */ });
+  };
   const insets = useSafeAreaInsets();
   const [step, setStep] = useState('welcome');
   const [mode, setMode] = useState<'signin' | 'signup'>('signup');
@@ -365,22 +417,27 @@ export function OnboardingFlow() {
   const STEPS = ['auth', 'code', 'goal', 'cuisine'];
   const at = STEPS.indexOf(step);
   const back = ({ auth: 'welcome', code: 'auth', goal: 'code', cuisine: 'goal' } as Record<string, string>)[step];
+  const reduced = useReducedMotion();
   const fade = useRef(new Animated.Value(0)).current;
-  useEffect(() => { fade.setValue(0); Animated.timing(fade, { toValue: 1, duration: 260, useNativeDriver: true }).start(); }, [step]);
+  useEffect(() => { fade.setValue(0); Animated.timing(fade, { toValue: 1, duration: 280, useNativeDriver: true }).start(); }, [step]);
+  // Each step rises a few px as it fades in — enough to feel deliberate, never showy. Off under reduced motion.
+  const slide = fade.interpolate({ inputRange: [0, 1], outputRange: [reduced ? 0 : 12, 0] });
   const showTop = step !== 'welcome' && step !== 'finish';
   const canSkip = step === 'goal' || step === 'cuisine';
+  const onWelcome = step === 'welcome';
   return (
-    <LinearGradient colors={GRAD.g4 as any} style={[FILL, { zIndex: 300 }]}>
+    <View style={[FILL, { zIndex: 300, backgroundColor: onWelcome ? 'transparent' : c.bg }]}>
+      {onWelcome ? <LinearGradient colors={ONBOARD_GRAD} style={FILL} /> : null}
       <ScrollView contentContainerStyle={{ flexGrow: 1, paddingTop: insets.top + 10, paddingBottom: insets.bottom + 26, paddingHorizontal: 24 }} keyboardShouldPersistTaps="handled">
         {showTop ? (
           <View style={{ flexDirection: 'row', alignItems: 'center', gap: 14, minHeight: 42 }}>
-            <Press scale={0.9} onPress={() => setStep(back)}><View style={{ width: 42, height: 42, borderRadius: 21, backgroundColor: W(0.14), borderWidth: 1, borderColor: W(0.2), alignItems: 'center', justifyContent: 'center' }}><Icon name="chevLeft" size={20} color="#fff" /></View></Press>
-            <View style={{ flex: 1, flexDirection: 'row', gap: 6 }}>{STEPS.map((s, i) => <View key={s} style={{ flex: 1, height: 4, borderRadius: 2, backgroundColor: i <= at ? ACCENT : W(0.2) }} />)}</View>
-            {canSkip ? <Pressable onPress={() => setStep('finish')}><Text style={[type(14, 700), { color: W(0.7) }]}>Skip</Text></Pressable> : <View style={{ width: 30 }} />}
+            <Press scale={0.9} onPress={() => setStep(back)}><View style={{ width: 42, height: 42, borderRadius: 21, backgroundColor: c.surface, borderWidth: 1, borderColor: c.border, alignItems: 'center', justifyContent: 'center', ...shadow.soft }}><Icon name="chevLeft" size={20} color={c.ink} /></View></Press>
+            <View style={{ flex: 1, flexDirection: 'row', gap: 6 }}>{STEPS.map((s, i) => <View key={s} style={{ flex: 1, height: 4, borderRadius: 2, backgroundColor: i <= at ? c.primary : c.border2 }} />)}</View>
+            {canSkip ? <Pressable onPress={() => setStep('finish')}><Text style={[type(14, 700), { color: c.soft }]}>Skip</Text></Pressable> : <View style={{ width: 30 }} />}
           </View>
         ) : null}
-        <Animated.View style={{ flex: 1, opacity: fade }}>
-          {step === 'welcome' && <Welcome go={(s, m) => { setMode(m); setStep(s); }} />}
+        <Animated.View style={{ flex: 1, opacity: fade, transform: [{ translateY: slide }] }}>
+          {step === 'welcome' && <Welcome go={(s, m) => { setMode(m); setStep(s); prefetchContext(); }} />}
           {step === 'auth' && <Auth mode={mode} onNext={(e, authed) => { setEmail(e); setStep(authed ? (mode === 'signin' ? 'finish' : 'goal') : 'code'); }} />}
           {step === 'code' && <Code email={email} onNext={() => setStep(mode === 'signin' ? 'finish' : 'goal')} />}
           {step === 'goal' && <Goal onNext={() => setStep('cuisine')} />}
@@ -388,16 +445,13 @@ export function OnboardingFlow() {
           {step === 'finish' && <Finish onDone={() => setOnboarded(true)} />}
         </Animated.View>
       </ScrollView>
-    </LinearGradient>
+    </View>
   );
 }
 
 const stt = StyleSheet.create({
-  obtn: { height: 56, borderRadius: 18, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 10 },
-  mark: { width: 74, height: 74, borderRadius: 24, backgroundColor: 'rgba(255,255,255,.18)', borderWidth: 1, borderColor: 'rgba(255,255,255,.3)', alignItems: 'center', justifyContent: 'center' },
-  input: { height: 56, borderRadius: 16, paddingHorizontal: 18, backgroundColor: W(0.07), borderWidth: 1.5, borderColor: W(0.12), color: '#fff', fontFamily: type(16, 600).fontFamily, fontSize: 16 },
-  otpBox: { flex: 1, height: 60, borderRadius: 15, backgroundColor: W(0.07), borderWidth: 1.5, borderColor: W(0.12), alignItems: 'center', justifyContent: 'center' },
-  goal: { flexDirection: 'row', alignItems: 'center', gap: 14, padding: 15, borderRadius: 18, backgroundColor: W(0.06), borderWidth: 1.5, borderColor: W(0.1) },
-  cuis: { height: 42, paddingHorizontal: 17, borderRadius: 999, backgroundColor: W(0.07), borderWidth: 1, borderColor: W(0.12), alignItems: 'center', justifyContent: 'center' },
-  cuisOn: { height: 42, paddingHorizontal: 17, borderRadius: 999, alignItems: 'center', justifyContent: 'center' },
+  input: { height: 56, borderRadius: radius.card, paddingHorizontal: 18, borderWidth: 1, fontSize: 16 },
+  otpBox: { flex: 1, height: 60, borderRadius: radius.card, borderWidth: 1, alignItems: 'center', justifyContent: 'center' },
+  goal: { flexDirection: 'row', alignItems: 'center', gap: 14, padding: 15, borderRadius: radius.xl, borderWidth: 1.5 },
+  cuis: { height: 42, paddingHorizontal: 17, borderRadius: radius.pill, borderWidth: 1, alignItems: 'center', justifyContent: 'center' },
 });

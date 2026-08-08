@@ -36,6 +36,33 @@ export async function fetchDashboardSummary(): Promise<KitchenDashboardSummary> 
   return data as KitchenDashboardSummary;
 }
 
+export interface CookAnalyticsSummary {
+  weeklyRevenueCents: number[]; // 8 entries, oldest → most recent week
+  ordersThisMonth: number;
+  avgOrderCents: number;
+  repeatCustomerPct: number;
+  newCustomers30d: number;
+  topMeals: { name: string; sold: number; pct: number }[];
+}
+
+/** Real /hub/analytics numbers (same audit-critical pattern as fetchDashboardSummary above —
+ * this screen used to read ANALYTICS/MY_PLANS, static empty constants in src/data/cook.ts,
+ * so every cook saw a permanently blank dashboard). Deliberately excludes profile views /
+ * view→order conversion: nothing in this schema tracks page views yet. */
+export async function fetchCookAnalyticsSummary(kitchenId: string): Promise<CookAnalyticsSummary> {
+  const { data, error } = await supabase.rpc('cook_analytics_summary', { p_kitchen_id: kitchenId }).single();
+  if (error) throw error;
+  const d = data as any;
+  return {
+    weeklyRevenueCents: (d.weekly_revenue_cents as number[] | null) ?? [0, 0, 0, 0, 0, 0, 0, 0],
+    ordersThisMonth: Number(d.orders_this_month ?? 0),
+    avgOrderCents: Number(d.avg_order_cents ?? 0),
+    repeatCustomerPct: Number(d.repeat_customer_pct ?? 0),
+    newCustomers30d: Number(d.new_customers_30d ?? 0),
+    topMeals: (d.top_meals as { name: string; sold: number; pct: number }[] | null) ?? [],
+  };
+}
+
 export async function fetchKitchenOrders(): Promise<KitchenOrderRow[]> {
   const { data, error } = await supabase.rpc('kitchen_list_orders');
   if (error) throw error;

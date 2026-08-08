@@ -29,7 +29,7 @@ export default function HomeScreen() {
   const c = useC();
   const insets = useSafeAreaInsets();
   const router = useRouter();
-  const { location, setLocation, setCoords, toast, cartCount, notifCount, firstName, mode, setMode } = useStore();
+  const { location, coords, setLocation, setCoords, toast, cartCount, notifCount, firstName, mode, setMode } = useStore();
   const { width } = useWindowDimensions();
   const wide = width >= 700; // logo + actions live in the SideRail on wide screens
   const [cartOpen, setCartOpen] = React.useState(false);
@@ -52,6 +52,20 @@ export default function HomeScreen() {
       toast(`Location set to ${loc.label}`, 'pin', true);
     } catch { setLocPicker(true); } finally { setLocBusy(false); }
   };
+
+  // Auto-capture on first load so "Preppers near you" / the meal catalog actually sort by
+  // real distance without requiring the user to discover and tap the location pill — this
+  // was previously entirely manual, so most sessions never set coords at all. Fires once
+  // per device (persisted in `coords`, see store.tsx), silently: no toast, and a denial/
+  // failure does NOT pop the manual location picker — that's reserved for the explicit tap,
+  // where the user is already expecting a location prompt/fallback.
+  React.useEffect(() => {
+    if (coords) return;
+    captureCurrentLocation()
+      .then((loc) => { setLocation(loc.label); setCoords({ lat: loc.lat, lng: loc.lng }); })
+      .catch(() => { /* permission denied or unavailable — keep the default, no nag */ });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   const pickMode = (id: 'delivery' | 'pickup' | 'chef') => {
     if (id === 'chef') { FLAGS.services ? router.push('/service-request?category=cook_at_home') : toast('Private-chef bookings are coming soon', 'chefhat'); return; }

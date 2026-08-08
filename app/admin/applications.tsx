@@ -1,9 +1,9 @@
 import React, { useState, useEffect } from 'react';
-import { View, Text, ScrollView, TextInput, Image } from 'react-native';
+import { View, Text, ScrollView, TextInput, Image, Linking } from 'react-native';
 import { useRouter } from 'expo-router';
 import { useC } from '../../src/theme/ThemeContext';
 import { type, radius } from '../../src/theme/theme';
-import { Screen, Block, Empty, Btn, MiniTag, Press, Icon } from '../../src/ui';
+import { Screen, Block, Empty, Btn, MiniTag, StatusTag, Press, Icon } from '../../src/ui';
 import { useStore } from '../../src/store/store';
 import { useAdminApplications } from '../../src/data/hooks';
 import { supabase, createCookDocSignedUrl } from '../../src/lib/supabase';
@@ -174,6 +174,7 @@ function AppDetail({ kitchenId }: { kitchenId: string }) {
         <DRow c={c} k="Applicant" v={d.applicant_name || '—'} />
         <DRow c={c} k="Phone" v={d.phone || '—'} />
         <DRow c={c} k="Address (private)" v={d.address || '—'} />
+        <AddressVerificationRow c={c} lat={d.verified_lat} lng={d.verified_lng} />
         <DRow c={c} k="Neighborhood" v={d.approx_area || '—'} />
         {d.service_area ? <DRow c={c} k="Travels" v={d.service_area} /> : null}
         {d.experience ? <DRow c={c} k="Experience" v={d.experience} /> : null}
@@ -224,6 +225,27 @@ function DRow({ c, k, v }: { c: any; k: string; v: string }) {
     <View style={{ flexDirection: 'row', gap: 10, alignItems: 'flex-start' }}>
       <Text style={[type(12, 700), { color: c.muted, width: 130 }]}>{k}</Text>
       <Text style={[type(12.5, 700), { color: c.ink, flex: 1 }]}>{v}</Text>
+    </View>
+  );
+}
+
+/** Whether the applicant's typed address resolved to a real place (geocoded client-side at
+ *  submission, via free OpenStreetMap Nominatim — see submitPrepperApplication). A failed
+ *  geocode doesn't block the application; it just shows "not verified" here so admin can
+ *  judge for themselves or ask the applicant to correct it. */
+function AddressVerificationRow({ c, lat, lng }: { c: any; lat: number | null; lng: number | null }) {
+  const verified = lat != null && lng != null;
+  return (
+    <View style={{ flexDirection: 'row', gap: 10, alignItems: 'center' }}>
+      <Text style={[type(12, 700), { color: c.muted, width: 130 }]}>Address check</Text>
+      <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8, flex: 1 }}>
+        <StatusTag label={verified ? 'Resolved to a real place' : 'Not verified — check manually'} tone={verified ? 'success' : 'info'} />
+        {verified ? (
+          <Press onPress={() => Linking.openURL(`https://www.openstreetmap.org/?mlat=${lat}&mlon=${lng}#map=16/${lat}/${lng}`)} label="View on map">
+            <Text style={[type(12, 800), { color: c.accentText }]}>View on map ↗</Text>
+          </Press>
+        ) : null}
+      </View>
     </View>
   );
 }

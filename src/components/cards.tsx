@@ -92,7 +92,14 @@ export function PrepperRail({ kitchens }: { kitchens: KitchenCard[] }) {
                   <Text style={[type(22, 900), { color: '#fff' }]}>{name.trim()[0]?.toUpperCase() ?? 'K'}</Text>
                 </View>
               )}
-              <Text numberOfLines={1} style={[type(14, 900), { color: c.ink, marginTop: 10 }]}>{name}</Text>
+              <View style={{ flexDirection: 'row', alignItems: 'center', gap: 5, marginTop: 10, maxWidth: '100%' }}>
+                <Text numberOfLines={1} style={[type(14, 900), { color: c.ink, flexShrink: 1 }]}>{name}</Text>
+                {k.isPro ? (
+                  <View style={{ paddingHorizontal: 6, height: 16, borderRadius: radius.pill, backgroundColor: c.primaryL, alignItems: 'center', justifyContent: 'center' }}>
+                    <Text style={[type(9, 900), { color: c.primaryD, letterSpacing: 0.2 }]}>PRO</Text>
+                  </View>
+                ) : null}
+              </View>
               <Text numberOfLines={1} style={[type(11.5, 600), { color: c.soft, marginTop: 2 }]}>{cuisine}</Text>
               <View style={{ flexDirection: 'row', alignItems: 'center', gap: 4, marginTop: 6 }}>
                 <Icon name="star" size={12} color={c.star} />

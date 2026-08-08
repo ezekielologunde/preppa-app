@@ -75,7 +75,7 @@ export default function MealDetail() {
           {isSeedKitchen ? (
             <CookRow cook={m.cook} meta={`${cook.cuisine} · PrepScore ${cook.prepscore} · ${cook.reviews} reviews`} />
           ) : (
-            <CookRow name={cook.name} initial={cook.initial} meta={cook.cuisine || cook.dist}
+            <CookRow name={cook.name} initial={cook.initial} meta={cook.cuisine || cook.dist} isPro={cook.isPro}
               onPress={() => kitchenLink && router.push(`/store/${kitchenLink}`)} />
           )}
 

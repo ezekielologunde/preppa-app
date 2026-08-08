@@ -23,6 +23,7 @@ import { OnboardingFlow } from '../src/components/Onboarding';
 import { SideRail } from '../src/components/SideRail';
 import { ErrorBoundary } from '../src/components/ErrorBoundary';
 import { ApprovalWelcomeOverlay } from '../src/components/ApprovalWelcomeOverlay';
+import { useNotificationTapNavigation } from '../src/lib/push';
 
 SplashScreen.preventAutoHideAsync().catch(() => {});
 
@@ -63,14 +64,15 @@ function Themed() {
 
 function AppShell() {
   const { ready, onboarded } = useStore();
+  useNotificationTapNavigation();
   const isDark = useIsDark();
   const { width } = useWindowDimensions();
   const wide = width >= 700;
   const railW = width >= 1000 ? 240 : 84;
-  // Hold the (dark) splash only until store hydration (`ready`) completes — an AsyncStorage
-  // read (~tens of ms) — so a dark-mode user never first-paints the light theme. No artificial
-  // minimum delay (removed a fixed 1400ms floor that padded every load).
-  const showSplash = !ready;
+  // The branded splash covers boot until store hydration (`ready`, an AsyncStorage read of
+  // ~tens of ms) so a dark-mode user never first-paints the light theme. It self-manages its
+  // exit: it stays mounted and fades out gracefully once `ready` flips, rather than being
+  // hard-unmounted mid-animation. No artificial minimum delay (a fixed 1400ms floor is gone).
   const bg = isDark ? '#15120F' : '#FAFAF9';
   return (
     <View style={{ flex: 1, backgroundColor: bg }}>
@@ -90,7 +92,7 @@ function AppShell() {
       <CartFlash />
       {ready && !onboarded ? <OnboardingFlow /> : null}
       {ready && onboarded ? <ApprovalWelcomeOverlay /> : null}
-      {showSplash ? <SplashOverlay /> : null}
+      <SplashOverlay done={ready} />
     </View>
   );
 }

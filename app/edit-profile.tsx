@@ -13,7 +13,7 @@ const DIETARY = ['Vegetarian', 'Vegan', 'Halal', 'Pescatarian', 'Gluten-free', '
 export default function EditProfile() {
   const c = useC();
   const router = useRouter();
-  const { saveName, toast } = useStore();
+  const { saveName, setAvatarUrl: setStoreAvatar, toast } = useStore();
 
   const [loading, setLoading] = useState(true);
   const [signedOut, setSignedOut] = useState(false);
@@ -76,6 +76,7 @@ export default function EditProfile() {
     try {
       if (name.trim() !== initialName.trim()) await saveName(name.trim());
       await updateProfile({ bio, location, dietary, avatarUrl });
+      setStoreAvatar(avatarUrl); // hero reflects the new photo without waiting for a re-sync
       toast('Profile saved', 'check', true);
       router.back();
     } catch {

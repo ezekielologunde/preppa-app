@@ -28,6 +28,11 @@ export type GradKey = keyof typeof GRAD;
 /** Brand washes — bright-orange family, unified with the preppa.live landing (was warm coral). */
 export const BRAND_GRAD = ['#FF7A47', '#FF5A24', '#E0490F'] as const;
 export const WARM_GRAD = ['#FF7A47', '#FF5A24'] as const;
+/** Full-bleed splash + onboarding wash. Same bright-orange identity as the app and the
+ *  landing, but ramped to a deeper ember at the base so white body text and inputs sitting
+ *  low on the screen clear AA — a flat bright orange would wash the small text out. Splash
+ *  and Onboarding MUST share this exactly so cold-launch → welcome has zero colour swap. */
+export const ONBOARD_GRAD = ['#FF7A45', '#FB5C24', '#D23E0A'] as const;
 
 /** Theme-invariant brand marks (splash / onboarding / adaptive icon parity). */
 export const BRAND_PRIMARY = '#FF5A24';

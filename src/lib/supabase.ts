@@ -1,5 +1,6 @@
 import { createClient } from '@supabase/supabase-js';
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import { geocodeAddress } from './geo';
 
 /**
  * Supabase + Stripe connection for real (test-mode) card payments.
@@ -108,6 +109,25 @@ export async function signOutUser() {
   }
 }
 
+/**
+ * Real, server-side account deletion (App Store 5.1.1(v) / Google Play requirement).
+ * Anonymizes profile PII and soft-deletes the auth user (disables sign-in; the row/id stay
+ * so real order/ledger history referencing it via a RESTRICT foreign key stays valid).
+ * Throws with the specific reason when a cook's kitchen has in-flight orders, an uncashed
+ * balance, or active subscribers — the caller should surface that message directly rather
+ * than treating it as a generic failure.
+ */
+export async function deleteAccountServerSide(): Promise<void> {
+  const { data, error } = await supabase.functions.invoke('delete-account', { body: {} });
+  if (!error && !data?.error) return;
+  let payload: any = data;
+  const ctx = (error as any)?.context;
+  if (ctx && typeof ctx.json === 'function') {
+    try { payload = await ctx.json(); } catch { /* keep data */ }
+  }
+  throw new Error(payload?.error || (error as any)?.message || 'Could not delete your account. Please try again.');
+}
+
 /** Currently signed-in Supabase user, or null. */
 export async function currentUser() {
   const { data } = await supabase.auth.getUser();
@@ -126,6 +146,7 @@ export interface AccountState {
   prepperStatus: PrepperStatusValue;
   displayName: string | null;
   firstName: string | null;
+  avatarUrl: string | null;
   isPrepPlus: boolean;
   prepplusUntil: string | null;
   /** Real (Stripe Connect) payout readiness — a kitchen can't publish/accept paid orders without it. */
@@ -143,12 +164,13 @@ export interface AccountState {
 export async function fetchAccountState(): Promise<AccountState> {
   const { data: sess } = await supabase.auth.getSession();
   const uid = sess.session?.user?.id;
-  if (!uid) return { signedIn: false, isAdmin: false, prepperStatus: 'none', displayName: null, firstName: null, isPrepPlus: false, prepplusUntil: null, payoutsEnabled: false, approvalNoticePending: false };
+  if (!uid) return { signedIn: false, isAdmin: false, prepperStatus: 'none', displayName: null, firstName: null, avatarUrl: null, isPrepPlus: false, prepplusUntil: null, payoutsEnabled: false, approvalNoticePending: false };
 
-  const { data: prof } = await supabase.from('profiles').select('role, display_name, first_name').eq('id', uid).maybeSingle();
+  const { data: prof } = await supabase.from('profiles').select('role, display_name, first_name, avatar_url').eq('id', uid).maybeSingle();
   const role = (prof?.role as string) ?? 'customer';
   const displayName = (prof?.display_name as string) ?? null;
   const firstName = (prof?.first_name as string) ?? null;
+  const avatarUrl = (prof?.avatar_url as string) ?? null;
   const isAdmin = role === 'admin';
 
   // Hub access (prepperStatus) reflects actually OWNING A KITCHEN, not the `role`
@@ -191,7 +213,7 @@ export async function fetchAccountState(): Promise<AccountState> {
     isPrepPlus = ((mem.status === 'active' || mem.status === 'trialing') && periodOk) || !!graceOk;
   }
 
-  return { signedIn: true, isAdmin, prepperStatus, displayName, firstName, isPrepPlus, prepplusUntil, payoutsEnabled, approvalNoticePending };
+  return { signedIn: true, isAdmin, prepperStatus, displayName, firstName, avatarUrl, isPrepPlus, prepplusUntil, payoutsEnabled, approvalNoticePending };
 }
 
 /** Acknowledge the one-time "you're approved" welcome overlay (never shows again after this). */
@@ -259,48 +281,55 @@ export async function updateProfile(patch: Partial<EditableProfile>): Promise<vo
   if (error) throw error;
 }
 
-/** Upload an avatar image to the owner-scoped `avatars` bucket; returns its public URL. Web-first. */
-export async function uploadAvatar(file: Blob, ext: string): Promise<string> {
-  return uploadPublicImage(file, ext, 'avatar');
-}
-
-/** Upload a plan cover image (public, customer-facing) to the owner-scoped `avatars` bucket. */
-export async function uploadPlanCover(file: Blob, ext: string): Promise<string> {
-  return uploadPublicImage(file, ext, 'plan-cover');
-}
-
-/** Upload a feed-post cover image (public) to the owner-scoped `avatars` bucket. */
-export async function uploadPostCover(file: Blob, ext: string): Promise<string> {
-  return uploadPublicImage(file, ext, 'post');
-}
-
-async function uploadPublicImage(file: Blob, ext: string, prefix: string): Promise<string> {
+/**
+ * All media uploads route through the `upload-media` edge function, which sniffs real file
+ * bytes (magic numbers) server-side before accepting anything — direct-to-Storage client
+ * uploads only validated the client-DECLARED Content-Type header, which a malicious client
+ * can freely lie about (proven live in a 2026-08-08 audit: raw HTML uploaded as "image/png"
+ * was accepted and served back with that content-type). The matching Storage RLS INSERT/
+ * UPDATE policies for these 4 buckets have been dropped so this is the only write path.
+ */
+async function uploadViaProxy(bucket: string, prefix: string, file: Blob, extra?: Record<string, string>): Promise<{ url?: string; path?: string }> {
   const { data: sess } = await supabase.auth.getSession();
-  const uid = sess.session?.user?.id;
-  if (!uid) throw new Error('You need to be signed in.');
-  const path = `${uid}/${prefix}-${Date.now()}.${ext}`;
-  const { error } = await supabase.storage.from('avatars').upload(path, file, {
-    upsert: true,
-    contentType: (file as any).type || `image/${ext}`,
-  });
-  if (error) throw error;
-  const { data } = supabase.storage.from('avatars').getPublicUrl(path);
-  return data.publicUrl;
+  const token = sess.session?.access_token;
+  if (!token) throw new Error('You need to be signed in.');
+  const form = new FormData();
+  form.append('bucket', bucket);
+  form.append('prefix', prefix);
+  if (extra) for (const [k, v] of Object.entries(extra)) form.append(k, v);
+  form.append('file', file, `upload.${(file as any).name?.split('.').pop() || 'bin'}`);
+  const { data, error } = await supabase.functions.invoke('upload-media', { body: form });
+  if (!error && !data?.error) return data;
+  let payload: any = data;
+  const ctx = (error as any)?.context;
+  if (ctx && typeof ctx.json === 'function') {
+    try { payload = await ctx.json(); } catch { /* keep data */ }
+  }
+  throw new Error(payload?.error || (error as any)?.message || 'Upload failed. Please try again.');
 }
 
-/** Upload a feed-post video (public) to the owner-scoped `post-videos` bucket. */
-export async function uploadPostVideo(file: Blob, ext: string): Promise<string> {
-  const { data: sess } = await supabase.auth.getSession();
-  const uid = sess.session?.user?.id;
-  if (!uid) throw new Error('You need to be signed in.');
-  const path = `${uid}/post-${Date.now()}.${ext}`;
-  const { error } = await supabase.storage.from('post-videos').upload(path, file, {
-    upsert: true,
-    contentType: (file as any).type || `video/${ext}`,
-  });
-  if (error) throw error;
-  const { data } = supabase.storage.from('post-videos').getPublicUrl(path);
-  return data.publicUrl;
+/** Upload an avatar image; returns its public URL. Web-first. */
+export async function uploadAvatar(file: Blob, _ext: string): Promise<string> {
+  const { url } = await uploadViaProxy('avatars', 'avatar', file);
+  return url!;
+}
+
+/** Upload a plan cover image (public, customer-facing). */
+export async function uploadPlanCover(file: Blob, _ext: string): Promise<string> {
+  const { url } = await uploadViaProxy('avatars', 'plan-cover', file);
+  return url!;
+}
+
+/** Upload a feed-post cover image (public). */
+export async function uploadPostCover(file: Blob, _ext: string): Promise<string> {
+  const { url } = await uploadViaProxy('avatars', 'post', file);
+  return url!;
+}
+
+/** Upload a feed-post video (public), to the `post-videos` bucket. */
+export async function uploadPostVideo(file: Blob, _ext: string): Promise<string> {
+  const { url } = await uploadViaProxy('post-videos', 'post', file);
+  return url!;
 }
 
 // ---- Social login (web) -------------------------------------------------------
@@ -336,9 +365,14 @@ export interface ApplicationFields {
 /**
  * Submit a real prepper application: creates a pending kitchen + private details
  * (phone/address/food-safety/agreement) + verification rows for admin review.
- * (Requires the extended `request_prepper_application` RPC — see the pending migration.)
+ * Geocodes the typed address (free, key-less OpenStreetMap Nominatim — see src/lib/geo.ts)
+ * before submitting so admin review sees whether it resolves to a real place instead of
+ * trusting free text blindly. A failed geocode (formatting quirks) does NOT block
+ * submission — it just leaves verified_lat/lng null so admin sees "not verified" and can
+ * judge or ask the applicant to correct it.
  */
 export async function submitPrepperApplication(f: ApplicationFields): Promise<string> {
+  const coords = await geocodeAddress(f.address).catch(() => null);
   const { data, error } = await supabase.rpc('request_prepper_application', {
     p_kitchen_name: f.kitchenName,
     p_cuisine: f.cuisine,
@@ -352,6 +386,8 @@ export async function submitPrepperApplication(f: ApplicationFields): Promise<st
     p_service_types: f.serviceTypes,
     p_service_area: f.serviceArea ?? null,
     p_experience: f.experience ?? null,
+    p_verified_lat: coords?.lat ?? null,
+    p_verified_lng: coords?.lng ?? null,
   });
   if (error) throw error;
   return data as string;
@@ -395,18 +431,11 @@ export async function getMyKitchenId(): Promise<string | null> {
   return (data?.[0]?.id as string) ?? null;
 }
 
-/** Upload a public meal photo to the `meal-photos` bucket; returns its public URL. The path
- *  MUST start with the kitchen id — the bucket's INSERT policy checks is_kitchen_owner on the
- *  first folder segment. Web-first (native has no file picker). */
-export async function uploadMealPhoto(file: Blob, ext: string, kitchenId: string): Promise<string> {
-  const path = `${kitchenId}/${Date.now()}-${Math.round(Math.random() * 1e9)}.${ext}`;
-  const { error } = await supabase.storage.from('meal-photos').upload(path, file, {
-    upsert: true,
-    contentType: (file as any).type || `image/${ext}`,
-  });
-  if (error) throw error;
-  const { data } = supabase.storage.from('meal-photos').getPublicUrl(path);
-  return data.publicUrl;
+/** Upload a public meal photo; returns its public URL. Server-side (upload-media) re-checks
+ *  kitchen ownership. Web-first (native has no file picker). */
+export async function uploadMealPhoto(file: Blob, _ext: string, kitchenId: string): Promise<string> {
+  const { url } = await uploadViaProxy('meal-photos', 'meal', file, { kitchenId });
+  return url!;
 }
 
 /** Set (or clear, with null) a meal's photo via the owner-gated set_meal_photo RPC. */
@@ -419,18 +448,8 @@ export async function setMealPhoto(mealId: string, imageUrl: string | null): Pro
  *  bucket, grouped by kind (`govid` | `selfie` | `fridge` | `kitchen`). Returns the
  *  stored path (kept in the application's food_safety.docs). */
 export async function uploadCookPhoto(file: Blob, group: string): Promise<string> {
-  const { data: sess } = await supabase.auth.getSession();
-  const uid = sess.session?.user?.id;
-  if (!uid) throw new Error('You need to be signed in.');
-  const ext = (((file as any).name?.split('.').pop()) || ((file as any).type?.split('/').pop()) || 'jpg').toLowerCase();
-  const rand = Math.random().toString(36).slice(2, 8);
-  const path = `${uid}/${group}-${Date.now()}-${rand}.${ext}`;
-  const { error } = await supabase.storage.from('cook-docs').upload(path, file, {
-    upsert: true,
-    contentType: (file as any).type || undefined,
-  });
-  if (error) throw error;
-  return path;
+  const { path } = await uploadViaProxy('cook-docs', group, file);
+  return path!;
 }
 
 /** Signed URL (1h) for a private `cook-docs` object — used by admin review to view a

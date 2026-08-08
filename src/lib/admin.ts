@@ -56,6 +56,8 @@ export interface AdminApplicationDetail {
   service_types: string[] | null;
   service_area: string | null;
   experience: string | null;
+  verified_lat: number | null;
+  verified_lng: number | null;
 }
 
 function ensureWeb() {

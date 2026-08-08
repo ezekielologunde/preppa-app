@@ -28,6 +28,7 @@ export interface Cook {
   verified: boolean;
   prepscore: number;
   acceptsCod: boolean; // cook bears the cash risk, so they decide whether to take cash on delivery
+  isPro?: boolean; // Preppa Pro member — real (non-seed) kitchens only; seed cooks never carry this
 }
 
 export const COOKS: Record<CookId, Cook> = {
@@ -65,6 +66,7 @@ export interface Meal {
   kitchenName?: string;
   kitchenCuisine?: string;
   kitchenArea?: string;
+  kitchenIsPro?: boolean; // Preppa Pro member kitchen — feeds cookOf().isPro + discovery sort
   kitchenLat?: number; // real kitchen coords (for proximity); present once geocoded
   kitchenLng?: number;
   distKm?: number; // computed distance from the viewer (present when both have coords)
@@ -90,6 +92,7 @@ export function cookOf(m: Meal): Cook {
       verified: true,
       prepscore: 0,
       acceptsCod: false,
+      isPro: !!m.kitchenIsPro,
     };
   }
   return COOKS[m.cook] ?? COOKS.maria;
