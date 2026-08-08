@@ -27,7 +27,7 @@
     "expo-splash-screen": "~57.0.2",
     "expo-status-bar": "~57.0.0",
     "expo-video": "~57.0.0",
-    "react": "19.2.3",
+    "react": "19.2.8",
     "react-dom": "^19.2.3",
     "react-native": "0.86.0",
     "react-native-gesture-handler": "~2.32.0",
@@ -37,7 +37,7 @@
     "react-native-web": "^0.21.2"
   },
   "devDependencies": {
-    "@types/react": "~19.2.2",
+    "@types/react": "~19.2.18",
     "typescript": "~6.0.3"
   },
   "scripts": {
