@@ -45,7 +45,7 @@ export function useMeals(query?: MealQuery): AsyncState<Meal[]> {
   const meals = useMemo(
     () => (data ? sortByProximity(filterMeals(data, query), coords ?? null) : []),
     // eslint-disable-next-line react-hooks/exhaustive-deps
-    [data, query?.cook, query?.kitchenUuid, query?.cat, query?.q, coords?.lat, coords?.lng],
+    [data, query?.cook, query?.kitchenUuid, query?.cat, query?.q, query?.mode, coords?.lat, coords?.lng],
   );
   return { data: data ? meals : null, loading, error };
 }

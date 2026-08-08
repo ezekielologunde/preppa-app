@@ -3,7 +3,7 @@ import { AppState } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import {
   GradKey, CookId, Subscription, ServiceRequest, SEED_REQUESTS, genQuotes,
-  CONVERSATIONS, Conversation,
+  CONVERSATIONS, Conversation, lineKey,
 } from '../data/data';
 import { ME } from '../data/cook';
 import { computeTotals } from '../data/totals';
@@ -36,13 +36,20 @@ export interface CartLine {
   img?: string; // public meal photo; GradBox falls back to `grad` when absent/errored
   mealUuid?: string; // real DB meals.id when the item came from the Supabase catalog
   kitchenUuid?: string; // real DB kitchens.id
+  /** Real kitchen display name — set only for non-seed kitchens (see rowToMeal in
+   *  supabaseRepository.ts). `cook` is a placeholder demo persona for these; wherever the
+   *  cook's name/avatar is shown, prefer this field over COOKS[cook] when it's present. */
+  kitchenName?: string;
 }
 export type OrderFlow = 'paid' | 'cod';
 
 export interface CustomerOrder {
   id: string;
   dbId?: string; // real Supabase orders.id when the card charge succeeded (enables Report an issue)
-  cook: CookId;
+  /** The grouping key (see `lineKey`) — a real kitchen's UUID, or a seed CookId. */
+  cook: string;
+  /** Real kitchen display name, carried through for non-seed kitchens (see CartLine). */
+  kitchenName?: string;
   lines: CartLine[];
   subtotal: number;
   service: number;
@@ -137,7 +144,7 @@ interface Store {
   toggleFav: (id: string) => void;
 
   lastOrder: OrderFlow | null;
-  placeOrder: (flow: OrderFlow, cook?: CookId, dbId?: string) => void;
+  placeOrder: (flow: OrderFlow, cook?: string, dbId?: string) => void;
   orders: CustomerOrder[];
   reorder: (id: string) => void;
   refreshOrderStatus: (id: string) => void;
@@ -454,19 +461,19 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
   // Multi-cart: one order PER cook. `cook` scopes checkout to a single cook's lines
   // (and removes only those from the cart); without it, every cook in the cart becomes
   // its own order. Fixes the old bug where a mixed-cook cart collapsed into one order.
-  const placeOrder = useCallback((flow: OrderFlow, cook?: CookId, dbId?: string) => {
-    const targetCooks = cook ? [cook] : Array.from(new Set(cart.map((l) => l.cook)));
+  const placeOrder = useCallback((flow: OrderFlow, cook?: string, dbId?: string) => {
+    const targetKeys = cook ? [cook] : Array.from(new Set(cart.map(lineKey)));
     const stamp = Date.now().toString(36) + Math.floor(Math.random() * 46656).toString(36);
-    const newOrders = targetCooks
-      .map((ck, idx): CustomerOrder | null => {
-        const lines = cart.filter((l) => l.cook === ck);
+    const newOrders = targetKeys
+      .map((key, idx): CustomerOrder | null => {
+        const lines = cart.filter((l) => lineKey(l) === key);
         if (!lines.length) return null;
         const t = computeTotals(lines, tip, mode); // per-cook totals
         return {
           id: 'PR-' + (stamp + idx).slice(-6).toUpperCase(),
-          // dbId only applies to the single-cook card path (checkout passes one cook).
-          dbId: targetCooks.length === 1 ? dbId : undefined,
-          cook: ck, lines,
+          // dbId only applies to the single-cook card path (checkout passes one key).
+          dbId: targetKeys.length === 1 ? dbId : undefined,
+          cook: key, kitchenName: lines[0]?.kitchenName, lines,
           subtotal: t.subtotal, service: t.service, tax: t.tax, delivery: t.delivery, tip: t.tip, total: t.total,
           mode, flow,
           status: flow === 'cod' ? 'completed' : 'preparing',
@@ -475,7 +482,7 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
       })
       .filter((o): o is CustomerOrder => o !== null);
     if (newOrders.length) setOrders((os) => [...newOrders, ...os]);
-    setCart((cs) => (cook ? cs.filter((l) => l.cook !== cook) : []));
+    setCart((cs) => (cook ? cs.filter((l) => lineKey(l) !== cook) : []));
     setLastOrder(flow);
     setTip(2);
   }, [cart, tip, mode]);
@@ -484,7 +491,7 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
     if (!o) return;
     const lines = o.lines.filter((l) => !isMine(l.cook)); // never re-buy your own listing
     if (lines.length === 0) { toast('That order is from your own kitchen', 'info'); return; }
-    lines.forEach((l) => addToCart({ key: l.key, name: l.name, cook: l.cook, price: l.price, grad: l.grad, img: l.img }, l.qty));
+    lines.forEach((l) => addToCart({ key: l.key, name: l.name, cook: l.cook, price: l.price, grad: l.grad, img: l.img, kitchenUuid: l.kitchenUuid, kitchenName: l.kitchenName }, l.qty));
     toast(`Added to cart · ${lines.length} item${lines.length !== 1 ? 's' : ''}`, 'cart', true);
   }, [orders, addToCart, toast, isMine]);
   // Pulls the real fulfillment status for a real (dbId-backed) order and patches it into local state.

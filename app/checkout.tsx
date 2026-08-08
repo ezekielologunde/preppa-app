@@ -3,7 +3,7 @@ import { View, Text, ScrollView, Platform } from 'react-native';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { createRealOrder, confirmSavedCardPayment, payWithCard } from '../src/lib/payments';
 import { useSavedCards } from '../src/lib/useSavedCards';
-import { COOKS, CookId, money } from '../src/data/data';
+import { cookOfLine, lineKey, money } from '../src/data/data';
 import { useC } from '../src/theme/ThemeContext';
 import { type, radius } from '../src/theme/theme';
 import { useStore } from '../src/store/store';
@@ -22,9 +22,9 @@ export default function Checkout() {
   const c = useC();
   const router = useRouter();
   const { cook } = useLocalSearchParams<{ cook?: string }>();
-  const ck = (cook || undefined) as CookId | undefined;
+  const ck = cook || undefined;
   const { cart, tip, setTip, mode, placeOrder, address, orders, toast, resetOnboarding } = useStore();
-  const lines = ck ? cart.filter((l) => l.cook === ck) : cart;
+  const lines = ck ? cart.filter((l) => lineKey(l) === ck) : cart;
   const t = useTotals(lines, tip, mode);
   const { methods, defaultId } = useSavedCards();
   const [pay, setPay] = useState<'online' | 'cod'>('online');
@@ -48,7 +48,7 @@ export default function Checkout() {
     else setSelectedCardId(null);
   }, [methods, defaultId, pickedCard]);
   const selectedCard = methods.find((mm) => mm.id === selectedCardId) ?? null;
-  const theCook = COOKS[ck ?? lines[0]?.cook ?? 'maria'];
+  const theCook = cookOfLine(lines[0] ?? { cook: 'maria', grad: 'g1' });
 
   if (lines.length === 0) {
     return (
@@ -73,7 +73,7 @@ export default function Checkout() {
   const place = async () => {
     if (busy) return; // guard against double-fire / double-order
     if (effectivePay === 'cod') { setBusy(true); router.push(`/cod?cook=${ck ?? ''}`); return; }
-    const cookId = (ck ?? lines[0]?.cook) as string;
+    const cookId = ck ?? lineKey(lines[0]);
     setBusy(true);
     const onError = (e: unknown) => {
       setBusy(false);

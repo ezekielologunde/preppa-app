@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { View, Text, ScrollView, TextInput } from 'react-native';
 import { useLocalSearchParams, useRouter } from 'expo-router';
-import { COOKS } from '../../src/data/data';
+import { cookOfLine } from '../../src/data/data';
 import { useC } from '../../src/theme/ThemeContext';
 import { type, radius } from '../../src/theme/theme';
 import { useStore } from '../../src/store/store';
@@ -17,7 +17,7 @@ export default function Review() {
   const { id } = useLocalSearchParams<{ id: string }>();
   const { orders, toast } = useStore();
   const o = orders.find((x) => x.id === id);
-  const cook = o ? COOKS[o.cook] : COOKS.maria;
+  const cook = cookOfLine({ cook: o?.cook ?? 'maria', kitchenName: o?.kitchenName, grad: o?.lines[0]?.grad ?? 'g1' });
   const [stars, setStars] = useState(0);
   const [tags, setTags] = useState<string[]>([]);
   const [text, setText] = useState('');
@@ -52,7 +52,7 @@ export default function Review() {
       <TopBar title="Rate your cook" />
       <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={{ paddingBottom: 120 }}>
         <View style={{ alignItems: 'center', paddingVertical: 22, backgroundColor: c.surface, borderBottomWidth: 1, borderBottomColor: c.border2 }}>
-          <Avatar cook={o ? o.cook : 'maria'} size={64} rad={20} />
+          <Avatar cook={o ? o.cook : 'maria'} initial={cook.initial} grad={cook.grad} size={64} rad={20} />
           <Text style={[type(18, 900), { color: c.ink, marginTop: 12 }]}>{cook.name}</Text>
           <Text style={[type(13, 600), { color: c.soft, marginTop: 2 }]}>How was your order?</Text>
           <View style={{ flexDirection: 'row', gap: 8, marginTop: 16 }}>

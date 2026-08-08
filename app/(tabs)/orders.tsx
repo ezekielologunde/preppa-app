@@ -2,7 +2,7 @@ import React, { useCallback, useState } from 'react';
 import { View, Text, ScrollView } from 'react-native';
 import { useRouter, useFocusEffect } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { COOKS, money, thumb } from '../../src/data/data';
+import { cookOfLine, money, thumb } from '../../src/data/data';
 import { useC } from '../../src/theme/ThemeContext';
 import { type, radius, shadow } from '../../src/theme/theme';
 import { useStore, CustomerOrder } from '../../src/store/store';
@@ -129,7 +129,7 @@ export default function Orders() {
               <Text style={[type(12, 800), { color: c.muted, textTransform: 'uppercase', letterSpacing: 0.5, marginBottom: 10 }]}>Meal orders</Text>
               <View style={{ gap: 10 }}>
                 {orders.map((o) => {
-                  const cook = COOKS[o.cook];
+                  const cook = cookOfLine({ cook: o.cook, kitchenName: o.kitchenName, grad: o.lines[0]?.grad ?? 'g1' });
                   const s = STATUS[o.status];
                   const summary = o.lines.map((l) => `${l.qty}× ${l.name}`).join(', ');
                   return (

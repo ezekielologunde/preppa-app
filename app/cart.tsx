@@ -1,7 +1,7 @@
 import React from 'react';
 import { View, Text, ScrollView } from 'react-native';
 import { useRouter } from 'expo-router';
-import { COOKS, CookId, money, thumb } from '../src/data/data';
+import { cookOfLine, lineKey, money, thumb } from '../src/data/data';
 import { useC } from '../src/theme/ThemeContext';
 import { type, radius } from '../src/theme/theme';
 import { useStore } from '../src/store/store';
@@ -23,7 +23,7 @@ export default function Cart() {
     );
   }
 
-  const cooks = Array.from(new Set(cart.map((l) => l.cook))) as CookId[];
+  const cooks = Array.from(new Set(cart.map(lineKey)));
   const grandTotal = cart.reduce((s, l) => s + l.price * l.qty, 0);
   const isMulti = cooks.length > 1;
 
@@ -37,14 +37,14 @@ export default function Cart() {
         </View>
 
         {cooks.map((ck) => {
-          const lines = cart.filter((l) => l.cook === ck);
+          const lines = cart.filter((l) => lineKey(l) === ck);
           const subtotal = lines.reduce((s, l) => s + l.price * l.qty, 0);
-          const cook = COOKS[ck];
+          const cook = cookOfLine(lines[0]);
           return (
             <View key={ck} style={{ marginHorizontal: 16, marginTop: 14, borderWidth: 1, borderColor: c.border2, borderRadius: radius.card, backgroundColor: c.surface, overflow: 'hidden' }}>
               <Press scale={0.99} onPress={() => router.push(`/store/${ck}`)} label={`${cook.name}'s kitchen`}>
                 <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10, padding: 14, borderBottomWidth: 1, borderBottomColor: c.border2 }}>
-                  <Avatar cook={ck} size={34} rad={11} />
+                  <Avatar cook={ck} initial={cook.initial} grad={cook.grad} size={34} rad={11} />
                   <Text style={[type(14.5, 900), { color: c.ink, flex: 1, letterSpacing: -0.2 }]}>{cook.name}</Text>
                   <Text style={[type(13, 700), { color: c.soft }]}>{lines.length} item{lines.length !== 1 ? 's' : ''}</Text>
                 </View>

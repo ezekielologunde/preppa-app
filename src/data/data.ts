@@ -70,6 +70,10 @@ export interface Meal {
   kitchenLat?: number; // real kitchen coords (for proximity); present once geocoded
   kitchenLng?: number;
   distKm?: number; // computed distance from the viewer (present when both have coords)
+  // Real fulfillment capability (kitchens.supports_delivery/supports_pickup). Seed kitchens
+  // always support both; real kitchens default true/true too until a cook changes it.
+  supportsDelivery?: boolean;
+  supportsPickup?: boolean;
 }
 
 /**
@@ -96,6 +100,37 @@ export function cookOf(m: Meal): Cook {
     };
   }
   return COOKS[m.cook] ?? COOKS.maria;
+}
+
+/** Same resolution as `cookOf`, for a cart/order line instead of a catalog `Meal` — checkout,
+ *  cart, and order-tracking screens must attribute a real kitchen's line to its own identity
+ *  too, not just the browse/detail screens. `acceptsCod` defaults false for real kitchens
+ *  until per-kitchen COD preference is wired (safe default — never silently allow cash). */
+export function cookOfLine(l: { cook: string; kitchenName?: string; grad: GradKey }): Cook {
+  if (l.kitchenName) {
+    return {
+      name: l.kitchenName,
+      kitchen: l.kitchenName,
+      initial: l.kitchenName.trim()[0]?.toUpperCase() ?? 'K',
+      grad: l.grad,
+      cuisine: '',
+      rating: 0,
+      reviews: 0,
+      dist: '',
+      verified: true,
+      prepscore: 0,
+      acceptsCod: false,
+    };
+  }
+  return COOKS[l.cook as CookId] ?? COOKS.maria;
+}
+
+/** The real grouping/routing key for a cart or order line — a real kitchen's UUID when
+ *  present, else the seed CookId. Real (non-seed) kitchens all share the placeholder
+ *  `cook: 'maria'`, so grouping/filtering by `l.cook` alone silently merges different real
+ *  kitchens' items into one order. Always group/filter/route by this key instead. */
+export function lineKey(l: { cook: CookId; kitchenUuid?: string }): string {
+  return l.kitchenUuid ?? l.cook;
 }
 
 const IMG = 'https://www.themealdb.com/images/media/meals/';

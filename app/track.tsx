@@ -2,7 +2,7 @@ import React, { useCallback, useEffect, useState } from 'react';
 import { View, Text, ScrollView } from 'react-native';
 import { useLocalSearchParams, useRouter, useFocusEffect } from 'expo-router';
 import Svg, { Line } from 'react-native-svg';
-import { COOKS, CookId } from '../src/data/data';
+import { cookOfLine } from '../src/data/data';
 import { useC } from '../src/theme/ThemeContext';
 import { type, radius } from '../src/theme/theme';
 import { useStore } from '../src/store/store';
@@ -31,10 +31,14 @@ export default function Track() {
   const c = useC();
   const router = useRouter();
   const { flow, cook, orderId } = useLocalSearchParams<{ flow: string; cook?: string; orderId?: string }>();
-  const { mode } = useStore();
+  const { mode, orders } = useStore();
   const cod = flow === 'cod';
-  const ck = ((cook || 'maria') as CookId);
-  const theCook = COOKS[ck];
+  const ck = cook || 'maria';
+  // The freshest source for this order's real kitchen identity is the just-created
+  // CustomerOrder (matched by dbId/orderId, or by the same grouping key) — cookOfLine's
+  // COOKS fallback only covers the 6 seed kitchens.
+  const matchedOrder = orders.find((o) => (orderId && o.dbId === orderId) || o.cook === ck);
+  const theCook = cookOfLine({ cook: ck, kitchenName: matchedOrder?.kitchenName, grad: matchedOrder?.lines[0]?.grad ?? 'g1' });
   const [live, setLive] = useState<{ status: string; fulfillment: string } | null>(null);
 
   const poll = useCallback(() => {
@@ -114,7 +118,7 @@ export default function Track() {
           </View>
 
           <View style={{ flexDirection: 'row', alignItems: 'center', gap: 12, padding: 13, borderRadius: radius.lg, backgroundColor: c.bg, borderWidth: 1, borderColor: c.border }}>
-            <Avatar cook={ck} size={46} />
+            <Avatar cook={ck} initial={theCook.initial} grad={theCook.grad} size={46} />
             <View style={{ flex: 1 }}>
               <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}><Text style={[type(15, 900), { color: c.ink }]}>{theCook.name}</Text><Icon name="shield" size={15} color={c.green} /></View>
               <Text style={[type(12, 600), { color: c.soft, marginTop: 2 }]}>Your cook is preparing your order</Text>

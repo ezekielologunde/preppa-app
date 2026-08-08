@@ -40,7 +40,7 @@ export default function MealDetail() {
   const isFav = fav.has(m.id);
 
   const add = () => {
-    addToCart({ key: m.id, name: m.name, cook: m.cook, price: m.price, grad: m.grad, img: m.img, mealUuid: m.mealUuid, kitchenUuid: m.kitchenUuid }, qty);
+    addToCart({ key: m.id, name: m.name, cook: m.cook, price: m.price, grad: m.grad, img: m.img, mealUuid: m.mealUuid, kitchenUuid: m.kitchenUuid, kitchenName: m.kitchenName }, qty);
     adds.forEach((k) => { const a = ADDONS.find((x) => x.key === k)!; addToCart(a, 1); });
     showFlash({ name: m.name, grad: m.grad });
     router.back();

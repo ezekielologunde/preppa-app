@@ -36,7 +36,7 @@ export default function HomeScreen() {
   const [locPicker, setLocPicker] = React.useState(false);
   const [locBusy, setLocBusy] = React.useState(false);
   const dropId = dailyDropId();
-  const { data: allMeals, loading: mealsLoading } = useMeals();
+  const { data: allMeals, loading: mealsLoading } = useMeals({ mode });
   const meals = allMeals ?? [];
   const drop = meals.find((m) => m.id === dropId) ?? null;
   const picks = meals.filter((m) => m.id !== dropId).slice(0, 4);

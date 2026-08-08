@@ -15,17 +15,24 @@ export interface ConnectStatus {
 }
 
 /** The signed-in cook's most recent kitchen (for onboarding / status / payout). */
-export async function getMyKitchen(): Promise<{ id: string; verification_status: string } | null> {
+export async function getMyKitchen(): Promise<{ id: string; verification_status: string; supports_delivery: boolean; supports_pickup: boolean } | null> {
   const { data: sess } = await supabase.auth.getSession();
   const uid = sess.session?.user?.id;
   if (!uid) return null;
   const { data } = await supabase
     .from('kitchens')
-    .select('id, verification_status')
+    .select('id, verification_status, supports_delivery, supports_pickup')
     .eq('owner_id', uid)
     .order('created_at', { ascending: false })
     .limit(1);
   return (data?.[0] as any) ?? null;
+}
+
+/** Persist which fulfillment methods this kitchen supports — feeds the customer-facing
+ *  Home delivery/pickup toggle's real filter (kitchens.supports_delivery/supports_pickup). */
+export async function setKitchenFulfillment(kitchenId: string, delivery: boolean, pickup: boolean): Promise<void> {
+  const { error } = await supabase.rpc('set_kitchen_fulfillment', { p_kitchen_id: kitchenId, p_delivery: delivery, p_pickup: pickup });
+  if (error) throw new Error(error.message || 'Could not update fulfillment settings.');
 }
 
 /** Create/reuse the cook's Express account and open the Stripe onboarding flow. */

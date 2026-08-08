@@ -4,7 +4,7 @@ import { useRouter } from 'expo-router';
 import { useC } from '../theme/ThemeContext';
 import { type, radius } from '../theme/theme';
 import { useStore } from '../store/store';
-import { money, thumb } from '../data/data';
+import { money, thumb, lineKey } from '../data/data';
 import { Icon, Press, Btn, Sheet, GradBox, Stepper } from '../ui';
 
 /**
@@ -16,7 +16,7 @@ export function QuickCartSheet({ visible, onClose }: { visible: boolean; onClose
   const c = useC();
   const router = useRouter();
   const { cart, setQty, removeLine } = useStore();
-  const cooks = Array.from(new Set(cart.map((l) => l.cook)));
+  const cooks = Array.from(new Set(cart.map(lineKey)));
   const total = cart.reduce((s, l) => s + l.price * l.qty, 0);
   const single = cooks.length === 1;
   const go = () => {

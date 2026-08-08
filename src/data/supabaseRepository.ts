@@ -30,7 +30,7 @@ export function setViewerCoords(c: LatLng | null) { viewerCoords = c; }
 // Embeds the parent kitchen (to-one) so real kitchens can render under their own
 // identity + coordinates instead of a seed cook.
 const MEAL_COLS =
-  'id,slug,name,kitchen_id,price_cents,grad,rating,review_count,prep_label,tags,is_match,kcal,protein_g,serves,description,image_url,photos,kitchens(name,cuisine,approx_area,approx_lat,approx_lng,is_pro)';
+  'id,slug,name,kitchen_id,price_cents,grad,rating,review_count,prep_label,tags,is_match,kcal,protein_g,serves,description,image_url,photos,kitchens(name,cuisine,approx_area,approx_lat,approx_lng,is_pro,supports_delivery,supports_pickup)';
 
 function rowToMeal(r: any): Meal {
   const seedCook = KITCHEN_TO_COOK[r.kitchen_id]; // defined only for the 6 seed kitchens
@@ -69,6 +69,10 @@ function rowToMeal(r: any): Meal {
     kitchenIsPro: seedCook ? false : !!k?.is_pro,
     kitchenLat: Number.isFinite(lat) ? lat : undefined,
     kitchenLng: Number.isFinite(lng) ? lng : undefined,
+    // Seed kitchens (no joined row) always support both; real kitchens default true/true
+    // in the DB too, so `?? true` only matters if the join itself is missing.
+    supportsDelivery: k ? k.supports_delivery !== false : true,
+    supportsPickup: k ? k.supports_pickup !== false : true,
   };
 }
 
@@ -100,6 +104,8 @@ export function filterMeals(meals: Meal[], query?: MealQuery): Meal[] {
   let out = meals;
   if (query?.kitchenUuid) out = out.filter((m) => m.kitchenUuid === query.kitchenUuid);
   if (query?.cook) out = out.filter((m) => m.cook === query.cook);
+  if (query?.mode === 'delivery') out = out.filter((m) => m.supportsDelivery !== false);
+  if (query?.mode === 'pickup') out = out.filter((m) => m.supportsPickup !== false);
   if (query?.cat && query.cat !== 'All') {
     const cat = query.cat.toLowerCase();
     out = out.filter((m) => m.tags.some((t) => t.toLowerCase().includes(cat)));

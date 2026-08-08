@@ -15,6 +15,9 @@ export interface MealQuery {
   kitchenUuid?: string; // filter by a real kitchen's DB id (for real-prepper storefronts)
   cat?: string; // matches a tag substring, case-insensitive
   q?: string; // free text over meal name + cook name
+  /** Only kitchens that support this fulfillment method (kitchens.supports_delivery /
+   *  supports_pickup). Seed kitchens support both, so this only ever narrows real supply. */
+  mode?: 'delivery' | 'pickup';
 }
 
 export interface MealRepository {
