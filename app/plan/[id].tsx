@@ -74,7 +74,7 @@ function RealPlanDetail({ plan }: { plan: Plan }) {
   const [startIso, setStartIso] = useState<string>(dates[0] ? isoDate(dates[0]) : '');
   const [busy, setBusy] = useState(false);
   const [addCard, setAddCard] = useState<string | null>(null);
-  const [result, setResult] = useState<{ firstDeliveryDate: string | null } | null>(null);
+  const [result, setResult] = useState<{ firstDeliveryDate: string | null; firstCycleSkipped?: boolean } | null>(null);
 
   const selectedItems = selModel === 'customer_choice'
     ? plan.items.filter((i) => (sel[i.mealId ?? ''] ?? 0) > 0).map((i) => ({ ...i, qty: sel[i.mealId!]! }))
@@ -102,7 +102,7 @@ function RealPlanDetail({ plan }: { plan: Plan }) {
         preferredDay: startDay,
         selection: selModel === 'customer_choice' ? selectedItems.map((i) => ({ mealId: i.mealId!, qty: i.qty })) : undefined,
       });
-      setResult({ firstDeliveryDate: res.firstDeliveryDate });
+      setResult({ firstDeliveryDate: res.firstDeliveryDate, firstCycleSkipped: res.firstCycleSkipped });
       setStage('done');
     } catch (e: any) {
       if (e?.code === 'no_card') {
@@ -128,7 +128,9 @@ function RealPlanDetail({ plan }: { plan: Plan }) {
       <Screen bg={c.surface}>
         <Burst
           title="You’re subscribed!"
-          body={<>Your <Text style={type(15, 800)}>{plan.name}</Text> from <Text style={type(15, 800)}>{plan.kitchenName}</Text> starts {result?.firstDeliveryDate ? fmtDate(result.firstDeliveryDate) : 'soon'}. You’re charged {weeklyLabel} per delivery after you confirm that week’s meals — skip, pause, or cancel anytime.</>}
+          body={result?.firstCycleSkipped
+            ? <>Your <Text style={type(15, 800)}>{plan.name}</Text> from <Text style={type(15, 800)}>{plan.kitchenName}</Text> is set up, but this cook is at capacity for {result?.firstDeliveryDate ? fmtDate(result.firstDeliveryDate) : 'your first delivery'} — you weren’t charged. You’ll automatically join the next open delivery, and we’ll notify you the moment one opens up.</>
+            : <>Your <Text style={type(15, 800)}>{plan.name}</Text> from <Text style={type(15, 800)}>{plan.kitchenName}</Text> starts {result?.firstDeliveryDate ? fmtDate(result.firstDeliveryDate) : 'soon'}. You’re charged {weeklyLabel} per delivery after you confirm that week’s meals — skip, pause, or cancel anytime.</>}
           actionLabel="View my plans"
           onAction={() => router.replace('/experiences?tab=mine')}
         />

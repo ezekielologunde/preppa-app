@@ -293,6 +293,7 @@ export interface SubscribeOptions {
 export interface SubscribeResult {
   subscriptionId: string; status: string; cycleId: string | null;
   firstDeliveryDate: string | null; firstBillingDate: string | null; selectionDeadline: string | null;
+  firstCycleSkipped?: boolean; // this cook was already at capacity for the first delivery date
 }
 
 /** Subscribe to a plan (app-controlled; no charge now — each cycle bills at its billing date). */

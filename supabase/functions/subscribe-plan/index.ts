@@ -169,6 +169,9 @@ Deno.serve(async (req) => {
       firstDeliveryDate: cycle?.delivery_date ?? iso(start),
       firstBillingDate: cycle?.billing_date ?? null,
       selectionDeadline: cycle?.selection_deadline ?? null,
+      // this cook was already at capacity for the first delivery date -- the subscription
+      // is still created (auto-retries next cycle) but the client should say so honestly.
+      firstCycleSkipped: cycle?.status === 'skipped',
     });
   } catch (_e) {
     return json(500, { error: 'Could not start your plan. Please try again.' });
