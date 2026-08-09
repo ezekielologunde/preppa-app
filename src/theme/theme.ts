@@ -6,6 +6,18 @@
  * (see docs/REDESIGN-DIRECTION.md). The public API — Palette keys, `type()`, `radius`,
  * `shadow`, `GRAD` — is UNCHANGED so the ~74 consuming screens inherit without churn;
  * only values changed. Two gradient escape-hatches survive as WARM tints, never rainbows.
+ *
+ * "Brighter & foodier" pass (2026-08-09): pushed the accent toward a deeper tomato-red
+ * (appetite association is a real, studied effect — red/orange are the two colours food
+ * brands lean on for a reason) and lifted the canvas out of "beige" territory toward a
+ * crisper near-white, Apple-native in spirit (true whites/near-blacks carrying the calm,
+ * accent doing the appetite work, not the background). All four white-on-fill / text-on-bg
+ * pairs re-verified against WCAG AA (≥4.5:1) with a real contrast calc, not eyeballed —
+ * this actually CAUGHT a pre-existing failure: the old primaryD (#E0490F) only cleared
+ * 4.09:1 with white button text, under the 4.5:1 floor for text that size. `primary` (the
+ * bright mark/icon colour, not a white-text fill) can run brighter than `primaryD`
+ * (the button-fill colour) precisely because it isn't carrying white text — this is why
+ * they're separate tokens, not one hue at two lightnesses.
  */
 import { TextStyle } from 'react-native';
 
@@ -55,13 +67,13 @@ export interface Palette {
   unread: string;
 }
 
-/** Light — warm near-white canvas, one persimmon accent, warmth carried by ink + insets + imagery. */
+/** Light — crisp near-white canvas, one deep-tomato accent, warmth carried by ink + insets + imagery. */
 export const light: Palette = {
-  primary: '#FF5A24', primaryD: '#E0490F', primaryL: '#FFE3D6', // bright orange (landing brand); primaryD = button FILL (white-on ≈ 5:1)
-  accentText: '#E0490F', // deep orange text on light — AA (~5:1); matches the landing's accent-text
+  primary: '#FF5B2E', primaryD: '#D4430D', primaryL: '#FFE4D4', // bright tomato-orange mark; primaryD = button FILL (white-on 4.56:1, AA)
+  accentText: '#C93F0C', // deep tomato text on light — AA (4.82:1 on the new bg)
   purple: '#6B4A93', purpleL: '#F1EAF8', purpleOn: '#5A3E7E',
   ink: '#221E1B', ink2: '#34302B', soft: '#6A645E', muted: '#67615A',
-  surface: '#FFFFFF', bg: '#FFF6F0', bg2: '#FBEEE4', border: '#F3E4DA', border2: '#F8EDE4',
+  surface: '#FFFFFF', bg: '#FFFAF6', bg2: '#F8EFE7', border: '#EFE2D6', border2: '#F4E9DE',
   borderF: '#B08E7E',
   feature: '#1E1A16',
   green: '#127C43', green2: '#1F9D57', greenL: '#E6F3EC',
@@ -69,13 +81,13 @@ export const light: Palette = {
   unread: '#FFF3EC',
 };
 
-/** Dark — warm charcoal, same accent, brighter semantics (dark bg lifts contrast). */
+/** Dark — warm near-black, same accent, brighter semantics (dark bg lifts contrast). */
 export const dark: Palette = {
-  primary: '#FF6A3D', primaryD: '#E0490F', primaryL: '#3A241E',
-  accentText: '#FF7A4E', // bright orange text on dark charcoal — high contrast
+  primary: '#FF7048', primaryD: '#D4430D', primaryL: '#3A241E', // same AA-safe fill as light (white-on 4.56:1) — buttons work identically in both themes
+  accentText: '#FF8659', // bright tomato text on dark — high contrast (7.75:1)
   purple: '#9E7FD0', purpleL: '#2A2136', purpleOn: '#C9AEF0',
   ink: '#F4EFE8', ink2: '#E7DFD4', soft: '#B4A99B', muted: '#A09687',
-  surface: '#201C17', bg: '#15120F', bg2: '#2A241D', border: '#332C23', border2: '#2A241D',
+  surface: '#231E18', bg: '#17130F', bg2: '#2D271F', border: '#372F25', border2: '#2D271F',
   borderF: '#776C60',
   feature: '#241C15',
   green: '#22C55E', green2: '#22C55E', greenL: '#16281B',
