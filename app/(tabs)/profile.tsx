@@ -4,7 +4,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useC } from '../../src/theme/ThemeContext';
-import { type, radius, shadow, BRAND_GRAD } from '../../src/theme/theme';
+import { type, radius, shadow, BRAND_GRAD, PREPPLUS_GRAD } from '../../src/theme/theme';
 import { useStore } from '../../src/store/store';
 import { Icon, Press, Switch } from '../../src/ui';
 import { SectionLabel } from '../../src/ui/layout';
@@ -132,7 +132,7 @@ export default function Profile() {
         {FLAGS.prepplus && Platform.OS === 'web' ? (
           <Press scale={0.98} onPress={() => router.push('/prepplus')} label="PrepPlus"
             style={{ marginHorizontal: 16, marginTop: 16, borderRadius: radius.xl, overflow: 'hidden', ...shadow.card }}>
-            <LinearGradient colors={['#6B4A93', '#E0490F']} start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }}
+            <LinearGradient colors={PREPPLUS_GRAD} start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }}
               style={{ padding: 16, flexDirection: 'row', alignItems: 'center', gap: 14 }}>
               <View style={{ width: 46, height: 46, borderRadius: 15, backgroundColor: 'rgba(255,255,255,.2)', alignItems: 'center', justifyContent: 'center' }}>
                 <Icon name="bolt" size={23} color="#fff" />

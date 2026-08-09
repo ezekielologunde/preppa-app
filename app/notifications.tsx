@@ -81,10 +81,10 @@ function Seg({ label, count, on, onPress }: { label: string; count: number; on: 
   const c = useC();
   return (
     <Press scale={0.97} onPress={onPress} style={{ flex: 1 }}>
-      <View style={{ height: 40, borderRadius: radius.pill, backgroundColor: on ? c.primary : c.bg2, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 7 }}>
+      <View style={{ height: 40, borderRadius: radius.pill, backgroundColor: on ? c.primaryD : c.bg2, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 7 }}>
         <Text style={[type(14, 800), { color: on ? '#fff' : c.soft }]}>{label}</Text>
         {count > 0 ? (
-          <View style={{ minWidth: 18, height: 18, borderRadius: 9, paddingHorizontal: 5, backgroundColor: on ? 'rgba(255,255,255,.25)' : c.primary, alignItems: 'center', justifyContent: 'center' }}>
+          <View style={{ minWidth: 18, height: 18, borderRadius: 9, paddingHorizontal: 5, backgroundColor: on ? 'rgba(255,255,255,.25)' : c.primaryD, alignItems: 'center', justifyContent: 'center' }}>
             <Text style={[type(10, 900), { color: '#fff' }]}>{count}</Text>
           </View>
         ) : null}

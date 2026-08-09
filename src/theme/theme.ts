@@ -48,6 +48,9 @@ export const ONBOARD_GRAD = ['#FF7A45', '#FB5C24', '#D23E0A'] as const;
 /** Experiences hub wash (classes/dinners cards) — vivid rose/crimson, deliberately distinct
  *  from the brand-orange family; not a per-cook GRAD key since it names a concept, not a cook. */
 export const EXPERIENCE_GRAD = ['#FB7185', '#E11D48'] as const;
+/** PrepPlus membership wash (promo card + paywall/member heroes) — plum→orange, distinct
+ *  from both the cook-keyed GRAD and the food-forward EXPERIENCE_GRAD. */
+export const PREPPLUS_GRAD = ['#6B4A93', '#E24A38'] as const;
 
 /** Theme-invariant brand marks (splash / onboarding / adaptive icon parity). */
 export const BRAND_PRIMARY = '#FF5A24';

@@ -270,7 +270,7 @@ export default function ThreadView() {
                       <Text style={[type(10, 600), { color: c.muted, marginTop: 3, alignSelf: m.mine ? 'flex-end' : 'flex-start' }]}>{clock(m.createdAt)}</Text>
                     </View>
                   ) : (
-                    <View style={{ alignSelf: m.mine ? 'flex-end' : 'flex-start', maxWidth: '80%', backgroundColor: m.mine ? c.primary : c.surface, borderWidth: m.mine ? 0 : 1, borderColor: c.border2, paddingVertical: 10, paddingHorizontal: 14, borderRadius: 18, borderBottomRightRadius: m.mine ? 4 : 18, borderBottomLeftRadius: m.mine ? 18 : 4 }}>
+                    <View style={{ alignSelf: m.mine ? 'flex-end' : 'flex-start', maxWidth: '80%', backgroundColor: m.mine ? c.primaryD : c.surface, borderWidth: m.mine ? 0 : 1, borderColor: c.border2, paddingVertical: 10, paddingHorizontal: 14, borderRadius: 18, borderBottomRightRadius: m.mine ? 4 : 18, borderBottomLeftRadius: m.mine ? 18 : 4 }}>
                       <Text style={[type(14, 500), { color: m.mine ? '#fff' : c.ink, lineHeight: 20 }]}>{m.body}</Text>
                       <Text style={[type(10, 600), { color: m.mine ? 'rgba(255,255,255,.7)' : c.muted, marginTop: 3, alignSelf: 'flex-end' }]}>{clock(m.createdAt)}</Text>
                     </View>
@@ -314,7 +314,7 @@ export default function ThreadView() {
                 />
               </View>
               <Press scale={0.94} onPress={send} disabled={!text.trim() || sending} label="Send">
-                <View style={{ width: 52, height: 48, borderRadius: radius.md, backgroundColor: text.trim() ? c.primary : c.border, alignItems: 'center', justifyContent: 'center' }}>
+                <View style={{ width: 52, height: 48, borderRadius: radius.md, backgroundColor: text.trim() ? c.primaryD : c.border, alignItems: 'center', justifyContent: 'center' }}>
                   {sending ? <ActivityIndicator size="small" color="#fff" /> : <Icon name="send" size={19} color="#fff" />}
                 </View>
               </Press>
