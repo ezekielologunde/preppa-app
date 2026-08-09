@@ -171,17 +171,21 @@ export default function HomeScreen() {
           />
         ) : null}
 
-        {/* Explore — the app's four layers as calm, flat, wayfinding-labelled cards (not rainbow tiles). */}
+        {/* Explore — three peer "manage a recurring thing" cards plus a distinct, wider Feed
+            teaser below. Feed is a social/browse surface, not a peer of Plans/Subscriptions/
+            Experiences — giving it the same tile shape as the other three was the generic
+            four-up feature-grid look; a wide row (like the chef banner below) signals it's a
+            different kind of destination. */}
         <SectionHeader title="Explore Preppa" />
         <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 12, paddingHorizontal: 20 }}>
           <BigCard c={c} wide={wide} kind="Weekly" icon="repeat" title="Meal plans" body="Recurring boxes from a cook you love" onPress={() => router.push('/experiences?tab=plans')} />
           <BigCard c={c} wide={wide} kind="Yours" icon="bank" title="Subscriptions" body="Manage your recurring boxes" onPress={() => router.push('/experiences?tab=mine')} />
           <BigCard c={c} wide={wide} kind="Events" icon="gift" title="Experiences" body="Classes, supper clubs & events" onPress={() => router.push('/experiences?tab=experiences')} />
-          <BigCard c={c} wide={wide} kind="Live" icon="video" title="Feed" body="See what cooks are making" onPress={() => router.push('/(tabs)/feeds')} />
         </View>
+        <ChefBanner c={c} icon="video" title="Feed" body="See what cooks are making right now" onPress={() => router.push('/(tabs)/feeds')} style={{ marginTop: 12 }} />
 
         {/* Cook-at-My-Place (services) banner */}
-        <ChefBanner c={c} icon="chefhat" title="Cook at My Place" body="A private chef in your kitchen — compare fixed quotes" onPress={() => FLAGS.services ? router.push('/service-request?category=cook_at_home') : toast('Private-chef bookings are coming soon', 'chefhat')} style={{ marginTop: 16 }} />
+        <ChefBanner c={c} icon="chefhat" title="Cook at My Place" body="A private chef in your kitchen — compare fixed quotes" onPress={() => FLAGS.services ? router.push('/service-request?category=cook_at_home') : toast('Private-chef bookings are coming soon', 'chefhat')} style={{ marginTop: 10 }} />
 
         <View style={{ height: 14 }} />
       </ScrollView>
