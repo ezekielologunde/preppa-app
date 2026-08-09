@@ -1,5 +1,5 @@
 import React, { useCallback, useState } from 'react';
-import { View, Text, ScrollView, ActivityIndicator } from 'react-native';
+import { View, Text, ScrollView, ActivityIndicator, TextInput } from 'react-native';
 import { useRouter, useLocalSearchParams, useFocusEffect } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useC } from '../src/theme/ThemeContext';
@@ -11,6 +11,7 @@ import { seedCookForKitchen } from '../src/data/supabaseRepository';
 import { MealsBrowser } from '../src/components/MealsBrowser';
 import { ModeTabs } from '../src/components/ModeTabs';
 import { CardPaymentSheet } from '../src/components/CardPaymentSheet';
+import { Dialog } from '../src/ui/overlay';
 import { listMyRequests, acceptQuoteAndDeposit, SERVICE_LABELS, type RequestView } from '../src/lib/services';
 import { useStore } from '../src/store/store';
 import { FLAGS } from '../src/config/flags';
@@ -60,6 +61,9 @@ function ServicesMode() {
   const [pay, setPay] = useState<{ clientSecret: string; label: string } | null>(null);
   const [busyQuote, setBusyQuote] = useState<string | null>(null);
   const [loadError, setLoadError] = useState<string | null>(null);
+  // Confirming a deposit moves real money to a stranger's kitchen — one tap straight into the
+  // payment sheet was too thin a safety margin, especially with several quotes pending at once.
+  const [confirm, setConfirm] = useState<{ id: string; kitchenName: string; amountLabel: string } | null>(null);
   const feeBps = isPrepPlus ? 0 : 1500; // PrepPlus waives Preppa's service fee (display; server-enforced)
 
   // Audit High finding: this used to have no .catch, so a rejected listMyRequests() call
@@ -81,6 +85,12 @@ function ServicesMode() {
       else { toast('Booking confirmed', 'check', true); load(); }
     } catch (e: any) { toast(e?.message || 'Could not start your booking', 'info'); }
     finally { setBusyQuote(null); }
+  };
+  const confirmAccept = () => {
+    if (!confirm) return;
+    const { id, amountLabel } = confirm;
+    setConfirm(null);
+    accept(id, amountLabel);
   };
 
   return (
@@ -133,7 +143,7 @@ function ServicesMode() {
                   ) : (
                     <View style={{ marginTop: 10 }}>
                       <KDeposit label={busyQuote === q.id ? 'Starting…' : `Accept · deposit ${money0(q.depositCents + Math.round(q.amountCents * feeBps / 10000))}`}
-                        onPress={() => accept(q.id, money0(q.depositCents + Math.round(q.amountCents * feeBps / 10000)))} />
+                        onPress={() => setConfirm({ id: q.id, kitchenName: q.kitchenName, amountLabel: money0(q.depositCents + Math.round(q.amountCents * feeBps / 10000)) })} />
                     </View>
                   )}
                 </View>
@@ -145,6 +155,25 @@ function ServicesMode() {
 
       <CardPaymentSheet visible={!!pay} clientSecret={pay?.clientSecret ?? null} amountLabel={pay?.label ?? ''} mode="pay"
         onPaid={() => { setPay(null); toast('Deposit paid — booking confirmed', 'check', true); load(); }} onClose={() => setPay(null)} />
+
+      <Dialog visible={!!confirm} onClose={() => setConfirm(null)} title="Confirm your booking">
+        <Text style={[type(14, 500), { color: c.soft, lineHeight: 20 }]}>
+          You're about to pay a <Text style={type(14, 800)}>{confirm?.amountLabel}</Text> deposit to book with{' '}
+          <Text style={type(14, 800)}>{confirm?.kitchenName}</Text>. The rest is due after the job is done.
+        </Text>
+        <View style={{ flexDirection: 'row', gap: 10, marginTop: 4 }}>
+          <Press scale={0.97} onPress={() => setConfirm(null)} style={{ flex: 1 }}>
+            <View style={{ height: 46, borderRadius: radius.md, borderWidth: 1, borderColor: c.border, alignItems: 'center', justifyContent: 'center' }}>
+              <Text style={[type(14, 800), { color: c.ink }]}>Cancel</Text>
+            </View>
+          </Press>
+          <Press scale={0.97} onPress={confirmAccept} style={{ flex: 1 }}>
+            <View style={{ height: 46, borderRadius: radius.md, backgroundColor: c.primaryD, alignItems: 'center', justifyContent: 'center' }}>
+              <Text style={[type(14, 800), { color: '#fff' }]}>Confirm & pay</Text>
+            </View>
+          </Press>
+        </View>
+      </Dialog>
     </ScrollView>
   );
 }
@@ -163,6 +192,7 @@ function KDeposit({ label, onPress }: { label: string; onPress: () => void }) {
 function PreppersMode() {
   const c = useC();
   const router = useRouter();
+  const [q, setQ] = useState('');
   const { data: kitchens, loading, error } = useKitchens();
   if (loading) return <View style={{ paddingVertical: 60, alignItems: 'center' }}><ActivityIndicator color={c.primary} /></View>;
   // Audit High finding: this used to drop the `error` field entirely, so a failed fetch
@@ -172,16 +202,39 @@ function PreppersMode() {
       <Text style={[type(13.5, 600), { color: c.red, textAlign: 'center', marginBottom: 10 }]}>Could not load preppers. Please try again.</Text>
     </View>
   );
-  const list = kitchens ?? [];
-  if (list.length === 0) return (
+  const all = kitchens ?? [];
+  if (all.length === 0) return (
     <View style={{ alignItems: 'center', paddingVertical: 50, paddingHorizontal: 24 }}>
       <Text style={[type(14, 600), { color: c.soft, textAlign: 'center' }]}>No preppers near you yet.</Text>
     </View>
   );
+  // Same search-bar pattern as MealsBrowser — Preppers mode had none, so it was unusable
+  // past a handful of seed cooks; matches name, cuisine, and area/distance text.
+  const needle = q.trim().toLowerCase();
+  const list = !needle ? all : all.filter((k) => {
+    const seed = seedCookForKitchen(k.id);
+    const cook = seed ? COOKS[seed] : null;
+    const hay = [cook?.name ?? k.name, cook?.cuisine ?? k.cuisine, k.dist, cook?.dist, k.area].filter(Boolean).join(' ').toLowerCase();
+    return hay.includes(needle);
+  });
   return (
-    <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={{ padding: 16, paddingBottom: 40, gap: 12 }}>
-      {list.map((k) => <PrepperRow key={k.id} k={k} onPress={() => router.push(`/store/${seedCookForKitchen(k.id) ?? k.id}`)} />)}
-    </ScrollView>
+    <View style={{ flex: 1 }}>
+      <View style={{ paddingHorizontal: 16, paddingTop: 12 }}>
+        <View style={{ height: 50, borderRadius: radius.lg, backgroundColor: c.bg2, flexDirection: 'row', alignItems: 'center', gap: 10, paddingHorizontal: 15 }}>
+          <Icon name="search" size={18} color={c.muted} />
+          <TextInput value={q} onChangeText={setQ} placeholder="Search preppers, cuisines…" placeholderTextColor={c.muted} style={[type(15, 600), { color: c.ink, flex: 1, padding: 0 }]} />
+        </View>
+      </View>
+      {list.length === 0 ? (
+        <View style={{ alignItems: 'center', paddingVertical: 50, paddingHorizontal: 24 }}>
+          <Text style={[type(14, 600), { color: c.soft, textAlign: 'center' }]}>No preppers match “{q}”.</Text>
+        </View>
+      ) : (
+        <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={{ padding: 16, paddingBottom: 40, gap: 12 }}>
+          {list.map((k) => <PrepperRow key={k.id} k={k} onPress={() => router.push(`/store/${seedCookForKitchen(k.id) ?? k.id}`)} />)}
+        </ScrollView>
+      )}
+    </View>
   );
 }
 
@@ -194,7 +247,7 @@ function PrepperRow({ k, onPress }: { k: KitchenCard; onPress: () => void }) {
   const distTxt = k.dist || cook?.dist || k.area;
   const rating = k.ratingCount > 0 ? k.ratingAvg.toFixed(1) : 'New';
   return (
-    <Press scale={0.99} onPress={onPress} label={`${name} kitchen`}>
+    <Press scale={0.99} onPress={onPress} label={`${name} kitchen, verified, ${rating === 'New' ? 'new' : `${rating} stars`}${distTxt ? `, ${distTxt}` : ''}`}>
       <View style={{ flexDirection: 'row', alignItems: 'center', gap: 13, backgroundColor: c.surface, borderWidth: 1, borderColor: c.border2, borderRadius: radius.xl, padding: 14, ...shadow.card }}>
         {seed ? <Avatar cook={seed} size={52} rad={16} /> : (
           <View style={{ width: 52, height: 52, borderRadius: 16, backgroundColor: c.primaryL, alignItems: 'center', justifyContent: 'center' }}>
