@@ -79,6 +79,7 @@ export interface KitchenCard {
   id: string; name: string; slug: string; cuisine: string; area: string;
   avatarUrl: string | null; lat?: number; lng?: number; specialties: string[];
   ratingAvg: number; ratingCount: number; distKm?: number; dist?: string; isPro?: boolean;
+  supportsDelivery?: boolean; supportsPickup?: boolean;
 }
 export interface KitchenProfile extends KitchenCard {
   bio: string | null; coverUrl: string | null; yearsActive: number | null; availability: string;
@@ -88,7 +89,7 @@ const KP_COLS = 'id,name,slug,cuisine,bio,approx_area,approx_lat,approx_lng,avat
 
 async function fetchKitchensRaw(): Promise<KitchenCard[]> {
   const [{ data: ks, error }, { data: rs }] = await Promise.all([
-    supabase.from('kitchen_public').select('id,name,slug,cuisine,approx_area,approx_lat,approx_lng,avatar_url,specialties,is_pro'),
+    supabase.from('kitchen_public').select('id,name,slug,cuisine,approx_area,approx_lat,approx_lng,avatar_url,specialties,is_pro,supports_delivery,supports_pickup'),
     supabase.from('kitchen_rating').select('kitchen_id,rating_avg,rating_count'),
   ]);
   if (error) throw error;
@@ -102,6 +103,7 @@ async function fetchKitchensRaw(): Promise<KitchenCard[]> {
       avatarUrl: k.avatar_url ?? null, lat: Number.isFinite(lat) ? lat : undefined, lng: Number.isFinite(lng) ? lng : undefined,
       specialties: (k.specialties as string[]) ?? [], ratingAvg: r ? Number(r.rating_avg) : 0, ratingCount: r ? Number(r.rating_count) : 0,
       isPro: !!k.is_pro,
+      supportsDelivery: k.supports_delivery !== false, supportsPickup: k.supports_pickup !== false,
     } as KitchenCard;
   });
 }
@@ -117,11 +119,19 @@ function sortKitchens(list: KitchenCard[], coords: LatLng | null): KitchenCard[]
   }
   return out.sort((a, b) => proRank(a) - proRank(b) || a.name.localeCompare(b.name));
 }
-/** The directory of verified kitchens — cached once; nearest-first re-sort is client-side. */
-export function useKitchens(): AsyncState<KitchenCard[]> {
+/** The directory of verified kitchens — cached once; nearest-first re-sort + fulfillment-mode
+ *  filter (delivery/pickup) are client-side, mirroring useMeals({ mode }). */
+export function useKitchens(opts?: { mode?: 'delivery' | 'pickup' }): AsyncState<KitchenCard[]> {
   const { coords } = useStore();
   const { data, loading, error } = useCachedAsync<KitchenCard[]>('kitchens:public', fetchKitchensRaw);
-  const list = useMemo(() => (data ? sortKitchens(data, coords ?? null) : []), [data, coords?.lat, coords?.lng]);
+  const mode = opts?.mode;
+  const list = useMemo(() => {
+    if (!data) return [];
+    const filtered = mode === 'delivery' ? data.filter((k) => k.supportsDelivery !== false)
+      : mode === 'pickup' ? data.filter((k) => k.supportsPickup !== false)
+      : data;
+    return sortKitchens(filtered, coords ?? null);
+  }, [data, coords?.lat, coords?.lng, mode]);
   return { data: data ? list : null, loading, error };
 }
 

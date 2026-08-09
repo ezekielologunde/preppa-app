@@ -40,7 +40,7 @@ export default function HomeScreen() {
   const meals = allMeals ?? [];
   const drop = meals.find((m) => m.id === dropId) ?? null;
   const picks = meals.filter((m) => m.id !== dropId).slice(0, 4);
-  const { data: kitchens } = useKitchens();
+  const { data: kitchens } = useKitchens({ mode: mode === 'pickup' ? 'pickup' : mode === 'delivery' ? 'delivery' : undefined });
 
   const useMyLocation = async () => {
     if (locBusy) return;
