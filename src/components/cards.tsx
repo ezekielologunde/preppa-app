@@ -85,7 +85,7 @@ export function PrepperRail({ kitchens }: { kitchens: KitchenCard[] }) {
         const distTxt = k.dist || cook?.dist || k.area;
         const rating = k.ratingCount > 0 ? k.ratingAvg.toFixed(1) : 'New';
         return (
-          <Press key={k.id} scale={0.97} onPress={() => router.push(`/store/${seed ?? k.id}`)} label={`${name} kitchen`}>
+          <Press key={k.id} scale={0.97} onPress={() => router.push(`/store/${seed ?? k.id}`)} label={`${name} kitchen, verified, ${rating === 'New' ? 'new' : `${rating} stars`}${distTxt ? `, ${distTxt}` : ''}`}>
             <View style={{ width: 150, backgroundColor: c.surface, borderWidth: 1, borderColor: c.border2, borderRadius: radius.card, padding: 14, alignItems: 'center', ...shadow.card }}>
               {seed ? <Avatar cook={seed} size={54} rad={17} /> : (
                 <View style={{ width: 54, height: 54, borderRadius: 17, backgroundColor: c.primary, alignItems: 'center', justifyContent: 'center' }}>
@@ -94,6 +94,10 @@ export function PrepperRail({ kitchens }: { kitchens: KitchenCard[] }) {
               )}
               <View style={{ flexDirection: 'row', alignItems: 'center', gap: 5, marginTop: 10, maxWidth: '100%' }}>
                 <Text numberOfLines={1} style={[type(14, 900), { color: c.ink, flexShrink: 1 }]}>{name}</Text>
+                {/* Every kitchen in this directory is already verified before it's listed, but
+                    a first-time customer can't tell that from a bare "New" rating alone — the
+                    shield is the one visible reassurance that "New" means unrated, not unvetted. */}
+                <Icon name="shield" size={12} color={c.green} />
                 {k.isPro ? (
                   <View style={{ paddingHorizontal: 6, height: 16, borderRadius: radius.pill, backgroundColor: c.primaryL, alignItems: 'center', justifyContent: 'center' }}>
                     <Text style={[type(9, 900), { color: c.primaryD, letterSpacing: 0.2 }]}>PRO</Text>

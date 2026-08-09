@@ -94,8 +94,10 @@ export default function HomeScreen() {
           ) : null}
 
           {/* location pill */}
-          <Press scale={0.98} onPress={useMyLocation} label="Set your location" style={{ marginTop: wide ? 0 : 16, alignSelf: 'flex-start' }}>
-            <Text style={[type(11, 600), { color: c.muted, textTransform: 'uppercase', letterSpacing: 0.6 }]}>{mode === 'pickup' ? 'Pick up in' : 'Deliver to'}</Text>
+          <Press scale={0.98} onPress={useMyLocation} label={coords ? 'Change your location' : 'Confirm your location — showing a default area'} style={{ marginTop: wide ? 0 : 16, alignSelf: 'flex-start' }}>
+            <Text style={[type(11, 600), { color: c.muted, textTransform: 'uppercase', letterSpacing: 0.6 }]}>
+              {coords ? (mode === 'pickup' ? 'Pick up in' : 'Deliver to') : 'Default area — tap to confirm'}
+            </Text>
             <View style={{ flexDirection: 'row', alignItems: 'center', gap: 5, marginTop: 3 }}>
               {locBusy ? <ActivityIndicator size="small" color={c.ink} /> : <Icon name="pin" size={15} color={c.primary} />}
               <Text style={[type(16, 700), { color: c.ink, letterSpacing: -0.3 }]}>{location}</Text>
