@@ -9,7 +9,7 @@ import { Screen, TopBar } from '../../src/ui/layout';
 import { money } from '../../src/data/data';
 import { KSec, KBtn } from '../(tabs)/my-hub';
 import { fetchPrepRollup, fetchCookSubscribers, type PrepDay, type CookSubscriber, type Lifecycle } from '../../src/lib/subscriptions';
-import { broadcastAudienceCount, sendBroadcast } from '../../src/lib/messages';
+import { broadcastAudienceCount, sendBroadcast, openThreadAsKitchen } from '../../src/lib/messages';
 
 const WD = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
 const MO = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
@@ -31,6 +31,18 @@ export default function SubscribersScreen() {
   const [subs, setSubs] = useState<CookSubscriber[]>([]);
   const [loading, setLoading] = useState(true);
   const [broadcastOpen, setBroadcastOpen] = useState(false);
+  const [messaging, setMessaging] = useState<string | null>(null);
+
+  const message = async (s: CookSubscriber) => {
+    if (messaging) return;
+    setMessaging(s.subscriptionId);
+    try {
+      const tid = await openThreadAsKitchen(s.customerId, 'subscription', s.subscriptionId);
+      router.push(`/messages/${tid}`);
+    } catch (e: any) {
+      toast(e?.message || 'Could not open the conversation', 'info');
+    } finally { setMessaging(null); }
+  };
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -103,6 +115,11 @@ export default function SubscribersScreen() {
                     <Text numberOfLines={1} style={[type(12.5, 600), { color: c.soft, marginTop: 2 }]}>{s.planName} · {money(s.priceCents / 100)}/wk{s.preferredDay ? ` · ${s.preferredDay}` : ''}</Text>
                   </View>
                   <Text style={[type(11.5, 800), { color: ch.fg, backgroundColor: ch.bg, paddingHorizontal: 10, paddingVertical: 4, borderRadius: 999, overflow: 'hidden' }]}>{ch.label}</Text>
+                  <Press scale={0.9} onPress={() => message(s)} disabled={!!messaging} label="Message">
+                    <View style={{ width: 34, height: 34, borderRadius: 12, backgroundColor: c.bg2, alignItems: 'center', justifyContent: 'center' }}>
+                      {messaging === s.subscriptionId ? <ActivityIndicator size="small" color={c.ink} /> : <Icon name="chat" size={16} color={c.ink} />}
+                    </View>
+                  </Press>
                 </View>
               );
             })}

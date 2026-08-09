@@ -9,9 +9,10 @@ import { Icon, Press } from '../../src/ui';
 import { Screen } from '../../src/ui/layout';
 import { NotFound } from '../../src/components/NotFound';
 import { ThreadAvatar } from './index';
+import { supabase } from '../../src/lib/supabase';
 import {
   fetchThreadHeader, fetchMessages, sendMessage, markThreadRead, setThreadBlock, reportMessage,
-  subscribeThread, type Message, type ThreadHeader,
+  subscribeThread, subscribeThreadReads, openTypingChannel, type Message, type ThreadHeader, type TypingChannel,
 } from '../../src/lib/messages';
 
 const CTX_LABEL: Record<string, string> = {
@@ -49,8 +50,17 @@ export default function ThreadView() {
   const [text, setText] = useState('');
   const [sending, setSending] = useState(false);
   const [menu, setMenu] = useState(false);
+  const [myId, setMyId] = useState<string | null>(null);
+  const [typing, setTyping] = useState(false);
   const scroller = useRef<ScrollView>(null);
   const meIdRef = useRef<string | null>(null);
+  const typingChannelRef = useRef<TypingChannel | null>(null);
+  const typingHideTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const typingSendTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  useEffect(() => {
+    supabase.auth.getSession().then(({ data }) => { const id = data.session?.user?.id ?? null; setMyId(id); meIdRef.current = meIdRef.current ?? id; });
+  }, []);
 
   const scrollDown = useCallback(() => { requestAnimationFrame(() => scroller.current?.scrollToEnd({ animated: true })); }, []);
 
@@ -91,6 +101,38 @@ export default function ThreadView() {
     });
     return off;
   }, [threadId, scrollDown]);
+
+  // live read-receipt updates — flips "Delivered" to "Read" without a manual refresh
+  useEffect(() => {
+    if (!threadId || !header) return;
+    const off = subscribeThreadReads(threadId, (row) => {
+      const lastReadAt = header.iAmCook ? row.customer_last_read_at : row.kitchen_last_read_at;
+      setHeader((h) => (h ? { ...h, counterpartLastReadAt: lastReadAt ?? null } : h));
+    });
+    return off;
+  }, [threadId, header?.iAmCook]);
+
+  // Typing indicator — ephemeral broadcast, not persisted. Re-arm a short "typing" flag on
+  // every event from the other side; no explicit "stopped" signal, it just times out.
+  useEffect(() => {
+    if (!threadId || !myId) return;
+    const ch = openTypingChannel(threadId, myId, () => {
+      setTyping(true);
+      if (typingHideTimer.current) clearTimeout(typingHideTimer.current);
+      typingHideTimer.current = setTimeout(() => setTyping(false), 3000);
+    });
+    typingChannelRef.current = ch;
+    return () => { ch.close(); typingChannelRef.current = null; if (typingHideTimer.current) clearTimeout(typingHideTimer.current); };
+  }, [threadId, myId]);
+
+  // Throttle my own outgoing typing pings to ~1/second while the user is actively typing.
+  const onChangeText = (t: string) => {
+    setText(t);
+    if (!typingSendTimer.current) {
+      typingChannelRef.current?.send();
+      typingSendTimer.current = setTimeout(() => { typingSendTimer.current = null; }, 1000);
+    }
+  };
 
   const send = async () => {
     const body = text.trim();
@@ -181,6 +223,8 @@ export default function ThreadView() {
                   </View>
                 );
               }
+              const isLastMine = m.mine && !msgs.slice(i + 1).some((x) => x.mine);
+              const read = isLastMine && !!header?.counterpartLastReadAt && new Date(header.counterpartLastReadAt) >= new Date(m.createdAt);
               return (
                 <View key={m.id}>
                   {showDay ? <Text style={[type(11, 700), { color: c.muted, textAlign: 'center', marginVertical: 6 }]}>{dayLabel(m.createdAt)}</Text> : null}
@@ -188,9 +232,15 @@ export default function ThreadView() {
                     <Text style={[type(14, 500), { color: m.mine ? '#fff' : c.ink, lineHeight: 20 }]}>{m.body}</Text>
                     <Text style={[type(10, 600), { color: m.mine ? 'rgba(255,255,255,.7)' : c.muted, marginTop: 3, alignSelf: 'flex-end' }]}>{clock(m.createdAt)}</Text>
                   </View>
+                  {isLastMine ? <Text style={[type(10.5, 600), { color: c.muted, alignSelf: 'flex-end', marginTop: 2, marginRight: 2 }]}>{read ? 'Read' : 'Delivered'}</Text> : null}
                 </View>
               );
             })}
+            {typing ? (
+              <View style={{ alignSelf: 'flex-start', maxWidth: '60%', backgroundColor: c.surface, borderWidth: 1, borderColor: c.border2, paddingVertical: 10, paddingHorizontal: 14, borderRadius: 18, borderBottomLeftRadius: 4 }}>
+                <Text style={[type(13, 700), { color: c.muted }]}>{header?.name?.split(' ')[0] ?? 'They'} is typing…</Text>
+              </View>
+            ) : null}
           </ScrollView>
 
           {/* composer */}
@@ -205,7 +255,7 @@ export default function ThreadView() {
               <View style={{ flex: 1, minHeight: 48, maxHeight: 120, borderRadius: radius.md, backgroundColor: c.bg2, justifyContent: 'center', paddingHorizontal: 16, paddingVertical: 6 }}>
                 <TextInput
                   value={text}
-                  onChangeText={setText}
+                  onChangeText={onChangeText}
                   placeholder={`Message ${header?.name?.split(' ')[0] ?? ''}…`}
                   placeholderTextColor={c.muted}
                   multiline

@@ -33,6 +33,7 @@ export interface ThreadHeader {
   iAmCook: boolean;
   blockedByMe: boolean;
   blocked: boolean;        // either party has blocked (sends are disabled)
+  counterpartLastReadAt: string | null; // for "Read" receipts on my own last message
 }
 
 export type SenderRole = 'customer' | 'kitchen' | 'system';
@@ -80,7 +81,19 @@ export async function fetchThreadHeader(threadId: string): Promise<ThreadHeader 
     id: r.thread_id, kitchenId: r.kitchen_id, name: r.counterpart_name ?? 'Conversation',
     avatarUrl: r.counterpart_avatar ?? null, contextType: r.context_type, contextId: r.context_id,
     iAmCook: !!r.i_am_cook, blockedByMe: !!r.blocked_by_me, blocked: !!r.blocked,
+    counterpartLastReadAt: r.counterpart_last_read_at ?? null,
   };
+}
+
+/** Resolve-or-create a thread as the KITCHEN side — only allowed when the caller's kitchen
+ *  has an actual relationship with the customer (order/subscription/booking/quote), enforced
+ *  server-side. Lets a cook start a conversation instead of only ever replying to one. */
+export async function openThreadAsKitchen(customerId: string, contextType?: string, contextId?: string): Promise<string> {
+  const { data, error } = await supabase.rpc('open_thread_as_kitchen', {
+    p_customer: customerId, p_ctx_type: contextType ?? null, p_ctx_id: contextId ?? null,
+  });
+  if (error) throw error;
+  return data as string;
 }
 
 const MSG_COLS = 'id, thread_id, sender_id, sender_role, kind, body, created_at';
@@ -160,6 +173,35 @@ export function subscribeThread(threadId: string, onInsert: (row: any) => void):
       (payload) => onInsert(payload.new))
     .subscribe();
   return () => { supabase.removeChannel(channel); };
+}
+
+/** Live read-receipt updates — fires whenever the counterpart (or I) mark the thread read, so
+ *  "Delivered" can flip to "Read" without a manual refresh. Payload is the raw updated row;
+ *  the caller re-derives counterpart_last_read_at from it. */
+export function subscribeThreadReads(threadId: string, onUpdate: (row: any) => void): () => void {
+  const channel = supabase
+    .channel(`thread-reads:${threadId}`)
+    .on('postgres_changes',
+      { event: 'UPDATE', schema: 'public', table: 'message_threads', filter: `id=eq.${threadId}` },
+      (payload) => onUpdate(payload.new))
+    .subscribe();
+  return () => { supabase.removeChannel(channel); };
+}
+
+/** Ephemeral typing indicator — one Realtime broadcast channel shared for both sending my own
+ *  keystrokes and receiving the counterpart's (not persisted; no DB round trip). The caller
+ *  re-arms a short "is typing" timeout on each received event, so a closed tab naturally goes
+ *  silent within a few seconds with no explicit "stopped typing" signal needed. */
+export interface TypingChannel { send(): void; close(): void }
+export function openTypingChannel(threadId: string, myId: string, onTyping: () => void): TypingChannel {
+  const channel = supabase
+    .channel(`typing:${threadId}`)
+    .on('broadcast', { event: 'typing' }, (msg: any) => { if (msg.payload?.from !== myId) onTyping(); })
+    .subscribe();
+  return {
+    send: () => { channel.send({ type: 'broadcast', event: 'typing', payload: { from: myId } }); },
+    close: () => { supabase.removeChannel(channel); },
+  };
 }
 
 /**

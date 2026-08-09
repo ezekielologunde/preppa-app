@@ -420,13 +420,13 @@ export async function fetchPrepRollup(): Promise<PrepDay[]> {
   return [...byDay.values()];
 }
 
-export interface CookSubscriber { subscriptionId: string; customerName: string; planName: string; lifecycle: Lifecycle; priceCents: number; preferredDay: string | null; createdAt: string }
+export interface CookSubscriber { subscriptionId: string; customerId: string; customerName: string; planName: string; lifecycle: Lifecycle; priceCents: number; preferredDay: string | null; createdAt: string }
 
 /** The signed-in cook's plan subscribers (roster). */
 export async function fetchCookSubscribers(): Promise<CookSubscriber[]> {
   const { data } = await supabase.rpc('cook_subscribers');
   return (data as any[] ?? []).map((s) => ({
-    subscriptionId: s.subscription_id, customerName: s.customer_name, planName: s.plan_name,
+    subscriptionId: s.subscription_id, customerId: s.customer_id, customerName: s.customer_name, planName: s.plan_name,
     lifecycle: s.lifecycle, priceCents: Number(s.price_cents) || 0, preferredDay: s.preferred_day, createdAt: s.created_at,
   }));
 }
