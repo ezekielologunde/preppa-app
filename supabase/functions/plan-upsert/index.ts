@@ -48,6 +48,7 @@ const input = z.object({
   trialCycles: z.number().int().min(0).max(12).optional(),
   cadenceWeeks: z.number().int().min(1).max(2).optional(),  // NEW: 1=weekly, 2=biweekly
   rotating: z.boolean().optional(),
+  asDraft: z.boolean().optional(),  // NEW: save without publishing (skips the payout gate)
   coverUrl: z.string().max(600).optional(),
   photoUrls: z.array(z.string().max(600)).max(8).optional(),
   dietaryTags: z.array(z.string().max(40)).max(20).optional(),
@@ -78,13 +79,19 @@ Deno.serve(async (req) => {
     if (!meals || meals.length !== mealIds.length) return json(400, { error: 'Some meals were not found.' });
     for (const m of meals as any[]) if (m.kitchen_id !== kitchen.id) return json(400, { error: 'All meals must be from your own kitchen.' });
 
+    // Target status: a cook can explicitly save without publishing (asDraft:true), which
+    // skips the payout gate below. Publishing (the default) requires payouts to be enabled
+    // so a customer can never subscribe to and be billed for a kitchen that can't get paid.
+    const targetStatus = p.asDraft ? 'draft' : 'active';
+    let existingStatus: string | null = null;
     if (p.planId) {
-      const { data: owned } = await db.from('plans').select('id').eq('id', p.planId).eq('kitchen_id', kitchen.id).maybeSingle();
+      const { data: owned } = await db.from('plans').select('id, status').eq('id', p.planId).eq('kitchen_id', kitchen.id).maybeSingle();
       if (!owned) return json(404, { error: 'Plan not found.' });
-    } else {
-      // New plans go straight to status:'active' below (there's no draft state for plans),
-      // so this is the only gate before a customer could subscribe and be billed for a
-      // kitchen that can never actually get paid. Mirrors create_meal's payouts_enabled gate.
+      existingStatus = (owned as any).status;
+    }
+    if (targetStatus === 'active' && existingStatus !== 'active') {
+      // Mirrors create_meal's payouts_enabled gate -- only re-checked on the transition
+      // into 'active' (new plan, or publishing a draft), not on every edit of a live plan.
       const { data: acct } = await db.from('stripe_accounts').select('payouts_enabled').eq('kitchen_id', kitchen.id).maybeSingle();
       if (!acct?.payouts_enabled) return json(409, { error: 'Finish payout setup before publishing a meal plan.' });
     }
@@ -129,13 +136,14 @@ Deno.serve(async (req) => {
     set('dietary_tags', p.dietaryTags);
     set('allergens', p.allergens);
 
+    f.status = targetStatus;
     let planId = p.planId;
     if (planId) {
       const { error: uErr } = await db.from('plans').update(f).eq('id', planId);
       if (uErr) throw uErr;
       await db.from('plan_items').delete().eq('plan_id', planId);
     } else {
-      const row = { kitchen_id: kitchen.id, status: 'active', price_cents: 0, fulfillment: 'delivery', ...f };
+      const row = { kitchen_id: kitchen.id, price_cents: 0, fulfillment: 'delivery', ...f };
       const { data: created, error: cErr } = await db.from('plans').insert(row).select('id').single();
       if (cErr) throw cErr;
       planId = created.id;

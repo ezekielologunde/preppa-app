@@ -55,6 +55,8 @@ export default function CreatePlanFlow() {
   const [cadenceWeeks, setCadenceWeeks] = useState<1 | 2>(1); // NEW: 1=weekly, 2=biweekly
   const [rotating, setRotating] = useState(false); // NEW: meals rotate weekly
   const [busy, setBusy] = useState(false);
+  const [savingDraft, setSavingDraft] = useState(false);
+  const [existingStatus, setExistingStatus] = useState<'draft' | 'active' | 'archived' | null>(null);
   const [done, setDone] = useState(false);
 
   useEffect(() => {
@@ -84,6 +86,7 @@ export default function CreatePlanFlow() {
           // open Advanced if anything there is non-default
           if ((pl.cutoffHours && pl.cutoffHours !== 48) || (pl.leadTimeHours && pl.leadTimeHours !== 48) || (pl.minCommitment && pl.minCommitment > 1) || (pl.trialCycles && pl.trialCycles > 0)) setAdvanced(true);
           const q: Record<string, number> = {}; for (const it of pl.items) if (it.mealId) q[it.mealId] = it.qty; setQty(q);
+          setExistingStatus(pl.status ?? 'active');
         }
       }
       setLoading(false);
@@ -117,7 +120,7 @@ export default function CreatePlanFlow() {
   const advancedSummary = [cadenceWeeks === 2 ? 'Biweekly' : null, rotating ? 'Rotating' : null, trialOn ? 'Trial' : null, `${cutoff || '48'}h cutoff`, minCommit && minCommit !== '1' ? `${minCommit}wk min` : null].filter(Boolean).join(' · ');
   const clampInt = (s: string, lo: number, hi: number) => Math.min(hi, Math.max(lo, parseInt(s, 10) || lo));
 
-  const submit = async () => {
+  const submit = async (asDraft = false) => {
     if (busy) return;
     if (!valid) {
       toast(!name.trim() ? 'Add a plan name'
@@ -127,6 +130,7 @@ export default function CreatePlanFlow() {
       return;
     }
     setBusy(true);
+    setSavingDraft(asDraft);
     try {
       const pid = await upsertPlan({
         planId: editing ? planId : undefined,
@@ -142,6 +146,7 @@ export default function CreatePlanFlow() {
         cutoffHours: cutoff.trim() ? clampInt(cutoff, 0, 336) : undefined,
         leadTimeHours: lead.trim() ? clampInt(lead, 0, 336) : undefined,
         minCommitment: minCommit.trim() ? clampInt(minCommit, 1, 52) : undefined,
+        asDraft,
         ...(trialOn
           ? { trialPriceCents: Math.max(0, Math.round((Number(trialPrice) || 0) * 100)), trialCycles: clampInt(trialWeeks || '1', 1, 12) }
           : { trialCycles: 0 }),
@@ -152,7 +157,8 @@ export default function CreatePlanFlow() {
       // per-kitchen weekly capacity (blank = unlimited)
       try { await setKitchenCapacity(capacity.trim() ? Math.max(0, parseInt(capacity, 10) || 0) : null); } catch { /* non-fatal */ }
       // If this plan answers a customer's meal-plan brief, link it + notify them.
-      if (forRequest && pid) { try { await fulfillPlanRequest(forRequest, pid); } catch (_e) { /* non-fatal */ } }
+      if (!asDraft && forRequest && pid) { try { await fulfillPlanRequest(forRequest, pid); } catch (_e) { /* non-fatal */ } }
+      if (asDraft) { toast('Draft saved', 'check', true); router.replace('/hub/plans'); return; }
       setDone(true);
     } catch (e: any) {
       toast(e?.message || 'Could not publish the plan', 'info');
@@ -335,7 +341,10 @@ export default function CreatePlanFlow() {
       </ScrollView>
       <Dock>
         <DockTotal label={choice ? 'Per meal' : 'Per week'} value={money((choice ? perMealCents : priceCents) / 100)} />
-        <KBtn label={busy ? 'Publishing…' : editing ? 'Save changes' : 'Publish plan'} variant="pri" flex={1} height={48} onPress={submit} style={{ opacity: valid && !busy ? 1 : 0.5 }} />
+        {existingStatus !== 'active' ? (
+          <KBtn label={busy && savingDraft ? 'Saving…' : 'Save draft'} variant="ghost" height={48} onPress={() => submit(true)} style={{ opacity: valid && !busy ? 1 : 0.5 }} />
+        ) : null}
+        <KBtn label={busy && !savingDraft ? 'Publishing…' : existingStatus === 'active' ? 'Save changes' : 'Publish plan'} variant="pri" flex={1} height={48} onPress={() => submit(false)} style={{ opacity: valid && !busy ? 1 : 0.5 }} />
       </Dock>
     </Screen>
   );

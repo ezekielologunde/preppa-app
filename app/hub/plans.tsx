@@ -55,7 +55,14 @@ export default function PlansScreen() {
                       <Icon name="repeat" size={20} color="#fff" />
                     </GradBox>
                     <View style={{ flex: 1, minWidth: 0 }}>
-                      <Text numberOfLines={1} style={[type(15, 900), { color: c.ink, letterSpacing: -0.2 }]}>{p.name}</Text>
+                      <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
+                        <Text numberOfLines={1} style={[type(15, 900), { color: c.ink, letterSpacing: -0.2, flexShrink: 1 }]}>{p.name}</Text>
+                        {p.status === 'draft' ? (
+                          <View style={{ backgroundColor: c.bg2, borderRadius: 999, paddingHorizontal: 7, paddingVertical: 2 }}>
+                            <Text style={[type(10, 800), { color: c.muted, letterSpacing: 0.2 }]}>DRAFT</Text>
+                          </View>
+                        ) : null}
+                      </View>
                       <Text style={[type(12.5, 600), { color: c.soft, marginTop: 2 }]}>{totalMeals} meal{totalMeals !== 1 ? 's' : ''}/wk · {p.fulfillment === 'pickup' ? 'Pickup' : 'Delivery'}</Text>
                     </View>
                     <View style={{ alignItems: 'flex-end' }}>

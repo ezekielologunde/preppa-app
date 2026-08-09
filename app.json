@@ -16,7 +16,8 @@
         "NSCameraUsageDescription": "Preppa uses the camera to scan the QR code at cash-on-delivery handoff, to add photos of your dishes, and to record video posts.",
         "NSMicrophoneUsageDescription": "Preppa uses the microphone to record audio for your video posts.",
         "NSLocationWhenInUseUsageDescription": "Preppa uses your location to show cooks and meals near you and to set your delivery address.",
-        "NSPhotoLibraryUsageDescription": "Preppa uses your photo library to set your profile photo and let cooks attach photos of their dishes."
+        "NSPhotoLibraryUsageDescription": "Preppa uses your photo library to set your profile photo and let cooks attach photos of their dishes.",
+        "ITSAppUsesNonExemptEncryption": false
       }
     },
     "android": {
