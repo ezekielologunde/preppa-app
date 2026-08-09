@@ -156,8 +156,6 @@ export default function Checkout() {
 
         <Block title="Payment">
           <PayOption
-            on
-            onPress={() => {}}
             icon="card"
             title="Pay online"
             tag="Stripe"
@@ -175,7 +173,7 @@ export default function Checkout() {
               {selectedCard === null ? (
                 <Press scale={0.99} onPress={() => setSaveNewCard((v) => !v)} label="Save this card for next time" style={{ marginTop: 12 }}>
                   <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10 }}>
-                    <View style={{ width: 22, height: 22, borderRadius: 6, borderWidth: 2, borderColor: saveNewCard ? c.primary : c.border, backgroundColor: saveNewCard ? c.primary : 'transparent', alignItems: 'center', justifyContent: 'center' }}>
+                    <View style={{ width: 22, height: 22, borderRadius: 6, borderWidth: 2, borderColor: saveNewCard ? c.primary : c.border, backgroundColor: saveNewCard ? c.primaryD : 'transparent', alignItems: 'center', justifyContent: 'center' }}>
                       {saveNewCard ? <Icon name="check" size={13} color="#fff" /> : null}
                     </View>
                     <Text style={[type(13, 700), { color: c.soft }]}>Save this card for next time</Text>
@@ -227,22 +225,18 @@ export default function Checkout() {
   );
 }
 
-function PayOption({ on, onPress, icon, title, tag, tagTone, body, disabled }: { on: boolean; onPress: () => void; icon: string; title: string; tag: string; tagTone: 'green' | 'purple'; body: string; disabled?: boolean }) {
+/** Informational payment-method row — Stripe is the only method (COD was retired), so this
+ *  is a confirmation summary, not a selector; no radio affordance for a choice that doesn't exist. */
+function PayOption({ icon, title, tag, tagTone, body }: { icon: string; title: string; tag: string; tagTone: 'green' | 'purple'; body: string }) {
   const c = useC();
   return (
-    <Press scale={disabled ? 1 : 0.99} onPress={disabled ? () => {} : onPress}>
-      <View style={{ flexDirection: 'row', alignItems: 'center', gap: 12, padding: 14, borderWidth: 1.5, borderColor: on ? c.primary : c.border, backgroundColor: on ? c.primaryL : c.surface, borderRadius: radius.md, opacity: disabled ? 0.55 : 1 }}>
-        <View style={{ width: 42, height: 42, borderRadius: 11, backgroundColor: on ? c.surface : c.bg2, alignItems: 'center', justifyContent: 'center' }}><Icon name={icon} size={20} color={on ? c.primary : c.ink} /></View>
-        <View style={{ flex: 1 }}>
-          <View style={{ flexDirection: 'row', alignItems: 'center', gap: 7 }}><Text style={[type(14.5, 800), { color: c.ink }]}>{title}</Text><MiniTag label={tag} tone={tagTone} /></View>
-          <Text style={[type(12, 500), { color: c.soft, marginTop: 3 }]}>{body}</Text>
-        </View>
-        {disabled ? (
-          <Icon name="lock" size={16} color={c.muted} />
-        ) : (
-          <View style={{ width: 22, height: 22, borderRadius: 11, borderWidth: 2, borderColor: on ? c.primary : c.border, alignItems: 'center', justifyContent: 'center' }}>{on ? <View style={{ width: 11, height: 11, borderRadius: 6, backgroundColor: c.primary }} /> : null}</View>
-        )}
+    <View style={{ flexDirection: 'row', alignItems: 'center', gap: 12, padding: 14, borderWidth: 1.5, borderColor: c.primary, backgroundColor: c.primaryL, borderRadius: radius.md }}>
+      <View style={{ width: 42, height: 42, borderRadius: 11, backgroundColor: c.surface, alignItems: 'center', justifyContent: 'center' }}><Icon name={icon} size={20} color={c.primary} /></View>
+      <View style={{ flex: 1 }}>
+        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 7 }}><Text style={[type(14.5, 800), { color: c.ink }]}>{title}</Text><MiniTag label={tag} tone={tagTone} /></View>
+        <Text style={[type(12, 500), { color: c.soft, marginTop: 3 }]}>{body}</Text>
       </View>
-    </Press>
+      <Icon name="check" size={18} color={c.primaryD} />
+    </View>
   );
 }

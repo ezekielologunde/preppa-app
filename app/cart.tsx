@@ -3,7 +3,7 @@ import { View, Text, ScrollView } from 'react-native';
 import { useRouter } from 'expo-router';
 import { cookOfLine, lineKey, money, thumb } from '../src/data/data';
 import { useC } from '../src/theme/ThemeContext';
-import { type, radius } from '../src/theme/theme';
+import { type, radius, shadow } from '../src/theme/theme';
 import { useStore } from '../src/store/store';
 import { Icon, Press, GradBox, Avatar, Stepper, Btn } from '../src/ui';
 import { Screen, TopBar, Empty, Dock, DockTotal } from '../src/ui/layout';
@@ -41,7 +41,7 @@ export default function Cart() {
           const subtotal = lines.reduce((s, l) => s + l.price * l.qty, 0);
           const cook = cookOfLine(lines[0]);
           return (
-            <View key={ck} style={{ marginHorizontal: 16, marginTop: 14, borderWidth: 1, borderColor: c.border2, borderRadius: radius.card, backgroundColor: c.surface, overflow: 'hidden' }}>
+            <View key={ck} style={{ marginHorizontal: 16, marginTop: 14, borderWidth: 1, borderColor: c.border2, borderRadius: radius.card, backgroundColor: c.surface, ...shadow.card }}>
               <Press scale={0.99} onPress={() => router.push(`/store/${ck}`)} label={`${cook.name}'s kitchen`}>
                 <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10, padding: 14, borderBottomWidth: 1, borderBottomColor: c.border2 }}>
                   <Avatar cook={ck} initial={cook.initial} grad={cook.grad} size={34} rad={11} />

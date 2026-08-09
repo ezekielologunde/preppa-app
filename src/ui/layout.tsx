@@ -74,7 +74,7 @@ export function DockTotal({ label, value }: { label: string; value: string }) {
 export function Block({ title, children, style }: { title?: string; children: React.ReactNode; style?: StyleProp<ViewStyle> }) {
   const c = useC();
   return (
-    <View style={[{ backgroundColor: c.surface, borderRadius: radius.card, marginHorizontal: 16, marginTop: 14, padding: 16, borderWidth: 1, borderColor: c.border2 }, style]}>
+    <View style={[{ backgroundColor: c.surface, borderRadius: radius.card, marginHorizontal: 16, marginTop: 14, padding: 16, borderWidth: 1, borderColor: c.border2, ...shadow.card }, style]}>
       {title ? <Text style={[type(12, 900), { color: c.muted, textTransform: 'uppercase', letterSpacing: 0.5, marginBottom: 12 }]}>{title}</Text> : null}
       {children}
     </View>
@@ -143,7 +143,7 @@ export function ToastHost() {
     <View pointerEvents="none" style={{ position: 'absolute', left: 16, right: 16, bottom: insets.bottom + 96, gap: 8 }}>
       {toasts.map((t) => (
         <View key={t.id} style={{ backgroundColor: 'rgba(20,20,22,.94)', borderRadius: radius.md, paddingVertical: 13, paddingHorizontal: 15, flexDirection: 'row', alignItems: 'center', gap: 11, ...shadow.float }}>
-          <View style={{ width: 26, height: 26, borderRadius: 8, backgroundColor: t.green ? c.green : c.primary, alignItems: 'center', justifyContent: 'center' }}>
+          <View style={{ width: 26, height: 26, borderRadius: 8, backgroundColor: t.green ? c.green : c.primaryD, alignItems: 'center', justifyContent: 'center' }}>
             <Icon name={t.icon} size={15} color="#fff" />
           </View>
           <Text style={[type(13.5, 700), { color: '#fff', flex: 1 }]}>{t.msg}</Text>

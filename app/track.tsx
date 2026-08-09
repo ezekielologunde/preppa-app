@@ -82,8 +82,11 @@ export default function Track() {
             ))}
             <Line x1={44} y1={70} x2={300} y2={70} stroke={c.primary} strokeWidth={3} strokeDasharray="8 6" strokeLinecap="round" />
           </Svg>
-          <Pin left={30} bg={c.ink} icon="chefhat" />
-          <Pin right={46} bg={c.primary} icon="home" />
+          {/* c.feature (not c.ink) -- the pin's icon is hardcoded white, so the fill needs to
+              stay dark in BOTH themes; c.ink flips to near-white in dark mode and the icon
+              would vanish. */}
+          <Pin left={30} bg={c.feature} icon="chefhat" />
+          <Pin right={46} bg={c.primaryD} icon="home" />
         </View>
 
         <View style={{ backgroundColor: c.surface, borderTopLeftRadius: radius.xxl, borderTopRightRadius: radius.xxl, marginTop: -22, padding: 18, paddingTop: 20 }}>
@@ -104,7 +107,7 @@ export default function Track() {
             {STEPS.map((s, i) => (
               <View key={i} style={{ flexDirection: 'row', gap: 14 }}>
                 <View style={{ alignItems: 'center' }}>
-                  <View style={{ width: 30, height: 30, borderRadius: 15, alignItems: 'center', justifyContent: 'center', backgroundColor: s.st === 'done' ? c.green : s.st === 'active' ? c.primary : c.bg2 }}>
+                  <View style={{ width: 30, height: 30, borderRadius: 15, alignItems: 'center', justifyContent: 'center', backgroundColor: s.st === 'done' ? c.green : s.st === 'active' ? c.primaryD : c.bg2 }}>
                     {s.st === 'done' ? <Icon name="check" size={15} color="#fff" /> : s.st === 'active' ? <Icon name="chefhat" size={15} color="#fff" /> : <View style={{ width: 7, height: 7, borderRadius: 4, backgroundColor: c.muted }} />}
                   </View>
                   {i < STEPS.length - 1 ? <View style={{ width: 2, flex: 1, minHeight: 26, backgroundColor: s.st === 'done' ? c.green : c.border }} /> : null}
