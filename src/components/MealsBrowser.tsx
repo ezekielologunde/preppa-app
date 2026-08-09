@@ -89,7 +89,7 @@ export function MealsBrowser({ initialCat, initialGoal }: { initialCat?: string;
           {CATS.map((x) => {
             const on = cat === x;
             return (
-              <Press key={x} scale={0.94} onPress={() => setCat(x)}>
+              <Press key={x} scale={0.94} onPress={() => setCat(x)} label={x} selected={on}>
                 <View style={{ height: 36, paddingHorizontal: 15, borderRadius: radius.pill, backgroundColor: on ? c.primary : c.surface, borderWidth: 1, borderColor: on ? c.primary : c.border, alignItems: 'center', justifyContent: 'center' }}>
                   <Text style={[type(13, 700), { color: on ? '#fff' : c.soft }]}>{x}</Text>
                 </View>
@@ -144,7 +144,7 @@ function FSec({ title, children }: { title: string; children: React.ReactNode })
 function Chip({ label, on, onPress }: { label: string; on: boolean; onPress: () => void }) {
   const c = useC();
   return (
-    <Press scale={0.95} onPress={onPress}>
+    <Press scale={0.95} onPress={onPress} label={label} selected={on}>
       <View style={{ height: 38, paddingHorizontal: 15, borderRadius: radius.pill, backgroundColor: on ? c.primary : c.bg2, borderWidth: 1, borderColor: on ? c.primary : c.border, alignItems: 'center', justifyContent: 'center' }}>
         <Text style={[type(13.5, 700), { color: on ? '#fff' : c.soft }]}>{label}</Text>
       </View>

@@ -27,7 +27,11 @@ export function Sheet({
   const insets = useSafeAreaInsets();
   return (
     <Modal visible={visible} transparent animationType="slide" statusBarTranslucent onRequestClose={onClose}>
-      <Pressable onPress={onClose} accessibilityRole="button" accessibilityLabel="Close" style={{ flex: 1, backgroundColor: 'rgba(0,0,0,.4)', justifyContent: 'flex-end' }}>
+      {/* The backdrop wraps the whole sheet, which contains its own real buttons (chips, CTAs)
+          — giving it accessibilityRole="button" renders a literal <button> on web that ends up
+          containing other <button>s, an invalid nested-button DOM. It's a dismissible region,
+          not a discrete button, so it gets a label without the button role. */}
+      <Pressable onPress={onClose} accessibilityLabel="Close" style={{ flex: 1, backgroundColor: 'rgba(0,0,0,.4)', justifyContent: 'flex-end' }}>
         <Pressable
           onPress={() => {}}
           accessibilityViewIsModal
@@ -74,7 +78,9 @@ export function Dialog({
   const c = useC();
   return (
     <Modal visible={visible} transparent animationType="fade" onRequestClose={onClose}>
-      <Pressable onPress={onClose} accessibilityRole="button" accessibilityLabel="Close" style={{ flex: 1, backgroundColor: 'rgba(0,0,0,.45)', justifyContent: 'center', paddingHorizontal: 28 }}>
+      {/* Same reasoning as Sheet's backdrop above: this wraps real buttons, so it can't itself
+          be role="button" on web without producing an invalid nested-button DOM. */}
+      <Pressable onPress={onClose} accessibilityLabel="Close" style={{ flex: 1, backgroundColor: 'rgba(0,0,0,.45)', justifyContent: 'center', paddingHorizontal: 28 }}>
         <Pressable onPress={() => {}} accessibilityViewIsModal style={{ backgroundColor: c.surface, borderRadius: radius.xl, padding: 20, gap: 14, maxWidth: 420, width: '100%', alignSelf: 'center' }}>
           {title ? <Text style={[type(18, 900), { color: c.ink, letterSpacing: -0.4 }]}>{title}</Text> : null}
           {children}
