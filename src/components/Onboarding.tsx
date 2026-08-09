@@ -1,7 +1,5 @@
 import React, { useEffect, useRef, useState } from 'react';
 import { Animated, Easing, Pressable, StyleSheet, Text, TextInput, View, ScrollView } from 'react-native';
-import { LinearGradient } from 'expo-linear-gradient';
-import { BlurView } from 'expo-blur';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useStore } from '../store/store';
 import { sendEmailOtp, verifyEmailOtp, signUpWithPassword, signInWithPassword, AUTH_TIMEOUT_MESSAGE } from '../lib/supabase';
@@ -10,7 +8,7 @@ import { Icon } from '../ui/Icon';
 import { Press, GradBox, Btn } from '../ui/primitives';
 import { useReducedMotion } from '../ui/useReducedMotion';
 import { useC } from '../theme/ThemeContext';
-import { type, GRAD, shadow, radius, FILL, ONBOARD_GRAD } from '../theme/theme';
+import { type, GRAD, shadow, radius, FILL } from '../theme/theme';
 
 function Spinner({ size = 19, color = '#fff', track }: { size?: number; color?: string; track?: string }) {
   const r = useRef(new Animated.Value(0)).current;
@@ -51,23 +49,6 @@ function JoiningPill() {
   );
 }
 
-/** Welcome-only pill on the brand gradient — real frosted glass (BlurView), plain white
- *  avatar dots (no per-cook tint, the gradient itself already carries the color). */
-function WelcomeJoiningPill() {
-  return (
-    <View style={{ alignSelf: 'center', marginTop: 26, borderRadius: radius.pill, overflow: 'hidden', borderWidth: 1, borderColor: 'rgba(255,255,255,0.35)' }}>
-      <BlurView intensity={30} tint="light" style={{ flexDirection: 'row', alignItems: 'center', gap: 10, paddingVertical: 9, paddingHorizontal: 16 }}>
-        <View style={{ flexDirection: 'row' }}>
-          {[0, 1, 2].map((i) => (
-            <View key={i} style={{ width: 22, height: 22, borderRadius: 11, marginLeft: i === 0 ? 0 : -9, backgroundColor: '#fff', borderWidth: 1.5, borderColor: 'rgba(255,255,255,0.5)' }} />
-          ))}
-        </View>
-        <Text style={[type(13, 800), { color: '#fff' }]}>Local Preppas joining now</Text>
-      </BlurView>
-    </View>
-  );
-}
-
 /** Same treatment as Splash's mark — solid `primaryD` circle — so cold-launch → welcome
  *  reads as one continuous brand mark, not a color swap. */
 function Mark({ size = 74, iconSize = 38 }: { size?: number; iconSize?: number }) {
@@ -79,40 +60,21 @@ function Mark({ size = 74, iconSize = 38 }: { size?: number; iconSize?: number }
   );
 }
 
-/** Welcome-only mark — matches Splash's frosted-glass badge exactly (BlurView + hairline
- *  highlight + real elevation), so cold-launch → welcome is one continuous glass mark. */
-function WelcomeMark() {
-  return (
-    <View style={{ width: 108, height: 108, borderRadius: 30, alignItems: 'center', justifyContent: 'center', backgroundColor: 'rgba(255,255,255,0.08)' }}>
-      <View
-        style={{
-          width: 80, height: 80, borderRadius: 24, overflow: 'hidden', alignItems: 'center', justifyContent: 'center',
-          borderWidth: 1, borderColor: 'rgba(255,255,255,0.4)',
-          shadowColor: '#000', shadowOpacity: 0.18, shadowRadius: 24, shadowOffset: { width: 0, height: 10 },
-        }}
-      >
-        <BlurView intensity={40} tint="light" style={[FILL, { alignItems: 'center', justifyContent: 'center' }]}>
-          <Icon name="flame" size={38} color="#fff" />
-        </BlurView>
-      </View>
-    </View>
-  );
-}
-
 function Welcome({ go }: { go: (s: string, m: 'signin' | 'signup') => void }) {
+  const c = useC();
   return (
     <>
       <View style={{ flex: 0.6 }} />
-      <View style={{ alignSelf: 'center' }}><WelcomeMark /></View>
-      <Text style={[type(28, 900), { color: '#fff', letterSpacing: -1, marginTop: 16, alignSelf: 'center' }]}>preppa</Text>
-      <Text style={[type(19, 600), { color: 'rgba(255,255,255,0.85)', lineHeight: 26, marginTop: 18, textAlign: 'center' }]}>Real food from real local Preppas near you.</Text>
-      <WelcomeJoiningPill />
+      <View style={{ alignSelf: 'center' }}><Mark size={88} iconSize={42} /></View>
+      <Text style={[type(28, 900), { color: c.ink, letterSpacing: -1, marginTop: 18, alignSelf: 'center' }]}>preppa</Text>
+      <Text style={[type(17, 600), { color: c.soft, lineHeight: 25, marginTop: 14, textAlign: 'center' }]}>Real food from real local Preppas near you.</Text>
+      <JoiningPill />
       <View style={{ flex: 1 }} />
-      <Btn label="Get Started — It's Free" onPress={() => go('auth', 'signup')} block lg style={{ backgroundColor: 'rgba(255,255,255,0.2)', borderWidth: 1, borderColor: 'rgba(255,255,255,0.35)' }} />
+      <Btn label="Get Started — It's Free" variant="pri" onPress={() => go('auth', 'signup')} block lg />
       <Pressable onPress={() => go('auth', 'signin')} style={{ marginTop: 16, alignSelf: 'center' }}>
-        <Text style={[type(14, 700), { color: 'rgba(255,255,255,0.85)' }]}>Already a member? <Text style={{ textDecorationLine: 'underline' }}>Sign in →</Text></Text>
+        <Text style={[type(14, 700), { color: c.soft }]}>Already a member? <Text style={{ color: c.ink, textDecorationLine: 'underline' }}>Sign in →</Text></Text>
       </Pressable>
-      <Text style={[type(11.5, 600), { color: 'rgba(255,255,255,0.65)', textAlign: 'center', marginTop: 14 }]}>By continuing you agree to Preppa’s Terms & Food Safety Standards.</Text>
+      <Text style={[type(11.5, 600), { color: c.muted, textAlign: 'center', marginTop: 14 }]}>By continuing you agree to Preppa’s Terms & Food Safety Standards.</Text>
     </>
   );
 }
@@ -424,10 +386,8 @@ export function OnboardingFlow() {
   const slide = fade.interpolate({ inputRange: [0, 1], outputRange: [reduced ? 0 : 12, 0] });
   const showTop = step !== 'welcome' && step !== 'finish';
   const canSkip = step === 'goal' || step === 'cuisine';
-  const onWelcome = step === 'welcome';
   return (
-    <View style={[FILL, { zIndex: 300, backgroundColor: onWelcome ? 'transparent' : c.bg }]}>
-      {onWelcome ? <LinearGradient colors={ONBOARD_GRAD} style={FILL} /> : null}
+    <View style={[FILL, { zIndex: 300, backgroundColor: c.bg }]}>
       <ScrollView contentContainerStyle={{ flexGrow: 1, paddingTop: insets.top + 10, paddingBottom: insets.bottom + 26, paddingHorizontal: 24 }} keyboardShouldPersistTaps="handled">
         {showTop ? (
           <View style={{ flexDirection: 'row', alignItems: 'center', gap: 14, minHeight: 42 }}>
