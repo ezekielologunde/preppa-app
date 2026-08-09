@@ -146,6 +146,11 @@ export default function HomeScreen() {
               <Skeleton w={'47%'} h={230} r={radius.card} />
             </View>
           </View>
+        ) : !drop && picks.length === 0 ? (
+          <ModeEmpty c={c}
+            title={mode === 'pickup' ? 'No pickup meals near you yet' : 'No meals near you yet'}
+            body={mode === 'pickup' ? 'Try Delivery, or check back soon — cooks are adding pickup spots.' : 'Try Pickup, or check back soon — cooks are adding meals in your area.'}
+          />
         ) : (
           <>
             {drop ? (<><SectionHeader title="Today’s drop" /><HeroDrop m={drop} /></>) : null}
@@ -159,6 +164,11 @@ export default function HomeScreen() {
             <SectionHeader title="Preppers near you" action="See all" onAction={() => router.push('/discover?mode=preppers')} />
             <PrepperRail kitchens={kitchens.slice(0, 10)} />
           </>
+        ) : kitchens && kitchens.length === 0 && !mealsLoading ? (
+          <ModeEmpty c={c}
+            title={mode === 'pickup' ? 'No pickup spots near you yet' : 'No preppers near you yet'}
+            body={mode === 'pickup' ? 'Try Delivery, or check back soon — cooks are adding pickup spots.' : 'Try Pickup, or check back soon — new cooks join every week.'}
+          />
         ) : null}
 
         {/* Explore — the app's four layers as calm, flat, wayfinding-labelled cards (not rainbow tiles). */}
@@ -177,6 +187,21 @@ export default function HomeScreen() {
       </ScrollView>
       <LocationPicker visible={locPicker} onClose={() => setLocPicker(false)} />
       <QuickCartSheet visible={cartOpen} onClose={() => setCartOpen(false)} />
+    </View>
+  );
+}
+
+/** Inline empty state for a zero-result mode switch (e.g. Pickup with no coverage nearby) —
+ *  distinct from the loading skeleton so a distracted/mobile user can tell "nothing here yet"
+ *  from "still loading", and gets a next step instead of a silently shorter page. */
+function ModeEmpty({ c, title, body }: { c: any; title: string; body: string }) {
+  return (
+    <View style={{ alignItems: 'center', paddingHorizontal: 32, paddingVertical: 26 }}>
+      <View style={{ width: 52, height: 52, borderRadius: 16, backgroundColor: c.bg2, alignItems: 'center', justifyContent: 'center' }}>
+        <Icon name="search" size={22} color={c.muted} />
+      </View>
+      <Text style={[type(15, 800), { color: c.ink, marginTop: 14, textAlign: 'center' }]}>{title}</Text>
+      <Text style={[type(13, 500), { color: c.soft, textAlign: 'center', marginTop: 5, lineHeight: 19 }]}>{body}</Text>
     </View>
   );
 }
