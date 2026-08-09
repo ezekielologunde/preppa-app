@@ -51,6 +51,8 @@ export const EXPERIENCE_GRAD = ['#FB7185', '#E11D48'] as const;
 /** PrepPlus membership wash (promo card + paywall/member heroes) — plum→orange, distinct
  *  from both the cook-keyed GRAD and the food-forward EXPERIENCE_GRAD. */
 export const PREPPLUS_GRAD = ['#6B4A93', '#E24A38'] as const;
+/** Cook Pro membership wash — green, distinct from the customer-facing PrepPlus identity. */
+export const COOKPRO_GRAD = ['#1D6B4A', '#2E9E6B'] as const;
 
 /** Theme-invariant brand marks (splash / onboarding / adaptive icon parity). */
 export const BRAND_PRIMARY = '#FF5A24';
@@ -70,6 +72,11 @@ export interface Palette {
   feature: string;
   green: string; green2: string; greenL: string;
   blue: string; blueL: string; pink: string; pinkL: string; red: string; redL: string; star: string;
+  amber: string; amberL: string;
+  /** Absolute fill for a solid red badge/button under white text — identical in both themes
+   *  (mirrors primaryD), since dark-mode `red` is brightened for text-on-bg use and fails
+   *  AA as a white-on-fill background. */
+  redD: string;
   unread: string;
 }
 
@@ -84,6 +91,8 @@ export const light: Palette = {
   feature: '#1E1A16',
   green: '#127C43', green2: '#1F9D57', greenL: '#E6F3EC',
   blue: '#0B6FA8', blueL: '#E3F1FA', pink: '#FF3D7F', pinkL: '#FFE1EC', red: '#D93A2B', redL: '#FDECEC', star: '#B7801A',
+  amber: '#B45309', amberL: '#FEF3E2',
+  redD: '#D93A2B', // white-on 4.58:1, AA
   unread: '#FFF3EC',
 };
 
@@ -98,6 +107,8 @@ export const dark: Palette = {
   feature: '#241C15',
   green: '#22C55E', green2: '#22C55E', greenL: '#16281B',
   blue: '#38BDF8', blueL: '#122836', pink: '#FF5C93', pinkL: '#331A28', red: '#F26558', redL: '#3A1D1D', star: '#E0A020',
+  amber: '#F5A524', amberL: '#2E2110',
+  redD: '#D93A2B', // same absolute fill as light — white-on 4.58:1, AA in both themes
   unread: 'rgba(226,74,56,.09)',
 };
 

@@ -108,7 +108,7 @@ export function StatusTag({ label, tone = 'neutral' }: { label: string; tone?: S
     success: { fg: c.green, bg: c.greenL },
     info: { fg: c.blue, bg: c.blueL },
     brand: { fg: c.purpleOn, bg: c.purpleL },
-    danger: { fg: '#fff', bg: c.red },
+    danger: { fg: '#fff', bg: c.redD },
   };
   const { fg, bg } = map[tone];
   return (

@@ -11,10 +11,10 @@ import { HubHeader, KSeg, KBtn } from '../(tabs)/my-hub';
 
 function Fact({ ic, label, budget }: { ic: string; label: string; budget?: boolean }) {
   const c = useC();
-  const fg = budget ? '#0f7a39' : c.ink2;
+  const fg = budget ? c.green : c.ink2;
   return (
     <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6, height: 30, paddingHorizontal: 11, borderRadius: 9, backgroundColor: budget ? c.greenL : c.bg2 }}>
-      <Icon name={ic} size={14} color={budget ? '#0f7a39' : c.muted} />
+      <Icon name={ic} size={14} color={budget ? c.green : c.muted} />
       <Text style={[type(12.5, 700), { color: fg }]}>{label}</Text>
     </View>
   );
@@ -94,7 +94,7 @@ export default function CateringScreen() {
         {seg === 'bids' ? (
           <View style={{ paddingTop: 4 }}>
             {MY_BIDS.map((b) => {
-              const meta = b.status === 'accepted' ? { label: 'Accepted', bg: c.greenL, fg: '#0f7a39', ic: 'check' } : b.status === 'declined' ? { label: 'Not selected', bg: c.bg2, fg: c.muted, ic: 'x' } : { label: 'Awaiting decision', bg: c.bg2, fg: c.soft, ic: 'clock' };
+              const meta = b.status === 'accepted' ? { label: 'Accepted', bg: c.greenL, fg: c.green, ic: 'check' } : b.status === 'declined' ? { label: 'Not selected', bg: c.bg2, fg: c.muted, ic: 'x' } : { label: 'Awaiting decision', bg: c.bg2, fg: c.soft, ic: 'clock' };
               return (
                 <View key={b.id} style={{ backgroundColor: c.surface, borderWidth: 1, borderColor: c.border2, borderRadius: 20, padding: 16, marginHorizontal: 20, marginBottom: 12 }}>
                   <Text style={[type(15, 900), { color: c.ink, letterSpacing: -0.3 }]}>{b.title}</Text>

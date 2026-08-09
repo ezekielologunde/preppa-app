@@ -15,8 +15,8 @@ function Fact({ ic, label, budget }: { ic: string; label: string; budget?: boole
   const c = useC();
   return (
     <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6, height: 30, paddingHorizontal: 11, borderRadius: 9, backgroundColor: budget ? c.greenL : c.bg2 }}>
-      <Icon name={ic} size={14} color={budget ? '#0f7a39' : c.muted} />
-      <Text style={[type(12.5, 700), { color: budget ? '#0f7a39' : c.ink2 }]}>{label}</Text>
+      <Icon name={ic} size={14} color={budget ? c.green : c.muted} />
+      <Text style={[type(12.5, 700), { color: budget ? c.green : c.ink2 }]}>{label}</Text>
     </View>
   );
 }

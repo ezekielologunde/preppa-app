@@ -30,7 +30,7 @@ export function AvailToggle({ on, onToggle }: { on: boolean; onToggle: () => voi
       <View style={{ flexDirection: 'row', alignItems: 'center', gap: 9, height: 38, paddingLeft: 14, paddingRight: 6, borderRadius: radius.pill, backgroundColor: on ? c.greenL : c.bg2 }}>
         <View style={{ flexDirection: 'row', alignItems: 'center', gap: 7 }}>
           <View style={{ width: 9, height: 9, borderRadius: 5, backgroundColor: on ? c.green2 : c.muted }} />
-          <Text style={[type(13.5, 800), { color: on ? '#0f7a39' : c.soft, letterSpacing: -0.1 }]}>{on ? 'Open' : 'Paused'}</Text>
+          <Text style={[type(13.5, 800), { color: on ? c.green : c.soft, letterSpacing: -0.1 }]}>{on ? 'Open' : 'Paused'}</Text>
         </View>
         <View style={[{ width: 30, height: 30, borderRadius: 15, backgroundColor: c.surface, alignItems: 'center', justifyContent: 'center' }, shadow.soft]}>
           <Icon name={on ? 'power' : 'pause'} size={15} color={on ? c.green : c.muted} />
@@ -204,7 +204,7 @@ function ActionCard({ it }: { it: QItem }) {
   const c = useC();
   const [bg, fg] = well(c, it.tone);
   const bar = it.kind === 'new' ? c.primary : it.kind === 'cater' ? c.purple : it.kind === 'win' ? c.green2 : c.star;
-  const tag: [string, string] = it.kind === 'new' ? [c.primaryL, c.primaryD] : it.kind === 'cater' ? [c.purpleL, c.purple] : it.kind === 'win' ? [c.greenL, '#0f7a39'] : [c.primaryL, '#B45309'];
+  const tag: [string, string] = it.kind === 'new' ? [c.primaryL, c.primaryD] : it.kind === 'cater' ? [c.purpleL, c.purple] : it.kind === 'win' ? [c.greenL, c.green] : [c.primaryL, c.amber];
   return (
     <View style={{ flexDirection: 'row', alignItems: 'center', gap: 13, backgroundColor: c.surface, borderWidth: 1, borderColor: c.border2, borderRadius: 18, padding: 14, overflow: 'hidden' }}>
       <View style={{ position: 'absolute', left: 0, top: 0, bottom: 0, width: 4, backgroundColor: bar }} />

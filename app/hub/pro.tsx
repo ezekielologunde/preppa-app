@@ -1,7 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { View, Text, ScrollView, Platform, ActivityIndicator } from 'react-native';
 import { useC } from '../../src/theme/ThemeContext';
-import { type, radius, shadow } from '../../src/theme/theme';
+import { type, radius, shadow, COOKPRO_GRAD } from '../../src/theme/theme';
 import { useStore } from '../../src/store/store';
 import { Icon, Btn, GradBox, Press } from '../../src/ui';
 import { Screen, TopBar, Dock, DockTotal } from '../../src/ui/layout';
@@ -121,7 +121,7 @@ export default function CookPro() {
       <Screen>
         <TopBar title="Preppa Pro" />
         <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={{ paddingBottom: 40 }}>
-          <GradBox grad={['#1D6B4A', '#2E9E6B']} style={{ margin: 16, borderRadius: radius.xl, padding: 22, overflow: 'hidden', ...shadow.hero }}>
+          <GradBox grad={COOKPRO_GRAD} style={{ margin: 16, borderRadius: radius.xl, padding: 22, overflow: 'hidden', ...shadow.hero }}>
             <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10 }}>
               <View style={{ width: 44, height: 44, borderRadius: 14, backgroundColor: 'rgba(255,255,255,.18)', alignItems: 'center', justifyContent: 'center' }}>
                 <Icon name="bolt" size={22} color="#fff" />
@@ -189,7 +189,7 @@ export default function CookPro() {
     <Screen>
       <TopBar title="Preppa Pro" />
       <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={{ paddingBottom: 130 }}>
-        <GradBox grad={['#1D6B4A', '#2E9E6B']} style={{ margin: 16, borderRadius: radius.xl, padding: 22, overflow: 'hidden', ...shadow.hero }}>
+        <GradBox grad={COOKPRO_GRAD} style={{ margin: 16, borderRadius: radius.xl, padding: 22, overflow: 'hidden', ...shadow.hero }}>
           <View style={{ width: 56, height: 56, borderRadius: 18, backgroundColor: 'rgba(255,255,255,.18)', alignItems: 'center', justifyContent: 'center' }}>
             <Icon name="bolt" size={28} color="#fff" />
           </View>

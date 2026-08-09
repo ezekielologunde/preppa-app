@@ -11,8 +11,8 @@ import { HubHeader, KSeg, KPill } from '../(tabs)/my-hub';
 type UiStatus = 'confirmed' | 'preparing' | 'ready' | 'completed';
 const STATUS: Record<UiStatus, { label: string; bg: (c: any) => string; fg: (c: any) => string }> = {
   confirmed: { label: 'New', bg: (c) => c.primaryL, fg: (c) => c.primaryD },
-  preparing: { label: 'Preparing', bg: () => '#FEF3E2', fg: () => '#B45309' },
-  ready: { label: 'Ready', bg: () => '#E6F0FE', fg: () => '#2563EB' },
+  preparing: { label: 'Preparing', bg: (c) => c.amberL, fg: (c) => c.amber },
+  ready: { label: 'Ready', bg: (c) => c.blueL, fg: (c) => c.blue },
   completed: { label: 'Done', bg: (c) => c.bg2, fg: (c) => c.soft },
 };
 const GRADS: GradKey[] = ['g1', 'g2', 'g3', 'g4', 'g5', 'g6', 'g7', 'g8'];

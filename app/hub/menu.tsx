@@ -11,10 +11,10 @@ import { fetchMyMeals, updateMeal, setMealStatus, MyMealRow, RealMealStatus } fr
 import { HubHeader, KBtn, KSec, KPill } from '../(tabs)/my-hub';
 
 function statusPill(c: any, s: RealMealStatus) {
-  if (s === 'live') return { label: 'Live', bg: c.greenL, fg: '#0f7a39', dot: true };
+  if (s === 'live') return { label: 'Live', bg: c.greenL, fg: c.green, dot: true };
   if (s === 'paused') return { label: 'Paused', bg: c.bg2, fg: c.muted };
   if (s === 'archived') return { label: 'Archived', bg: c.bg2, fg: c.muted };
-  return { label: 'Sold out', bg: '#FEF3E2', fg: '#B45309' };
+  return { label: 'Sold out', bg: c.amberL, fg: c.amber };
 }
 
 export default function MenuScreen() {
