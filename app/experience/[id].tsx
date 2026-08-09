@@ -141,7 +141,7 @@ export default function ExperienceDetail() {
 
           <Press scale={0.98} onPress={() => router.push(`/store/${exp.kitchenId}`)}>
             <View style={{ flexDirection: 'row', alignItems: 'center', gap: 12, marginTop: 18, padding: 13, borderRadius: radius.lg, backgroundColor: c.bg, borderWidth: 1, borderColor: c.border }}>
-              <View style={{ width: 46, height: 46, borderRadius: 15, backgroundColor: c.primary, alignItems: 'center', justifyContent: 'center' }}><Text style={[type(19, 900), { color: '#fff' }]}>{initial}</Text></View>
+              <View style={{ width: 46, height: 46, borderRadius: 15, backgroundColor: c.primaryD, alignItems: 'center', justifyContent: 'center' }}><Text style={[type(19, 900), { color: '#fff' }]}>{initial}</Text></View>
               <View style={{ flex: 1 }}>
                 <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}><Text style={[type(15, 900), { color: c.ink }]}>Hosted by {exp.kitchenName}</Text><Icon name="shield" size={15} color={c.green} /></View>
                 <Text style={[type(12, 600), { color: c.soft, marginTop: 2 }]}>Verified kitchen</Text>
@@ -180,7 +180,7 @@ export default function ExperienceDetail() {
                   const f = fmtChip(s.startsAt);
                   return (
                     <Press key={s.sessionId} scale={0.96} onPress={() => setSelSession(s.sessionId)}>
-                      <View style={{ minWidth: 120, paddingVertical: 12, paddingHorizontal: 14, borderRadius: 16, backgroundColor: on ? c.primary : c.bg2, borderWidth: 1.5, borderColor: on ? c.primary : c.border, opacity: sold && !on ? 0.72 : 1 }}>
+                      <View style={{ minWidth: 120, paddingVertical: 12, paddingHorizontal: 14, borderRadius: 16, backgroundColor: on ? c.primaryD : c.bg2, borderWidth: 1.5, borderColor: on ? c.primaryD : c.border, opacity: sold && !on ? 0.72 : 1 }}>
                         <Text style={[type(13.5, 900), { color: on ? '#fff' : c.ink }]}>{f.day}</Text>
                         <Text style={[type(12, 700), { color: on ? 'rgba(255,255,255,.85)' : c.soft, marginTop: 2 }]}>{f.time}</Text>
                         <Text style={[type(11, 800), { color: sold ? c.red : on ? 'rgba(255,255,255,.85)' : c.green, marginTop: 5 }]}>{sold ? 'Sold out' : `${s.seatsLeft} left`}</Text>
@@ -206,7 +206,7 @@ export default function ExperienceDetail() {
             <><SectionLabel>What’s included</SectionLabel>
               {exp.whatsIncluded.map((it, i) => (
                 <View key={i} style={{ flexDirection: 'row', alignItems: 'center', gap: 12, paddingVertical: 7 }}>
-                  <View style={{ width: 22, height: 22, borderRadius: 11, backgroundColor: c.primary, alignItems: 'center', justifyContent: 'center' }}><Icon name="check" size={13} color="#fff" /></View>
+                  <View style={{ width: 22, height: 22, borderRadius: 11, backgroundColor: c.primaryD, alignItems: 'center', justifyContent: 'center' }}><Icon name="check" size={13} color="#fff" /></View>
                   <Text style={[type(14, 700), { color: c.ink, flex: 1 }]}>{it}</Text>
                 </View>
               ))}</>
@@ -238,8 +238,8 @@ export default function ExperienceDetail() {
       <Dock>
         <DockTotal label={isFlat ? 'Whole session' : canBook ? `${guests} × ${money(unit / 100)}` : 'Per person'} value={money((isFlat ? unit : (canBook ? total : unit)) / 100)} />
         <Press scale={0.98} onPress={sel && !busy ? primaryAction : undefined} style={{ flex: 1 }}>
-          <View style={{ height: 50, borderRadius: radius.md, backgroundColor: !sel ? c.border : onWait ? c.bg2 : c.primary, borderWidth: onWait ? 1.5 : 0, borderColor: c.primary, alignItems: 'center', justifyContent: 'center', flexDirection: 'row', gap: 8, opacity: busy ? 0.7 : 1 }}>
-            {busy ? <ActivityIndicator size="small" color="#fff" /> : <><Icon name={primaryIcon} size={18} color={onWait ? c.primary : '#fff'} /><Text style={[type(15, 900), { color: onWait ? c.primary : '#fff' }]}>{primaryLabel}</Text></>}
+          <View style={{ height: 50, borderRadius: radius.md, backgroundColor: !sel ? c.border : onWait ? c.bg2 : c.primaryD, borderWidth: onWait ? 1.5 : 0, borderColor: c.primaryD, alignItems: 'center', justifyContent: 'center', flexDirection: 'row', gap: 8, opacity: busy ? 0.7 : 1 }}>
+            {busy ? <ActivityIndicator size="small" color="#fff" /> : <><Icon name={primaryIcon} size={18} color={onWait ? c.primaryD : '#fff'} /><Text style={[type(15, 900), { color: onWait ? c.primaryD : '#fff' }]}>{primaryLabel}</Text></>}
           </View>
         </Press>
       </Dock>

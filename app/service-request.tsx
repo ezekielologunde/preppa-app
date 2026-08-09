@@ -219,7 +219,7 @@ export default function ServiceRequestScreen() {
                         const on = q.multi ? (Array.isArray(answers[q.key]) && (answers[q.key] as string[]).includes(opt)) : answers[q.key] === opt;
                         return (
                           <Press key={opt} scale={0.96} onPress={() => q.multi ? toggleMulti(q.key, opt) : setAns(q.key, opt)}>
-                            <View style={{ height: 38, paddingHorizontal: 14, borderRadius: radius.pill, backgroundColor: on ? c.primary : c.bg2, borderWidth: 1, borderColor: on ? c.primary : c.border, alignItems: 'center', justifyContent: 'center' }}>
+                            <View style={{ height: 38, paddingHorizontal: 14, borderRadius: radius.pill, backgroundColor: on ? c.primaryD : c.bg2, borderWidth: 1, borderColor: on ? c.primaryD : c.border, alignItems: 'center', justifyContent: 'center' }}>
                               <Text style={[type(13, 700), { color: on ? '#fff' : c.soft }]}>{opt}</Text>
                             </View>
                           </Press>
@@ -377,7 +377,7 @@ function CalendarSheet({ visible, onClose, value, onSelect }: { visible: boolean
             <Press key={i} disabled={disabled} label={`${MONTH_NAMES[viewM]} ${d}`} selected={isSel}
               onPress={() => { onSelect(toISODate(viewY, viewM, d)); onClose(); }}
               style={{ width: `${100 / 7}%`, aspectRatio: 1, alignItems: 'center', justifyContent: 'center' }}>
-              <View style={{ width: 36, height: 36, borderRadius: 18, alignItems: 'center', justifyContent: 'center', backgroundColor: isSel ? c.primary : 'transparent' }}>
+              <View style={{ width: 36, height: 36, borderRadius: 18, alignItems: 'center', justifyContent: 'center', backgroundColor: isSel ? c.primaryD : 'transparent' }}>
                 <Text style={[type(14, isSel ? 900 : 600), { color: disabled ? c.muted : isSel ? '#fff' : c.ink }]}>{d}</Text>
               </View>
             </Press>
@@ -403,7 +403,7 @@ function TimeSheet({ visible, onClose, value, onSelect }: { visible: boolean; on
           const on = t === value;
           return (
             <Press key={t} scale={0.96} onPress={() => { onSelect(t); onClose(); }} style={{ width: '31%' }}>
-              <View style={{ height: 44, borderRadius: radius.md, backgroundColor: on ? c.primary : c.bg2, borderWidth: 1, borderColor: on ? c.primary : c.border, alignItems: 'center', justifyContent: 'center' }}>
+              <View style={{ height: 44, borderRadius: radius.md, backgroundColor: on ? c.primaryD : c.bg2, borderWidth: 1, borderColor: on ? c.primaryD : c.border, alignItems: 'center', justifyContent: 'center' }}>
                 <Text style={[type(13, 800), { color: on ? '#fff' : c.ink }]}>{formatTimePretty(t)}</Text>
               </View>
             </Press>

@@ -4,6 +4,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Redirect, useFocusEffect, useRouter } from 'expo-router';
 import { FLAGS } from '../../src/config/flags';
 import { type, shadow, radius } from '../../src/theme/theme';
+import { useC } from '../../src/theme/ThemeContext';
 import { useStore } from '../../src/store/store';
 import { Icon, Press } from '../../src/ui';
 import { fetchFeed, FeedPost } from '../../src/lib/feed';
@@ -12,6 +13,7 @@ import { fetchLiveNow, type LiveStreamRow } from '../../src/lib/livestream';
 import { Sheet } from '../../src/ui/overlay';
 
 export default function Feeds() {
+  const c = useC();
   const insets = useSafeAreaInsets();
   const router = useRouter();
   const { prepperStatus } = useStore();
@@ -79,7 +81,7 @@ export default function Feeds() {
           </Text>
           {following ? (
             <Press scale={0.96} onPress={() => selectTab('all')} label="See all posts" style={{ marginTop: 16 }}>
-              <View style={{ height: 38, paddingHorizontal: 18, borderRadius: radius.pill, backgroundColor: '#E24A38', alignItems: 'center', justifyContent: 'center' }}>
+              <View style={{ height: 38, paddingHorizontal: 18, borderRadius: radius.pill, backgroundColor: c.primaryD, alignItems: 'center', justifyContent: 'center' }}>
                 <Text style={[type(13, 800), { color: '#fff' }]}>See all posts</Text>
               </View>
             </Press>
@@ -123,7 +125,7 @@ export default function Feeds() {
       {prepperStatus === 'approved' ? (
         <Press scale={0.9} onPress={() => router.push('/hub/post-reel')} label="Post to the feed"
           style={{ position: 'absolute', top: insets.top + 48, left: 14 }}>
-          <View style={{ height: 40, paddingHorizontal: 14, borderRadius: 20, backgroundColor: '#E24A38', flexDirection: 'row', alignItems: 'center', gap: 7, ...shadow.brand }}>
+          <View style={{ height: 40, paddingHorizontal: 14, borderRadius: 20, backgroundColor: c.primaryD, flexDirection: 'row', alignItems: 'center', gap: 7, ...shadow.soft }}>
             <Icon name="plus" size={18} color="#fff" />
             <Text style={[type(13.5, 800), { color: '#fff' }]}>Post</Text>
           </View>

@@ -3,7 +3,7 @@ import { View, Text, ScrollView, ActivityIndicator, Image, LayoutChangeEvent } f
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useRouter, useFocusEffect, useLocalSearchParams } from 'expo-router';
 import { useC } from '../../src/theme/ThemeContext';
-import { Palette, type, radius, shadow } from '../../src/theme/theme';
+import { Palette, type, radius, shadow, EXPERIENCE_GRAD } from '../../src/theme/theme';
 import { useStore } from '../../src/store/store';
 import { Icon, Press, GradBox } from '../../src/ui';
 import { SectionHeader, useColumns } from '../../src/components/cards';
@@ -27,7 +27,7 @@ function ExperienceCard({ e, onPress }: { e: Experience; onPress: () => void }) 
   return (
     <Press scale={0.985} onPress={onPress} style={{ marginHorizontal: 16, marginBottom: 12 }}>
       <View style={{ backgroundColor: c.surface, borderWidth: 1, borderColor: c.border2, borderRadius: radius.xl, overflow: 'hidden', ...shadow.card }}>
-        <GradBox grad={['#FB7185', '#E11D48']} img={e.coverUrl ?? undefined} style={{ height: 130 }}>
+        <GradBox grad={EXPERIENCE_GRAD} img={e.coverUrl ?? undefined} style={{ height: 130 }}>
           <View style={{ position: 'absolute', top: 12, left: 12, height: 22, paddingHorizontal: 9, borderRadius: radius.pill, backgroundColor: 'rgba(0,0,0,.45)', flexDirection: 'row', alignItems: 'center' }}>
             <Text style={[type(10.5, 900), { color: '#fff', textTransform: 'uppercase', letterSpacing: 0.3 }]}>{ETYPE_LABEL[e.experienceType] ?? 'Experience'}</Text>
           </View>

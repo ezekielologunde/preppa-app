@@ -2,7 +2,7 @@ import React, { useCallback, useState } from 'react';
 import { View, Text, ScrollView, ActivityIndicator } from 'react-native';
 import { useRouter, useFocusEffect } from 'expo-router';
 import { useC } from '../../src/theme/ThemeContext';
-import { type, radius, shadow } from '../../src/theme/theme';
+import { type, radius, shadow, EXPERIENCE_GRAD } from '../../src/theme/theme';
 import { Icon, GradBox, Press } from '../../src/ui';
 import { Screen, TopBar } from '../../src/ui/layout';
 import { money } from '../../src/data/data';
@@ -61,7 +61,7 @@ export default function HubExperiences() {
               <Press key={e.id} scale={0.99} onPress={() => router.push(`/hub/create-experience?experienceId=${e.id}`)} style={{ marginHorizontal: 20, marginBottom: 14 }}>
                 <View style={{ backgroundColor: c.surface, borderWidth: 1, borderColor: c.border2, borderRadius: 20, padding: 16, ...shadow.card }}>
                   <View style={{ flexDirection: 'row', alignItems: 'center', gap: 13 }}>
-                    <GradBox grad={['#FB7185', '#E11D48']} style={{ width: 48, height: 48, borderRadius: 14, alignItems: 'center', justifyContent: 'center' }}><Icon name="spark" size={20} color="#fff" /></GradBox>
+                    <GradBox grad={EXPERIENCE_GRAD} style={{ width: 48, height: 48, borderRadius: 14, alignItems: 'center', justifyContent: 'center' }}><Icon name="spark" size={20} color="#fff" /></GradBox>
                     <View style={{ flex: 1, minWidth: 0 }}>
                       <Text numberOfLines={1} style={[type(15, 900), { color: c.ink, letterSpacing: -0.2 }]}>{e.title}</Text>
                       <Text style={[type(12.5, 600), { color: c.soft, marginTop: 2 }]}>{nextSessionLabel(e)}</Text>

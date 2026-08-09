@@ -134,7 +134,7 @@ export default function BuildPlanFlow() {
                   <Text style={[type(14, 800), { color: c.ink, letterSpacing: -0.1 }]}>{m.name}</Text>
                   <Text style={[type(12, 600), { color: c.soft, marginTop: 1 }]}>{cook} · {money(m.price)}</Text>
                 </View>
-                <View style={{ width: 26, height: 26, borderRadius: 13, borderWidth: 2, borderColor: on ? c.primary : c.border, backgroundColor: on ? c.primary : 'transparent', alignItems: 'center', justifyContent: 'center' }}>
+                <View style={{ width: 26, height: 26, borderRadius: 13, borderWidth: 2, borderColor: on ? c.primaryD : c.border, backgroundColor: on ? c.primaryD : 'transparent', alignItems: 'center', justifyContent: 'center' }}>
                   {on ? <Icon name="check" size={14} color="#fff" /> : null}
                 </View>
               </View>
@@ -162,7 +162,7 @@ function DayChip({ label, on, onPress }: { label: string; on: boolean; onPress: 
   const c = useC();
   return (
     <Press scale={0.95} onPress={onPress}>
-      <View style={{ height: 36, paddingHorizontal: 14, borderRadius: radius.pill, backgroundColor: on ? c.primary : c.bg2, alignItems: 'center', justifyContent: 'center' }}>
+      <View style={{ height: 36, paddingHorizontal: 14, borderRadius: radius.pill, backgroundColor: on ? c.primaryD : c.bg2, alignItems: 'center', justifyContent: 'center' }}>
         <Text style={[type(13, 800), { color: on ? '#fff' : c.soft }]}>{label}</Text>
       </View>
     </Press>

@@ -132,7 +132,7 @@ export function MyPlansSection({ onBrowse }: { onBrowse: () => void }) {
             <Text style={[type(16, 900), { color: c.ink, marginTop: 14 }]}>No plans yet</Text>
             <Text style={[type(13.5, 600), { color: c.soft, textAlign: 'center', marginTop: 6, maxWidth: 300, lineHeight: 20 }]}>Subscribe to a cook’s weekly box and manage it here — skip a week, pause, or cancel anytime.</Text>
             <Press scale={0.97} onPress={onBrowse} style={{ marginTop: 16 }}>
-              <View style={{ height: 44, paddingHorizontal: 22, borderRadius: radius.md, backgroundColor: c.primary, alignItems: 'center', justifyContent: 'center' }}>
+              <View style={{ height: 44, paddingHorizontal: 22, borderRadius: radius.md, backgroundColor: c.primaryD, alignItems: 'center', justifyContent: 'center' }}>
                 <Text style={[type(14, 800), { color: '#fff' }]}>Browse meal plans</Text>
               </View>
             </Press>
@@ -291,7 +291,7 @@ export function SubCard({ s, busy, onAct, onEditMeals, onMessage }: {
 
 export function PillBtn({ label, primary, danger, busy, onPress }: { label: string; primary?: boolean; danger?: boolean; busy?: boolean; onPress: () => void }) {
   const c = useC();
-  const bg = primary ? c.primary : c.bg2;
+  const bg = primary ? c.primaryD : c.bg2;
   const fg = primary ? '#fff' : danger ? c.red : c.ink2;
   return (
     <Press scale={0.96} onPress={busy ? undefined : onPress} style={{ flex: 1 }}>
@@ -352,7 +352,7 @@ export function EditMealsModal({ sub, onClose, onSaved }: { sub: MySubscription 
           <View style={{ flexDirection: 'row', gap: 10, marginTop: 12 }}>
             <PillBtn label="Cancel" busy={false} onPress={onClose} />
             <Press scale={0.97} onPress={busy ? undefined : save} style={{ flex: 1 }}>
-              <View style={{ height: 44, borderRadius: radius.md, backgroundColor: count > 0 ? c.primary : c.border, alignItems: 'center', justifyContent: 'center' }}>
+              <View style={{ height: 44, borderRadius: radius.md, backgroundColor: count > 0 ? c.primaryD : c.border, alignItems: 'center', justifyContent: 'center' }}>
                 {busy ? <ActivityIndicator size="small" color="#fff" /> : <Text style={[type(14, 800), { color: '#fff' }]}>Save meals</Text>}
               </View>
             </Press>
