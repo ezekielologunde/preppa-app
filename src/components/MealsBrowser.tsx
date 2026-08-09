@@ -118,6 +118,17 @@ export function MealsBrowser({ initialCat, initialGoal }: { initialCat?: string;
           <Text style={[type(19, 900), { color: c.ink, letterSpacing: -0.4 }]}>Filters</Text>
           {activeCount ? <Press scale={0.95} onPress={clearFilters} label="Clear filters"><Text style={[type(14, 800), { color: c.accentText }]}>Clear all</Text></Press> : null}
         </View>
+        {/* The cuisine strip on the main screen (`cat`) and this sheet's own filters are
+            separate state on the same underlying tags — surfacing the active category here
+            stops it from being an invisible third filter when someone opens this sheet. */}
+        {cat !== 'All' ? (
+          <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8, marginBottom: 4 }}>
+            <Text style={[type(12.5, 600), { color: c.soft }]}>Already filtering by</Text>
+            <View style={{ height: 26, paddingHorizontal: 10, borderRadius: radius.pill, backgroundColor: c.primaryL, alignItems: 'center', justifyContent: 'center' }}>
+              <Text style={[type(12, 800), { color: c.primaryD }]}>{cat}</Text>
+            </View>
+          </View>
+        ) : null}
         <ScrollView showsVerticalScrollIndicator={false} style={{ flexShrink: 1 }} contentContainerStyle={{ paddingBottom: 10 }}>
           <FSec title="Sort by">{SORTS.map((s) => <Chip key={s.key} label={s.label} on={sort === s.key} onPress={() => setSort(sort === s.key ? null : s.key)} />)}</FSec>
           <FSec title="Goals">{GOALS.map((g) => <Chip key={g.label} label={g.label} on={goal === g.label} onPress={() => setGoal(goal === g.label ? null : g.label)} />)}</FSec>
