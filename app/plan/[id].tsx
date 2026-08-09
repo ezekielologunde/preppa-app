@@ -75,6 +75,9 @@ function RealPlanDetail({ plan }: { plan: Plan }) {
   const [busy, setBusy] = useState(false);
   const [addCard, setAddCard] = useState<string | null>(null);
   const [result, setResult] = useState<{ firstDeliveryDate: string | null; firstCycleSkipped?: boolean } | null>(null);
+  const rotationWeeks = plan.rotating ? (plan.itemsByWeek?.length ?? 1) : 1;
+  const [previewWeek, setPreviewWeek] = useState(0);
+  const previewItems = rotationWeeks > 1 ? (plan.itemsByWeek?.[previewWeek] ?? plan.items) : plan.items;
 
   const selectedItems = selModel === 'customer_choice'
     ? plan.items.filter((i) => (sel[i.mealId ?? ''] ?? 0) > 0).map((i) => ({ ...i, qty: sel[i.mealId!]! }))
@@ -238,11 +241,22 @@ function RealPlanDetail({ plan }: { plan: Plan }) {
             <Text style={[type(13, 600), { color: c.soft, marginTop: 8 }]}>Billed weekly</Text>
           )}
           {plan.rotating && (
-            <Text style={[type(13, 600), { color: c.soft, marginTop: 2 }]}>Meals rotate weekly</Text>
+            <Text style={[type(13, 600), { color: c.soft, marginTop: 2 }]}>Meals rotate every {rotationWeeks} week{rotationWeeks !== 1 ? 's' : ''}</Text>
           )}
 
           <SectionLabel>{selModel === 'customer_choice' ? 'Choose from' : 'In your weekly box'}</SectionLabel>
-          {plan.items.map((it, i) => (
+          {rotationWeeks > 1 ? (
+            <View style={{ flexDirection: 'row', gap: 6, marginBottom: 4 }}>
+              {Array.from({ length: rotationWeeks }, (_, w) => w).map((w) => (
+                <Press key={w} onPress={() => setPreviewWeek(w)}>
+                  <View style={{ paddingHorizontal: 12, paddingVertical: 7, borderRadius: radius.pill, backgroundColor: previewWeek === w ? c.primary : c.bg2 }}>
+                    <Text style={[type(12, 800), { color: previewWeek === w ? '#fff' : c.ink }]}>Week {w + 1}</Text>
+                  </View>
+                </Press>
+              ))}
+            </View>
+          ) : null}
+          {previewItems.map((it, i) => (
             <View key={i} style={{ flexDirection: 'row', alignItems: 'center', gap: 12, paddingVertical: 8 }}>
               <View style={{ width: 24, height: 24, borderRadius: 12, backgroundColor: c.primary, alignItems: 'center', justifyContent: 'center' }}><Icon name="check" size={14} color="#fff" /></View>
               <Text style={[type(14.5, 700), { color: c.ink, flex: 1 }]}>{it.name}{it.qty > 1 && selModel === 'fixed' ? `  ×${it.qty}` : ''}</Text>
