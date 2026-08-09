@@ -37,9 +37,9 @@ export function SideRail({ width }: { width: number }) {
     : ITEMS.find((it) => pathname === it.path || pathname.startsWith(it.path + '/'))?.id ?? (pathname === '/' ? 'home' : undefined);
 
   const Item = ({ id, ico, lbl, onPress, badge }: { id?: string; ico: string; lbl: string; onPress: () => void; badge?: number }) => {
-    const on = id && activeId === id;
+    const on = !!id && activeId === id;
     return (
-      <Press scale={0.97} onPress={onPress}>
+      <Press scale={0.97} onPress={onPress} label={badge && badge > 0 ? `${lbl}, ${badge}` : lbl} selected={on}>
         <View style={{ flexDirection: 'row', alignItems: 'center', gap: labeled ? 13 : 0, justifyContent: labeled ? 'flex-start' : 'center', paddingVertical: 12, paddingHorizontal: labeled ? 13 : 0, borderRadius: radius.md, backgroundColor: on ? c.primaryL : 'transparent' }}>
           <View>
             <Icon name={ico} size={22} color={on ? c.primaryD : c.soft} />
@@ -74,7 +74,7 @@ export function SideRail({ width }: { width: number }) {
 
       <View style={{ flex: 1 }} />
 
-      <Press scale={0.97} onPress={() => router.navigate('/profile')}>
+      <Press scale={0.97} onPress={() => router.navigate('/profile')} label={`${displayName}, view profile`}>
         <View style={{ flexDirection: 'row', alignItems: 'center', gap: labeled ? 12 : 0, justifyContent: labeled ? 'flex-start' : 'center', paddingHorizontal: labeled ? 8 : 0, paddingVertical: 8 }}>
           <View style={{ width: 38, height: 38, borderRadius: 12, backgroundColor: c.primary, alignItems: 'center', justifyContent: 'center' }}>
             <Text style={[type(15, 900), { color: '#fff' }]}>{initial}</Text>
