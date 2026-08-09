@@ -40,7 +40,7 @@ function StoreExperiences({ kitchenId }: { kitchenId?: string }) {
       {items.map((e) => (
         <Press key={e.id} scale={0.985} onPress={() => router.push(`/experience/${e.id}`)} style={{ marginHorizontal: 16, marginBottom: 12 }}>
           <View style={{ backgroundColor: c.surface, borderWidth: 1, borderColor: c.border2, borderRadius: radius.xl, padding: 14, flexDirection: 'row', alignItems: 'center', gap: 12, ...shadow.card }}>
-            <GradBox grad={['#FB7185', '#E11D48']} img={e.coverUrl ?? undefined} style={{ width: 54, height: 54, borderRadius: 14, alignItems: 'center', justifyContent: 'center' }}>{e.coverUrl ? null : <Icon name="spark" size={22} color="#fff" />}</GradBox>
+            <GradBox grad={[c.primaryD, c.primaryD]} img={e.coverUrl ?? undefined} style={{ width: 54, height: 54, borderRadius: 14, alignItems: 'center', justifyContent: 'center' }}>{e.coverUrl ? null : <Icon name="spark" size={22} color="#fff" />}</GradBox>
             <View style={{ flex: 1, minWidth: 0 }}>
               <Text numberOfLines={1} style={[type(15, 900), { color: c.ink, letterSpacing: -0.3 }]}>{e.title}</Text>
               <Text style={[type(12.5, 600), { color: c.soft, marginTop: 2 }]}>{money((e.priceModel === 'flat' ? (e.priceCents ?? 0) : (e.perPersonCents ?? 0)) / 100)}{e.priceModel === 'flat' ? '/session' : '/person'} · {next(e)}</Text>
@@ -65,7 +65,7 @@ function StoreLiveBanner({ kitchenId, cookParam }: { kitchenId?: string; cookPar
   if (!FLAGS.live || !live) return null;
   return (
     <Press scale={0.985} onPress={() => router.push(`/store/${cookParam}/live`)} style={{ marginHorizontal: 16, marginTop: 14 }}>
-      <View style={{ flexDirection: 'row', alignItems: 'center', gap: 14, backgroundColor: '#E11D48', borderRadius: radius.xl, padding: 16 }}>
+      <View style={{ flexDirection: 'row', alignItems: 'center', gap: 14, backgroundColor: c.primaryD, borderRadius: radius.xl, padding: 16 }}>
         <View style={{ width: 8, height: 8, borderRadius: 4, backgroundColor: '#fff' }} />
         <View style={{ flex: 1 }}>
           <Text style={[type(15, 900), { color: '#fff' }]}>Live now</Text>
@@ -268,7 +268,10 @@ export default function CookStoreScreen() {
   );
 }
 
-/** Storefront for a REAL verified kitchen (live data, keyed by kitchen UUID). */
+/** Storefront for a REAL verified kitchen (live data, keyed by kitchen UUID).
+ *  TODO(follow-up): near-total layout duplication with CookStoreScreen's seed-cook render —
+ *  worth flattening into one parametrized component. Left alone in this visual-only redesign
+ *  pass (structural refactor risks behavior changes, out of scope here). */
 function RealKitchenStore({ profile, meals, mealsLoading, revCount, revAvg, insetsTop, onBack }: {
   profile: KitchenProfile; meals: any[]; mealsLoading: boolean; revCount: number; revAvg: number; insetsTop: number; onBack: () => void;
 }) {
@@ -291,7 +294,7 @@ function RealKitchenStore({ profile, meals, mealsLoading, revCount, revAvg, inse
   return (
     <Screen max={960}>
       <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={{ paddingBottom: 40 }}>
-        <GradBox grad={['#A855F7', '#6B4A93']} img={profile.coverUrl ?? undefined} style={{ height: 172 }}>
+        <GradBox grad={[c.primaryD, c.primaryD]} img={profile.coverUrl ?? undefined} style={{ height: 172 }}>
           <HeroTopBar topInset={insetsTop} onBack={onBack} right={<HeroBtn icon="share" label={`Share ${profile.name}`} onPress={() => shareAndNotify(toast, { title: `${profile.name} on Preppa`, url: `${SITE}/store/${profile.id}` })} />} />
           {profile.availability === 'open' ? (
             <View style={{ position: 'absolute', right: 18, bottom: 16, height: 26, paddingHorizontal: 11, borderRadius: radius.pill, flexDirection: 'row', alignItems: 'center', gap: 6, backgroundColor: 'rgba(0,0,0,.45)' }}>
@@ -302,7 +305,7 @@ function RealKitchenStore({ profile, meals, mealsLoading, revCount, revAvg, inse
         </GradBox>
 
         <View style={{ backgroundColor: c.surface, paddingHorizontal: 20, paddingBottom: 18, borderBottomWidth: 1, borderBottomColor: c.border2 }}>
-          <View style={{ width: 76, height: 76, borderRadius: 24, marginTop: -34, borderWidth: 4, borderColor: c.surface, backgroundColor: c.primary, alignItems: 'center', justifyContent: 'center', ...shadow.hero }}>
+          <View style={{ width: 76, height: 76, borderRadius: 24, marginTop: -34, borderWidth: 4, borderColor: c.surface, backgroundColor: c.primaryD, alignItems: 'center', justifyContent: 'center', ...shadow.hero }}>
             <Text style={[type(28, 900), { color: '#fff' }]}>{initial}</Text>
           </View>
           <View style={{ flexDirection: 'row', alignItems: 'center', gap: 7, marginTop: 12 }}>

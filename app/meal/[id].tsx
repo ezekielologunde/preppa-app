@@ -53,7 +53,7 @@ export default function MealDetail() {
           <HeroTopBar topInset={insets.top} onBack={() => router.back()} right={
             <View style={{ flexDirection: 'row', gap: 10 }}>
               <HeroBtn icon="share" label="Share this meal" onPress={() => shareAndNotify(toast, { title: m.name, url: `${SITE}/meal/${m.id}` })} />
-              <HeroBtn icon={isFav ? 'heartFill' : 'heart'} label={isFav ? 'Remove from favorites' : 'Save to favorites'} color={isFav ? c.primary : c.ink} onPress={() => toggleFav(m.id)} />
+              <HeroBtn icon={isFav ? 'heartFill' : 'heart'} label={isFav ? 'Remove from favorites' : 'Save to favorites'} color={isFav ? c.primary : undefined} onPress={() => toggleFav(m.id)} />
             </View>
           } />
           {m.match ? (
@@ -64,7 +64,7 @@ export default function MealDetail() {
           ) : null}
         </MealGallery>
 
-        <View style={{ backgroundColor: c.surface, borderTopLeftRadius: radius.sheet, borderTopRightRadius: radius.sheet, marginTop: -26, padding: 18, paddingTop: 22 }}>
+        <View style={{ backgroundColor: c.surface, borderTopLeftRadius: radius.sheet, borderTopRightRadius: radius.sheet, marginTop: -18, padding: 18, paddingTop: 22 }}>
           <Text style={[type(23, 900), { color: c.ink, letterSpacing: -0.8, lineHeight: 27 }]}>{m.name}</Text>
           <View style={{ flexDirection: 'row', gap: 14, marginTop: 10 }}>
             <Meta icon="star" text={mealRevs && mealRevs.count > 0 ? `${mealRevs.avg.toFixed(1)} (${mealRevs.count})` : 'New'} tone={c.ink} iconColor={c.star} />

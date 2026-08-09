@@ -86,7 +86,7 @@ function ServicesMode() {
   return (
     <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={{ padding: 16, paddingBottom: 40 }}>
       <Press scale={0.985} onPress={() => router.push('/service-request')}>
-        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 14, backgroundColor: c.primaryD, borderRadius: radius.xl, padding: 16, ...shadow.brand }}>
+        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 14, backgroundColor: c.primaryD, borderRadius: radius.xl, padding: 16, ...shadow.soft }}>
           <View style={{ width: 46, height: 46, borderRadius: 14, backgroundColor: 'rgba(255,255,255,.2)', alignItems: 'center', justifyContent: 'center' }}><Icon name="chefhat" size={22} color="#fff" /></View>
           <View style={{ flex: 1 }}>
             <Text style={[type(16, 900), { color: '#fff' }]}>Book a prepper for your place</Text>
@@ -153,7 +153,7 @@ function KDeposit({ label, onPress }: { label: string; onPress: () => void }) {
   const c = useC();
   return (
     <Press scale={0.97} onPress={onPress}>
-      <View style={{ height: 44, borderRadius: radius.md, backgroundColor: c.primaryD, alignItems: 'center', justifyContent: 'center', ...shadow.brand }}>
+      <View style={{ height: 44, borderRadius: radius.md, backgroundColor: c.primaryD, alignItems: 'center', justifyContent: 'center', ...shadow.soft }}>
         <Text style={[type(14, 800), { color: '#fff' }]}>{label}</Text>
       </View>
     </Press>
@@ -197,8 +197,8 @@ function PrepperRow({ k, onPress }: { k: KitchenCard; onPress: () => void }) {
     <Press scale={0.99} onPress={onPress} label={`${name} kitchen`}>
       <View style={{ flexDirection: 'row', alignItems: 'center', gap: 13, backgroundColor: c.surface, borderWidth: 1, borderColor: c.border2, borderRadius: radius.xl, padding: 14, ...shadow.card }}>
         {seed ? <Avatar cook={seed} size={52} rad={16} /> : (
-          <View style={{ width: 52, height: 52, borderRadius: 16, backgroundColor: c.primary, alignItems: 'center', justifyContent: 'center' }}>
-            <Text style={[type(21, 900), { color: '#fff' }]}>{name.trim()[0]?.toUpperCase() ?? 'K'}</Text>
+          <View style={{ width: 52, height: 52, borderRadius: 16, backgroundColor: c.primaryL, alignItems: 'center', justifyContent: 'center' }}>
+            <Text style={[type(21, 900), { color: c.primaryD }]}>{name.trim()[0]?.toUpperCase() ?? 'K'}</Text>
           </View>
         )}
         <View style={{ flex: 1, minWidth: 0 }}>
