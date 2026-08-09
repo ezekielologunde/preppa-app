@@ -10,7 +10,7 @@ import { supabase } from './supabase';
  * Connect. Money is always in cents. Web-first (Stripe.js) for adding a card.
  */
 
-export interface PlanItem { mealId?: string; name: string; qty: number; priceCents?: number }
+export interface PlanItem { mealId?: string; name: string; qty: number; priceCents?: number; weekIndex?: number }
 
 export type SelectionModel = 'fixed' | 'customer_choice';
 
@@ -42,6 +42,8 @@ export interface Plan {
   allergens?: string[];
   cadenceWeeks?: number;        // NEW: 1=weekly, 2=biweekly (cook-chosen)
   rotating?: boolean;           // NEW: meals rotate weekly (not fixed)
+  rotationWeeks?: number;       // NEW: how many distinct weeks in the rotation (1 = off)
+  itemsByWeek?: PlanItem[][];   // NEW: full per-week menus (index 0..rotationWeeks-1); items above is always week 0
   status?: 'draft' | 'active' | 'archived';
 }
 
@@ -112,14 +114,15 @@ export function estimateCycle(
   return { subtotalCents: subtotal, feeCents: fee, totalCents: subtotal + fee };
 }
 
-function planItems(rows: any[] | null | undefined): PlanItem[] {
+function planItems(rows: any[] | null | undefined, weekIndex?: number): PlanItem[] {
   return (rows ?? [])
-    .map((pi) => ({ mealId: pi?.meal_id ?? pi?.meals?.id, name: pi?.meals?.name ?? 'Meal', qty: Number(pi?.qty) || 1, priceCents: Number(pi?.meals?.price_cents) || undefined }))
+    .filter((pi) => weekIndex == null || (Number(pi?.week_index) || 0) === weekIndex)
+    .map((pi) => ({ mealId: pi?.meal_id ?? pi?.meals?.id, name: pi?.meals?.name ?? 'Meal', qty: Number(pi?.qty) || 1, priceCents: Number(pi?.meals?.price_cents) || undefined, weekIndex: Number(pi?.week_index) || 0 }))
     .filter((i) => i.name);
 }
 
 const PLAN_SELECT =
-  'id, kitchen_id, name, description, price_cents, fulfillment, goal, selection_model, meals_per_delivery, servings, per_meal_cents, per_delivery_cents, service_fee_bps, delivery_days, cutoff_hours, lead_time_hours, min_commitment, trial_price_cents, trial_cycles, cadence_weeks, rotating, status, cover_url, dietary_tags, allergens, kitchens(name), plan_items(qty, meal_id, meals(id, name, price_cents))';
+  'id, kitchen_id, name, description, price_cents, fulfillment, goal, selection_model, meals_per_delivery, servings, per_meal_cents, per_delivery_cents, service_fee_bps, delivery_days, cutoff_hours, lead_time_hours, min_commitment, trial_price_cents, trial_cycles, cadence_weeks, rotating, rotation_weeks, status, cover_url, dietary_tags, allergens, kitchens(name), plan_items(qty, meal_id, week_index, meals(id, name, price_cents))';
 
 function rowToPlan(p: any): Plan {
   return {
@@ -131,7 +134,7 @@ function rowToPlan(p: any): Plan {
     priceCents: Number(p.price_cents) || 0,
     fulfillment: p.fulfillment,
     goal: p.goal,
-    items: planItems(p.plan_items),
+    items: planItems(p.plan_items, 0),
     selectionModel: p.selection_model ?? 'fixed',
     mealsPerDelivery: p.meals_per_delivery ?? null,
     servings: p.servings ?? null,
@@ -149,6 +152,8 @@ function rowToPlan(p: any): Plan {
     allergens: p.allergens ?? [],
     cadenceWeeks: p.cadence_weeks ?? 1,    // NEW: default to weekly
     rotating: p.rotating ?? false,         // NEW: default to fixed menu
+    rotationWeeks: p.rotation_weeks ?? 1,
+    itemsByWeek: Array.from({ length: Math.max(1, p.rotation_weeks ?? 1) }, (_, w) => planItems(p.plan_items, w)),
     status: p.status ?? 'active',
   };
 }
@@ -438,11 +443,11 @@ export async function fetchMyPlans(): Promise<Plan[]> {
 
 export interface UpsertPlanInput {
   planId?: string; name: string; description?: string; priceCents?: number;
-  fulfillment: 'pickup' | 'delivery'; goal?: string; items: { mealId: string; qty: number }[];
+  fulfillment: 'pickup' | 'delivery'; goal?: string; items: { mealId: string; qty: number; weekIndex?: number }[];
   selectionModel?: SelectionModel; perMealCents?: number; perDeliveryCents?: number;
   mealsPerDelivery?: number; servings?: number; mealsPerWeek?: number;
   deliveryDays?: string[]; cutoffHours?: number; leadTimeHours?: number; minCommitment?: number;
-  trialPriceCents?: number; trialCycles?: number; cadenceWeeks?: 1 | 2; rotating?: boolean;
+  trialPriceCents?: number; trialCycles?: number; cadenceWeeks?: 1 | 2; rotating?: boolean; rotationWeeks?: number;
   coverUrl?: string; photoUrls?: string[]; dietaryTags?: string[]; allergens?: string[];
   asDraft?: boolean;
 }

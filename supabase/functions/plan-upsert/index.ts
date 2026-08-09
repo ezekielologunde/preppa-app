@@ -32,7 +32,8 @@ const input = z.object({
   priceCents: z.number().int().min(0).max(500_000).optional(),
   fulfillment: z.enum(['pickup', 'delivery']).optional(),
   goal: z.string().max(24).optional(),
-  items: z.array(z.object({ mealId: z.string().uuid(), qty: z.number().int().min(1).max(20) })).min(1).max(30),
+  items: z.array(z.object({ mealId: z.string().uuid(), qty: z.number().int().min(1).max(20), weekIndex: z.number().int().min(0).max(3).optional() })).min(1).max(60),
+  rotationWeeks: z.number().int().min(1).max(4).optional(),
   // rich config (all optional; omitted -> DB default on insert, unchanged on update)
   selectionModel: z.enum(['fixed','customer_choice']).optional(),
   perMealCents: z.number().int().min(0).max(500_000).optional(),
@@ -131,6 +132,7 @@ Deno.serve(async (req) => {
     set('trial_cycles', p.trialCycles);
     set('cadence_weeks', p.cadenceWeeks);  // NEW
     set('rotating', p.rotating);
+    set('rotation_weeks', p.rotationWeeks);
     if (p.coverUrl !== undefined) f.cover_url = p.coverUrl || null;
     set('photo_urls', p.photoUrls);
     set('dietary_tags', p.dietaryTags);
@@ -148,7 +150,7 @@ Deno.serve(async (req) => {
       if (cErr) throw cErr;
       planId = created.id;
     }
-    const itemRows = p.items.map((it) => ({ plan_id: planId, meal_id: it.mealId, qty: it.qty }));
+    const itemRows = p.items.map((it) => ({ plan_id: planId, meal_id: it.mealId, qty: it.qty, week_index: it.weekIndex ?? 0 }));
     const { error: iErr } = await db.from('plan_items').insert(itemRows);
     if (iErr) throw iErr;
 

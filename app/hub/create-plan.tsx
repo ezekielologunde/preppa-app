@@ -47,7 +47,9 @@ export default function CreatePlanFlow() {
   const [trialOn, setTrialOn] = useState(false);
   const [trialPrice, setTrialPrice] = useState('');      // trial price per week
   const [trialWeeks, setTrialWeeks] = useState('');      // number of trial cycles
-  const [qty, setQty] = useState<Record<string, number>>({}); // mealId -> qty (0 = not in plan)
+  const [qtyByWeek, setQtyByWeek] = useState<Record<number, Record<string, number>>>({ 0: {} }); // week -> mealId -> qty
+  const [activeWeek, setActiveWeek] = useState(0);
+  const [rotationWeeks, setRotationWeeks] = useState(1);
   const [cover, setCover] = useState('');        // public cover URL
   const [coverBusy, setCoverBusy] = useState(false);
   const [days, setDays] = useState<string[]>([]); // delivery days (lowercase)
@@ -85,7 +87,14 @@ export default function CreatePlanFlow() {
           }
           // open Advanced if anything there is non-default
           if ((pl.cutoffHours && pl.cutoffHours !== 48) || (pl.leadTimeHours && pl.leadTimeHours !== 48) || (pl.minCommitment && pl.minCommitment > 1) || (pl.trialCycles && pl.trialCycles > 0)) setAdvanced(true);
-          const q: Record<string, number> = {}; for (const it of pl.items) if (it.mealId) q[it.mealId] = it.qty; setQty(q);
+          const byWeek: Record<number, Record<string, number>> = {};
+          (pl.itemsByWeek ?? [pl.items]).forEach((weekItems, w) => {
+            const q: Record<string, number> = {};
+            for (const it of weekItems) if (it.mealId) q[it.mealId] = it.qty;
+            byWeek[w] = q;
+          });
+          setQtyByWeek(byWeek);
+          setRotationWeeks(Math.max(1, pl.rotationWeeks ?? 1));
           setExistingStatus(pl.status ?? 'active');
         }
       }
@@ -109,14 +118,25 @@ export default function CreatePlanFlow() {
   const toggleDay = (k: string) => setDays((d) => d.includes(k) ? d.filter((x) => x !== k) : [...d, k]);
 
   const choice = selectionModel === 'customer_choice';
+  const isRotating = rotating && !choice;
+  const qty = qtyByWeek[activeWeek] ?? {};
+  const setQty = (updater: (s: Record<string, number>) => Record<string, number>) =>
+    setQtyByWeek((s) => ({ ...s, [activeWeek]: updater(s[activeWeek] ?? {}) }));
   const items = Object.entries(qty).filter(([, q]) => q > 0).map(([mealId, q]) => ({ mealId, qty: q }));
   const totalMeals = items.reduce((n, i) => n + i.qty, 0);
+  // validity is gated on week 0 only -- advance_cycles() falls back to week 0's menu for
+  // any rotation week a cook hasn't filled in yet, so week 0 must always be complete.
+  const week0Items = Object.entries(qtyByWeek[0] ?? {}).filter(([, q]) => q > 0);
+  const allWeekItems = isRotating
+    ? Array.from({ length: rotationWeeks }, (_, w) => w).flatMap((w) =>
+        Object.entries(qtyByWeek[w] ?? {}).filter(([, q]) => q > 0).map(([mealId, q]) => ({ mealId, qty: q, weekIndex: w })))
+    : items;
   const priceCents = Math.round((Number(price) || 0) * 100);
   const perMealCents = Math.round((Number(perMeal) || 0) * 100);
   const mpd = Math.max(0, parseInt(mealsPerDelivery, 10) || 0);
   // Weekly price shown to the cook: fixed = the bundle price; customer-choice ≈ per-meal × picks.
   const weeklyCents = choice ? perMealCents * mpd : priceCents;
-  const valid = !!name.trim() && items.length > 0 && (choice ? perMealCents >= 100 && mpd > 0 : priceCents > 0);
+  const valid = !!name.trim() && week0Items.length > 0 && (choice ? perMealCents >= 100 && mpd > 0 : priceCents > 0);
   const advancedSummary = [cadenceWeeks === 2 ? 'Biweekly' : null, rotating ? 'Rotating' : null, trialOn ? 'Trial' : null, `${cutoff || '48'}h cutoff`, minCommit && minCommit !== '1' ? `${minCommit}wk min` : null].filter(Boolean).join(' · ');
   const clampInt = (s: string, lo: number, hi: number) => Math.min(hi, Math.max(lo, parseInt(s, 10) || lo));
 
@@ -124,7 +144,7 @@ export default function CreatePlanFlow() {
     if (busy) return;
     if (!valid) {
       toast(!name.trim() ? 'Add a plan name'
-        : items.length === 0 ? (choice ? 'Add meals to the menu' : 'Add at least one meal to the box')
+        : week0Items.length === 0 ? (choice ? 'Add meals to the menu' : 'Add at least one meal to the box')
         : choice ? (perMealCents < 100 ? 'Set a price per meal (at least $1)' : 'Set how many meals per delivery')
         : 'Set a price above $0', 'info');
       return;
@@ -135,14 +155,15 @@ export default function CreatePlanFlow() {
       const pid = await upsertPlan({
         planId: editing ? planId : undefined,
         name: name.trim(), description: desc.trim() || undefined,
-        fulfillment: fulfillment as any, goal: goal || undefined, items,
+        fulfillment: fulfillment as any, goal: goal || undefined, items: allWeekItems,
         coverUrl: cover || undefined, deliveryDays: days.length ? days : undefined,
         selectionModel,
         servings: servings.trim() ? Math.max(1, parseInt(servings, 10) || 1) : undefined,
         dietaryTags: dietary.length ? dietary : undefined,
         allergens: allergens.length ? allergens : undefined,
         cadenceWeeks, // NEW
-        rotating, // NEW
+        rotating: isRotating, // NEW
+        rotationWeeks: isRotating ? rotationWeeks : 1,
         cutoffHours: cutoff.trim() ? clampInt(cutoff, 0, 336) : undefined,
         leadTimeHours: lead.trim() ? clampInt(lead, 0, 336) : undefined,
         minCommitment: minCommit.trim() ? clampInt(minCommit, 1, 52) : undefined,
@@ -274,6 +295,36 @@ export default function CreatePlanFlow() {
         <Text style={[type(13, 800), { color: c.soft, marginTop: 18, marginBottom: 8 }]}>
           {choice ? `Menu customers choose from${items.length ? ` · ${items.length} offered` : ''}` : `Meals in the box${totalMeals > 0 ? ` · ${totalMeals}/week` : ''}`}
         </Text>
+        {isRotating ? (
+          <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8, marginBottom: 10 }}>
+            <View style={{ flexDirection: 'row', gap: 6, flex: 1 }}>
+              {Array.from({ length: rotationWeeks }, (_, w) => w).map((w) => {
+                const filled = Object.values(qtyByWeek[w] ?? {}).some((n) => n > 0);
+                return (
+                  <Press key={w} onPress={() => setActiveWeek(w)}>
+                    <View style={{ paddingHorizontal: 13, paddingVertical: 8, borderRadius: radius.pill, backgroundColor: activeWeek === w ? c.primary : c.bg2, flexDirection: 'row', alignItems: 'center', gap: 5 }}>
+                      <Text style={[type(12.5, 800), { color: activeWeek === w ? '#fff' : c.ink }]}>Week {w + 1}</Text>
+                      {!filled ? <View style={{ width: 5, height: 5, borderRadius: 3, backgroundColor: activeWeek === w ? '#fff' : c.muted }} /> : null}
+                    </View>
+                  </Press>
+                );
+              })}
+            </View>
+            {rotationWeeks < 4 ? (
+              <Press onPress={() => { setRotationWeeks((n) => n + 1); }}>
+                <View style={{ width: 30, height: 30, borderRadius: 15, backgroundColor: c.bg2, alignItems: 'center', justifyContent: 'center' }}><Icon name="plus" size={15} color={c.ink} /></View>
+              </Press>
+            ) : null}
+            {rotationWeeks > 2 ? (
+              <Press onPress={() => { setRotationWeeks((n) => n - 1); if (activeWeek >= rotationWeeks - 1) setActiveWeek(0); }}>
+                <View style={{ width: 30, height: 30, borderRadius: 15, backgroundColor: c.bg2, alignItems: 'center', justifyContent: 'center' }}><Icon name="minus" size={15} color={c.ink} /></View>
+              </Press>
+            ) : null}
+          </View>
+        ) : null}
+        {isRotating ? (
+          <Text style={[type(11.5, 600), { color: c.muted, marginBottom: 8, lineHeight: 16 }]}>Week {activeWeek + 1} of {rotationWeeks} — cycles automatically. Any week left empty falls back to Week 1’s menu.</Text>
+        ) : null}
         <View style={{ borderWidth: 1, borderColor: c.border2, borderRadius: radius.card, overflow: 'hidden' }}>
           {meals.map((m, i) => {
             const q = qty[m.id] || 0;
@@ -316,7 +367,7 @@ export default function CreatePlanFlow() {
               </Text>
             </KField>
             <KField label="Rotating Menu">
-              <KSeg options={[{ key: 'fixed', label: 'Fixed meals' }, { key: 'rotating', label: 'Meals rotate weekly' }]} value={rotating ? 'rotating' : 'fixed'} onChange={(v) => setRotating(v === 'rotating')} />
+              <KSeg options={[{ key: 'fixed', label: 'Fixed meals' }, { key: 'rotating', label: 'Meals rotate weekly' }]} value={rotating ? 'rotating' : 'fixed'} onChange={(v) => { const on = v === 'rotating'; setRotating(on); if (on && rotationWeeks < 2) setRotationWeeks(2); }} />
               <Text style={[type(11.5, 600), { color: c.muted, marginTop: 6, lineHeight: 16 }]}>
                 Fixed: same meals every week. Rotating: new meals each week.
               </Text>
