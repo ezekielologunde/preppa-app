@@ -47,7 +47,7 @@ Deno.serve(async (req) => {
     const { orderId } = parsed.data;
 
     const { data: order } = await db.from('orders')
-      .select('id, status, pay_status, kitchen_id, kitchens!inner(owner_id)')
+      .select('id, status, pay_status, kitchen_id, box_order_id, subtotal_cents, tip_cents, kitchens!inner(owner_id)')
       .eq('id', orderId).maybeSingle();
     if (!order) return json(404, { error: 'Order not found.' });
     const ownerId = (order as any).kitchens.owner_id;
@@ -56,13 +56,28 @@ Deno.serve(async (req) => {
 
     let refunded = false;
     if ((order as any).pay_status === 'paid') {
-      const { data: pi } = await db.from('payment_intents')
-        .select('stripe_payment_intent_id').eq('order_id', orderId).eq('status', 'succeeded')
-        .order('created_at', { ascending: false }).limit(1).maybeSingle();
-      if (pi?.stripe_payment_intent_id) {
+      let piId: string | null = null;
+      let refundAmount: number | undefined; // undefined = full refund of the PI
+      if ((order as any).box_order_id) {
+        // A box order's single PaymentIntent pays for EVERY kitchen's slice at once -- a full
+        // refund here would over-refund the customer for kitchens that are still fulfilling
+        // their part. Look up the shared PI via box_orders and refund only this kitchen's slice.
+        const { data: box } = await db.from('box_orders').select('stripe_payment_intent_id').eq('id', (order as any).box_order_id).maybeSingle();
+        piId = box?.stripe_payment_intent_id ?? null;
+        refundAmount = (Number((order as any).subtotal_cents) || 0) + (Number((order as any).tip_cents) || 0);
+      } else {
+        const { data: pi } = await db.from('payment_intents')
+          .select('stripe_payment_intent_id').eq('order_id', orderId).eq('status', 'succeeded')
+          .order('created_at', { ascending: false }).limit(1).maybeSingle();
+        piId = pi?.stripe_payment_intent_id ?? null;
+      }
+      if (piId) {
         try {
           // Idempotency key: dedupes a double-submit/retry on Stripe's side.
-          await stripe.refunds.create({ payment_intent: pi.stripe_payment_intent_id }, { idempotencyKey: `refund_order_${orderId}` });
+          await stripe.refunds.create(
+            { payment_intent: piId, ...(refundAmount != null ? { amount: refundAmount } : {}) },
+            { idempotencyKey: `refund_order_${orderId}` },
+          );
           refunded = true;
         } catch (_e) { /* refund failed -- still cancel; reconcile of a failed refund is manual */ }
       }
