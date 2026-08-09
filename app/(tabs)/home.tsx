@@ -182,7 +182,7 @@ export default function HomeScreen() {
           <BigCard c={c} wide={wide} kind="Yours" icon="bank" title="Subscriptions" body="Manage your recurring boxes" onPress={() => router.push('/experiences?tab=mine')} />
           <BigCard c={c} wide={wide} kind="Events" icon="gift" title="Experiences" body="Classes, supper clubs & events" onPress={() => router.push('/experiences?tab=experiences')} />
         </View>
-        <ChefBanner c={c} icon="video" title="Feed" body="See what cooks are making right now" onPress={() => router.push('/(tabs)/feeds')} style={{ marginTop: 12 }} />
+        <ChefBanner c={c} icon="video" title="Feed" body="See what cooks are making right now" kind="Live" onPress={() => router.push('/(tabs)/feeds')} style={{ marginTop: 12 }} />
 
         {/* Cook-at-My-Place (services) banner */}
         <ChefBanner c={c} icon="chefhat" title="Cook at My Place" body="A private chef in your kitchen — compare fixed quotes" onPress={() => FLAGS.services ? router.push('/service-request?category=cook_at_home') : toast('Private-chef bookings are coming soon', 'chefhat')} style={{ marginTop: 10 }} />
@@ -232,7 +232,7 @@ function BigCard({ c, wide, kind, icon, title, body, onPress }: { c: any; wide: 
   );
 }
 
-function ChefBanner({ c, icon, title, body, onPress, style }: { c: any; icon: string; title: string; body: string; onPress: () => void; style?: any }) {
+function ChefBanner({ c, icon, title, body, kind, onPress, style }: { c: any; icon: string; title: string; body: string; kind?: string; onPress: () => void; style?: any }) {
   return (
     <Press scale={0.99} onPress={onPress} style={[{ marginHorizontal: 20, marginTop: 8 }, style]} label={`${title} — ${body}`}>
       <View style={{ flexDirection: 'row', alignItems: 'center', gap: 14, padding: 16, borderRadius: radius.card, backgroundColor: c.surface, borderWidth: 1, borderColor: c.border }}>
@@ -240,7 +240,14 @@ function ChefBanner({ c, icon, title, body, onPress, style }: { c: any; icon: st
           <Icon name={icon} size={22} color={c.primaryD} />
         </View>
         <View style={{ flex: 1, minWidth: 0 }}>
-          <Text style={[type(15.5, 600), { color: c.ink, letterSpacing: -0.2 }]}>{title}</Text>
+          <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
+            <Text style={[type(15.5, 600), { color: c.ink, letterSpacing: -0.2 }]}>{title}</Text>
+            {/* Feed and Cook-at-My-Place share this wide-row shape but are different kinds of
+                destination (browse content vs. a commerce request) — the kind chip is the same
+                wayfinding pattern the Explore grid tiles already use, so a skimming eye doesn't
+                have to rely on copy alone to tell them apart. */}
+            {kind ? <Text style={[type(10, 600), { color: c.muted, backgroundColor: c.bg2, textTransform: 'uppercase', letterSpacing: 0.4, paddingHorizontal: 7, paddingVertical: 2, borderRadius: radius.pill, overflow: 'hidden' }]}>{kind}</Text> : null}
+          </View>
           <Text style={[type(12.5, 400), { color: c.soft, marginTop: 2, lineHeight: 17 }]}>{body}</Text>
         </View>
         <Icon name="chevRight" size={18} color={c.muted} />

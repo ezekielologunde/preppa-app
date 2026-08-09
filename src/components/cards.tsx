@@ -96,7 +96,11 @@ export function PrepperRail({ kitchens }: { kitchens: KitchenCard[] }) {
                 <Text numberOfLines={1} style={[type(14, 900), { color: c.ink, flexShrink: 1 }]}>{name}</Text>
                 {/* Every kitchen in this directory is already verified before it's listed, but
                     a first-time customer can't tell that from a bare "New" rating alone — the
-                    shield is the one visible reassurance that "New" means unrated, not unvetted. */}
+                    shield is the one visible reassurance that "New" means unrated, not unvetted.
+                    Not independently tappable: nesting a second Pressable inside the card's own
+                    Press breaks on web (a <button> can't contain a nested <button>), and the card
+                    itself already routes to the kitchen's store page, which is the real place to
+                    learn what "verified" covers. */}
                 <Icon name="shield" size={12} color={c.green} />
                 {k.isPro ? (
                   <View style={{ paddingHorizontal: 6, height: 16, borderRadius: radius.pill, backgroundColor: c.primaryL, alignItems: 'center', justifyContent: 'center' }}>
