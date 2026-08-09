@@ -7,8 +7,8 @@ import { Burst } from '../src/components/shared';
 import { Handoff, genCode } from '../src/components/Handoff';
 
 /** Prepaid pickup/meetup handoff — the QR + 3-digit code confirms identity at the
- *  meetup (no cash). Pickup-only: prepaid delivery comes to your door and shows no
- *  code, and cash-on-delivery uses /cod. Reached from Track when an order is ready. */
+ *  meetup. Pickup-only: prepaid delivery comes to your door and shows no code.
+ *  Reached from Track when an order is ready. */
 export default function HandoffScreen() {
   const c = useC();
   const router = useRouter();

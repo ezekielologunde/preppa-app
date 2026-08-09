@@ -27,7 +27,6 @@ export default function Checkout() {
   const lines = ck ? cart.filter((l) => lineKey(l) === ck) : cart;
   const t = useTotals(lines, tip, mode);
   const { methods, defaultId } = useSavedCards();
-  const [pay, setPay] = useState<'online' | 'cod'>('online');
   const [busy, setBusy] = useState(false);
   const [addrSheet, setAddrSheet] = useState(false);
   const [cardSheet, setCardSheet] = useState(false);
@@ -59,20 +58,8 @@ export default function Checkout() {
     );
   }
 
-  // COD guardrails (council): cook opts in, and a first-order cash ceiling bounds the
-  // fake-order tail. No held cards / deposits / KYC — those need a real payments backend.
-  const COD_CEILING = 40;
-  const overCeiling = orders.length === 0 && t.total > COD_CEILING;
-  const codBlockedReason = !theCook.acceptsCod
-    ? `${theCook.name} takes card only`
-    : overCeiling
-      ? `Cash is capped at ${money(COD_CEILING)} on your first order`
-      : null;
-  const effectivePay: 'online' | 'cod' = pay === 'cod' && !codBlockedReason ? 'cod' : 'online';
-
   const place = async () => {
     if (busy) return; // guard against double-fire / double-order
-    if (effectivePay === 'cod') { setBusy(true); router.push(`/cod?cook=${ck ?? ''}`); return; }
     const cookId = ck ?? lineKey(lines[0]);
     setBusy(true);
     const onError = (e: unknown) => {
@@ -169,15 +156,15 @@ export default function Checkout() {
 
         <Block title="Payment">
           <PayOption
-            on={effectivePay === 'online'}
-            onPress={() => setPay('online')}
+            on
+            onPress={() => {}}
             icon="card"
             title="Pay online"
             tag="Stripe"
             tagTone="green"
             body={Platform.OS === 'web' && selectedCard ? `${brandName(selectedCard.brand)} •••• ${selectedCard.last4} · secure checkout` : 'Enter a card securely at payment'}
           />
-          {effectivePay === 'online' && Platform.OS === 'web' ? (
+          {Platform.OS === 'web' ? (
             <>
               <Press scale={0.98} onPress={() => setCardSheet(true)} label="Change payment card">
                 <View style={{ flexDirection: 'row', alignItems: 'center', gap: 5, alignSelf: 'flex-start', marginTop: 8, marginLeft: 2 }}>
@@ -197,16 +184,7 @@ export default function Checkout() {
               ) : null}
             </>
           ) : null}
-          <View style={{ height: 10 }} />
-          <PayOption on={effectivePay === 'cod'} disabled={!!codBlockedReason} onPress={() => setPay('cod')} icon="cash" title="Cash on delivery" tag={codBlockedReason ? 'Unavailable' : 'In person'} tagTone="purple" body={codBlockedReason ?? 'Confirm the amount together at handoff'} />
         </Block>
-
-        {effectivePay === 'cod' ? (
-          <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10, marginHorizontal: 16, marginTop: 14, paddingVertical: 12, paddingHorizontal: 14, borderRadius: radius.md, backgroundColor: c.purpleL, borderWidth: 1, borderColor: c.purple }}>
-            <Icon name="qr" size={20} color={c.purpleOn} />
-            <Text style={[type(12.5, 700), { color: c.purpleOn, flex: 1, lineHeight: 18 }]}>You and your cook confirm the cash amount together at handoff — on both phones. Preppa isn’t holding your money; you pay the cook directly.</Text>
-          </View>
-        ) : null}
 
         <Block title="Add a tip · goes 100% to the cook">
           <View style={{ flexDirection: 'row', gap: 8 }}>
@@ -229,9 +207,9 @@ export default function Checkout() {
       <Dock>
         <DockTotal label="Total" value={money(t.total)} />
         <Btn
-          label={effectivePay === 'cod' ? 'Place order' : `Pay ${money(t.total)}`}
+          label={`Pay ${money(t.total)}`}
           flex={1}
-          loading={busy && effectivePay !== 'cod'}
+          loading={busy}
           onPress={place}
         />
       </Dock>

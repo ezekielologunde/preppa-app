@@ -7,7 +7,7 @@ import { useStore } from '../../../src/store/store';
 import { Icon, Press, GradBox } from '../../../src/ui';
 import { Screen, TopBar, Dock, Empty } from '../../../src/ui/layout';
 import { money } from '../../../src/data/data';
-import { fetchKitchenOrderDetail, updateOrderStatus, timeAgo, type KitchenOrderDetail, type KitchenOrderStatus } from '../../../src/lib/orders';
+import { fetchKitchenOrderDetail, updateOrderStatus, declineOrder, timeAgo, type KitchenOrderDetail, type KitchenOrderStatus } from '../../../src/lib/orders';
 import { KBtn } from '../../(tabs)/my-hub';
 
 const FLOW: KitchenOrderStatus[] = ['confirmed', 'preparing', 'ready', 'completed'];
@@ -21,6 +21,8 @@ export default function OrderDetail() {
   const { toast } = useStore();
   const [o, setO] = useState<KitchenOrderDetail | null | undefined>(undefined);
   const [busy, setBusy] = useState(false);
+  const [confirmCancel, setConfirmCancel] = useState(false);
+  const [cancelling, setCancelling] = useState(false);
 
   const load = useCallback(() => {
     if (!id) return;
@@ -64,6 +66,22 @@ export default function OrderDetail() {
       setBusy(false);
     }
   };
+
+  const cancelOrder = async () => {
+    if (cancelling) return;
+    setCancelling(true);
+    try {
+      const { refunded } = await declineOrder(o.order_id);
+      toast(refunded ? 'Order cancelled — customer refunded' : 'Order cancelled', 'check', true);
+      setConfirmCancel(false);
+      load();
+    } catch (e: any) {
+      toast(e?.message || 'Could not cancel the order', 'info');
+    } finally {
+      setCancelling(false);
+    }
+  };
+  const canCancel = status !== 'completed';
 
   return (
     <Screen>
@@ -119,6 +137,23 @@ export default function OrderDetail() {
             );
           })}
         </View>
+
+        {canCancel ? (
+          confirmCancel ? (
+            <View style={{ marginHorizontal: 20, marginTop: 14, backgroundColor: c.redL, borderWidth: 1, borderColor: c.red, borderRadius: 16, padding: 14 }}>
+              <Text style={[type(13, 800), { color: c.red }]}>Cancel this order?</Text>
+              <Text style={[type(12, 600), { color: c.red, marginTop: 3, lineHeight: 17 }]}>{o.method !== 'cod' ? 'The customer will be refunded automatically.' : 'This can’t be undone.'}</Text>
+              <View style={{ flexDirection: 'row', gap: 10, marginTop: 12 }}>
+                <KBtn label="Never mind" variant="ghost" flex={1} onPress={() => setConfirmCancel(false)} />
+                <KBtn label={cancelling ? 'Cancelling…' : 'Yes, cancel'} flex={1} onPress={cancelOrder} style={{ backgroundColor: c.red }} />
+              </View>
+            </View>
+          ) : (
+            <Press scale={0.98} onPress={() => setConfirmCancel(true)} style={{ marginTop: 16, alignSelf: 'center' }}>
+              <Text style={[type(13, 700), { color: c.red }]}>Cancel order</Text>
+            </Press>
+          )
+        ) : null}
       </ScrollView>
       {next ? (
         <Dock>

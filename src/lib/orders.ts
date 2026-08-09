@@ -97,6 +97,14 @@ export async function updateOrderStatus(orderId: string, status: KitchenOrderSta
   if (error) throw error;
 }
 
+/** Cook cancels a paid order (confirmed/preparing/ready). Refunds via Stripe + reverses the
+ * ledger sale credit server-side when the order was paid — see supabase/functions/decline-order. */
+export async function declineOrder(orderId: string, reason?: string): Promise<{ refunded: boolean }> {
+  const { data, error } = await supabase.functions.invoke('decline-order', { body: { orderId, reason } });
+  if (error || data?.error) throw new Error(data?.error || error?.message || 'Could not cancel the order.');
+  return { refunded: !!data.refunded };
+}
+
 /** Customer-side: read the live status of one's own order (RLS: customer_id = auth.uid()). */
 export async function fetchOrderStatus(orderId: string): Promise<{ status: string; fulfillment: string } | null> {
   const { data, error } = await supabase.from('orders').select('status,fulfillment').eq('id', orderId).maybeSingle();

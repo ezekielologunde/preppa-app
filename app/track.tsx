@@ -126,7 +126,7 @@ export default function Track() {
           </View>
 
           {/* Handoff code is only for in-person pickup/meetup. Prepaid delivery
-              comes to your door — no code needed. (Cash-on-delivery uses /cod.) */}
+              comes to your door — no code needed. */}
           {!cod && mode === 'pickup' ? (
             <View style={{ marginTop: 14, padding: 14, borderRadius: radius.lg, backgroundColor: c.purpleL, borderWidth: 1, borderColor: c.purple }}>
               <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10 }}>

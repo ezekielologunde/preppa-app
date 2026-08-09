@@ -96,6 +96,14 @@ Deno.serve(async (req) => {
       const { data: acct } = await db.from('stripe_accounts').select('payouts_enabled').eq('kitchen_id', kitchen.id).maybeSingle();
       if (!acct?.payouts_enabled) return json(409, { error: 'Finish payout setup before publishing a meal plan.' });
     }
+    // Block un-publishing a LIVE plan out from under paying subscribers -- asDraft has no
+    // confirmation step in the UI, so without this a cook could accidentally (or to dodge
+    // review) yank a plan customers are actively billed on with zero warning.
+    if (targetStatus === 'draft' && existingStatus === 'active') {
+      const { count } = await db.from('subscriptions').select('id', { count: 'exact', head: true })
+        .eq('plan_id', p.planId).in('lifecycle', ['active', 'paused', 'payment_failed']);
+      if ((count ?? 0) > 0) return json(409, { error: 'This plan has active subscribers and can’t be moved back to draft. Archive it from plan settings instead if you want to stop new signups.' });
+    }
 
     // cross-field validation
     const isChoice = p.selectionModel === 'customer_choice';
