@@ -1,5 +1,5 @@
 import React, { useCallback, useEffect, useRef, useState } from 'react';
-import { View, Text, ScrollView, ActivityIndicator, TextInput, Modal, Pressable, KeyboardAvoidingView, Platform } from 'react-native';
+import { View, Text, ScrollView, ActivityIndicator, TextInput, Modal, Pressable, KeyboardAvoidingView, Platform, Image } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { useC } from '../../src/theme/ThemeContext';
@@ -11,7 +11,7 @@ import { NotFound } from '../../src/components/NotFound';
 import { ThreadAvatar } from './index';
 import { supabase } from '../../src/lib/supabase';
 import {
-  fetchThreadHeader, fetchMessages, sendMessage, markThreadRead, setThreadBlock, reportMessage,
+  fetchThreadHeader, fetchMessages, sendMessage, sendImageMessage, markThreadRead, setThreadBlock, reportMessage,
   subscribeThread, subscribeThreadReads, openTypingChannel, type Message, type ThreadHeader, type TypingChannel,
 } from '../../src/lib/messages';
 
@@ -159,6 +159,41 @@ export default function ThreadView() {
     } finally { setSending(false); }
   };
 
+  const sendAttachment = async (file: Blob) => {
+    if (sending) return;
+    const tempId = `temp-${Date.now()}`;
+    const tempUrl = URL.createObjectURL(file);
+    const optimistic: Message = {
+      id: tempId, threadId, senderId: meIdRef.current ?? 'me', senderRole: header?.iAmCook ? 'kitchen' : 'customer',
+      kind: 'image', body: tempUrl, createdAt: new Date().toISOString(), mine: true,
+    };
+    setMsgs((m) => [...m, optimistic]);
+    scrollDown();
+    setSending(true);
+    try {
+      const saved = await sendImageMessage(threadId, file);
+      if (saved) {
+        meIdRef.current = saved.senderId;
+        setMsgs((m) => m.map((x) => (x.id === tempId ? saved : x)));
+      }
+    } catch (e: any) {
+      setMsgs((m) => m.filter((x) => x.id !== tempId));
+      toast(e?.message || 'Could not send the photo', 'info');
+    } finally { setSending(false); URL.revokeObjectURL(tempUrl); }
+  };
+
+  // Web-only picker (matches the pattern used for plan/meal cover uploads elsewhere).
+  const pickAttachment = () => {
+    if (Platform.OS !== 'web' || typeof document === 'undefined') return;
+    const input = document.createElement('input');
+    input.type = 'file'; input.accept = 'image/*';
+    input.onchange = () => {
+      const f = (input.files || [])[0];
+      if (f) sendAttachment(f);
+    };
+    input.click();
+  };
+
   const doBlock = async (blocked: boolean) => {
     setMenu(false);
     try {
@@ -225,13 +260,21 @@ export default function ThreadView() {
               }
               const isLastMine = m.mine && !msgs.slice(i + 1).some((x) => x.mine);
               const read = isLastMine && !!header?.counterpartLastReadAt && new Date(header.counterpartLastReadAt) >= new Date(m.createdAt);
+              const isImage = m.kind === 'image';
               return (
                 <View key={m.id}>
                   {showDay ? <Text style={[type(11, 700), { color: c.muted, textAlign: 'center', marginVertical: 6 }]}>{dayLabel(m.createdAt)}</Text> : null}
-                  <View style={{ alignSelf: m.mine ? 'flex-end' : 'flex-start', maxWidth: '80%', backgroundColor: m.mine ? c.primary : c.surface, borderWidth: m.mine ? 0 : 1, borderColor: c.border2, paddingVertical: 10, paddingHorizontal: 14, borderRadius: 18, borderBottomRightRadius: m.mine ? 4 : 18, borderBottomLeftRadius: m.mine ? 18 : 4 }}>
-                    <Text style={[type(14, 500), { color: m.mine ? '#fff' : c.ink, lineHeight: 20 }]}>{m.body}</Text>
-                    <Text style={[type(10, 600), { color: m.mine ? 'rgba(255,255,255,.7)' : c.muted, marginTop: 3, alignSelf: 'flex-end' }]}>{clock(m.createdAt)}</Text>
-                  </View>
+                  {isImage ? (
+                    <View style={{ alignSelf: m.mine ? 'flex-end' : 'flex-start', maxWidth: '70%' }}>
+                      <Image source={{ uri: m.body }} style={{ width: 220, height: 220, borderRadius: 16, backgroundColor: c.bg2 }} resizeMode="cover" />
+                      <Text style={[type(10, 600), { color: c.muted, marginTop: 3, alignSelf: m.mine ? 'flex-end' : 'flex-start' }]}>{clock(m.createdAt)}</Text>
+                    </View>
+                  ) : (
+                    <View style={{ alignSelf: m.mine ? 'flex-end' : 'flex-start', maxWidth: '80%', backgroundColor: m.mine ? c.primary : c.surface, borderWidth: m.mine ? 0 : 1, borderColor: c.border2, paddingVertical: 10, paddingHorizontal: 14, borderRadius: 18, borderBottomRightRadius: m.mine ? 4 : 18, borderBottomLeftRadius: m.mine ? 18 : 4 }}>
+                      <Text style={[type(14, 500), { color: m.mine ? '#fff' : c.ink, lineHeight: 20 }]}>{m.body}</Text>
+                      <Text style={[type(10, 600), { color: m.mine ? 'rgba(255,255,255,.7)' : c.muted, marginTop: 3, alignSelf: 'flex-end' }]}>{clock(m.createdAt)}</Text>
+                    </View>
+                  )}
                   {isLastMine ? <Text style={[type(10.5, 600), { color: c.muted, alignSelf: 'flex-end', marginTop: 2, marginRight: 2 }]}>{read ? 'Read' : 'Delivered'}</Text> : null}
                 </View>
               );
@@ -252,6 +295,13 @@ export default function ThreadView() {
             </View>
           ) : (
             <View style={{ backgroundColor: c.surface, borderTopWidth: 1, borderTopColor: c.border2, flexDirection: 'row', alignItems: 'flex-end', gap: 10, padding: 12, paddingBottom: Math.max(insets.bottom, 12) }}>
+              {Platform.OS === 'web' ? (
+                <Press scale={0.94} onPress={pickAttachment} disabled={sending} label="Attach photo">
+                  <View style={{ width: 48, height: 48, borderRadius: radius.md, backgroundColor: c.bg2, alignItems: 'center', justifyContent: 'center' }}>
+                    <Icon name="camera" size={19} color={c.ink} />
+                  </View>
+                </Press>
+              ) : null}
               <View style={{ flex: 1, minHeight: 48, maxHeight: 120, borderRadius: radius.md, backgroundColor: c.bg2, justifyContent: 'center', paddingHorizontal: 16, paddingVertical: 6 }}>
                 <TextInput
                   value={text}

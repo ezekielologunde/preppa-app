@@ -1,4 +1,4 @@
-import { supabase } from './supabase';
+import { supabase, uploadMessageAttachment } from './supabase';
 
 /**
  * Real 1:1 messaging (customer ↔ cook). A thread's identity is the (customer, kitchen)
@@ -121,6 +121,20 @@ export async function sendMessage(threadId: string, body: string): Promise<Messa
   if (!text) return null;
   const { data, error } = await supabase
     .from('messages').insert({ thread_id: threadId, sender_id: me, body: text })
+    .select(MSG_COLS).single();
+  if (error) throw error;
+  return rowToMessage(data, me);
+}
+
+/** Send a photo attachment — uploads (server-validated, see uploadMessageAttachment), then
+ *  inserts a kind:'image' message whose body is the resulting public URL. Same RLS path as
+ *  a text send, just a different `kind`/`body` shape. */
+export async function sendImageMessage(threadId: string, file: Blob): Promise<Message | null> {
+  const me = await myUid();
+  if (!me) throw new Error('AUTH_REQUIRED');
+  const url = await uploadMessageAttachment(file);
+  const { data, error } = await supabase
+    .from('messages').insert({ thread_id: threadId, sender_id: me, kind: 'image', body: url })
     .select(MSG_COLS).single();
   if (error) throw error;
   return rowToMessage(data, me);

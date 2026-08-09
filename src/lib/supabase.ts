@@ -332,6 +332,14 @@ export async function uploadPostVideo(file: Blob, _ext: string): Promise<string>
   return url!;
 }
 
+/** Upload a chat attachment. Same public-URL model as avatars/plan covers/post images —
+ *  not per-thread access-controlled, consistent with the rest of the app's media (a URL
+ *  is guessable/shareable, same as everything else uploaded through this proxy). */
+export async function uploadMessageAttachment(file: Blob): Promise<string> {
+  const { url } = await uploadViaProxy('avatars', 'message', file);
+  return url!;
+}
+
 // ---- Social login (web) -------------------------------------------------------
 /** Start Google OAuth (web). Requires the Google provider to be enabled in Supabase. */
 export async function signInWithGoogle(): Promise<void> {
