@@ -1,0 +1,16 @@
+-- Baseline-readiness pass (2026-08-15): Supabase's security advisor flags
+-- public.kitchen_public as a SECURITY DEFINER view (ERROR severity). Manually
+-- reviewed the view's definition — it already only selects public-safe
+-- columns (no owner_id, no exact address, no Stripe/financial fields) and
+-- already filters to verification_status = 'verified', so there was no
+-- active data leak. Confirmed via pg_policies that kitchens already has a
+-- kitchens_select_verified_public RLS policy for {anon,authenticated} with
+-- the identical qual (verification_status = 'verified'), and re-verified
+-- live as the anon role post-fix (still returns all 8 verified kitchens) —
+-- so this is a genuine no-op for current behavior. But without
+-- security_invoker, the view runs with its owner's privileges rather than
+-- the querying role's, meaning any future edit to this view (or a change in
+-- what RLS on `kitchens` should enforce) would silently bypass RLS instead
+-- of respecting it. Setting security_invoker = true (supported since
+-- Postgres 15) closes that latent risk going forward.
+alter view public.kitchen_public set (security_invoker = true);

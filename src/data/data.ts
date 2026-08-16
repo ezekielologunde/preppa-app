@@ -161,27 +161,10 @@ export const ADDONS: Addon[] = [
   { key: 'lemonade', name: 'Sparkling lemonade', cook: 'maria', price: 3.5, grad: 'g8' },
 ];
 
-export interface Conversation { cook: CookId; msg: string; time: string; unread: number; online: boolean; }
-export const CONVERSATIONS: Conversation[] = [
-  { cook: 'maria', msg: 'Your lasagna is in the oven now! 🔥', time: '2m', unread: 2, online: true },
-  { cook: 'amara', msg: 'Thanks for the 5 stars — see you next week!', time: '1h', unread: 0, online: true },
-  { cook: 'david', msg: 'I can do a no-rice swap, no problem.', time: '3h', unread: 0, online: false },
-  { cook: 'denise', msg: 'New short rib drop goes live Friday 6pm.', time: '1d', unread: 0, online: false },
-];
-
 export interface Experience {
   id: string; title: string; sub: string; cook: CookId; price: number;
   grad: GradKey | Grad; when: string; spots: string; tag: string; ico: string; img?: string;
 }
-export const EXPERIENCES: Experience[] = [
-  { id: 'pasta', title: 'Pasta Masterclass', sub: 'Hands-on with Chef Maria', cook: 'maria', price: 65, grad: 'g4', when: 'Sat · 4:00 PM', spots: '4 spots left', tag: 'Class', ico: 'chefhat', img: IMG + 'rvxxuy1468312893.jpg' },
-  { id: 'supper', title: 'West African Supper Club', sub: 'Authentic 5-course night', cook: 'amara', price: 58, grad: 'g1', when: 'Sun · 6:00 PM', spots: '8 seats', tag: 'Supper club', ico: 'globe', img: IMG + 'wyxwsp1486979827.jpg' },
-  { id: 'birthday', title: 'Private Birthday Dinner', sub: 'Chef-crafted celebration', cook: 'denise', price: 45, grad: ['#FF6B9D', '#EC4899'], when: 'Book any date', spots: 'Private', tag: 'Private dining', ico: 'gift', img: IMG + 'wkhg581762773124.jpg' },
-  { id: 'bbq', title: 'Backyard BBQ Night', sub: 'Open-fire gathering', cook: 'denise', price: 40, grad: 'g6', when: 'Sat · 5:00 PM', spots: '12 going', tag: 'Event', ico: 'bolt', img: IMG + 'atd5sh1583188467.jpg' },
-  { id: 'taco', title: 'Taco & Mezcal Evening', sub: 'Oaxacan night with Lucia', cook: 'lucia', price: 52, grad: 'g7', when: 'Fri · 7:00 PM', spots: '6 seats', tag: 'Supper club', ico: 'globe', img: IMG + 'uvuyxu1503067369.jpg' },
-];
-export const expById = (id: string) => EXPERIENCES.find((e) => e.id === id);
-
 /** Where a notification takes you when tapped (validated against real data at render). */
 export interface NotifTarget { screen: 'track' | 'meal' | 'store' | 'rewards' | 'review'; param?: string; }
 export interface Notif { id: string; ico: string; cls: string; title: string; body: string; time: string; unread: boolean; target?: NotifTarget; }
@@ -192,58 +175,6 @@ export const NOTIFS: Notif[] = [
   { id: 'n4', ico: 'ticket', cls: 'amber', title: 'Free delivery unlocked', body: 'Your next order ships free 🎉', time: '3h', unread: false, target: { screen: 'rewards' } },
   { id: 'n5', ico: 'star', cls: '', title: 'Rate your last order', body: 'How was your Slow-Braised Short Rib?', time: '1d', unread: false, target: { screen: 'review', param: 'PR-2045' } },
 ];
-
-/* ---------------- experiences: services + requests + quotes ---------------- */
-export interface Service {
-  id: string; name: string; sub: string; ico: string; cls: string;
-  premium?: boolean; sizeLbl?: string; notesPh: string; budgets: string[];
-}
-export const SERVICES: Service[] = [
-  { id: 'cookhome', name: 'Cook at My Place', sub: 'A private chef cooks in your kitchen', ico: 'chefhat', cls: 'amber', premium: true, sizeLbl: 'Guests', notesPh: 'Tell them about the occasion, cuisine you love, dietary needs…', budgets: ['$150–250', '$250–400', '$400+'] },
-  { id: 'catering', name: 'Catering & Events', sub: 'Parties, offices, celebrations', ico: 'users', cls: 'purple', premium: true, sizeLbl: 'Guests', notesPh: 'Describe the event — plated or buffet, cuisines, timing…', budgets: ['$300–600', '$600–1,200', '$1,200+'] },
-  { id: 'grocery', name: 'Grocery Run', sub: 'A Preppa shops & delivers your list', ico: 'bag', cls: 'green', notesPh: 'Paste your grocery list here — brands and swaps welcome…', budgets: ['Under $50', '$50–120', '$120+'] },
-  { id: 'bulk', name: 'Bulk & Meal Prep', sub: 'Trays & weekly prep at scale', ico: 'grid', cls: 'blue', sizeLbl: 'Portions', notesPh: 'What do you need cooked, how many portions, packaging…', budgets: ['$100–250', '$250–500', '$500+'] },
-  { id: 'errand', name: 'Quick Errands', sub: 'Pickups, drop-offs & market runs', ico: 'bolt', cls: 'red', notesPh: 'What needs picking up or dropping off, and where…', budgets: ['Under $25', '$25–50', '$50+'] },
-  { id: 'class', name: 'Private Class or Lesson', sub: 'Learn a dish — solo, date night, or group', ico: 'chefhat', cls: 'purple', sizeLbl: 'Guests', notesPh: 'What would you love to learn — pasta, jollof, sushi? Skill level & preferred date…', budgets: ['$60–120', '$120–250', '$250+'] },
-];
-export const svcById = (id: string) => SERVICES.find((s) => s.id === id);
-
-export interface Quote { cook: CookId; amount: number; note: string; }
-export interface ServiceRequest {
-  id: string; svc: string; title: string; when: string; loc: string;
-  size: string | null; budget: string; status: 'open' | 'quoted' | 'booked';
-  notes: string; quotes: Quote[]; booked?: Quote;
-}
-export const SEED_REQUESTS: ServiceRequest[] = [
-  {
-    id: 'REQ-104', svc: 'cookhome', title: 'Anniversary dinner for two', when: 'Sat, Jul 12 · 7:00 PM',
-    loc: 'Home · 88 Highland Ave NE', size: '2 guests', budget: '$250–400', status: 'quoted',
-    notes: 'A 4-course Italian night for our anniversary. Open to menu ideas!',
-    quotes: [
-      { cook: 'denise', amount: 280, note: 'I’d love to do this — 4 courses, my braised short rib as the main, and a plated dessert. I bring everything and leave your kitchen spotless.' },
-      { cook: 'maria', amount: 265, note: 'Ciao! Fresh handmade pasta course, secondi, and tiramisu to finish. I can shop day-of for the freshest ingredients.' },
-      { cook: 'lucia', amount: 240, note: 'A Oaxacan twist on date night — mole tasting, handmade tortillas, mezcal pairing notes. Something you won’t forget.' },
-    ],
-  },
-];
-const QUOTE_POOL: Record<string, CookId[]> = {
-  cookhome: ['denise', 'maria', 'lucia'], catering: ['maria', 'amara'], grocery: ['david', 'sana'],
-  bulk: ['amara', 'denise'], errand: ['david', 'sana'], class: ['maria', 'lucia'],
-};
-const QUOTE_NOTES: Record<string, string[]> = {
-  cookhome: ['I’d love to cook for you — menu tailored to the occasion, and I handle all the shopping.', 'Happy to take this on! I’ll send a sample menu once we chat.'],
-  catering: ['I can absolutely handle this size — plated or family-style, your call.', 'This is right in my wheelhouse. Deposit reserves your date.'],
-  grocery: ['I shop at the Freedom Farmers Market every morning — can add your list to my run.', 'I can have this shopped and dropped within 2 hours.'],
-  bulk: ['I batch-cook trays every week — can scale to your count with labeled packaging.', 'Happy to do this as a weekly standing order too, if useful.'],
-  errand: ['I’m out on runs every afternoon — easy add.', 'Can do this today between my lunch and dinner windows.'],
-  class: ['I host hands-on classes — we cook together and eat what we make.', 'Love teaching! I’ll bring everything and tailor it to your skill level.'],
-};
-export function genQuotes(req: ServiceRequest): Quote[] {
-  const pool = QUOTE_POOL[req.svc] || ['maria', 'david'];
-  const base =
-    ({ 'Under $25': 20, '$25–50': 38, 'Under $50': 42, '$50–120': 85, '$120+': 140, '$50+': 60, '$100–250': 180, '$250–500': 360, '$500+': 560, '$150–250': 210, '$250–400': 300, '$400+': 450, '$300–600': 480, '$600–1,200': 900, '$1,200+': 1400, '$60–120': 90, '$120–250': 180, '$250+': 320 } as Record<string, number>)[req.budget] || 120;
-  return pool.slice(0, 2).map((c, i) => ({ cook: c, amount: Math.round(base * (0.9 + i * 0.18)), note: QUOTE_NOTES[req.svc][i] }));
-}
 
 /* ---------------- meal plans / subscriptions ---------------- */
 export type PlanGoal = 'cut' | 'bulk' | 'maintain';

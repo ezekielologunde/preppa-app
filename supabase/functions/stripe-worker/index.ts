@@ -47116,6 +47116,9 @@ var tableNames = objects.map(
   (obj) => stripeSync.resourceRegistry[obj].tableName
 );
 Deno.serve(async (req) => {
+  if (req.method !== "POST") {
+    return new Response("Method not allowed", { status: 405 });
+  }
   const authHeader = req.headers.get("Authorization");
   if (!authHeader?.startsWith("Bearer ")) {
     return new Response("Unauthorized", { status: 401 });

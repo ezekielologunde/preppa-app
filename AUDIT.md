@@ -10,6 +10,63 @@ _Last run: 2026-07-14. App project: `fwidhpzwldneeaphrxgg`. Verdict: **NO GO**._
 
 ---
 
+## Update — 2026-08-15, live re-verification (stabilization/hardening pass, supersedes nothing above — corrects staleness)
+
+A month after the last entry in this file, this pass re-checked every item this file had listed as
+"not yet actioned" / "next slice" / "confirmed, not fixed this session" directly against **live
+deployed state** (Edge Function source, `pg_get_functiondef`, `pg_proc.proacl`, real table data),
+per this file's own established discipline — not against this document's text, which turned out to
+be significantly stale. Substantial remediation had already shipped since 2026-07-14 (migrations
+dated 2026-07-15 and 2026-07-25 exist for several of these) without this file ever being updated to
+reflect it.
+
+**Confirmed already fixed and live (no action needed this pass):**
+- Rate limiting on Stripe/Mux-calling Edge Functions — `payment-methods` (`setup-intent` capped at
+  6/10min, the specific card-testing-fraud vector this file called out by name), `connect-payout`,
+  `cancel-booking`, `subscribe-box` all call `check_rate_limit` before touching Stripe.
+- Ambiguous Stripe error handling in `connect-payout`/`charge-due-cycles` — both now classify
+  `StripeConnectionError`/`StripeAPIError`/`StripeTimeoutError` as ambiguous, retry same-key first,
+  and leave the payout/cycle in a non-final state instead of freeing it for a fresh-keyed retry —
+  exactly the fix this file recommended.
+- Rate limiting on admin RPCs — `admin_suspend_kitchen` and `admin_set_user_role` both call
+  `check_rate_limit` (10/5min) before mutating.
+- `cancel-booking`'s ledger insert — now goes through `finalize_booking_cancel`, which does the
+  ledger reversal under an advisory lock and re-checks status before writing.
+- `subscribe-box` duplicate-subscription gap — pre-check plus a DB-level partial unique index
+  (23505 on insert) closes the actual race.
+- `is_kitchen_owner()` — now checks `verification_status = 'verified'`, not just `owner_id`
+  (confirmed via live `pg_get_functiondef`). All 8 real kitchens are currently `verified`, so this
+  had no live data to exploit even before the fix, but the fix itself is real and live.
+- `reconcile_paid_invoice()` grants — now `{postgres, service_role}` only, matching its sibling
+  `reconcile_paid_pi()` (previously flagged as broader/asymmetric).
+- GitHub branch protection on `main` — now enabled (required `typecheck` status check, strict mode,
+  force-push and branch deletion both disallowed). Not complete (no required PR review, admins can
+  still bypass) but the specific risk this file flagged is closed.
+- `app/mux-preppa.env` — no longer present anywhere in the working tree.
+- No Google OAuth client secret found in the current working tree (only unrelated Stripe
+  `client_secret` field references matched the search pattern). Whether the credential from the
+  prior-session finding was ever rotated in the Google Cloud Console is an external fact this
+  session cannot verify from the repo or database — still needs the user's direct confirmation.
+
+**Fixed this pass:**
+- `stripe-worker` (the vendored `@stripe/sync-engine` bundle, 1.1MB/47k lines) had no HTTP method
+  guard — fixed in the repo with a one-line `req.method !== 'POST'` check ahead of its existing
+  Bearer-secret-vs-Vault check. **Not yet redeployed live** — the bundle is too large to push
+  through this session's tooling without reading the entire generated file into context, which
+  wasn't justified for a defense-in-depth fix on a function whose real security boundary (the
+  Vault-secret check) is unaffected and already live. Next redeploy of this function should carry
+  it; flagging here so it isn't silently assumed live.
+
+**Still genuinely open (not addressed this pass — out of scope for a "fix known findings" pass):**
+- **Zero automated regression tests still exist anywhere in the repo** (confirmed: no `.test.ts`/
+  `.spec.ts` files). A `typecheck` CI gate exists; a real test suite does not. This is a body of
+  work, not a fix.
+- **No detection/alerting layer beyond `audit_log`** — the two ready-to-run SQL detection queries
+  from the prior pass (role-escalation bursts, kitchen suspend/reinstate churn) still just sit
+  there; routing them to Slack/email needs a webhook URL from the user.
+
+---
+
 ## Update — 2026-07-14, post-fix-merge
 
 [PR #1](https://github.com/ezekielologunde/preppa-app/pull/1) merged to `main` (squash `2659588`): all **16 Critical** findings below have a real code fix in the repo now (status marked inline on each item below). Summary:
