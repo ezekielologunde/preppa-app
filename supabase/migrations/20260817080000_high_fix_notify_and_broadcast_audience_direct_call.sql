@@ -1,0 +1,34 @@
+-- Baseline-readiness pass: SECURITY DEFINER sweep of all ~106 functions granted
+-- EXECUTE to `authenticated`. Two real, unauthenticated-by-content findings:
+--
+-- 1. notify(p_user, p_kind, p_title, p_body) inserts a notification (and fires a
+--    push) for an ARBITRARY target user with ARBITRARY title/body text supplied
+--    by the caller, with zero validation that the caller has any relationship to
+--    p_user. Granted directly to `authenticated` (confirmed via proacl -- not a
+--    PUBLIC-inherited leftover). Any logged-in user could spoof/spam a
+--    notification to any other user with any content (e.g. a phishing-style
+--    fake payment alert). It's meant to be internal plumbing, called by other
+--    SECURITY DEFINER functions (admin_suspend_kitchen, reject_kitchen, etc.) --
+--    every real caller is itself a SECURITY DEFINER function, which keeps
+--    working after this revoke since it executes as the function owner, not
+--    the original caller (same pattern already proven live for
+--    accrue_vault_interest/finalize_payout-equivalent internal RPCs elsewhere
+--    in this codebase's own audit history).
+--
+-- 2. kitchen_broadcast_audience(p_kitchen) returns the list of customer_id UUIDs
+--    subscribed to an ARBITRARY kitchen with zero ownership check -- any
+--    authenticated user could enumerate another kitchen's subscriber list.
+--    Its only two real callers (my_broadcast_audience_count, send_kitchen_broadcast)
+--    always resolve the CALLER's OWN kitchen via auth.uid() before calling this,
+--    never accept an arbitrary kitchen_id from outside -- so direct client access
+--    to this function serves no legitimate purpose and is pure excess exposure.
+--
+-- Also revoking notify_experience_waitlist(p_session) for the same root cause
+-- (internal plumbing, no ownership check, callable directly) -- lower severity
+-- since it can only trigger a real, content-fixed "seat opened" notification to
+-- genuinely-waitlisted users when a real seat is actually available, not inject
+-- arbitrary content or leak data, but it's meant to run from a
+-- trigger/cron/booking-cancellation path, not be client-callable.
+revoke execute on function public.notify(uuid, text, text, text) from public;
+revoke execute on function public.kitchen_broadcast_audience(uuid) from public;
+revoke execute on function public.notify_experience_waitlist(uuid) from public;
