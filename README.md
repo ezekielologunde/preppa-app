@@ -11,13 +11,12 @@
 >
 > Two other same-account repositories exist and are **not** this app:
 > - `ezekielologunde/Preppa` (default branch `master`) — an earlier/legacy Preppa
->   application foundation from July, plus a Next.js marketing/help app under `landing/`.
-> - `ezekielologunde/preppa-landing` — a separate, more recently pushed marketing +
->   help-site implementation that *also* claims `preppa.live`/`help.preppa.live`.
->
-> As of 2026-09-07 it is **not yet confirmed which of those two actually serves the
-> live domains** — do not assume either is safe to archive or ignore without checking
-> the Vercel dashboard/DNS first.
+>   application foundation from July. Its `landing/` Next.js app is confirmed (via the
+>   Vercel API, 2026-09-07) to be the **live** deployment behind `preppa.live` and
+>   `help.preppa.live` — do not archive or stop deploying from it.
+> - `ezekielologunde/preppa-landing` — a separate, more recently pushed marketing/
+>   help-site implementation whose README claims the same two domains, but **has no
+>   corresponding Vercel project** — confirmed not live. Treat its domain claim as stale.
 
 Preppa is a real, live two-sided marketplace: home cooks ("preppers") sell homemade meals, cook
 in customers' homes, run subscription meal plans, or host bookable food experiences; customers
