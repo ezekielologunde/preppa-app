@@ -1,0 +1,4 @@
+# Default owner for everything in this repo. GitHub uses this to request review
+# on PRs once branch protection requires it (see docs/obsidian/Launch-Plan.md item 6) --
+# harmless before that, since main doesn't require PR reviews yet.
+* @ezekielologunde

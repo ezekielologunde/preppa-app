@@ -77,8 +77,8 @@ Confirmed real gap: there is one Supabase project and one live Stripe key for ev
 - [x] ~~Block force pushes~~ — already enabled (confirmed 2026-09-07; deletions blocked too).
 - [ ] Require PRs — deliberately deferred: enforcing this (and `enforce_admins`) would block direct pushes entirely, including how work has shipped in this repo so far. Revisit once there's more than one contributor.
 - [x] ~~Review Dependabot alerts~~ — **done 2026-09-07**. All 15 (10 high, 5 moderate) traced to Expo's own build/CLI toolchain (Babel, Metro, Xcode project generation via `expo-splash-screen`/`expo-updates`), none reachable from the shipped app bundle. Deliberately left open rather than forcing transitive overrides against pinned Expo SDK 57 — see [[Bugs]]. Revisit at the next Expo SDK upgrade.
-- [ ] Add `CODEOWNERS`.
-- [ ] Secret scanning + dependency scanning.
+- [x] ~~Add `CODEOWNERS`~~ — **done 2026-09-07**, `.github/CODEOWNERS` assigns `@ezekielologunde` as default owner. Currently inert (no effect until PR reviews are required) but ready for when that changes.
+- [x] ~~Secret scanning + dependency scanning~~ — **confirmed already enabled 2026-09-07**: `secret_scanning`, `secret_scanning_push_protection`, and `dependabot_security_updates` were all already on for this repo. `secret_scanning_validity_checks` is off and an API attempt to enable it didn't take — likely a GitHub Advanced Security feature not available on a personal free-tier public repo; not pursued further.
 
 ### 7. Harden admin controls
 - [ ] Rate-limit `admin_suspend_kitchen`, `admin_set_user_role` (still open per [[Tasks]]).
