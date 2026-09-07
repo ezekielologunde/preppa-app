@@ -18,7 +18,7 @@ Brand: warm-orange `#F26B1D`/`#FF5A24`, "Warm Trust" design direction (Airbnb-st
 
 ## Status: live-money production system
 
-Despite the README describing a "demo with no server," the app is wired to a **live** Supabase project (`fwidhpzwldneeaphrxgg`) with real cook/order data. Stripe mode (live vs. test) needs re-confirming as of 2026-09-07 — see the warning in [[Payments]] before assuming real money is moving. See [[Bugs]] for the docs-drift note.
+Despite the README describing a "demo with no server," the app is wired to a **live** Supabase project (`fwidhpzwldneeaphrxgg`) with real cook/order data, and **Stripe is confirmed live mode** (verified 2026-09-07 — see [[Payments]]). Real cards get charged. See [[Bugs]] for the docs-drift note.
 
 ## Honest-v1 feature flags
 
@@ -33,6 +33,7 @@ Preppa was built as a ~48-screen demo; feature flags (`src/config/flags.ts`) hid
 ## Knowledge Base
 
 - [[PM-Onboarding]] — start here if you're new, especially non-engineering
+- [[Launch-Plan]] — the concrete launch checklist, verified against live state
 - [[Architecture]] — system components, data flow, deployment
 - [[Frontend]] — expo-router routes, `src/` layout, state management
 - [[Database]] — Supabase schema, RPCs, RLS, migrations

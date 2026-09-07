@@ -59,9 +59,13 @@ Separately, the project's `supabase/migrations/` history — which had large, si
 
 ## Open questions worth asking the team
 
-- **Is Stripe actually in live mode or test mode right now?** The docs disagree with themselves as of 2026-09-07 — see the warning at the top of [[Payments]]. Get a definitive answer before assuming any real money has moved.
 - **What's the actual go/no-go bar for launch?** [[Decisions]] documents a "GO is disallowed while any Critical/High audit finding is open" rule from an earlier audit — confirm whether that's still the standing policy and whether it's been re-run against the current state.
 - **Who owns cook recruitment?** This is the real gating function right now, and it's not an engineering deliverable.
+- **There is no dev/staging environment separation** — every build, on every branch, hits the same live Supabase project and (confirmed 2026-09-07) live Stripe key. This isn't a question so much as a standing hazard: anyone testing a change casually can create real orders and charge real cards. See [[Launch-Plan]] item on environment separation.
+
+## Ready to launch, blocked on business work, not engineering
+
+See [[Launch-Plan]] for the detailed checklist. In short: the technical foundation (payments, payouts, reconciliation, CI, migrations, hosting) is done and verified. What's left is confirming a few operational/security gaps (secret rotation, environment separation, monitoring) and — the real blocker — recruiting the first 5-10 real cooks.
 
 ## Where to go next
 
@@ -74,4 +78,4 @@ Separately, the project's `supabase/migrations/` history — which had large, si
 
 ## Related
 
-- [[Project]] · [[Architecture]] · [[Features]] · [[Payments]] · [[Tasks]] · [[Decisions]] · [[Changelog]]
+- [[Project]] · [[Architecture]] · [[Features]] · [[Payments]] · [[Tasks]] · [[Decisions]] · [[Changelog]] · [[Launch-Plan]]

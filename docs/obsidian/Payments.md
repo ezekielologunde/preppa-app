@@ -10,8 +10,8 @@ tags: [project/preppa, type/payments]
 
 Part of [[Project]]. See also [[Security]], [[Backend]].
 
-> [!warning] Stripe mode needs re-confirming
-> This doc previously stated Stripe was switched to **LIVE mode** on 2026-08-08. During the 2026-09-07 session, querying the `stripe.*` sync-engine mirror tables on the live project showed the overwhelming majority of data (838 charges, 742 customers) as `livemode=false` (test), with exactly one anomalous `livemode=true` customer. This suggests the project's Stripe secret key may currently be a **test** key, contradicting the prior LIVE-mode note — this needs a definitive check (e.g. reading the key prefix directly) before relying on either claim. Do not assume live-money is flowing without confirming.
+> [!danger] Stripe is confirmed LIVE — real cards get charged
+> Definitively confirmed 2026-09-07 by reading the deployed `STRIPE_SECRET_KEY`'s prefix directly (via a temporary debug function, deleted/stubbed immediately after — never logged the full key): it is `sk_live_...`, matching the client's hardcoded `pk_live_...` publishable key (`src/lib/supabase.ts`). **Both sides of every payment integration are live.** The earlier suspicion in this doc (based on `stripe.*` sync-engine mirror tables showing mostly `livemode=false` data) was a red herring — that mirrored historical/test data from earlier development, not the current key's mode. **Do not run a test checkout against this project expecting no real charge; it will charge a real card.** Use a separate Stripe test key (e.g. locally, as done for the 2026-09-07 payout E2E test) for any exploratory payment testing.
 
 ## Model: ledger + on-demand transfer, not escrow
 
