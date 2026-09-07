@@ -7,7 +7,7 @@
  * screen's error state rather than silently showing fixtures.
  */
 import { supabase, KITCHEN_ID } from '../lib/supabase';
-import { Meal, Cook, CookId, COOKS, Experience, EXPERIENCES, expById, MarketPlan, MARKET_PLANS } from './data';
+import { Meal, Cook, CookId, COOKS } from './data';
 import { distanceKm, distanceLabel, type LatLng } from '../lib/geo';
 import type { GradKey } from '../theme/theme';
 import type { Repositories, MealQuery } from './repository';
@@ -160,13 +160,6 @@ export function makeSupabaseRepositories(): Repositories {
     cooks: {
       async list(): Promise<Cook[]> { return Object.values(COOKS); },
       async byId(id: CookId) { return COOKS[id] ?? null; },
-    },
-    experiences: {
-      async list(): Promise<Experience[]> { return EXPERIENCES; },
-      async byId(id: string) { return expById(id) ?? null; },
-    },
-    plans: {
-      async list(): Promise<MarketPlan[]> { return MARKET_PLANS; },
     },
   };
 }

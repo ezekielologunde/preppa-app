@@ -2,8 +2,7 @@ import React, { createContext, useContext, useState, useEffect, useCallback, use
 import { AppState } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import {
-  GradKey, CookId, Subscription, ServiceRequest, SEED_REQUESTS, genQuotes,
-  CONVERSATIONS, Conversation, lineKey,
+  GradKey, CookId, Subscription, lineKey,
 } from '../data/data';
 import { ME } from '../data/cook';
 import { computeTotals } from '../data/totals';
@@ -111,6 +110,10 @@ interface Store {
   setLocation: (l: string) => void;
   coords: LatLng | null;
   setCoords: (c: LatLng | null) => void;
+  /** ISO-2 country code for the buyer's confirmed area — the tax jurisdiction passed to
+   *  Stripe Tax at checkout. Null until a real location fix (GPS or search) resolves one. */
+  country: string | null;
+  setCountry: (cc: string | null) => void;
 
   // signed-in user identity (Supabase profile; empty when signed out / before load)
   name: string; // profiles.display_name
@@ -144,7 +147,7 @@ interface Store {
   toggleFav: (id: string) => void;
 
   lastOrder: OrderFlow | null;
-  placeOrder: (flow: OrderFlow, cook?: string, dbId?: string) => void;
+  placeOrder: (flow: OrderFlow, cook?: string, dbId?: string, taxCents?: number) => void;
   orders: CustomerOrder[];
   reorder: (id: string) => void;
   refreshOrderStatus: (id: string) => void;
@@ -153,10 +156,6 @@ interface Store {
   subscribe: (s: Subscription) => void;
   updateSub: (patch: Partial<Subscription>) => void;
   cancelSub: () => void;
-
-  requests: ServiceRequest[];
-  addRequest: (r: ServiceRequest) => void;
-  acceptQuote: (id: string, q: any) => void;
 
   // prepper "My Hub"
   avail: boolean;
@@ -172,9 +171,7 @@ interface Store {
   dismissFlash: () => void;
 
   notifs: AppNotification[];
-  conversations: Conversation[];
   markNotifRead: (id: string) => void;
-  markConvRead: (cook: CookId) => void;
   markAllRead: () => void;
   notifCount: number;
 
@@ -207,8 +204,9 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
   const [cart, setCart] = useState<CartLine[]>([]);
   const [tip, setTip] = useState(2);
   const [mode, setMode] = useState<'delivery' | 'pickup'>('delivery');
-  const [location, setLocation] = useState('Atlanta, GA');
+  const [location, setLocation] = useState('Choose your area');
   const [coords, setCoordsState] = useState<LatLng | null>(null);
+  const [country, setCountry] = useState<string | null>(null);
   const [name, setName] = useState('');
   const [firstName, setFirstName] = useState('');
   const [avatarUrl, setAvatarUrl] = useState<string | null>(null);
@@ -226,13 +224,11 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
   // Stored as a list constrained to length 1 for MVP (one active plan). Modeling it
   // as an array means "add a second plan" later is a config flip, not a rewrite.
   const [subs, setSubs] = useState<Subscription[]>([]);
-  const [requests, setRequests] = useState<ServiceRequest[]>(SEED_REQUESTS);
   const [avail, setAvail] = useState(true);
   const [acted, setActed] = useState<string[]>([]);
   const [notifs, setNotifs] = useState<AppNotification[]>([]); // real notifications from the DB
   const [threadUnread, setThreadUnread] = useState(0); // unread DM threads (real messaging)
   const [uid, setUid] = useState<string | null>(null); // signed-in user id (drives Realtime subscriptions)
-  const [conversations, setConversations] = useState<Conversation[]>(CONVERSATIONS);
   const [flash, setFlash] = useState<{ name: string; grad: GradKey } | null>(null);
   const flashTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const [toasts, setToasts] = useState<Toast[]>([]);
@@ -252,6 +248,7 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
           if (s.mode) setMode(s.mode);
           if (typeof s.location === 'string') setLocation(s.location);
           if (s.coords && typeof s.coords.lat === 'number' && typeof s.coords.lng === 'number') { setCoordsState(s.coords); setViewerCoords(s.coords); }
+          if (typeof s.country === 'string') setCountry(s.country);
           if (typeof s.name === 'string') setName(s.name);
           if (typeof s.firstName === 'string') setFirstName(s.firstName);
           if (Array.isArray(s.fav)) setFav(new Set(s.fav));
@@ -264,7 +261,6 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
           if (Array.isArray(s.orders)) setOrders(s.orders);
           if (Array.isArray(s.subs)) setSubs(s.subs);
           else if (s.subscription) setSubs([s.subscription]); // migrate old single-object shape
-          if (Array.isArray(s.requests)) setRequests(s.requests);
           if (typeof s.avail === 'boolean') setAvail(s.avail);
         }
       } catch {}
@@ -278,9 +274,9 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
     if (!hydrated.current) return;
     AsyncStorage.setItem(
       LS,
-      JSON.stringify({ onboarded, darkMode, cart, tip, mode, location, coords, name, firstName, fav: [...fav], addresses, addressId, lastOrder, orders, subs, requests, avail }),
+      JSON.stringify({ onboarded, darkMode, cart, tip, mode, location, coords, country, name, firstName, fav: [...fav], addresses, addressId, lastOrder, orders, subs, avail }),
     ).catch(() => {});
-  }, [onboarded, darkMode, cart, tip, mode, location, coords, name, firstName, fav, addresses, addressId, lastOrder, orders, subs, requests, avail]);
+  }, [onboarded, darkMode, cart, tip, mode, location, coords, country, name, firstName, fav, addresses, addressId, lastOrder, orders, subs, avail]);
 
   const toast = useCallback((msg: string, icon = 'check', green = false) => {
     const id = toastSeq++;
@@ -461,7 +457,7 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
   // Multi-cart: one order PER cook. `cook` scopes checkout to a single cook's lines
   // (and removes only those from the cart); without it, every cook in the cart becomes
   // its own order. Fixes the old bug where a mixed-cook cart collapsed into one order.
-  const placeOrder = useCallback((flow: OrderFlow, cook?: string, dbId?: string) => {
+  const placeOrder = useCallback((flow: OrderFlow, cook?: string, dbId?: string, taxCents?: number) => {
     const targetKeys = cook ? [cook] : Array.from(new Set(cart.map(lineKey)));
     const stamp = Date.now().toString(36) + Math.floor(Math.random() * 46656).toString(36);
     const newOrders = targetKeys
@@ -469,12 +465,16 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
         const lines = cart.filter((l) => lineKey(l) === key);
         if (!lines.length) return null;
         const t = computeTotals(lines, tip, mode); // per-cook totals
+        // The real per-order tax (Stripe Tax, computed server-side in create-order) only
+        // applies to the single-cook card path, which is the only one carrying a dbId.
+        const tax = targetKeys.length === 1 && typeof taxCents === 'number' ? taxCents / 100 : t.tax;
+        const total = t.subtotal + t.service + t.delivery + tax + t.tip;
         return {
           id: 'PR-' + (stamp + idx).slice(-6).toUpperCase(),
           // dbId only applies to the single-cook card path (checkout passes one key).
           dbId: targetKeys.length === 1 ? dbId : undefined,
           cook: key, kitchenName: lines[0]?.kitchenName, lines,
-          subtotal: t.subtotal, service: t.service, tax: t.tax, delivery: t.delivery, tip: t.tip, total: t.total,
+          subtotal: t.subtotal, service: t.service, tax, delivery: t.delivery, tip: t.tip, total,
           mode, flow,
           status: flow === 'cod' ? 'completed' : 'preparing',
           when: 'Just now',
@@ -525,12 +525,12 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
     setAddressId('home');
     setSubs([]);
     setOrders(SEED_ORDERS);
-    setRequests(SEED_REQUESTS);
     setLastOrder(null);
     setTip(2);
     setMode('delivery');
-    setLocation('Atlanta, GA');
+    setLocation('Choose your area');
     setCoordsState(null); setViewerCoords(null);
+    setCountry(null);
     setName('');
     setFirstName('');
     setAvatarUrl(null);
@@ -550,21 +550,6 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
   }, [isMine, toast]);
   const updateSub = useCallback((patch: Partial<Subscription>) => setSubs((a) => (a[0] ? [{ ...a[0], ...patch }] : a)), []);
   const cancelSub = useCallback(() => setSubs([]), []);
-
-
-  const addRequest = useCallback(
-    (req: ServiceRequest) => {
-      setRequests((rs) => [req, ...rs]);
-      setTimeout(() => {
-        setRequests((rs) => rs.map((r) => (r.id === req.id && r.status === 'open' ? { ...r, status: 'quoted', quotes: genQuotes(r) } : r)));
-        toast('New quotes on your request', 'tag', true);
-      }, 8000);
-    },
-    [toast],
-  );
-  const acceptQuote = useCallback((id: string, q: any) => {
-    setRequests((rs) => rs.map((r) => (r.id === id ? { ...r, status: 'booked', booked: q } : r)));
-  }, []);
 
   // Persists to kitchens.availability (audit Critical: this used to be local-device-only
   // state, so a prepper's "paused" toggle never actually blocked orders server-side).
@@ -613,7 +598,6 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
     setNotifs((ns) => ns.map((n) => (n.id === id ? { ...n, unread: false } : n))); // optimistic
     markNotificationRead(id).catch(() => {});
   }, []);
-  const markConvRead = useCallback((cook: CookId) => setConversations((cs) => cs.map((cv) => (cv.cook === cook ? { ...cv, unread: 0 } : cv))), []);
   const markAllRead = useCallback(() => {
     setNotifs((ns) => ns.map((n) => ({ ...n, unread: false }))); // optimistic
     markAllNotificationsRead().catch(() => {});
@@ -645,6 +629,8 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
     setLocation,
     coords,
     setCoords,
+    country,
+    setCountry,
     name,
     firstName,
     avatarUrl,
@@ -678,9 +664,6 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
     subscribe,
     updateSub,
     cancelSub,
-    requests,
-    addRequest,
-    acceptQuote,
     avail,
     toggleAvail,
     acted,
@@ -691,9 +674,7 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
     showFlash,
     dismissFlash,
     notifs,
-    conversations,
     markNotifRead,
-    markConvRead,
     markAllRead,
     notifCount,
     threadUnread,

@@ -6,7 +6,6 @@
  */
 import {
   Meal, MEALS, mealById, Cook, COOKS, CookId,
-  Experience, EXPERIENCES, expById, MarketPlan, MARKET_PLANS,
 } from './data';
 import { makeSupabaseRepositories } from './supabaseRepository';
 
@@ -28,19 +27,9 @@ export interface CookRepository {
   list(): Promise<Cook[]>;
   byId(id: CookId): Promise<Cook | null>;
 }
-export interface ExperienceRepository {
-  list(): Promise<Experience[]>;
-  byId(id: string): Promise<Experience | null>;
-}
-export interface PlanRepository {
-  list(): Promise<MarketPlan[]>;
-}
-
 export interface Repositories {
   meals: MealRepository;
   cooks: CookRepository;
-  experiences: ExperienceRepository;
-  plans: PlanRepository;
 }
 
 /** Mock-backed implementation (current default). */
@@ -67,19 +56,6 @@ function makeMockRepositories(): Repositories {
       },
       async byId(id) {
         return COOKS[id] ?? null;
-      },
-    },
-    experiences: {
-      async list() {
-        return EXPERIENCES;
-      },
-      async byId(id) {
-        return expById(id) ?? null;
-      },
-    },
-    plans: {
-      async list() {
-        return MARKET_PLANS;
       },
     },
   };
