@@ -73,10 +73,10 @@ Confirmed real gap: there is one Supabase project and one live Stripe key for ev
 
 ### 6. Protect `main`
 - [ ] Enable branch protection.
-- [ ] Require CI (now meaningfully green, so this is enforceable) before merge.
-- [ ] Block force pushes.
-- [ ] Require PRs.
-- [ ] Enable/review Dependabot alerts — 15 vulnerabilities (10 high, 5 moderate) were flagged on the last few pushes; unreviewed.
+- [x] ~~Require CI before merge~~ — **done 2026-09-07**: both `typecheck` and `db-regression-tests` are now required status checks on `main`.
+- [x] ~~Block force pushes~~ — already enabled (confirmed 2026-09-07; deletions blocked too).
+- [ ] Require PRs — deliberately deferred: enforcing this (and `enforce_admins`) would block direct pushes entirely, including how work has shipped in this repo so far. Revisit once there's more than one contributor.
+- [x] ~~Review Dependabot alerts~~ — **done 2026-09-07**. All 15 (10 high, 5 moderate) traced to Expo's own build/CLI toolchain (Babel, Metro, Xcode project generation via `expo-splash-screen`/`expo-updates`), none reachable from the shipped app bundle. Deliberately left open rather than forcing transitive overrides against pinned Expo SDK 57 — see [[Bugs]]. Revisit at the next Expo SDK upgrade.
 - [ ] Add `CODEOWNERS`.
 - [ ] Secret scanning + dependency scanning.
 

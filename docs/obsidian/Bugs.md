@@ -27,7 +27,7 @@ Part of [[Project]]. See [[Security]] and [[Payments]] for the security/payment-
 - ~~Only 18 of 132 live migrations were vendored at audit time~~ — **fixed 2026-09-07**, full 212-migration history restored (see [[Database]]).
 - Session tokens in AsyncStorage, not `expo-secure-store`; no password-reset flow.
 - Google OAuth client secret exposure from a prior session — rotation unconfirmed.
-- 11 moderate `npm audit` findings via a transitive `uuid` dependency (build tooling, not shipped runtime).
+- **Reviewed 2026-09-07**: all 15 Dependabot alerts on `main` (`browserslist` x2, `@xmldom/xmldom` x2, `decode-uri-component`, `nanoid` x2, `image-size` x2, `js-yaml`, `postcss` x2, `brace-expansion` x2, `uuid`) traced via `npm ls` to Expo's own build/CLI toolchain — `babel-preset-expo`, `expo-splash-screen`'s `xcode`/`plist` (native project generation), Metro bundler (`@expo/metro-config`, asset sizing), `@expo/xcpretty` (Xcode log formatting), `expo-updates`' `glob`. None run in the shipped JS bundle; `expo-router`'s `query-string`/`nanoid` pulls were confirmed (via grep of the compiled package) not actually invoked in its runtime route-handling code. All are DoS/prototype-pollution bugs requiring attacker-controlled input to a *build machine*, not something reachable by an end user of the live app. Left open — not worth forcing transitive version overrides against a pinned Expo SDK 57 dependency graph; revisit at the next Expo SDK upgrade.
 
 ## Notable fixed incidents (kept for history)
 
