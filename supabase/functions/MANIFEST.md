@@ -24,12 +24,16 @@ was simply missing from this table and is added too.
 |---|---|---|---|---|
 | create-order | true | 5 | ACTIVE | yes |
 | connect-onboard | true | 4 | ACTIVE | yes |
-| connect-payout | true | 3 | ACTIVE | **skipped** (separate security-fix task) |
+| connect-payout | true | 9 | ACTIVE | yes |
 | stripe-webhook | **false** | 4 | ACTIVE | yes |
 | stripe-setup | **false** | 2 | ACTIVE | yes |
 | stripe-worker | **false** | 2 | ACTIVE | yes |
 | payment-methods | true | 2 | ACTIVE | yes |
-| connect-status | true | 2 | ACTIVE | yes |
+| connect-status | true | 6 | ACTIVE | yes |
+| reconcile-payouts | **false** | 1 | ACTIVE | yes (added 2026-09-07, payout reconciliation) |
+| auto-payouts | **false** | 1 | ACTIVE | yes (added 2026-09-07, payout reconciliation) |
+| connect-dashboard-link | true | 1 | ACTIVE | yes (added 2026-09-07, payout reconciliation) |
+| connect-payout-settings | true | 1 | ACTIVE | yes (added 2026-09-07, payout reconciliation) |
 | plan-upsert | true | 3 | ACTIVE | yes |
 | create-subscription | true | 2 | ACTIVE | yes |
 | manage-subscription | true | 2 | ACTIVE | yes |
@@ -68,6 +72,6 @@ was simply missing from this table and is added too.
   `@supabase/supabase-js@2.45.4`, `stripe@16.12.0` (Deno-targeted esm.sh build), and `zod@3.23.8`,
   all imported directly from esm.sh (no import map, no bundled `_shared` files were present on any
   of the 27 functions fetched in this pass).
-- If/when the security-fix task for `connect-payout`, `accept-quote-and-deposit`, and
-  `mux-webhook` lands, this manifest's rows for those three should be updated with their new
-  version numbers and (if the fix changes it) verify_jwt values.
+- `connect-payout`'s row was updated 2026-09-07 (version 9) as part of the payout reconciliation
+  work -- it's now vendored and current. If/when the security-fix task for
+  `accept-quote-and-deposit` and `mux-webhook` lands, update those two rows similarly.
