@@ -1,8 +1,23 @@
 # Preppa — homemade food marketplace (Expo / React Native)
 
-**This is the canonical repository** for the Preppa app and backend. A separate repository
-(`ezekielologunde/Preppa`) exists under the same account and is an earlier/adjacent project
-(landing-page work) — it is not this app and should not be treated as production truth for it.
+> [!IMPORTANT]
+> ## Canonical Preppa repository
+>
+> This is the current production source of truth for the Preppa customer/prepper
+> application and its Supabase backend.
+>
+> - Production application: https://app.preppa.live
+> - Default branch: `main`
+>
+> Two other same-account repositories exist and are **not** this app:
+> - `ezekielologunde/Preppa` (default branch `master`) — an earlier/legacy Preppa
+>   application foundation from July, plus a Next.js marketing/help app under `landing/`.
+> - `ezekielologunde/preppa-landing` — a separate, more recently pushed marketing +
+>   help-site implementation that *also* claims `preppa.live`/`help.preppa.live`.
+>
+> As of 2026-09-07 it is **not yet confirmed which of those two actually serves the
+> live domains** — do not assume either is safe to archive or ignore without checking
+> the Vercel dashboard/DNS first.
 
 Preppa is a real, live two-sided marketplace: home cooks ("preppers") sell homemade meals, cook
 in customers' homes, run subscription meal plans, or host bookable food experiences; customers
