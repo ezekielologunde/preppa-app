@@ -18,6 +18,16 @@ A two-sided marketplace: home cooks ("preppers") sell homemade meals, cook in cu
 
 **The app is technically further along than the business is.** Checkout, meal plans, messaging, reviews, cook payouts, and admin tooling are all real, working, backed by a live database — not a prototype. But a marketplace with zero real cooks is an empty app no matter how solid the code is. If you take away one thing: **the current bottleneck is cook supply, not engineering.** See "What's actually blocking launch" below.
 
+## Which repo is this, actually? (resolved 2026-09-07)
+
+There are three same-account GitHub repositories with confusingly similar names. Only one is this app:
+
+- **`ezekielologunde/preppa-app` (`main`) — this repo, canonical.** Live at `app.preppa.live`. All the September payout/reconciliation work described below lives here; CI (`typecheck` + DB regression suite) is green.
+- **`ezekielologunde/Preppa` (`master`) — a separate, earlier (July) application foundation.** Not this app, not kept in sync with it. Its `landing/` Next.js app is, however, confirmed via the Vercel dashboard to be the real production deployment behind `preppa.live` and `help.preppa.live` — so this repo is legacy for the *app*, but still load-bearing for the *marketing/help site*. Its own CI has a stale-generated-types failure that's being left red on purpose since nothing depends on its app/backend side anymore.
+- **`ezekielologunde/preppa-landing` — archived.** Its README claimed the same two marketing domains, but it turned out to have no live Vercel deployment at all — just stale documentation. Archived rather than deleted, so it's recoverable if that's ever wrong.
+
+If you're ever pointing a contractor, a new engineer, or a domain/DNS change at "the Preppa repo," it's `preppa-app`, full stop — unless the change is specifically about the `preppa.live`/`help.preppa.live` marketing site, in which case it's `Preppa`'s `landing/` folder.
+
 ## How the pieces fit together
 
 - **Frontend**: Expo/React Native, one codebase for iOS, Android, and web. [[Frontend]]
