@@ -61,13 +61,16 @@ The native `?connect=return`/`?connect=refresh` deep-link path is proven on web 
 - [ ] Confirm `SUPABASE_SERVICE_ROLE_KEY` and `STRIPE_SECRET_KEY` never ship client-side (spot-checked this session: the client bundle only contains the anon key and `pk_live_` publishable key — consistent with this, but worth a full `expo export` grep before launch).
 
 ### 5. Separate production from development
-Confirmed real gap: there is one Supabase project and one live Stripe key for every environment (dev, preview, production all point at the same live backend). No `.env`/staging split exists.
+Confirmed real gap: there is one Supabase project and one live Stripe key for every environment (dev, preview, production all point at the same live backend). No `.env`/staging split existed.
 
-- [ ] Dev Supabase project.
-- [ ] Stripe test keys for dev/preview builds.
-- [ ] Live Stripe keys reserved for production only.
-- [ ] Separate Resend config per environment.
-- [ ] EAS dev/preview/production env vars actually differ.
+- [x] ~~Wire the app to read config from `EXPO_PUBLIC_*` env vars instead of hardcoded literals~~ — **done 2026-09-07**. `src/lib/supabase.ts` now reads `EXPO_PUBLIC_SUPABASE_URL`/`EXPO_PUBLIC_SUPABASE_ANON_KEY`/`EXPO_PUBLIC_STRIPE_PUBLISHABLE_KEY`, falling back to today's live values so behavior is unchanged. `eas.json` now has an explicit `env` block per build profile (`development`/`preview`/`production`) instead of one hardcoded source of truth.
+- [ ] **Dev Supabase project — blocked on cost.** Creating a second project on this org (already Pro plan) costs $10/mo recurring; declined for now. All three `eas.json` profiles currently point at the **same live project/keys** — the plumbing is ready, but there is *no actual separation yet*. A preview build today can still create a real order.
+- [ ] Stripe test keys for dev/preview builds — blocked on the item above (needs a project to attach them to, or at minimum a Stripe test secret key to configure).
+- [ ] Live Stripe keys reserved for production only — not yet true; see above.
+- [ ] Separate Resend config per environment — out of scope this round.
+- [x] ~~EAS dev/preview/production env vars actually differ~~ — **mechanism exists** (each profile has its own `env` block), **but values are currently identical across all three** pending the item above.
+
+**Next step whenever ready:** create the dev Supabase project (accept the $10/mo), apply all migrations + deploy edge functions to it (same process used to restore/verify the main project this session), then swap `development`/`preview`'s `env` values in `eas.json` (and optionally add a root `.env` for safe-by-default local `npx expo start`) to point at it instead of production. No further app code changes should be needed — that's the whole point of this wiring.
 
 **Rule of thumb:** a developer running a preview build should not be able to accidentally create a real paid order.
 

@@ -6,13 +6,24 @@ import { geocodeAddress } from './geo';
  * Supabase + Stripe connection for real card payments (LIVE mode).
  * URL + anon key + Stripe publishable key are all PUBLIC by design.
  * The Stripe SECRET key lives only as a Supabase Edge Function secret — never here.
+ *
+ * Read from EXPO_PUBLIC_* env vars (set per EAS build profile in eas.json), falling back
+ * to today's live values so nothing breaks where those vars aren't set (e.g. plain
+ * `npx expo start` without a root .env). There is currently only one Supabase
+ * project/Stripe key — every profile points at the same live backend — see
+ * docs/obsidian/Launch-Plan.md item 5. This wiring is in place so that the moment a
+ * separate dev/preview project exists, only eas.json (and an optional root .env for local
+ * dev) need to change; no app code should need to move again.
  */
-export const SUPABASE_URL = 'https://fwidhpzwldneeaphrxgg.supabase.co';
-const SUPABASE_ANON =
+const LIVE_SUPABASE_URL = 'https://fwidhpzwldneeaphrxgg.supabase.co';
+const LIVE_SUPABASE_ANON =
   'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImZ3aWRocHp3bGRuZWVhcGhyeGdnIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODMyMTk2ODMsImV4cCI6MjA5ODc5NTY4M30.KH8x-bMEq__ADEv47lqeqDM12B4hu6CkVhZQzbqsh2E';
-
-export const STRIPE_PK =
+const LIVE_STRIPE_PK =
   'pk_live_51TbwCHJP8OvIS2L35vHSgDpR4OmVA4SzZflR0Mf3j6NBZDDlylNpLGVHrGeHdZhuowi0LFGg17KFKWWnrvqa1Hwg00Mu4qxbQ0';
+
+export const SUPABASE_URL = process.env.EXPO_PUBLIC_SUPABASE_URL || LIVE_SUPABASE_URL;
+const SUPABASE_ANON = process.env.EXPO_PUBLIC_SUPABASE_ANON_KEY || LIVE_SUPABASE_ANON;
+export const STRIPE_PK = process.env.EXPO_PUBLIC_STRIPE_PUBLISHABLE_KEY || LIVE_STRIPE_PK;
 
 export const supabase = createClient(SUPABASE_URL, SUPABASE_ANON, {
   // detectSessionInUrl is OFF: login is email-OTP only, which never uses URL tokens.

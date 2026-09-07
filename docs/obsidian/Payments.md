@@ -12,6 +12,8 @@ Part of [[Project]]. See also [[Security]], [[Backend]].
 
 > [!danger] Stripe is confirmed LIVE — real cards get charged
 > Definitively confirmed 2026-09-07 by reading the deployed `STRIPE_SECRET_KEY`'s prefix directly (via a temporary debug function, deleted/stubbed immediately after — never logged the full key): it is `sk_live_...`, matching the client's hardcoded `pk_live_...` publishable key (`src/lib/supabase.ts`). **Both sides of every payment integration are live.** The earlier suspicion in this doc (based on `stripe.*` sync-engine mirror tables showing mostly `livemode=false` data) was a red herring — that mirrored historical/test data from earlier development, not the current key's mode. **Do not run a test checkout against this project expecting no real charge; it will charge a real card.** Use a separate Stripe test key (e.g. locally, as done for the 2026-09-07 payout E2E test) for any exploratory payment testing.
+>
+> The client now reads its Stripe/Supabase config from `EXPO_PUBLIC_*` env vars set per `eas.json` build profile (see [[Launch-Plan]] item 5) rather than a single hardcoded literal — but as of 2026-09-07 all three profiles (`development`/`preview`/`production`) still point at these same live values. A second, non-production Supabase project + Stripe test key was scoped but not created (declined: $10/mo recurring cost on the org's Pro plan). Until that exists, **every build of this app, including local dev and preview, hits live Stripe and the live database.**
 
 ## Model: ledger + on-demand transfer, not escrow
 
