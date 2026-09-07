@@ -284,6 +284,9 @@ end $body$;
 
 -- Admin needs the kitchen id to call admin_suspend_kitchen/admin_reinstate_kitchen from the
 -- Users screen (it previously only returned kitchen_name, not enough to act on).
+-- Adds an OUT column (kitchen_id), which CREATE OR REPLACE cannot do to an existing
+-- function's row type -- drop first so this replays cleanly on a fresh database.
+drop function if exists public.admin_list_users();
 create or replace function public.admin_list_users()
 returns table(user_id uuid, display_name text, role text, verification_status text, kitchen_id uuid, kitchen_name text, created_at timestamptz)
 language sql stable security definer set search_path to 'public'
