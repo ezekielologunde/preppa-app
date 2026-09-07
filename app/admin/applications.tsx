@@ -182,6 +182,7 @@ function AppDetail({ kitchenId }: { kitchenId: string }) {
         {d.bio ? <DRow c={c} k="About" v={d.bio} /> : null}
         <DRow c={c} k="Food safety" v={`Refrigeration ${yn(fs.refrigeration)} · Prep ${yn(fs.foodPrep)} · Allergens ${yn(fs.allergens)}`} />
         <DRow c={c} k="Food-handler cert" v={d.food_handler_cert || '—'} />
+        <CertStatusRow c={c} kitchenId={d.kitchen_id} status={d.food_handler_cert_status ?? 'unverified'} />
         <DRow c={c} k="Agreement" v={d.agreement_version ? `${d.agreement_version} · accepted` : 'not accepted'} />
         <ConnectStatusRow c={c} kitchenId={d.kitchen_id} />
         {hasPhotos ? (
@@ -268,4 +269,42 @@ function ConnectStatusRow({ c, kitchenId }: { c: any; kitchenId: string }) {
     return () => { alive = false; };
   }, [kitchenId]);
   return <DRow c={c} k="Identity / payouts" v={label} />;
+}
+
+const CERT_STATUSES: { value: 'unverified' | 'reviewed' | 'expired'; label: string; tone: 'neutral' | 'success' | 'danger' }[] = [
+  { value: 'unverified', label: 'Unverified', tone: 'neutral' },
+  { value: 'reviewed', label: 'Reviewed', tone: 'success' },
+  { value: 'expired', label: 'Expired', tone: 'danger' },
+];
+
+/** The cert number itself is unverifiable free text — this is where an admin records
+ *  having actually checked it (or flags it expired) after looking it up separately. */
+function CertStatusRow({ c, kitchenId, status }: { c: any; kitchenId: string; status: 'unverified' | 'reviewed' | 'expired' }) {
+  const { toast } = useStore();
+  const [current, setCurrent] = useState(status);
+  const [busy, setBusy] = useState(false);
+  const setStatus = async (next: typeof current) => {
+    if (next === current || busy) return;
+    setBusy(true);
+    try {
+      await admin.setCertStatus(kitchenId, next);
+      setCurrent(next);
+    } catch (e: any) {
+      toast(e?.message ?? 'Could not update cert status', 'info');
+    } finally { setBusy(false); }
+  };
+  return (
+    <View style={{ flexDirection: 'row', gap: 10, alignItems: 'center' }}>
+      <Text style={[type(12, 700), { color: c.muted, width: 130 }]}>Cert status</Text>
+      <View style={{ flexDirection: 'row', gap: 6, flex: 1, flexWrap: 'wrap' }}>
+        {CERT_STATUSES.map((s) => (
+          <Press key={s.value} scale={0.95} disabled={busy} onPress={() => setStatus(s.value)}>
+            <View style={{ opacity: current === s.value ? 1 : 0.45 }}>
+              <StatusTag label={s.label} tone={s.tone} />
+            </View>
+          </Press>
+        ))}
+      </View>
+    </View>
+  );
 }

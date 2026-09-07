@@ -102,11 +102,11 @@ Deno.serve(async (req) => {
       if (isAmbiguousStripeError(stripeErr)) {
         // Genuinely unknown outcome even after same-key retries. Do NOT call finalize_payout —
         // leaving the payout row 'pending' keeps its amount counted as reserved (reserve_payout's
-        // v_pending sum only excludes 'failed'/'paid'), so the cook can't trigger a second real
-        // transfer for the same funds. This needs manual reconciliation against the Stripe
-        // dashboard (search transfers for idempotency key `payout_${payout_id}`) — there's no
-        // automated reconciliation job yet.
-        return json(202, { error: 'We couldn’t confirm your payout went through. Please check back shortly before trying again, or contact support if it doesn’t appear.' });
+        // v_pending sum only excludes 'failed'/'paid'/'needs_review'), so the cook can't trigger a
+        // second real transfer for the same funds. The reconcile-payouts cron worker picks up any
+        // row still pending after 10 minutes and resolves it (replays the same idempotency key,
+        // then falls back to looking the transfer up by metadata) — this is no longer a dead end.
+        return json(202, { pending: true, message: 'We couldn’t confirm your payout went through yet. We’re checking automatically — check back shortly, no need to try again.' });
       }
       await db.rpc('finalize_payout', { p_payout_id: payout_id, p_stripe_transfer_id: null, p_success: false });
       throw stripeErr;

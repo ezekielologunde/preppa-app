@@ -51,6 +51,8 @@ export interface AdminApplicationDetail {
     docs?: { govId?: string[]; selfie?: string[]; fridge?: string[]; kitchen?: string[] };
   } | null;
   food_handler_cert: string | null;
+  food_handler_cert_status: 'unverified' | 'reviewed' | 'expired' | null;
+  food_handler_cert_expires_at: string | null;
   agreement_version: string | null;
   agreement_accepted_at: string | null;
   service_types: string[] | null;
@@ -94,6 +96,12 @@ export async function applicationDetail(kitchenId: string): Promise<AdminApplica
   return (data?.[0] as AdminApplicationDetail) ?? null;
 }
 
+export async function setCertStatus(kitchenId: string, status: 'unverified' | 'reviewed' | 'expired', expiresAt?: string | null): Promise<void> {
+  ensureWeb();
+  const { error } = await supabase.rpc('admin_set_cert_status', { p_kitchen: kitchenId, p_status: status, p_expires: expiresAt ?? null });
+  if (error) throw error;
+}
+
 export async function approveApplication(kitchenId: string): Promise<void> {
   ensureWeb();
   const { error } = await supabase.rpc('approve_kitchen', { p_kitchen: kitchenId });
@@ -103,6 +111,38 @@ export async function approveApplication(kitchenId: string): Promise<void> {
 export async function rejectApplication(kitchenId: string, reason: string): Promise<void> {
   ensureWeb();
   const { error } = await supabase.rpc('reject_kitchen', { p_kitchen: kitchenId, p_reason: reason });
+  if (error) throw error;
+}
+
+// --- In-home ("Cook at My Place") vetting queue — separate, higher bar than kitchen
+// verification since it sends a prepper into a customer's home. See src/lib/inHomeVetting.ts.
+
+export interface AdminInHomeVetting {
+  kitchen_id: string;
+  kitchen_name: string;
+  applicant_name: string | null;
+  status: string;
+  docs: { backgroundCheck?: string[]; insurance?: string[] } | null;
+  insurance_expires_at: string | null;
+  submitted_at: string;
+}
+
+export async function listInHomeVetting(): Promise<AdminInHomeVetting[]> {
+  ensureWeb();
+  const { data, error } = await supabase.rpc('admin_list_in_home_vetting');
+  if (error) throw error;
+  return (data as AdminInHomeVetting[]) ?? [];
+}
+
+export async function approveInHomeVetting(kitchenId: string): Promise<void> {
+  ensureWeb();
+  const { error } = await supabase.rpc('admin_set_in_home_vetting', { p_kitchen: kitchenId, p_approve: true });
+  if (error) throw error;
+}
+
+export async function rejectInHomeVetting(kitchenId: string, reason: string): Promise<void> {
+  ensureWeb();
+  const { error } = await supabase.rpc('admin_set_in_home_vetting', { p_kitchen: kitchenId, p_approve: false, p_reason: reason });
   if (error) throw error;
 }
 
@@ -561,4 +601,38 @@ export async function bookingDetail(bookingId: string): Promise<AdminBookingDeta
   const { data, error } = await supabase.rpc('admin_booking_detail', { p_booking: bookingId });
   if (error) throw error;
   return (data?.[0] as AdminBookingDetail) ?? null;
+}
+
+export type AdminPayoutStatus = 'pending' | 'paid' | 'failed' | 'needs_review';
+
+export interface AdminPayout {
+  id: string;
+  kitchen_id: string;
+  kitchen_name: string | null;
+  amount_cents: number;
+  status: AdminPayoutStatus;
+  source: 'manual' | 'auto';
+  stripe_transfer_id: string | null;
+  failure_reason: string | null;
+  reconcile_attempts: number;
+  created_at: string;
+  updated_at: string;
+  reconciled_at: string | null;
+}
+
+/** Payouts for the admin screen. Pass a status to filter (e.g. 'needs_review'); omit for all. */
+export async function listPayouts(status?: AdminPayoutStatus): Promise<AdminPayout[]> {
+  ensureWeb();
+  const { data, error } = await supabase.rpc('admin_list_payouts', { p_status: status ?? null, p_limit: 200 });
+  if (error) throw error;
+  return (data as AdminPayout[]) ?? [];
+}
+
+/** Resolve a 'needs_review' payout by hand after checking the Stripe dashboard. */
+export async function resolvePayout(payoutId: string, outcome: 'paid' | 'failed', stripeTransferId?: string, note?: string): Promise<void> {
+  ensureWeb();
+  const { error } = await supabase.rpc('admin_resolve_payout', {
+    p_payout_id: payoutId, p_outcome: outcome, p_stripe_transfer_id: stripeTransferId ?? null, p_note: note ?? null,
+  });
+  if (error) throw error;
 }

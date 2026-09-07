@@ -198,3 +198,6 @@ export function useAdminServiceRequests(nonce = 0): AsyncState<admin.AdminServic
 export function useAdminBookings(nonce = 0): AsyncState<admin.AdminBooking[]> {
   return useAsync(() => admin.listBookings(), [nonce]);
 }
+export function useAdminPayouts(status: admin.AdminPayoutStatus | undefined, nonce = 0): AsyncState<admin.AdminPayout[]> {
+  return useAsync(() => admin.listPayouts(status), [status, nonce]);
+}

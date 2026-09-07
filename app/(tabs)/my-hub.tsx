@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { View, Text, ScrollView, StyleProp, ViewStyle, TextInput, LayoutChangeEvent } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { useRouter, Redirect, useFocusEffect } from 'expo-router';
+import { useRouter, useLocalSearchParams, Redirect, useFocusEffect } from 'expo-router';
 import { useC } from '../../src/theme/ThemeContext';
 import { Palette, GradKey, type, radius, shadow } from '../../src/theme/theme';
 import { useStore } from '../../src/store/store';
@@ -9,6 +9,7 @@ import { Icon, Press, GradBox } from '../../src/ui';
 import { money } from '../../src/data/data';
 import { ME } from '../../src/data/cook';
 import { fetchDashboardSummary, fetchKitchenOrders, updateOrderStatus, KitchenDashboardSummary, KitchenOrderRow } from '../../src/lib/orders';
+import { getMyKitchen, refreshConnectStatus, startConnectOnboarding } from '../../src/lib/connect';
 
 export type Tone = 'ic-amber' | 'ic-green' | 'ic-purple' | 'ic-blue' | 'ic-ink' | 'ic-red';
 export function well(c: Palette, t: Tone): [string, string] {
@@ -327,6 +328,7 @@ const SHORTCUTS: { route: string; ic: string; tone: Tone; l: string }[] = [
   { route: '/hub/menu', ic: 'utensils', tone: 'ic-ink', l: 'My menu' },
   { route: '/hub/fulfillment', ic: 'truck', tone: 'ic-blue', l: 'Delivery & pickup' },
   { route: '/hub/experiences', ic: 'spark', tone: 'ic-red', l: 'Experiences' },
+  { route: '/hub/in-home-vetting', ic: 'shield', tone: 'ic-green', l: 'In-home safety' },
   { route: '/hub/create-meal', ic: 'plus', tone: 'ic-amber', l: 'Add meal' },
   { route: '/hub/subscribers', ic: 'users', tone: 'ic-green', l: 'Subscribers' },
   { route: '/hub/analytics', ic: 'bars', tone: 'ic-blue', l: 'Analytics' },
@@ -368,6 +370,7 @@ function ShortcutsGrid() {
 export default function MyHub() {
   const c = useC();
   const router = useRouter();
+  const { connect } = useLocalSearchParams<{ connect?: string }>();
   const { ready, avail, toggleAvail, toast, prepperStatus, name, firstName } = useStore();
   const [dir, setDir] = useState<'focus' | 'brief'>('focus');
   const [summary, setSummary] = useState<KitchenDashboardSummary | null>(null);
@@ -379,6 +382,31 @@ export default function MyHub() {
     fetchKitchenOrders().then((rows) => setNeedsPrep(rows.filter((r) => r.status === 'confirmed'))).catch(() => {});
   }, []);
   useFocusEffect(React.useCallback(() => { load(); }, [load]));
+
+  // Landed back here from Stripe Connect onboarding (connect-onboard's return_url/refresh_url).
+  React.useEffect(() => {
+    if (!connect) return;
+    router.setParams({ connect: undefined });
+    (async () => {
+      const kitchen = await getMyKitchen().catch(() => null);
+      if (!kitchen) return;
+      if (connect === 'return') {
+        const status = await refreshConnectStatus(kitchen.id).catch(() => null);
+        if (status?.payoutsEnabled) {
+          toast('Payouts are set up — you’re ready to get paid.', 'check', true);
+          router.push('/hub/money');
+        } else if (status?.detailsSubmitted) {
+          toast('We’re verifying your details with Stripe — check back shortly.', 'info');
+        } else {
+          toast('Payout setup wasn’t finished — you can pick it back up in Earnings.', 'info');
+        }
+      } else if (connect === 'refresh') {
+        // Stripe's onboarding link expired mid-flow — just start a fresh one.
+        startConnectOnboarding(kitchen.id).catch(() => {});
+      }
+      // eslint-disable-next-line react-hooks/exhaustive-deps
+    })();
+  }, [connect]);
 
   if (!ready) return null; // wait for persisted role to hydrate before deciding — otherwise the guard below is skipped
   if (prepperStatus !== 'approved') return <Redirect href="/(tabs)/home" />; // prepper-only

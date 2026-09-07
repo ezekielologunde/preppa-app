@@ -139,6 +139,119 @@ begin
   end if;
 end $$;
 
+-- Automated payout reconciliation: needs_review must exist, keep its money reserved, and
+-- stay off-limits to normal clients; kitchen_balance_cents must use the supported
+-- service-role check (not the deprecated JWT-claim one) so the reconciler/auto-payout
+-- sweep don't silently see balance=0.
+do $$
+begin
+  if not exists (
+    select 1 from pg_enum e join pg_type t on t.oid = e.enumtypid
+    where t.typname = 'payout_status' and e.enumlabel = 'needs_review'
+  ) then
+    raise exception 'REGRESSION: payout_status is missing the needs_review value';
+  end if;
+end $$;
+
+do $$
+declare v_src text;
+begin
+  select prosrc into v_src from pg_proc where oid = 'public.reserve_payout(uuid)'::regprocedure;
+  if v_src !~ 'needs_review' then
+    raise exception 'REGRESSION: reserve_payout() no longer reserves funds for needs_review payouts';
+  end if;
+  select prosrc into v_src from pg_proc where oid = 'public.kitchen_balance_cents(uuid)'::regprocedure;
+  if v_src ~ 'request\.jwt\.claim\.role' then
+    raise exception 'REGRESSION: kitchen_balance_cents() reverted to the deprecated request.jwt.claim.role check';
+  end if;
+  if v_src !~ 'auth\.role\(\)' then
+    raise exception 'REGRESSION: kitchen_balance_cents() lost its service-role branch entirely';
+  end if;
+end $$;
+
+do $$
+begin
+  if has_function_privilege('authenticated', 'public.claim_stale_payouts(interval,integer)', 'execute') then
+    raise exception 'REGRESSION: authenticated can call claim_stale_payouts() directly';
+  end if;
+  if has_function_privilege('authenticated', 'public.reconcile_payout(uuid,text,text,text)', 'execute') then
+    raise exception 'REGRESSION: authenticated can call reconcile_payout() directly -- a client could fabricate a paid outcome';
+  end if;
+  if has_function_privilege('authenticated', 'public.notify_admins(text,text,text)', 'execute') then
+    raise exception 'REGRESSION: authenticated can call notify_admins() directly -- admin notification spam vector';
+  end if;
+  if not has_function_privilege('authenticated', 'public.admin_resolve_payout(uuid,text,text,text)', 'execute') then
+    raise exception 'REGRESSION: authenticated lost access to admin_resolve_payout() -- admin payout resolution is broken (it self-gates via is_admin())';
+  end if;
+end $$;
+
+-- Automatic payout sweep: cooks must be able to opt out, and the worker-only claim RPC
+-- must stay off-limits to normal clients (it inserts real payouts rows with no per-call
+-- ownership check — it trusts its own eligibility query instead).
+do $$
+begin
+  if not exists (
+    select 1 from information_schema.columns
+    where table_schema = 'public' and table_name = 'stripe_accounts' and column_name = 'auto_payout_enabled'
+  ) then
+    raise exception 'REGRESSION: stripe_accounts.auto_payout_enabled is missing -- cooks can no longer opt out of automatic payouts';
+  end if;
+  if has_function_privilege('authenticated', 'public.claim_auto_payouts(integer)', 'execute') then
+    raise exception 'REGRESSION: authenticated can call claim_auto_payouts() directly';
+  end if;
+  if not has_function_privilege('authenticated', 'public.set_payout_preferences(uuid,boolean,integer)', 'execute') then
+    raise exception 'REGRESSION: authenticated lost access to set_payout_preferences() -- cooks can no longer manage auto-payout settings';
+  end if;
+end $$;
+
+-- Payout history/summary RPCs must stay reachable by cooks and keep hiding the raw
+-- stripe_transfer_id (my_payouts doesn't select it at all).
+do $$
+begin
+  if not has_function_privilege('authenticated', 'public.my_payouts(uuid,integer)', 'execute') then
+    raise exception 'REGRESSION: authenticated lost access to my_payouts() -- payout history is broken';
+  end if;
+  if not has_function_privilege('authenticated', 'public.my_payout_summary(uuid)', 'execute') then
+    raise exception 'REGRESSION: authenticated lost access to my_payout_summary() -- the money screen summary is broken';
+  end if;
+end $$;
+
+-- Onboarding hardening: cooks are notified on approve/reject, the deprecated JWT-claim
+-- service-role check must not have crept back into either function, and the cert-status
+-- admin RPC must exist and stay off-limits to non-admin clients (it self-gates via is_admin(),
+-- so it's granted broadly to authenticated -- only the negative anon/public check matters here).
+do $$
+declare v_src text;
+begin
+  select prosrc into v_src from pg_proc where oid = 'public.approve_kitchen(uuid)'::regprocedure;
+  if v_src !~ 'notify\(' then
+    raise exception 'REGRESSION: approve_kitchen() no longer notifies the applicant';
+  end if;
+  if v_src ~ 'request\.jwt\.claim\.role' then
+    raise exception 'REGRESSION: approve_kitchen() reverted to the deprecated request.jwt.claim.role check';
+  end if;
+  select prosrc into v_src from pg_proc where oid = 'public.reject_kitchen(uuid,text)'::regprocedure;
+  if v_src !~ 'notify\(' then
+    raise exception 'REGRESSION: reject_kitchen() no longer notifies the applicant';
+  end if;
+  if v_src ~ 'request\.jwt\.claim\.role' then
+    raise exception 'REGRESSION: reject_kitchen() reverted to the deprecated request.jwt.claim.role check';
+  end if;
+end $$;
+
+do $$
+begin
+  if has_function_privilege('anon', 'public.admin_set_cert_status(uuid,text,date)', 'execute') then
+    raise exception 'REGRESSION: anon can call admin_set_cert_status() directly';
+  end if;
+  if has_function_privilege('anon', 'public.nudge_stripe_onboarding()', 'execute') then
+    raise exception 'REGRESSION: anon can call nudge_stripe_onboarding() directly';
+  end if;
+  if has_function_privilege('authenticated', 'public.nudge_stripe_onboarding()', 'execute') then
+    raise exception 'REGRESSION: authenticated can call nudge_stripe_onboarding() directly';
+  end if;
+end $$;
+
 rollback;
 
 select 'all regression checks passed' as result;

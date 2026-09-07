@@ -63,18 +63,111 @@ export async function refreshConnectStatus(kitchenId: string): Promise<ConnectSt
   };
 }
 
-/** Cash out the kitchen's available ledger balance to the cook's account. Returns cents paid. */
-export async function cashOut(kitchenId: string): Promise<number> {
+export interface CashOutResult {
+  /** Cents actually transferred. 0 when `pending` is true — the amount is still reserved. */
+  amountCents: number;
+  /** True when Stripe's response was ambiguous — the reconcile-payouts worker resolves it
+   *  automatically within a few minutes; the cook should not retry. */
+  pending: boolean;
+}
+
+/** Cash out the kitchen's available ledger balance to the cook's account. */
+export async function cashOut(kitchenId: string): Promise<CashOutResult> {
   const { data, error } = await supabase.functions.invoke('connect-payout', { body: { kitchenId } });
+  if (data?.pending) return { amountCents: 0, pending: true };
   if (error || data?.error) throw new Error(data?.error || error?.message || 'Payout failed.');
-  return Number(data?.amountCents ?? 0);
+  return { amountCents: Number(data?.amountCents ?? 0), pending: false };
 }
 
 /** The kitchen's available (unpaid-out) balance in cents, from the ledger. */
 export async function getKitchenBalanceCents(kitchenId: string): Promise<number> {
   const { data, error } = await supabase.rpc('kitchen_balance_cents', { kid: kitchenId });
-  if (error) return 0;
+  if (error) throw new Error(error.message || 'Could not load your balance.');
   return Number(data) || 0;
+}
+
+export interface PayoutSummary {
+  availableCents: number;
+  pendingCents: number;
+  paidTotalCents: number;
+}
+
+/** Available / pending / lifetime-paid totals for the money screen's summary row. */
+export async function getPayoutSummary(kitchenId: string): Promise<PayoutSummary> {
+  const { data, error } = await supabase.rpc('my_payout_summary', { p_kitchen_id: kitchenId }).maybeSingle();
+  if (error) throw new Error(error.message || 'Could not load your payout summary.');
+  return {
+    availableCents: Number((data as any)?.available_cents ?? 0),
+    pendingCents: Number((data as any)?.pending_cents ?? 0),
+    paidTotalCents: Number((data as any)?.paid_total_cents ?? 0),
+  };
+}
+
+export type PayoutStatus = 'pending' | 'paid' | 'failed' | 'needs_review';
+
+export interface PayoutHistoryEntry {
+  id: string;
+  amountCents: number;
+  status: PayoutStatus;
+  source: 'manual' | 'auto';
+  createdAt: string;
+  reconciledAt: string | null;
+  failureReason: string | null;
+}
+
+/** Recent payouts for this kitchen, newest first. */
+export async function getPayoutHistory(kitchenId: string, limit = 50): Promise<PayoutHistoryEntry[]> {
+  const { data, error } = await supabase.rpc('my_payouts', { p_kitchen_id: kitchenId, p_limit: limit });
+  if (error) throw new Error(error.message || 'Could not load your payout history.');
+  return (data ?? []).map((r: any) => ({
+    id: r.id,
+    amountCents: Number(r.amount_cents) || 0,
+    status: r.status,
+    source: r.source,
+    createdAt: r.created_at,
+    reconciledAt: r.reconciled_at,
+    failureReason: r.failure_reason,
+  }));
+}
+
+/** The cook's current automatic-payout preferences. */
+export async function getPayoutPreferences(kitchenId: string): Promise<{ autoEnabled: boolean; minCents: number }> {
+  const { data } = await supabase
+    .from('stripe_accounts')
+    .select('auto_payout_enabled, auto_payout_min_cents')
+    .eq('kitchen_id', kitchenId)
+    .maybeSingle();
+  return { autoEnabled: data?.auto_payout_enabled ?? true, minCents: data?.auto_payout_min_cents ?? 2000 };
+}
+
+/** Save the cook's automatic-payout preferences (opt in/out, minimum amount). */
+export async function setPayoutPreferences(kitchenId: string, autoEnabled: boolean, minCents: number): Promise<void> {
+  const { error } = await supabase.rpc('set_payout_preferences', { p_kitchen_id: kitchenId, p_auto_enabled: autoEnabled, p_min_cents: minCents });
+  if (error) throw new Error(error.message || 'Could not update your payout preferences.');
+}
+
+/** How often Stripe deposits this kitchen's connected-account balance to their bank. */
+export async function setStripePayoutSchedule(kitchenId: string, interval: 'daily' | 'weekly' | 'manual'): Promise<void> {
+  const { data, error } = await supabase.functions.invoke('connect-payout-settings', { body: { kitchenId, interval } });
+  if (error || data?.error) throw new Error(data?.error || error?.message || 'Could not update payout schedule.');
+}
+
+/** Open the cook's Stripe Express Dashboard to manage their bank account/debit card. Returns
+ *  true if a dashboard link was opened, false if they still need to finish onboarding first
+ *  (caller should fall back to startConnectOnboarding). */
+export async function openPayoutDashboard(kitchenId: string): Promise<boolean> {
+  const { data, error } = await supabase.functions.invoke('connect-dashboard-link', { body: { kitchenId } });
+  if (error || data?.error) throw new Error(data?.error || error?.message || 'Could not open your payout dashboard.');
+  if (data?.needsOnboarding) return false;
+  const url = data?.url as string;
+  if (!url) throw new Error('Could not open your payout dashboard.');
+  if (Platform.OS === 'web' && typeof window !== 'undefined') {
+    window.open(url, '_blank');
+  } else {
+    const { Linking } = await import('react-native');
+    await Linking.openURL(url);
+  }
+  return true;
 }
 
 /** The kitchen's real, server-side availability ('open' means orderable). */

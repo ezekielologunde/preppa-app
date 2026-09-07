@@ -1,4 +1,9 @@
 // deno-lint-ignore-file no-explicit-any
+// connect-dashboard-link: lets a cook manage their payout bank account/debit card without
+// us ever touching that data ourselves. Express accounts get a Stripe-hosted "Express
+// Dashboard" once onboarding is complete (createLoginLink) — that's where bank/card details
+// live and get changed. If onboarding isn't finished yet, there's no dashboard to log into,
+// so this instead returns needsOnboarding so the client falls back to startConnectOnboarding.
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.45.4';
 import Stripe from 'https://esm.sh/stripe@16.12.0?target=deno';
 
@@ -25,8 +30,6 @@ function admin() {
   return createClient(requireEnv('SUPABASE_URL'), requireEnv('SUPABASE_SERVICE_ROLE_KEY'), { auth: { persistSession: false } });
 }
 
-// Sync the cook's Connect onboarding status from Stripe into stripe_accounts (polled on
-// hub load + after onboarding return) — avoids configuring a webhook. Owner-scoped.
 Deno.serve(async (req) => {
   if (req.method === 'OPTIONS') return new Response('ok', { headers: corsHeaders });
   if (req.method !== 'POST') return json(405, { error: 'method not allowed' });
@@ -38,7 +41,7 @@ Deno.serve(async (req) => {
     if (!userId) return json(401, { error: 'unauthorized' });
 
     const { error: rlErr } = await db.rpc('check_rate_limit', {
-      p_action: 'connect_status', p_max_count: 30, p_window: '10 minutes', p_subject: userId,
+      p_action: 'connect_dashboard_link', p_max_count: 10, p_window: '10 minutes', p_subject: userId,
     });
     if (rlErr) return json(429, { error: 'Too many attempts. Please wait a few minutes and try again.' });
 
@@ -49,19 +52,13 @@ Deno.serve(async (req) => {
     const { data: kitchen } = await db.from('kitchens').select('owner_id').eq('id', kitchenId).single();
     if (!kitchen || kitchen.owner_id !== userId) return json(403, { error: 'not your kitchen' });
 
-    const { data: acct } = await db.from('stripe_accounts').select('stripe_account_id').eq('kitchen_id', kitchenId).maybeSingle();
-    if (!acct) return json(200, { onboarded: false, chargesEnabled: false, payoutsEnabled: false, detailsSubmitted: false });
+    const { data: acct } = await db.from('stripe_accounts').select('stripe_account_id, details_submitted').eq('kitchen_id', kitchenId).maybeSingle();
+    if (!acct || !acct.details_submitted) return json(200, { needsOnboarding: true });
 
-    const sa = await stripe.accounts.retrieve(acct.stripe_account_id) as any;
-    const charges_enabled = !!sa.charges_enabled;
-    const payouts_enabled = !!sa.payouts_enabled;
-    const details_submitted = !!sa.details_submitted;
-    await db.from('stripe_accounts')
-      .update({ charges_enabled, payouts_enabled, details_submitted, updated_at: new Date().toISOString() })
-      .eq('kitchen_id', kitchenId);
-
-    return json(200, { onboarded: details_submitted, chargesEnabled: charges_enabled, payoutsEnabled: payouts_enabled, detailsSubmitted: details_submitted });
-  } catch (_e) {
-    return json(500, { error: 'Could not check payout status. Please try again.' });
+    const link = await stripe.accounts.createLoginLink(acct.stripe_account_id);
+    return json(200, { url: link.url });
+  } catch (e: any) {
+    const isStripeError = typeof e?.type === 'string' && e.type.startsWith('Stripe');
+    return json(500, { error: (isStripeError && e?.message) || 'Could not open your payout dashboard. Please try again.' });
   }
 });
