@@ -10,6 +10,16 @@ tags: [project/preppa, type/decisions]
 
 Part of [[Project]]. Extracted from `AUDIT.md`, `docs/REDESIGN-DIRECTION.md`, `SPRINT-27-FEED-VIDEO-PLAN.md`, and code comments.
 
+## Legacy patterns explicitly not carried forward
+
+An older, separate implementation lineage (pre-dating this repo) used patterns this codebase
+deliberately does not repeat: email addresses as participant identifiers, relatively broad RLS
+`update` permissions paired with trigger guards instead of tight policies, client-visible payment-
+method enums (e.g. raw Cash/Venmo/Zelle choices), and public review-creation gated mainly on
+caller identity before later hardening. The current model — `SECURITY DEFINER` RPC + `auth.uid()`
+gate + inline `audit_log` write, server-priced money paths, Stripe as the sole payment rail — is
+the one to keep hardening; don't reintroduce the looser patterns above even under time pressure.
+
 ## Payout reconciliation (2026-09-07)
 
 - **A reconciler must never mint a new Stripe idempotency key for an existing payout row** — it only ever replays the original `payout_<id>` key (Stripe guarantees this returns the original transfer, never a second one) or looks the transfer up by `metadata.payout_id`. Minting a fresh key on a stuck row is exactly the double-payout risk the whole design exists to avoid.

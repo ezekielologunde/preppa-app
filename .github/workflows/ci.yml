@@ -15,7 +15,7 @@ jobs:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
         with:
-          node-version: 20
+          node-version: 22
       - run: npm ci
       - run: npm run typecheck
 
@@ -30,8 +30,8 @@ jobs:
       # in supabase/migrations/ in order -- this is what actually proves the
       # migration history in this PR is internally consistent and applies
       # cleanly from scratch, independent of whatever state the live project
-      # happens to be in. Plain `start` (no --exclude) since this job has
-      # never been run end-to-end yet -- the full default stack is the most
-      # tested path; trim it for speed once it's confirmed green.
+      # happens to be in. Confirmed green end-to-end as of 2026-09-07 (full
+      # 212-migration history restoration). Plain `start` (no --exclude) --
+      # trim it for speed if it becomes a bottleneck.
       - run: supabase start
       - run: psql "postgresql://postgres:postgres@127.0.0.1:54322/postgres" -v ON_ERROR_STOP=1 -f supabase/tests/regressions.sql

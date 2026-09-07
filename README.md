@@ -1,12 +1,17 @@
-# Preppa — customer + prepper app (Expo / React Native)
+# Preppa — homemade food marketplace (Expo / React Native)
 
-A faithful implementation of the **Preppa** design prototype (`../design/Preppa App.html`)
-as a real Expo Router + TypeScript app. Preppa is a marketplace for homemade food cooked by
-vetted local cooks — warm-orange `#F26B1D` brand, calm surfaces, trust & safety as the core.
+**This is the canonical repository** for the Preppa app and backend. A separate repository
+(`ezekielologunde/Preppa`) exists under the same account and is an earlier/adjacent project
+(landing-page work) — it is not this app and should not be treated as production truth for it.
 
-Conventions mirror the reference production codebase (`../design/_reference/app-source`):
-Expo Router, an `@preppa/ui`-style primitive kit, `expo-linear-gradient` placeholder gradients,
-and the canonical WARM design tokens.
+Preppa is a real, live two-sided marketplace: home cooks ("preppers") sell homemade meals, cook
+in customers' homes, run subscription meal plans, or host bookable food experiences; customers
+browse, order, subscribe, and pay through the app. It is wired to a live Supabase project
+(Postgres + Auth + Edge Functions + Storage + Realtime) and Stripe (Connect Express for cook
+payouts). **This is not a demo** — orders, payments, and payouts move through real backend
+services. See `docs/obsidian/PM-Onboarding.md` for a plain-language tour, or `docs/obsidian/Project.md`
+for the full technical index (Architecture, Database, Backend, Payments, Features, Security,
+Decisions, Bugs, Tasks, Changelog — kept in sync with the codebase per this repo's `CLAUDE.md`).
 
 ## Run
 
@@ -16,50 +21,29 @@ npx expo start            # press i / a, or scan the QR in Expo Go
 npx expo start --web      # browser
 ```
 
-Type-check: `npx tsc --noEmit`. Bundle check: `npx expo export -p ios`.
-
-## What's implemented
-
-**Customer side**
-- **Splash** → **premium onboarding/auth** (welcome, Apple/Google/email, 6-digit OTP with
-  error + resend cooldown, goal + cuisine steps, "setting up" with a recoverable error). Demo
-  OTP code: **481206**. Replay from Profile → *Replay onboarding*.
-- **Tabs**: Home · Experiences · Feed · My Hub · Profile.
-- **Home** — calm hub: warm header, sticky search, "Today's drop" hero, curated grid, experiences
-  rail, Cook-at-my-place + meal-plan shortcuts.
-- **Explore** — search + cuisine chips + responsive meal grid.
-- **Order flow** — meal detail → cart (tip, founding-cook fee waiver) → checkout (Pay online vs
-  **Cash on delivery**) → the signature **COD QR handoff** → **live tracking**.
-- **Experiences** — services (Cook at My Place, Catering, Grocery, Bulk, Errands) with a full
-  request → fixed-price quotes → accept & pay flow, plus classes/supper-club experience details.
-- **Meal plans** — subscribe to a cook's weekly box, build-your-own (10% bundle), and manage.
-- **Storefronts** — every cook has a public kitchen page (menu, plans, experiences, reviews).
-- **Feed** — vertical video reels; **Notifications** (alerts + messages) and **chat**.
-- **Dark mode** — warm near-black theme, toggle in Profile.
-
-**Prepper "My Hub"**
-- Landing with **Focus / Dashboard** layouts, pinned **Open/Paused** availability toggle, dark
-  balance card, and an **action queue** (accept/decline orders, respond to catering, confirm won
-  quotes). Orders, catering requests/quotes, earnings + payout, menu + create-meal/create-plan,
-  order detail, analytics, meal plans, subscribers.
-
-**Responsive** — bottom tab bar on phones; a persistent **left rail** on tablet (icon-only) and
-desktop (labeled), with the bottom bar hidden and the Home header de-duplicated.
+Type-check: `npm run typecheck`. Bundle check: `npx expo export -p ios`.
 
 ## Structure
 
 ```
-app/                      Expo Router routes
-  _layout.tsx             providers, fonts, splash + onboarding gating, responsive rail
+app/                      Expo Router routes (file-based; see app/ for the current route tree)
   (tabs)/                 home, experiences, feeds, my-hub, profile + custom tab bar
-  meal/[id], cart, checkout, cod, track, explore, notifications, chat/[cook],
-  experience/[id], request/[svc], quotes/[id], plans, plan/[id], build-plan, store/[cook]
-  hub/                    orders, order/[id], catering, request/[id], money, payout, menu,
-                          create-meal, create-plan, bid/[id], plans, subscribers, analytics
+  hub/                    prepper "My Hub": orders, money, menu, create-meal, create-plan,
+                          analytics, subscribers, in-home-vetting, fulfillment, ...
+  admin/                  admin console (applications, orders, payouts, users, waitlist, ...)
 src/
-  theme/  data/  store/  ui/  components/
+  theme/  data/  store/  ui/  components/  lib/
+supabase/
+  migrations/             full schema history (see docs/obsidian/Database.md)
+  functions/              Edge Functions (see docs/obsidian/Backend.md and functions/MANIFEST.md)
+  tests/regressions.sql   DB regression suite, run in CI
 ```
 
-Data and forms are illustrative demo content (they validate and confirm but don't hit a server),
-matching the prototype. Placeholder food imagery uses the design system's deterministic
-per-item gradient convention.
+Route names change as features ship — the Expo Router tree in `app/` is the source of truth for
+current screens; this README doesn't attempt to enumerate them.
+
+## CI
+
+`.github/workflows/ci.yml` runs `typecheck` (`tsc --noEmit`) and `db-regression-tests` (replays
+every migration in `supabase/migrations/` from scratch against a fresh local Postgres, then runs
+`supabase/tests/regressions.sql`) on every push/PR to `main`.
