@@ -2,7 +2,7 @@
 project: Preppa
 type: features
 status: active
-last_updated: 2026-08-22
+last_updated: 2026-09-07
 tags: [project/preppa, type/features]
 ---
 
@@ -15,8 +15,10 @@ Part of [[Project]]. Status inferred from code (flag guards, real API calls vs. 
 - Auth + onboarding (real email OTP, password auth)
 - Catalog / Home / Discover / storefronts (Supabase-backed, shared cache, proximity sort)
 - Card checkout (web Elements + native PaymentSheet)
-- Cook onboarding + admin review (geocoded address, private docs bucket, signed URLs)
-- Admin console (9 screens, real search over live rows)
+- Cook onboarding + admin review (geocoded address, private docs bucket, signed URLs, food-handler cert review status added 2026-09-07)
+- **In-home vetting** ("Cook at My Place" category) — separate, higher-bar review (background check + insurance docs) gating in-home bookings; client screens committed 2026-09-07, backend RPCs existed since 2026-08-12.
+- Admin console (10 screens incl. Payouts, added 2026-09-07; real search over live rows)
+- **Cook payouts** — on-demand cash-out, automated reconciliation of stuck payouts, weekly auto-payout sweep (opt-out), payout history, Stripe Express Dashboard link for bank/card management, Stripe payout-schedule picker. See [[Payments]].
 - Plans/subscriptions (cadence, rotating, capacity, cutoff/lead time, trial)
 - Feed (real paginated posts + likes; video reels are a later slice, see [[Tasks]])
 - Chat/messages, notifications center, PrepPlus, tickets, experiences booking

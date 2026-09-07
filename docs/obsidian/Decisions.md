@@ -2,13 +2,20 @@
 project: Preppa
 type: decisions
 status: active
-last_updated: 2026-08-22
+last_updated: 2026-09-07
 tags: [project/preppa, type/decisions]
 ---
 
 # Decisions
 
 Part of [[Project]]. Extracted from `AUDIT.md`, `docs/REDESIGN-DIRECTION.md`, `SPRINT-27-FEED-VIDEO-PLAN.md`, and code comments.
+
+## Payout reconciliation (2026-09-07)
+
+- **A reconciler must never mint a new Stripe idempotency key for an existing payout row** — it only ever replays the original `payout_<id>` key (Stripe guarantees this returns the original transfer, never a second one) or looks the transfer up by `metadata.payout_id`. Minting a fresh key on a stuck row is exactly the double-payout risk the whole design exists to avoid.
+- **An unresolvable stuck payout is parked as `needs_review`, never auto-failed** — freeing the reserved amount on a guess risks paying the cook twice if the original transfer actually landed. A human resolves it after checking the Stripe dashboard directly.
+- **Migration history is reconstructed from the live database's own `supabase_migrations.schema_migrations` table**, not guessed or squashed into a single baseline — this preserves the real, git-bisectable history and lets each historical migration's rationale (kept in its own comments) survive intact.
+- **New payout migrations vendor into the repo even though the corresponding pg_cron jobs already exist live** — the migration is the source of truth going forward; running it again in CI is a guarded no-op (`to_regnamespace('cron')` check) so local/CI environments without pg_cron aren't affected.
 
 ## Product / positioning
 

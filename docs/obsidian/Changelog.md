@@ -2,13 +2,29 @@
 project: Preppa
 type: changelog
 status: active
-last_updated: 2026-08-22
+last_updated: 2026-09-07
 tags: [project/preppa, type/changelog]
 ---
 
 # Changelog
 
-Part of [[Project]]. Reconstructed from 137 commits on `main`, 2026-07-06 → 2026-08-08.
+Part of [[Project]]. Reconstructed from 137 commits on `main`, 2026-07-06 → 2026-08-08, plus the 2026-09-07 session below.
+
+## Migration history restoration + payout reconciliation (2026-09-07)
+
+**Restored the full supabase migration history** from the live project: 65 migrations were missing from `supabase/migrations/` entirely and 36 more existed under fabricated timestamps that didn't match when they were actually applied, silently misordering dependencies. Pulled the authoritative SQL for all 211 live migrations from `supabase_migrations.schema_migrations` and reconstructed the history — 212 migrations (211 restored + 1 pre-existing stale local-only file) now replay cleanly from scratch, verified via `supabase/tests/regressions.sql` in CI.
+
+**Built and deployed automated payout reconciliation**: `needs_review` payout state, `claim_stale_payouts`/`reconcile_payout` RPCs, `reconcile-payouts` cron worker (every 5 min) that resolves payouts a Stripe API error left ambiguous, by idempotency-key replay or metadata lookup — never auto-failing. Fixed a real bug in `kitchen_balance_cents` (broken service-role detection meant every worker call saw balance 0).
+
+**Scheduled automatic weekly payouts** (`claim_auto_payouts`/`auto-payouts` cron, $20 minimum, opt-out per kitchen) alongside the existing manual cash-out.
+
+**In-app payout management**: payout history + summary RPCs, a rebuilt Earnings screen, Stripe Express Dashboard link for bank/card management (`connect-dashboard-link`), and a cook-facing Stripe payout-schedule picker (`connect-payout-settings`).
+
+**Onboarding hardening**: food-handler cert review status for admins, a Stripe-setup nudge for verified-but-unonboarded cooks, and committed previously-uncommitted in-home vetting client screens (`app/hub/in-home-vetting.tsx`, `app/admin/in-home-vetting.tsx`, `src/lib/inHomeVetting.ts`) whose backend RPCs had existed since 2026-08-12 with no client code in git.
+
+**Verified end-to-end against real Stripe test-mode API calls**, not simulated SQL: real cook signup → real application → real admin approval → real Stripe Connect onboarding via the hosted flow → real cash-out → real reconciliation of a seeded stuck payout → real auto-sweep, each step confirmed with a distinct real Stripe transfer ID.
+
+Also cleaned ~30 stray top-level files/directories from the working tree (old zip extracts, reference copies, screenshots) and found + removed an exposed Resend API key (`api-keys-*.csv`) sitting at the repo root — flagged for rotation, not committed to git.
 
 ## Phase 0 — Prototype build-out (07-06 → 07-07)
 

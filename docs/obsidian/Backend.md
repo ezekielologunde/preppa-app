@@ -2,24 +2,25 @@
 project: Preppa
 type: backend
 status: active
-last_updated: 2026-08-22
+last_updated: 2026-09-07
 tags: [project/preppa, type/backend]
 ---
 
 # Backend
 
-Part of [[Project]]. Edge Functions live in `supabase/functions/` (31 vendored dirs; `MANIFEST.md` tracks `verify_jwt` per function, a deployment-only setting). See also [[Database]], [[Payments]], [[Security]].
+Part of [[Project]]. Edge Functions live in `supabase/functions/` (35 vendored dirs; `MANIFEST.md` tracks `verify_jwt` per function, a deployment-only setting). See also [[Database]], [[Payments]], [[Security]].
 
 ## Caller-verification patterns
 
 1. **User-JWT via admin client** — `db.auth.getUser(jwt)`, ownership re-checked in DB. Most functions.
 2. **User-scoped anon client** — `asUser(jwt)` so `auth.uid()` flows into RPCs that do their own ownership check. `connect-payout`, `accept-quote-and-deposit`, `book-experience`.
-3. **Shared-secret worker auth** — for cron/webhook callers deployed with `verify_jwt:false`: `verify_worker_secret()` (`charge-due-cycles`, `send-push`), Bearer-token comparison against a vault secret (`stripe-worker`), HMAC signature (`mux-webhook`, `stripe-webhook`).
+3. **Shared-secret worker auth** — for cron/webhook callers deployed with `verify_jwt:false`: `verify_worker_secret()` (`charge-due-cycles`, `send-push`, `reconcile-payouts`, `auto-payouts`), Bearer-token comparison against a vault secret (`stripe-worker`), HMAC signature (`mux-webhook`, `stripe-webhook`). All worker functions share one `pg_cron` → `net.http_post` → vault-secret-bearer pattern; see the cron job list in [[Payments]].
 
 ## Functions by group
 
 - **Stripe sync** (`verify_jwt:false`): `stripe-webhook`, `stripe-worker`, `stripe-setup` — vendored ~1.1MB esbuild bundles of `@stripe/sync-engine` v1.0.32.
-- **Orders/payments:** `create-order`, `payment-methods`, `connect-onboard`, `connect-status`, `connect-payout`.
+- **Orders/payments:** `create-order`, `payment-methods`, `connect-onboard`, `connect-status`, `connect-payout`, `connect-dashboard-link` (Stripe Express Dashboard login link for bank/card management, added 2026-09-07), `connect-payout-settings` (cook-chosen Stripe payout schedule: daily/weekly/manual, added 2026-09-07).
+- **Payout reconciliation** (`verify_jwt:false`, worker-secret auth, added 2026-09-07): `reconcile-payouts` (cron */5min — resolves `payouts` rows left `pending` by an ambiguous Stripe response, by replaying the original idempotency key or looking the transfer up by `metadata.payout_id`; never auto-fails, parks unresolvable rows as `needs_review` for admin), `auto-payouts` (cron weekly, Mon 14:00 UTC — sweeps eligible kitchens' balances via the same transfer path as manual cash-out).
 - **RFQ:** `create-service-request`, `edit-service-request`, `submit-quote`, `accept-quote-and-deposit`, `complete-booking`, `cancel-booking`, `fulfill-plan-request`.
 - **Subscriptions:** `plan-upsert`, `subscribe-plan`, `subscribe-box`, `charge-due-cycles` (cron), `create-subscription`/`manage-subscription` (**deprecated 410 stubs**, legacy path).
 - **Experiences:** `experience-upsert`, `book-experience`, `cancel-experience-booking`, `cancel-experience-session`.

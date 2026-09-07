@@ -2,7 +2,7 @@
 project: Preppa
 type: bugs
 status: active
-last_updated: 2026-08-22
+last_updated: 2026-09-07
 tags: [project/preppa, type/bugs]
 ---
 
@@ -24,7 +24,7 @@ Part of [[Project]]. See [[Security]] and [[Payments]] for the security/payment-
 - `main` has zero branch protection; Dependabot alerts disabled; no `CODEOWNERS`.
 - `stripe-worker` has no HTTP method guard (low severity).
 - `.gitignore` doesn't match Expo's `.env.production`/`.env.development` convention.
-- Only 18 of 132 live migrations were vendored at audit time (base schema has no source-controlled history — see [[Database]]).
+- ~~Only 18 of 132 live migrations were vendored at audit time~~ — **fixed 2026-09-07**, full 212-migration history restored (see [[Database]]).
 - Session tokens in AsyncStorage, not `expo-secure-store`; no password-reset flow.
 - Google OAuth client secret exposure from a prior session — rotation unconfirmed.
 - 11 moderate `npm audit` findings via a transitive `uuid` dependency (build tooling, not shipped runtime).
@@ -35,6 +35,8 @@ Part of [[Project]]. See [[Security]] and [[Payments]] for the security/payment-
 - **`accept_quote()` ambiguous-column bug**: the sole quote→booking path had never worked for a real customer until fixed — caught only by live testing, not by any test suite (none exists).
 - **2026-08-08**: real kitchens shared a placeholder cook id (`'maria'`), causing two different kitchens' cart items and money to merge into one Stripe Connect account. Fixed same day.
 - **2026-08-08**: direct-to-Storage upload accepted HTML mislabeled as `image/png` — fixed by routing all uploads through the `upload-media` proxy.
+- **2026-09-07**: `kitchen_balance_cents()` used a deprecated `current_setting('request.jwt.claim.role')` check that never fires for a real `service_role` caller, so every worker/cron call (payout reconciliation, the new auto-payout sweep) saw balance 0 instead of the kitchen's real balance. Fixed to use `auth.role() = 'service_role'`, matching the pattern already used elsewhere for the same class of bug.
+- **2026-09-07**: found an exposed Resend API key (`api-keys-*.csv`, full_access permission) sitting at the repo root, never committed to git but present on disk. Removed; flagged for rotation as a precaution — see [[Tasks]].
 
 ## No environment/config separation
 
