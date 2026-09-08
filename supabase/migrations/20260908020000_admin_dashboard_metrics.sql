@@ -77,7 +77,11 @@ begin
        where status = 'paid' and created_at > now() - (v_days || ' days')::interval),
     (select coalesce(sum(amount_cents), 0) from ledger_entries),
     (select count(*) from kitchens where verification_status = 'verified'),
-    (select count(*) from meals where status = 'live');
+    -- Join through kitchen verification, not meals.status alone -- caught live: the 6
+    -- now-permanently-rejected seed kitchens (2026-09-08 cleanup) still have status='live'
+    -- meals rows, which would otherwise inflate this to look like real inventory.
+    (select count(*) from meals m join kitchens k on k.id = m.kitchen_id
+       where m.status = 'live' and k.verification_status = 'verified');
 end;
 $$;
 
