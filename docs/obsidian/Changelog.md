@@ -10,6 +10,10 @@ tags: [project/preppa, type/changelog]
 
 Part of [[Project]]. Reconstructed from 137 commits on `main`, 2026-07-06 → 2026-08-08, plus the 2026-09-07 session below.
 
+## System health monitoring (2026-09-08)
+
+Closes the DB-observable half of [[Launch-Plan]] item 15. Added `detect_system_health_issues()` (pg_cron, every 15 min): alerts via the existing `notify_admins()` path on real `cron.job_run_details` failures (a scheduled job's SQL statement itself erroring) and real `net._http_response` failures (5xx/timeout from any outbound `pg_net` call across the whole app — reconcile-payouts, auto-payouts, detect-admin-anomalies, notify_admins' own push/email/Slack dispatch, stripe-setup-nudge). Verified live in production: cron job registered and active, ran clean against 112 real recent scheduled-job runs (all succeeded, correctly raised no false alarm). Vercel deploy status and Stripe webhook delivery failures are explicitly not covered — recommended turning on each platform's own native alerting instead of building a custom poller needing a new external API token.
+
 ## Admin launch dashboard (2026-09-08)
 
 Worked [[Launch-Plan]] item 15. Added `admin_dashboard_metrics()` (self-gated via `is_admin()`, same pattern as the existing admin RPCs) and a new Admin → Dashboard screen surfacing money metrics (GMV, orders, payment success rate, refunds, payout pipeline, all-time ledger balance) and marketplace metrics (active/verified cooks, live meals, fulfillment rate) that were previously queryable but not visualized anywhere. While verifying it live against production, caught a real bug before it shipped: `live_meals_count` was counting the 6 permanently-rejected seed kitchens' still-`status='live'` meal rows (rejecting a kitchen doesn't cascade to its meals), which would have shown fake inventory as if real. Fixed to join through kitchen verification before deploying the corrected version. System-health metrics (Vercel/Edge-Function/cron uptime) are explicitly out of scope — they need external monitoring, not a DB query.
