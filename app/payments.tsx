@@ -92,7 +92,7 @@ export default function Payments() {
         ) : (
           <>
             {methods.length === 0 ? (
-              <Empty icon="card" title="No saved cards" body="Add a card to check out faster next time — or pay cash on delivery." />
+              <Empty icon="card" title="No saved cards" body="Add a card to check out faster next time." />
             ) : (
               methods.map((card) => {
                 const on = card.id === defaultId;
@@ -123,20 +123,6 @@ export default function Payments() {
                 );
               })
             )}
-
-            {/* cash on delivery — always available */}
-            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 12, padding: 14, borderWidth: 1, borderColor: c.border2, backgroundColor: c.surface, borderRadius: radius.card }}>
-              <View style={{ width: 40, height: 40, borderRadius: 12, backgroundColor: c.purpleL, alignItems: 'center', justifyContent: 'center' }}>
-                <Icon name="wallet" size={20} color={c.purpleOn} />
-              </View>
-              <View style={{ flex: 1 }}>
-                <View style={{ flexDirection: 'row', alignItems: 'center', gap: 7 }}>
-                  <Text style={[type(14.5, 800), { color: c.ink }]}>Cash on delivery</Text>
-                  <MiniTag label="Always on" tone="purple" />
-                </View>
-                <Text style={[type(12.5, 500), { color: c.soft, marginTop: 3 }]}>Pay in cash with QR handoff at the door</Text>
-              </View>
-            </View>
 
             <View style={{ height: 4 }} />
             <Btn label="Add a card" icon="plus" variant="ghost" block loading={starting} onPress={startAdd} />

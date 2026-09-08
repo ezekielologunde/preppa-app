@@ -35,7 +35,12 @@ Part of [[Project]]. Outstanding work discovered during the audit — not a spri
 
 ## In-code "coming soon" surfaces
 
-- [ ] Quotes payment — reconcile the "coming soon" UI copy with the working `accept-quote-and-deposit` backend.
+- [x] ~~Quotes payment — reconcile the "coming soon" UI copy with the working `accept-quote-and-deposit` backend~~ — **confirmed stale 2026-09-08**, no such copy exists in the current codebase; both quote-payment entry points already call the real backend flow.
+
+## Dead-surface cleanup (found during Launch-Plan item 11, 2026-09-08)
+
+- [ ] Remove the remaining `cod`-branch dead code now that checkout no longer offers it: `app/track.tsx`, `app/order/[id].tsx`, `app/(tabs)/orders.tsx`, `app/hub/order/[id].tsx`, `src/components/Handoff.tsx`'s `HandoffMode`, `src/store/store.tsx`'s `OrderFlow` type + seed mock order, `src/data/data.ts`'s `Cook.acceptsCod` field, and the demo line "Cash on delivery is fine?" in `app/chat/[cook].tsx`. None of these are currently reachable (checkout is Stripe-only), so this is cleanup, not a functional fix.
+- [ ] **Decide what to do with the 6 fake seed kitchens sitting in the live production `kitchens` table** (`bbbbbbbb-0000-4000-8000-00000000000{1-6}`, `verification_status = 'pending'`, 9 real `meals` rows attached) — confirmed not currently customer-reachable (RLS requires `verified`), but real production data clutter tied to dead client-side fallback code (`COOKS`/`KITCHEN_ID`/`seedCookForKitchen`, referenced across 8 screens). See [[Launch-Plan]] item 11.
 - [ ] In-app camera broadcast for Go Live (currently external RTMP only — no official Mux RN SDK).
 - [ ] Cash on delivery — currently a placeholder UI with no real payment path; needs held cards / deposits / KYC design.
 

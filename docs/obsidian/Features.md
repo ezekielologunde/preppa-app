@@ -27,7 +27,7 @@ Part of [[Project]]. Status inferred from code (flag guards, real API calls vs. 
 
 - **PrepPlus** — web-only entry by IAP policy.
 - **Go live** — provisions a real Mux RTMP stream/key for external broadcast software (OBS/ffmpeg); no in-app camera broadcast (no official Mux RN SDK).
-- **Quotes payment** — UI still says "in-app payments are coming soon" even though the deposit flow exists server-side; worth confirming which is stale.
+- ~~**Quotes payment** — UI still says "in-app payments are coming soon"~~ — **confirmed stale 2026-09-08**, no such copy exists anywhere in the current codebase. Both `app/discover.tsx` (Services tab) and `app/request/[id].tsx` already call the real `acceptQuoteAndDeposit()` → `CardPaymentSheet` deposit charge.
 - **Private-chef / home bookings** — fallback toast when `FLAGS.services` is off.
 - **Mock data still reaches 39 route files** via `src/data/data.ts`, including some persisted into the real store (`SEED_ORDERS`, `SEED_ADDRESSES`, `SEED_REQUESTS`, `CONVERSATIONS`). Real/mock boundary needs per-screen verification.
 
