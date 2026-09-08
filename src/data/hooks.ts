@@ -171,6 +171,9 @@ export function useKitchenProfile(idOrSlug?: string): AsyncState<KitchenProfile 
 export function useAdminOverview(nonce = 0): AsyncState<admin.AdminOverview> {
   return useAsync(() => admin.overview(), [nonce]);
 }
+export function useAdminDashboardMetrics(days = 7, nonce = 0): AsyncState<admin.AdminDashboardMetrics | null> {
+  return useAsync(() => admin.dashboardMetrics(days), [days, nonce]);
+}
 export function useAdminApplications(nonce = 0): AsyncState<admin.AdminApplication[]> {
   return useAsync(() => admin.listApplications(), [nonce]);
 }

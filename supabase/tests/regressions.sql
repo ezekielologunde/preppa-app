@@ -252,6 +252,19 @@ begin
   end if;
 end $$;
 
+do $$
+begin
+  if has_function_privilege('anon', 'public.admin_dashboard_metrics(int)', 'execute') then
+    raise exception 'REGRESSION: anon can call admin_dashboard_metrics() directly';
+  end if;
+  if not has_function_privilege('authenticated', 'public.admin_dashboard_metrics(int)', 'execute') then
+    raise exception 'REGRESSION: authenticated lost access to admin_dashboard_metrics() -- it self-gates via is_admin(), the launch dashboard is broken';
+  end if;
+  if (select count(*) from public.admin_dashboard_metrics()) <> 0 then
+    raise exception 'REGRESSION: admin_dashboard_metrics() returned rows for a non-admin caller in this test session';
+  end if;
+end $$;
+
 rollback;
 
 select 'all regression checks passed' as result;

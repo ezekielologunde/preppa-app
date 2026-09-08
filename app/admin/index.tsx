@@ -66,6 +66,7 @@ export default function AdminHome() {
 
         <Text style={[type(12, 900), { color: c.muted, textTransform: 'uppercase', letterSpacing: 0.5, marginTop: 26, marginBottom: 2, paddingHorizontal: 20 }]}>Modules</Text>
         <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 12, paddingHorizontal: 16, marginTop: 10 }}>
+          <ModuleCard icon="trendUp" title="Dashboard" sub="Money & marketplace health" onPress={() => router.push('/admin/dashboard')} />
           <ModuleCard icon="chefhat" title="Applications" sub="Prepper verification queue" badge={pending > 0 ? String(pending) : undefined} onPress={() => router.push('/admin/applications')} />
           <ModuleCard icon="shield" title="In-home safety" sub="Background-check & insurance review" onPress={() => router.push('/admin/in-home-vetting')} />
           <ModuleCard icon="spark" title="Experiences" sub="Review published experiences" onPress={() => router.push('/admin/experiences')} />

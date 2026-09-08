@@ -19,6 +19,22 @@ export interface AdminOverview {
   gmv_cents: number;
 }
 
+export interface AdminDashboardMetrics {
+  period_days: number;
+  orders_count: number;
+  gmv_cents: number;
+  fulfillment_rate_pct: number | null;
+  payment_success_rate_pct: number | null;
+  refund_count: number | null;
+  refund_amount_cents: number | null;
+  payouts_pending_count: number;
+  payouts_needs_review_count: number;
+  payouts_paid_amount_cents: number;
+  ledger_unpaid_balance_cents: number;
+  active_cooks: number;
+  live_meals_count: number;
+}
+
 export interface AdminApplication {
   kitchen_id: string;
   kitchen_name: string;
@@ -80,6 +96,13 @@ export async function overview(): Promise<AdminOverview> {
       gmv_cents: 0,
     }
   );
+}
+
+export async function dashboardMetrics(days = 7): Promise<AdminDashboardMetrics | null> {
+  ensureWeb();
+  const { data, error } = await supabase.rpc('admin_dashboard_metrics', { p_days: days });
+  if (error) throw error;
+  return (data?.[0] as AdminDashboardMetrics) ?? null;
 }
 
 export async function listApplications(): Promise<AdminApplication[]> {
