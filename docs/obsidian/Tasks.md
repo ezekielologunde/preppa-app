@@ -14,15 +14,15 @@ Part of [[Project]]. Outstanding work discovered during the audit — not a spri
 
 - [ ] **Confirm Stripe mode definitively** — evidence points to test mode (see [[Payments]] warning) contradicting the prior "LIVE since 2026-08-08" note; check the key prefix directly before either doc claim is trusted.
 - [ ] **Test the native deep-link return path** — `connect-onboard`'s `?connect=return`/`?connect=refresh` redirect is proven on web; needs a real-device check that the universal link/app-scheme equivalent actually returns a cook to the app on iOS/Android after Stripe onboarding.
-- [ ] Rotate the Resend API key found exposed in `api-keys-*.csv` at the repo root (removed from disk 2026-09-07, was never committed to git, but rotate as a precaution).
+- [x] ~~Rotate the Resend API key found exposed in `api-keys-*.csv`~~ — **done 2026-09-08**, see [[Launch-Plan]] item 4.
 - [ ] Recruit real cooks — the app is technically launch-ready end-to-end (onboarding, payments, payouts, reconciliation all proven), but zero real cooks means an empty marketplace on day one. This is manual business work, not an engineering task.
 - [ ] Revisit instant payouts (debit card, ~1.5% Stripe fee) once the auto-sweep + reconciliation have run in production for a while — deliberately deferred, see [[Payments]] and [[Decisions]].
 - [ ] Consider a real reconciliation job for `charge-due-cycles` (subscription billing) — it has the same ambiguous-error-leaves-row-pending pattern as payouts did, but no automated resolver was built for it this round.
 
 ## Security / ops hardening (from AUDIT.md's own recommended next steps)
 
-- [ ] Confirm the Google OAuth client secret rotation (Critical #16, still open).
-- [ ] Delete `app/mux-preppa.env` if it reappears; rotate the Mux token; broaden `.gitignore` to `.env.*`.
+- [x] ~~Confirm the Google OAuth client secret rotation~~ — **done 2026-09-08** (Critical #16 closed), see [[Launch-Plan]] item 4.
+- [x] ~~Delete `app/mux-preppa.env` if it reappears; rotate the Mux token~~ — token rotated **2026-09-08**, see [[Launch-Plan]] item 4; file has not reappeared. Broadening `.gitignore` to `.env.*` still worth doing but low priority (no `.env*` file has ever been committed, per the git-history secret search this session).
 - [x] ~~Build the payout/charge reconciliation job~~ — **done 2026-09-07** for payouts (see [[Payments]]); subscription-charge reconciliation is still open, see above.
 - [x] ~~Rate-limit and alert on state-mutating admin RPCs~~ — rate limiting was already done 2026-07-15; alerting (real-time on role change/suspension + `detect_admin_anomalies()` cron for escalation bursts, suspend churn, refund volume, payment-failure bursts) added 2026-09-07. See [[Security]].
 - [x] ~~Route admin alerts to a real destination~~ — **done 2026-09-07** via a scoped Resend API key (`resend_admin_alerts_api_key` Vault secret, sending-only, `preppa.live`-domain-restricted); `notify_admins()` emails both admins directly, verified live with a real test alert. The `admin_alert_webhook_url` Slack branch is still there, still unset, and not needed now.

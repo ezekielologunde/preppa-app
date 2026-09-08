@@ -20,6 +20,13 @@ caller identity before later hardening. The current model — `SECURITY DEFINER`
 gate + inline `audit_log` write, server-priced money paths, Stripe as the sole payment rail — is
 the one to keep hardening; don't reintroduce the looser patterns above even under time pressure.
 
+## Credential rotation (2026-09-08)
+
+- **When an exposed secret's exact identity can't be recovered (the leaking file was already deleted), rotate every plausible candidate rather than guess** — both Full-access Resend keys were rotated, not just one, since there was no way to tell which had been in the exposed CSV.
+- **Rotate to *less* privilege, not just a new value** — the replacement Resend key is `Sending access`-only and domain-restricted (vs. the old `Full access`); the replacement Mux token is `Video`-only (vs. the old Data/Video/System/Robots). A credential incident is a natural forcing function to also fix over-broad scope, not just swap the value.
+- **Prefer a provider's zero-downtime rotation path when one exists** — Google Cloud's OAuth clients support multiple simultaneous secrets; added the new one, confirmed it live in Supabase, only then disabled the old one, rather than a delete-then-recreate that would have caused an outage window.
+- **Verify a rotated secret actually works before revoking the old one**, using the same temporary-debug-function-then-stub pattern already proven for the Stripe live/test-mode check earlier this session — never assume a copy-paste succeeded, and never leave verification code with real credential handling deployed longer than the single request it takes to check.
+
 ## Payout reconciliation (2026-09-07)
 
 - **A reconciler must never mint a new Stripe idempotency key for an existing payout row** — it only ever replays the original `payout_<id>` key (Stripe guarantees this returns the original transfer, never a second one) or looks the transfer up by `metadata.payout_id`. Minting a fresh key on a stuck row is exactly the double-payout risk the whole design exists to avoid.

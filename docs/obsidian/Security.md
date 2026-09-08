@@ -26,10 +26,12 @@ Part of [[Project]]. Backed by the living `AUDIT.md`/`AUDIT_FULL.md` in the repo
 
 ## Secrets
 
-- **No secret key committed** — repo-wide grep for Stripe/AWS/PEM patterns returned nothing.
+- **No secret key committed** — repo-wide grep for Stripe/AWS/PEM patterns returned nothing; `git log --all` scan for the same (plus Resend/Mux/Google patterns) across full history also came back clean, 2026-09-08.
 - `src/lib/supabase.ts` reads `EXPO_PUBLIC_*` env vars (Supabase URL/anon key, Stripe publishable key) with a same-value fallback to the live literals; `eas.json` has a per-profile `env` block. **Mechanism only** — all three profiles (`development`/`preview`/`production`) still point at the same live project/key as of 2026-09-07. See [[Payments]] and [[Launch-Plan]] item 5.
-- Historical: an unused Mux token pair at `app/mux-preppa.env` was flagged, never committed, not present in current checkout.
-- **Open, unconfirmed:** a prior-session Google OAuth client secret exposure (Critical #16) — rotation status unconfirmed.
+- **Credential rotation — done 2026-09-08** (Launch-Plan item 4, previously open):
+  - **Resend**: both Full-access API keys on the account revoked; replaced with a `Sending access`-only, `preppa.live`-domain-restricted key for Auth SMTP, verified with a real OTP send.
+  - **Google OAuth**: added a new client secret (dual-secret zero-downtime rotation), updated Supabase's Google provider, disabled the old (Aug 8, 2026) secret.
+  - **Mux**: old over-broad token (Data/Video/System/Robots) replaced with a `Mux Video`-only token; verified live via a temporary debug function (immediately stubbed to 410 after), old token revoked. `app/mux-preppa.env` has not reappeared.
 
 ## Admin control hardening — implemented (2026-09-07)
 

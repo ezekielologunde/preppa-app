@@ -54,11 +54,11 @@ The native `?connect=return`/`?connect=refresh` deep-link path is proven on web 
 
 ## P0 — security before launch
 
-### 4. Rotate exposed/uncertain credentials
-- [ ] Rotate the Resend API key found exposed at the repo root and removed 2026-09-07 (see [[Bugs]]) — this is still open; removal from disk isn't rotation.
-- [ ] Confirm the Google OAuth client secret rotation (flagged open in earlier audits, per [[Tasks]]).
-- [ ] Rotate the Mux token if not already done.
-- [ ] Search git history (not just the working tree) for secrets.
+### 4. Rotate exposed/uncertain credentials — done 2026-09-08
+- [x] ~~Rotate the Resend API key found exposed at the repo root~~ — since the exposed CSV was gone, rotated **both** Full-access Resend keys on the account as a precaution: created a new `Sending access`-only, `preppa.live`-domain-restricted key (`preppa-supabase-smtp`), swapped it into Supabase Auth SMTP, verified with a real OTP send (`200`, logged), then deleted both old Full-access keys (`preppa`, `Preppa email`).
+- [x] ~~Confirm the Google OAuth client secret rotation~~ — added a new client secret in Google Cloud Console (zero-downtime dual-secret rotation), pasted it into Supabase's Google provider config, saved, then disabled the old (Aug 8, 2026) secret.
+- [x] ~~Rotate the Mux token~~ — old token (`preppa`, created Jul 13 2026, over-broad Data/Video/System/Robots scope) replaced with a new `Mux Video`-only token; updated the `MUX_TOKEN_ID`/`MUX_TOKEN_SECRET` Edge Function secrets, verified live via a temporary debug function (`200` from Mux's API, function then stubbed to 410), then revoked the old token.
+- [x] ~~Search git history (not just the working tree) for secrets~~ — `git log --all` filename + content scan for `.env`/key/secret patterns (Stripe, Resend, Google, PEM keys) found nothing real; a handful of `re_*` matches were all SQL/JS identifiers (`re_requirements_*` etc.), not Resend keys.
 - [ ] Confirm `SUPABASE_SERVICE_ROLE_KEY` and `STRIPE_SECRET_KEY` never ship client-side (spot-checked this session: the client bundle only contains the anon key and `pk_live_` publishable key — consistent with this, but worth a full `expo export` grep before launch).
 
 ### 5. Separate production from development
