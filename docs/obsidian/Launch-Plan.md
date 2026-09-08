@@ -153,7 +153,8 @@ Signup/OTP, cook application received/approved/rejected, Stripe setup reminder, 
 ## P0 — monitoring
 
 ### 15. Launch dashboard
-System health (Vercel, Supabase, Edge Function errors, Stripe webhook failures, cron failures), money (payment success rate, refunds, ledger discrepancies, pending/`needs_review` payouts), marketplace (active cooks, live meals, orders/day, GMV, fulfillment rate). None of this currently has a dashboard or alerting — it's all queryable but not surfaced.
+- [x] ~~Money + marketplace metrics~~ — **done 2026-09-08**. Added `admin_dashboard_metrics()` (same `SECURITY DEFINER` + `is_admin()`-gated pattern as the existing `admin_*` RPCs) and a new Admin → Dashboard screen (`app/admin/dashboard.tsx`): GMV, orders, payment success rate, refund volume, payout pipeline (pending/needs-review/paid), all-time ledger balance, fulfillment rate, active (verified) cooks, and live meal count. Stripe-derived fields (payment success rate, refund volume) degrade to `null` where the Stripe-sync schema doesn't exist (local/CI). **Caught a real bug while verifying against production**: `live_meals_count` initially counted the 6 now-permanently-rejected seed kitchens' dead `status='live'` meal rows as if they were real inventory (rejecting a kitchen doesn't cascade to its meals' own status) — fixed to join through kitchen verification; confirmed live it now correctly reads 0, matching 0 verified kitchens today.
+- [ ] **System health** (Vercel deploy status, Supabase/Edge Function error rates, Stripe webhook failures, cron job failures) — still not surfaced anywhere. Out of scope for a SQL RPC; needs actual external monitoring (Vercel's own dashboard, a Sentry-style error tracker, or polling `cron.job_run_details`/Edge Function logs on a schedule).
 
 ## P1 — native app launch
 

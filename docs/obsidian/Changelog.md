@@ -10,6 +10,10 @@ tags: [project/preppa, type/changelog]
 
 Part of [[Project]]. Reconstructed from 137 commits on `main`, 2026-07-06 → 2026-08-08, plus the 2026-09-07 session below.
 
+## Admin launch dashboard (2026-09-08)
+
+Worked [[Launch-Plan]] item 15. Added `admin_dashboard_metrics()` (self-gated via `is_admin()`, same pattern as the existing admin RPCs) and a new Admin → Dashboard screen surfacing money metrics (GMV, orders, payment success rate, refunds, payout pipeline, all-time ledger balance) and marketplace metrics (active/verified cooks, live meals, fulfillment rate) that were previously queryable but not visualized anywhere. While verifying it live against production, caught a real bug before it shipped: `live_meals_count` was counting the 6 permanently-rejected seed kitchens' still-`status='live'` meal rows (rejecting a kitchen doesn't cascade to its meals), which would have shown fake inventory as if real. Fixed to join through kitchen verification before deploying the corrected version. System-health metrics (Vercel/Edge-Function/cron uptime) are explicitly out of scope — they need external monitoring, not a DB query.
+
 ## Dead UI surface cleanup (2026-09-08)
 
 Worked [[Launch-Plan]] item 11. Checkout (`app/checkout.tsx`) turned out already Stripe-only/COD-free from a prior fix — the actual dead-end was `app/payments.tsx`, which had a static "Cash on delivery — Always on" card and empty-state copy inviting cash payment, both false since the server 400s any `cod` order. Removed both. Confirmed rewards and livestreaming are both correctly flag-gated with no leftover reachable entry points (each already had a prior audit fix). Found the "quotes payment coming soon" item was stale documentation, not a real issue — no such copy exists; both quote-payment entry points already call the real deposit-charge backend. Also found, while checking for demo/seed data reachable as real inventory: 6 fake seed kitchens (`verification_status = 'pending'`, 9 attached `meals` rows) still sit in the live production database, mapped from `src/data/data.ts`'s hardcoded `COOKS`. Confirmed not currently customer-reachable (RLS requires `verified`).

@@ -20,6 +20,11 @@ caller identity before later hardening. The current model — `SECURITY DEFINER`
 gate + inline `audit_log` write, server-priced money paths, Stripe as the sole payment rail — is
 the one to keep hardening; don't reintroduce the looser patterns above even under time pressure.
 
+## Admin launch dashboard (2026-09-08)
+
+- **Never trust a new metrics query without checking it against live data first** — before calling `admin_dashboard_metrics()` done, ran it against production and found `live_meals_count` was silently counting dead seed-kitchen inventory as real. A metric that "runs without error" isn't the same as a metric that's *correct*; verify the actual numbers make sense given what you already know about the data (0 verified kitchens today, so 0 live meals was the only sane answer).
+- **System health (uptime/error-rate monitoring) is deliberately out of scope for a SQL RPC** — money and marketplace metrics are all derivable from Postgres; Vercel deploy status, Edge Function error rates, and cron failures live outside the database and need real external monitoring, not a query pretending to cover something it can't see.
+
 ## Fake seed kitchen cleanup (2026-09-08)
 
 - **Append-only tables are respected as a hard constraint, not worked around** — when deleting the 6 fake seed kitchens hit `block_mutation()` errors on `ledger_entries`/`subscription_events`/`messages`, the response was to stop and change approach (permanently `reject`/`pause` the kitchens instead), never to drop or bypass the trigger. The same principle already applied to `audit_log` earlier this session; the ledger's immutability is a real accounting-integrity guarantee, not an inconvenience.
