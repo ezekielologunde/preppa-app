@@ -10,6 +10,14 @@ tags: [project/preppa, type/changelog]
 
 Part of [[Project]]. Reconstructed from 137 commits on `main`, 2026-07-06 → 2026-08-08, plus the 2026-09-07 session below.
 
+## Admin control hardening (2026-09-07, later same day)
+
+Closed out [[Launch-Plan]] item 7. Discovered admin-RPC rate limiting was **already implemented** 2026-07-15 (the checklist had gone stale) — corrected [[Security]]/[[Launch-Plan]]/[[Tasks]] rather than re-doing it. What was genuinely missing: `admin_set_user_role` and `admin_suspend_kitchen` wrote to `audit_log` but never alerted anyone in real time. Added an immediate `notify_admins()` call to both. Added `detect_admin_anomalies()` (pg_cron, every 15 min): role-escalation bursts, kitchen suspend/reinstate churn, unusual refund volume and repeated payment failures (the last two read the existing `stripe.charges`/`stripe.refunds` Stripe-sync mirror tables — no new instrumentation needed), each deduped per window via an `anomaly_alerted` row in `audit_log`. Extended `notify_admins()` to also `net.http_post` to a Slack-compatible webhook if an `admin_alert_webhook_url` Vault secret exists — **not yet configured**, so alerts still only reach the in-app inbox/push until a real webhook URL is provided.
+
+## Environment separation plumbing (2026-09-07, same day)
+
+[[Launch-Plan]] item 5. Hit a real $10/mo recurring-cost blocker creating a second Supabase project on the org's Pro plan; user declined the cost, so scope was cut to code-plumbing-only. `src/lib/supabase.ts` now reads `EXPO_PUBLIC_SUPABASE_URL`/`EXPO_PUBLIC_SUPABASE_ANON_KEY`/`EXPO_PUBLIC_STRIPE_PUBLISHABLE_KEY` with a fallback to the existing live values; `eas.json` gained an explicit `env` block per build profile. **All three profiles still point at the same live project/keys** — documented as an open gap, not marked done. See [[Payments]] and [[Security]].
+
 ## Migration history restoration + payout reconciliation (2026-09-07)
 
 **Restored the full supabase migration history** from the live project: 65 migrations were missing from `supabase/migrations/` entirely and 36 more existed under fabricated timestamps that didn't match when they were actually applied, silently misordering dependencies. Pulled the authoritative SQL for all 211 live migrations from `supabase_migrations.schema_migrations` and reconstructed the history — 212 migrations (211 restored + 1 pre-existing stale local-only file) now replay cleanly from scratch, verified via `supabase/tests/regressions.sql` in CI.

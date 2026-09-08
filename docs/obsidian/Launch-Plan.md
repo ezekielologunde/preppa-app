@@ -4,6 +4,7 @@ type: launch-plan
 status: active
 last_updated: 2026-09-07
 tags: [project/preppa, type/launch-plan]
+
 ---
 
 # Launch Plan
@@ -84,9 +85,9 @@ Confirmed real gap: there is one Supabase project and one live Stripe key for ev
 - [x] ~~Secret scanning + dependency scanning~~ — **confirmed already enabled 2026-09-07**: `secret_scanning`, `secret_scanning_push_protection`, and `dependabot_security_updates` were all already on for this repo. `secret_scanning_validity_checks` is off and an API attempt to enable it didn't take — likely a GitHub Advanced Security feature not available on a personal free-tier public repo; not pursued further.
 
 ### 7. Harden admin controls
-- [ ] Rate-limit `admin_suspend_kitchen`, `admin_set_user_role` (still open per [[Tasks]]).
-- [ ] Alert on: role changes, kitchen suspension, unusual refunds, payout `needs_review`, repeated payment failures.
-- [ ] Route those alerts to a real destination (Slack/email) — currently nothing does.
+- [x] ~~Rate-limit `admin_suspend_kitchen`, `admin_set_user_role`~~ — was actually **already done 2026-07-15** (this checklist item was stale); confirmed and left unchanged 2026-09-07.
+- [x] ~~Alert on: role changes, kitchen suspension, unusual refunds, payout `needs_review`, repeated payment failures~~ — **done 2026-09-07**. Role changes and kitchen suspensions now `notify_admins()` immediately; `detect_admin_anomalies()` (pg_cron, every 15 min) catches role-escalation bursts, kitchen suspend/reinstate churn, unusual refund volume, and repeated payment failures against `audit_log` and the `stripe.charges`/`stripe.refunds` mirror tables. Payout `needs_review` alerting already existed. See [[Security]] and [[Payments]].
+- [ ] **Route those alerts to a real destination (Slack/email) — plumbing done, not activated.** `notify_admins()` will `net.http_post` to a Slack-compatible webhook if an `admin_alert_webhook_url` Vault secret is set, but none is set yet — today alerts still only land as an in-app notification/push. **Needs a Slack incoming-webhook URL (or equivalent) from the user** to actually activate; nothing else to build once that's provided.
 
 ## P0 — cook supply
 

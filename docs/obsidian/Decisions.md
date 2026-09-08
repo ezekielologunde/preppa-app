@@ -27,6 +27,12 @@ the one to keep hardening; don't reintroduce the looser patterns above even unde
 - **Migration history is reconstructed from the live database's own `supabase_migrations.schema_migrations` table**, not guessed or squashed into a single baseline — this preserves the real, git-bisectable history and lets each historical migration's rationale (kept in its own comments) survive intact.
 - **New payout migrations vendor into the repo even though the corresponding pg_cron jobs already exist live** — the migration is the source of truth going forward; running it again in CI is a guarded no-op (`to_regnamespace('cron')` check) so local/CI environments without pg_cron aren't affected.
 
+## Admin anomaly detection (2026-09-07)
+
+- **Dedupe anomaly alerts using `audit_log` itself** (an `action = 'anomaly_alerted'` row with a `meta.kind` + time-window check), not a new table — the existing append-only log already has the right shape (actor/entity/time) and this avoids adding a second source of truth just to remember "already alerted this window."
+- **Query the existing Stripe-sync mirror tables (`stripe.charges`/`stripe.refunds`) for refund-volume and payment-failure detection**, guarded with `to_regclass(...)` so the checks are a no-op on a fresh local/CI stack that lacks the Stripe sync schema — no new instrumentation or webhook handler needed, the data was already being mirrored.
+- **Alert routing to Slack/email is built as inert-by-default plumbing** (`notify_admins()` posts to an `admin_alert_webhook_url` Vault secret only if one exists) rather than blocking the whole feature on getting a webhook URL first — same pattern as the Stripe-test-key deferral for [[Payments]] environment separation: ship what doesn't need external input, document what does.
+
 ## Product / positioning
 
 - **Feature-flag, don't delete** — `src/config/flags.ts` hides unfinished surfaces (`rewards`, `live`) rather than removing code, so a flag flip brings a surface back.

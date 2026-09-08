@@ -24,7 +24,8 @@ Part of [[Project]]. Outstanding work discovered during the audit — not a spri
 - [ ] Confirm the Google OAuth client secret rotation (Critical #16, still open).
 - [ ] Delete `app/mux-preppa.env` if it reappears; rotate the Mux token; broaden `.gitignore` to `.env.*`.
 - [x] ~~Build the payout/charge reconciliation job~~ — **done 2026-09-07** for payouts (see [[Payments]]); subscription-charge reconciliation is still open, see above.
-- [ ] Rate-limit and alert on state-mutating admin RPCs (`admin_suspend_kitchen`, `admin_set_user_role`); wire the two existing detection SQL queries to a real destination (Slack/email).
+- [x] ~~Rate-limit and alert on state-mutating admin RPCs~~ — rate limiting was already done 2026-07-15; alerting (real-time on role change/suspension + `detect_admin_anomalies()` cron for escalation bursts, suspend churn, refund volume, payment-failure bursts) added 2026-09-07. See [[Security]].
+- [ ] Set an `admin_alert_webhook_url` Vault secret (Slack incoming-webhook URL) so `notify_admins()` actually reaches Slack/email, not just the in-app inbox — the routing code is done and waiting on this value.
 - [ ] Turn on branch protection on `main`; enable Dependabot security alerts (15 vulnerabilities flagged on push 2026-09-07: 10 high, 5 moderate — unreviewed); add `CODEOWNERS`.
 - [x] ~~Vendor the remaining ~114 un-tracked live migrations~~ — **done 2026-09-07**, full 212-migration history restored; add a deploy-verification step diffing live Edge Function/RPC definitions against the repo is still open.
 - [ ] Move session tokens to `expo-secure-store`; add a password-reset flow.
