@@ -265,6 +265,18 @@ begin
   end if;
 end $$;
 
+do $$
+begin
+  if has_function_privilege('authenticated', 'public.detect_system_health_issues()', 'execute') then
+    raise exception 'REGRESSION: authenticated can call detect_system_health_issues() directly -- worker-only RPC exposed';
+  end if;
+  if has_function_privilege('anon', 'public.detect_system_health_issues()', 'execute') then
+    raise exception 'REGRESSION: anon can call detect_system_health_issues() directly';
+  end if;
+  -- Guarded no-op locally/CI (no pg_cron/pg_net there) -- just confirm it doesn't raise.
+  perform public.detect_system_health_issues();
+end $$;
+
 rollback;
 
 select 'all regression checks passed' as result;
