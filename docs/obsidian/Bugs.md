@@ -26,7 +26,7 @@ Part of [[Project]]. See [[Security]] and [[Payments]] for the security/payment-
 - `.gitignore` doesn't match Expo's `.env.production`/`.env.development` convention.
 - ~~Only 18 of 132 live migrations were vendored at audit time~~ — **fixed 2026-09-07**, full 212-migration history restored (see [[Database]]).
 - Session tokens in AsyncStorage, not `expo-secure-store`; no password-reset flow.
-- Google OAuth client secret exposure from a prior session — rotation unconfirmed.
+- ~~Google OAuth client secret exposure from a prior session — rotation unconfirmed~~ — **rotated 2026-09-08**, see [[Security]] and [[Launch-Plan]] item 4.
 - **Reviewed 2026-09-07**: all 15 Dependabot alerts on `main` (`browserslist` x2, `@xmldom/xmldom` x2, `decode-uri-component`, `nanoid` x2, `image-size` x2, `js-yaml`, `postcss` x2, `brace-expansion` x2, `uuid`) traced via `npm ls` to Expo's own build/CLI toolchain — `babel-preset-expo`, `expo-splash-screen`'s `xcode`/`plist` (native project generation), Metro bundler (`@expo/metro-config`, asset sizing), `@expo/xcpretty` (Xcode log formatting), `expo-updates`' `glob`. None run in the shipped JS bundle; `expo-router`'s `query-string`/`nanoid` pulls were confirmed (via grep of the compiled package) not actually invoked in its runtime route-handling code. All are DoS/prototype-pollution bugs requiring attacker-controlled input to a *build machine*, not something reachable by an end user of the live app. Left open — not worth forcing transitive version overrides against a pinned Expo SDK 57 dependency graph; revisit at the next Expo SDK upgrade.
 
 ## Notable fixed incidents (kept for history)
@@ -37,6 +37,7 @@ Part of [[Project]]. See [[Security]] and [[Payments]] for the security/payment-
 - **2026-08-08**: direct-to-Storage upload accepted HTML mislabeled as `image/png` — fixed by routing all uploads through the `upload-media` proxy.
 - **2026-09-07**: `kitchen_balance_cents()` used a deprecated `current_setting('request.jwt.claim.role')` check that never fires for a real `service_role` caller, so every worker/cron call (payout reconciliation, the new auto-payout sweep) saw balance 0 instead of the kitchen's real balance. Fixed to use `auth.role() = 'service_role'`, matching the pattern already used elsewhere for the same class of bug.
 - **2026-09-07**: found an exposed Resend API key (`api-keys-*.csv`, full_access permission) sitting at the repo root, never committed to git but present on disk. Removed; flagged for rotation as a precaution — see [[Tasks]].
+- **2026-09-08**: found and fixed during the auth test pass — `Alert.alert` (from `react-native`) is a documented no-op on `react-native-web`, so "Delete account" (`app/(tabs)/profile.tsx`) and the admin "Delete signup" (`app/admin/waitlist.tsx`, which is web-only-gated so had **no working fallback at all**) silently did nothing on web: no dialog, no API call, no error. Fixed with a new `src/lib/confirm.ts` (`window.confirm` on web, real `Alert.alert` on native) used by both call sites.
 
 ## No environment/config separation
 

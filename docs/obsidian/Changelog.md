@@ -10,6 +10,10 @@ tags: [project/preppa, type/changelog]
 
 Part of [[Project]]. Reconstructed from 137 commits on `main`, 2026-07-06 → 2026-08-08, plus the 2026-09-07 session below.
 
+## Auth test pass + Alert.alert-on-web fix (2026-09-08)
+
+Ran the full auth flow test pass from [[Launch-Plan]] item 12 live against production, via `expo start --web` and disposable `@mailinator.com` accounts (cleaned up after): password signup/login, OTP signup/login (real code retrieved from the mailinator inbox), wrong password, wrong OTP, resend OTP, logout, session-restore-on-reload, and account deletion. Found and fixed a real bug in the process: `Alert.alert` is a no-op on `react-native-web`, so "Delete account" and the admin "Delete signup" (web-only, so it had zero working fallback) silently did nothing when clicked — no dialog, no API call. Added `src/lib/confirm.ts` (`window.confirm` on web, real `Alert.alert` on native) and switched both call sites to it; verified the fix by monkey-patching `window.confirm` in the browser (the test harness itself suppresses native dialogs) and confirming the delete API call fires correctly on accept. See [[Bugs]] and [[Launch-Plan]].
+
 ## Admin control hardening (2026-09-07, later same day)
 
 Closed out [[Launch-Plan]] item 7. Discovered admin-RPC rate limiting was **already implemented** 2026-07-15 (the checklist had gone stale) — corrected [[Security]]/[[Launch-Plan]]/[[Tasks]] rather than re-doing it. What was genuinely missing: `admin_set_user_role` and `admin_suspend_kitchen` wrote to `audit_log` but never alerted anyone in real time. Added an immediate `notify_admins()` call to both. Added `detect_admin_anomalies()` (pg_cron, every 15 min): role-escalation bursts, kitchen suspend/reinstate churn, unusual refund volume and repeated payment failures (the last two read the existing `stripe.charges`/`stripe.refunds` Stripe-sync mirror tables — no new instrumentation needed), each deduped per window via an `anomaly_alerted` row in `audit_log`. Extended `notify_admins()` to also `net.http_post` to a Slack-compatible webhook if an `admin_alert_webhook_url` Vault secret exists — kept inert (no Slack workspace was set up).

@@ -1,5 +1,6 @@
 import React, { useCallback, useEffect, useState } from 'react';
-import { View, Text, ScrollView, Alert } from 'react-native';
+import { View, Text, ScrollView } from 'react-native';
+import { confirmAction } from '../../src/lib/confirm';
 import { useC } from '../../src/theme/ThemeContext';
 import { type, radius, tnum } from '../../src/theme/theme';
 import { Screen, Btn } from '../../src/ui';
@@ -58,29 +59,22 @@ export default function AdminWaitlist() {
   };
 
   const confirmDelete = (entry: admin.AdminWaitlistEntry) => {
-    Alert.alert(
+    confirmAction(
       'Delete signup',
       `Remove ${entry.email} from the waitlist? This can't be undone.`,
-      [
-        { text: 'Cancel', style: 'cancel' },
-        {
-          text: 'Delete',
-          style: 'destructive',
-          onPress: async () => {
-            setDeleting(true);
-            try {
-              await admin.deleteWaitlistEntry(entry.id);
-              setRows((prev) => prev.filter((r) => r.id !== entry.id));
-              setSel(null);
-              toast('Signup deleted', 'check', true);
-            } catch (e: any) {
-              toast(e?.message ?? 'Delete failed', 'info');
-            } finally {
-              setDeleting(false);
-            }
-          },
-        },
-      ],
+      async () => {
+        setDeleting(true);
+        try {
+          await admin.deleteWaitlistEntry(entry.id);
+          setRows((prev) => prev.filter((r) => r.id !== entry.id));
+          setSel(null);
+          toast('Signup deleted', 'check', true);
+        } catch (e: any) {
+          toast(e?.message ?? 'Delete failed', 'info');
+        } finally {
+          setDeleting(false);
+        }
+      },
     );
   };
 

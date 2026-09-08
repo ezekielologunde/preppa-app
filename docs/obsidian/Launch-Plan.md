@@ -121,8 +121,24 @@ For Cohort 0, do this manually per cook: identity, cert (where applicable), kitc
 
 ## P0 — authentication
 
-### 12. Full auth test pass
-Signup, OTP (correct/expired/wrong/resend), login, logout, session restore, account deletion, suspended account, deleted account. [[Bugs]] already flags session tokens in AsyncStorage (not `expo-secure-store`) and no password-reset flow as open.
+### 12. Full auth test pass — done 2026-09-08 (web); native still open
+Tested live against production (disposable `@mailinator.com` test accounts, cleaned up after) via a local `expo start --web` dev client, all against the real Supabase Auth backend:
+- [x] Signup with password — auto-confirmed, session created immediately, profile row created via `handle_new_user`.
+- [x] Signup with email OTP — code delivered, real code retrieved from the mailinator inbox and verified.
+- [x] Wrong password — clean, non-crashing error ("Wrong email or password...").
+- [x] Wrong OTP code — clean error, input cleared for retry.
+- [x] Resend OTP — cooldown timer shown, new code delivered.
+- [x] Login with correct password — direct to app, no re-onboarding.
+- [x] Logout — clean return to the welcome/sign-in screen.
+- [x] Session restore — reloading the page kept the session (AsyncStorage/localStorage-backed persistence working as designed).
+- [x] Account deletion (backend) — invoked `delete-account` directly: soft-deletes the auth user (`deleted_at` set, `encrypted_password` cleared), anonymizes the email to an opaque hash. A follow-up authenticated call with the same (now-deleted) session correctly gets `401`.
+- [~] OTP expiry — not waited out live (Supabase's default window is long); code-reviewed instead: an expired code hits the exact same `verifyOtp` error path as a wrong code, so the wrong-code test above covers the user-facing behavior.
+- [~] Suspended account — verified by code inspection rather than a live fixture: `verification_status = 'suspended'` (kitchen suspension) has zero references in any client-side auth/session gate, so a suspended cook can still sign in fully — only kitchen-specific screens/actions are blocked. Matches the documented "suspension ≠ ban" design.
+- [ ] Native (iOS/Android) pass — not done this round, web only. `Alert.alert` (see bug below) behaves correctly on native, so the one bug found here is web-specific, but the full flows haven't been re-run on-device.
+
+**Real bug found and fixed**: `Alert.alert` (from `react-native`) is a documented no-op on `react-native-web` — clicking "Delete account" produced **no dialog and no API call whatsoever** on web, silently. The exact same pattern existed in the admin waitlist's "Delete signup" (which is web-only-gated, so that one was fully broken in production with no native fallback). Added `src/lib/confirm.ts` (`window.confirm` on web, real `Alert.alert` elsewhere) and switched both call sites to it. Verified fixed: the dialog now fires with the correct copy and, on accept, correctly calls the delete API.
+
+[[Bugs]] already flags session tokens in AsyncStorage (not `expo-secure-store`) and no password-reset flow as open (password auth exists but has no "forgot password" recovery flow yet).
 
 ## P0 — legal/store compliance
 

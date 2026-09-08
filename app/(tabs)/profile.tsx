@@ -1,5 +1,6 @@
 import React from 'react';
-import { View, Text, ScrollView, Pressable, Alert, Platform, Image, Linking } from 'react-native';
+import { View, Text, ScrollView, Pressable, Platform, Image, Linking } from 'react-native';
+import { confirmAction } from '../../src/lib/confirm';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
 import { LinearGradient } from 'expo-linear-gradient';
@@ -29,22 +30,17 @@ export default function Profile() {
   const openLink = (url: string) => Linking.openURL(url).catch(() => toast('Couldn’t open the link', 'info'));
 
   const confirmDelete = () => {
-    Alert.alert(
+    confirmAction(
       'Delete account',
       'This disables sign-in and removes your personal info. Order history is kept in anonymized form for records. This can’t be undone.',
-      [
-        { text: 'Cancel', style: 'cancel' },
-        {
-          text: 'Delete', style: 'destructive', onPress: async () => {
-            try {
-              await deleteAccount();
-              toast('Account deleted', 'x');
-            } catch (e: any) {
-              toast(e?.message || 'Could not delete your account. Please try again.', 'info');
-            }
-          },
-        },
-      ],
+      async () => {
+        try {
+          await deleteAccount();
+          toast('Account deleted', 'x');
+        } catch (e: any) {
+          toast(e?.message || 'Could not delete your account. Please try again.', 'info');
+        }
+      },
     );
   };
 
