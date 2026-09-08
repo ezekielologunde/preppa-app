@@ -32,6 +32,7 @@ Part of [[Project]]. Backed by the living `AUDIT.md`/`AUDIT_FULL.md` in the repo
   - **Resend**: both Full-access API keys on the account revoked; replaced with a `Sending access`-only, `preppa.live`-domain-restricted key for Auth SMTP, verified with a real OTP send.
   - **Google OAuth**: added a new client secret (dual-secret zero-downtime rotation), updated Supabase's Google provider, disabled the old (Aug 8, 2026) secret.
   - **Mux**: old over-broad token (Data/Video/System/Robots) replaced with a `Mux Video`-only token; verified live via a temporary debug function (immediately stubbed to 410 after), old token revoked. `app/mux-preppa.env` has not reappeared.
+- **Client bundle grep — done 2026-09-08**: a real `npx expo export --platform web` build was grepped end-to-end for `sk_live_`/`sk_test_`/`service_role`/Resend/Google/Mux secret patterns — zero hits. The one JWT embedded in the bundle decodes to `role: anon`, confirming the service-role key never ships client-side.
 
 ## Admin control hardening — implemented (2026-09-07)
 
