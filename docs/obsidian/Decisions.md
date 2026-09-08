@@ -20,6 +20,13 @@ caller identity before later hardening. The current model — `SECURITY DEFINER`
 gate + inline `audit_log` write, server-priced money paths, Stripe as the sole payment rail — is
 the one to keep hardening; don't reintroduce the looser patterns above even under time pressure.
 
+## Fake seed kitchen cleanup (2026-09-08)
+
+- **Append-only tables are respected as a hard constraint, not worked around** — when deleting the 6 fake seed kitchens hit `block_mutation()` errors on `ledger_entries`/`subscription_events`/`messages`, the response was to stop and change approach (permanently `reject`/`pause` the kitchens instead), never to drop or bypass the trigger. The same principle already applied to `audit_log` earlier this session; the ledger's immutability is a real accounting-integrity guarantee, not an inconvenience.
+- **Every multi-statement production DML change this session ran inside an explicit `begin`/`commit`, never partial** — three separate delete attempts each failed partway through and rolled back cleanly with zero rows changed, confirmed by re-querying before trying a different approach. Never `commit` speculatively hoping unrelated tables are unaffected.
+- **"Not currently reachable" (RLS-blocked) is not the same bar as "shouldn't exist"** — the fake kitchens were confirmed customer-unreachable via RLS before any DB change, but real rows sitting in production (with real dev/test order and ledger history attached) were still worth permanently closing rather than leaving as a landmine for if RLS or verification logic ever changes.
+- **A data-layer finding doesn't obligate finishing the matching code-layer refactor in the same pass** — closing the 6 kitchens in the DB fully resolves the "reachable as real inventory" risk; removing the `COOKS`/`CookId` fallback system was deferred because it touches a non-optional field (`Meal.cook`) that *real* meals also default through, making it a genuine refactor rather than dead-code deletion — see [[Tasks]].
+
 ## Credential rotation (2026-09-08)
 
 - **When an exposed secret's exact identity can't be recovered (the leaking file was already deleted), rotate every plausible candidate rather than guess** — both Full-access Resend keys were rotated, not just one, since there was no way to tell which had been in the exposed CSV.
