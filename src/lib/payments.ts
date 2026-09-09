@@ -1,7 +1,7 @@
 import { Platform } from 'react-native';
 import type { Stripe } from '@stripe/stripe-js';
 import { confirmPayment, initPaymentSheet, presentPaymentSheet } from './nativeStripe';
-import { supabase, ensureAuth, KITCHEN_ID, MEAL_ID, STRIPE_PK } from './supabase';
+import { supabase, ensureAuth, KITCHEN_ID, MEAL_ID, STRIPE_PK, APPLE_PAY_MERCHANT_ID } from './supabase';
 import type { CartLine } from '../store/store';
 
 export interface OrderOpts {
@@ -12,6 +12,9 @@ export interface OrderOpts {
   idempotencyKey: string;
   /** Save the card used for this order to the buyer's Stripe Customer (new-card path). */
   savePaymentMethod?: boolean;
+  /** ISO-2 country of the buyer's confirmed area — drives real Stripe Tax calculation
+   *  server-side. Omitted/null → server charges $0 tax rather than guessing a rate. */
+  taxCountry?: string | null;
 }
 
 /** A tokenized saved card (Stripe PaymentMethod) — no PAN, only display fields. */
@@ -35,7 +38,7 @@ export function getStripe(): Promise<Stripe | null> {
  * Create a real order + PaymentIntent via the `create-order` edge function and
  * return its client secret for confirmation with a real card.
  */
-export async function createRealOrder(opts: OrderOpts): Promise<{ orderId: string; clientSecret: string }> {
+export async function createRealOrder(opts: OrderOpts): Promise<{ orderId: string; clientSecret: string; taxCents: number }> {
   // Prefer the real DB UUIDs carried on the cart (Supabase catalog); fall back to
   // the static key->UUID map only for items without them (add-ons, reordered lines).
   const kitchenId = opts.lines.find((l) => l.kitchenUuid)?.kitchenUuid ?? KITCHEN_ID[opts.cook];
@@ -55,11 +58,12 @@ export async function createRealOrder(opts: OrderOpts): Promise<{ orderId: strin
       tipCents: Math.round(opts.tipDollars * 100),
       idempotencyKey: opts.idempotencyKey,
       savePaymentMethod: opts.savePaymentMethod ?? false,
+      ...(opts.taxCountry ? { country: opts.taxCountry } : {}),
     },
   });
   if (error) throw error;
   if (!data?.clientSecret) throw new Error(data?.error || 'no client secret from create-order');
-  return { orderId: data.orderId as string, clientSecret: data.clientSecret as string };
+  return { orderId: data.orderId as string, clientSecret: data.clientSecret as string, taxCents: (data.taxCents as number) ?? 0 };
 }
 
 // ---- Saved cards (Stripe Customer + SetupIntent; web-only, like the rest of the
@@ -124,9 +128,9 @@ export async function confirmSavedCardPayment(clientSecret: string, paymentMetho
  * create-order edge function (real PaymentIntent) -> Stripe's native PaymentSheet, a real
  * card-entry UI. Returns the Supabase order id on success.
  */
-export async function payWithCard(opts: OrderOpts): Promise<{ orderId: string }> {
+export async function payWithCard(opts: OrderOpts): Promise<{ orderId: string; taxCents: number }> {
   if (Platform.OS === 'web') throw new Error('payWithCard is native-only — web checkout collects the card itself');
-  const { orderId, clientSecret } = await createRealOrder(opts);
+  const { orderId, clientSecret, taxCents } = await createRealOrder(opts);
   // Fetch a fresh ephemeral key per checkout (Stripe's own recommendation — they're
   // short-lived and single-purpose) so PaymentSheet shows this buyer's saved cards.
   // Best-effort: a failure here still lets the sheet collect a brand-new card.
@@ -136,6 +140,12 @@ export async function payWithCard(opts: OrderOpts): Promise<{ orderId: string }>
     merchantDisplayName: 'Preppa',
     customerId: cust?.customerId,
     customerEphemeralKeySecret: cust?.ephemeralKeySecret,
+    // Google Pay needs no prior account registration to work through Stripe — on by
+    // default. Apple Pay needs a merchant ID registered with both Apple and Stripe first
+    // (see APPLE_PAY_MERCHANT_ID in supabase.ts); omitted entirely until that exists, since
+    // passing `applePay` without a merchantIdentifier on the provider throws at runtime.
+    googlePay: { merchantCountryCode: 'US', testEnv: !STRIPE_PK.startsWith('pk_live_') },
+    ...(APPLE_PAY_MERCHANT_ID ? { applePay: { merchantCountryCode: 'US' } } : null),
   });
   if (init.error) throw new Error(init.error.message || 'could not open payment sheet');
   const present = await presentPaymentSheet();
@@ -143,5 +153,5 @@ export async function payWithCard(opts: OrderOpts): Promise<{ orderId: string }>
     if (present.error.code === 'Canceled') throw new Error('Payment canceled');
     throw new Error(present.error.message || 'card payment failed');
   }
-  return { orderId };
+  return { orderId, taxCents };
 }

@@ -25,6 +25,14 @@ export const SUPABASE_URL = process.env.EXPO_PUBLIC_SUPABASE_URL || LIVE_SUPABAS
 const SUPABASE_ANON = process.env.EXPO_PUBLIC_SUPABASE_ANON_KEY || LIVE_SUPABASE_ANON;
 export const STRIPE_PK = process.env.EXPO_PUBLIC_STRIPE_PUBLISHABLE_KEY || LIVE_STRIPE_PK;
 
+// Apple Pay requires a merchant ID registered in the Apple Developer Portal AND added to the
+// Stripe Dashboard's Apple Pay settings — neither exists yet (no literal fallback on purpose,
+// unlike the values above; there's no live value to fall back to). Native Apple Pay stays
+// inactive (StripeRoot omits `merchantIdentifier`, initPaymentSheet omits `applePay`) until
+// this is set. Google Pay has no equivalent prerequisite and is always on for native — see
+// src/lib/payments.ts.
+export const APPLE_PAY_MERCHANT_ID = process.env.EXPO_PUBLIC_APPLE_PAY_MERCHANT_ID || '';
+
 export const supabase = createClient(SUPABASE_URL, SUPABASE_ANON, {
   // detectSessionInUrl is OFF: login is email-OTP only, which never uses URL tokens.
   // (It was briefly enabled for Google OAuth, but that flow broke on the Expo-web SPA

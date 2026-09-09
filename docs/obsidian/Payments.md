@@ -2,7 +2,7 @@
 project: Preppa
 type: payments
 status: active
-last_updated: 2026-09-07
+last_updated: 2026-09-09
 tags: [project/preppa, type/payments]
 ---
 
@@ -22,6 +22,8 @@ Funds are **not held in Stripe escrow**. Cook earnings accrue as append-only `le
 ## One-off order (meals) — implemented, live
 
 `create-order` re-prices server-side from DB `price_cents` (client never sends amounts), applies `SERVICE_FEE_BPS=1000` (10%), tip capped at $1000, requires kitchen `verified`+`open`+`payouts_enabled`. Confirmation: web new card → Stripe Elements; web saved card → `confirmCardPayment`; native → Stripe PaymentSheet with ephemeral key. A DB trigger `reconcile_paid_pi` creates order/ledger rows on settlement.
+
+**Apple Pay / Google Pay — added 2026-09-09** (closes the wallet-checkout gap found in the [[Tasks]] Shef competitive drill-down). Web: `CardPaymentSheet.tsx` mounts a Stripe Payment Request Button alongside the card form for `mode='pay'` flows (not the `mode='save'` card-on-file flows — a $0 wallet sheet makes no sense there); it silently doesn't render if the browser/device has no usable wallet (`canMakePayment()` — no platform-detection branching needed). Native: Google Pay is on unconditionally in `payWithCard()`'s `initPaymentSheet()` call (`src/lib/payments.ts`) — no separate account registration needed to use it through Stripe. **Apple Pay is wired but inert** — `StripeRoot.tsx`'s `merchantIdentifier` and `initPaymentSheet`'s `applePay` option both key off `APPLE_PAY_MERCHANT_ID` (`src/lib/supabase.ts`, `EXPO_PUBLIC_APPLE_PAY_MERCHANT_ID`), which is unset — no literal fallback exists because there's no live value yet, unlike every other env var in that file. **Needs, before it activates**: an Apple Merchant ID created in the Apple Developer Portal (requires the account's own Apple Developer Program membership) and added to Stripe Dashboard's Apple Pay settings, then the env var set in `eas.json`. Neither of those is something this session can do without the user's Apple Developer credentials.
 
 ## Saved cards — implemented
 
