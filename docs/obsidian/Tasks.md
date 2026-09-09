@@ -2,13 +2,31 @@
 project: Preppa
 type: tasks
 status: active
-last_updated: 2026-09-07
+last_updated: 2026-09-09
 tags: [project/preppa, type/tasks]
 ---
 
 # Tasks
 
 Part of [[Project]]. Outstanding work discovered during the audit — not a sprint backlog, a snapshot.
+
+## Competitive gap analysis: Shef (2026-09-09)
+
+Shef (shef.com) is the closest direct competitor — a home-cook meal marketplace, $142M raised (incl. a $73.5M Series B), operating/recruiting cooks nationwide since 2023. Researched via public web sources (help center, press, App Store/Trustpilot reviews, one investigative piece) — not a code audit, and several figures below are single-sourced or conflicting; verify before treating as fact. Sources noted inline.
+
+**Real feature gaps worth considering:**
+- [ ] **Referral program** (both referrer + referee get credit) — Shef has one live; Preppa's Rewards is fully hardcoded/disabled (`FLAGS.rewards=false`, see [[Features]]). Already known as placeholder; this confirms it's a real competitive gap, not just internal debt.
+- [ ] **Quick "reorder"/"order again" action** — no evidence Preppa has one; also flagged as something Shef itself lacks and gets complained about (App Store reviews), so this is a chance to do better, not just match.
+- [ ] **Cook "business-in-a-box" support** — Shef offers cooks help with menu photography, pricing guidance, and marketing as part of onboarding. Preppa's cook onboarding is verification-focused (docs, address, Stripe) with no equivalent success-support tooling.
+- [ ] **Published state-by-state cooking/compliance guideline pages for cooks** — Shef publishes per-state guidance (CA, WA, IL, TX, NY, CO, etc.) reflecting cottage-food/MEHKO law variance. Preppa's compliance is currently "entirely an ops/legal responsibility, not something the code or docs check" (see [[PM-Onboarding]]) — worth at least a cook-facing help doc once a launch city is picked (Launch-Plan item 9).
+- [ ] **Recurring-order discount** (Shef: ~10% off repeat orders from the same cook) — Preppa has subscriptions/plans already (cadence, rotating, capacity, trial) but no discount incentive specifically for repeat same-cook one-off orders. Minor, low priority.
+- [ ] **Third-party courier delivery** (Shef delivers via DoorDash-style courier dispatch, free over $40) — Preppa's fulfillment model is cook-arranged pickup/delivery (`kitchens.supports_delivery`/`supports_pickup`), no courier-network integration found. May be a deliberate scope choice for a small-city launch rather than a gap — flag for a product decision, not an assumed must-build.
+
+**Explicitly NOT to copy** (per one investigative source, [hngry.tv](https://www.hngry.tv/articles/a16z-backed-shef-plays-fast-loose-against-food-safety-regulations/) — allegations, not adjudicated fact, but a real cautionary signal): reports that Shef operates in cities without a legal home-kitchen framework (MEHKO or equivalent), uses intermediary pickup hubs that obscure the food was cooked in an uninspected home kitchen, and pushes legal-compliance liability onto individual cooks without specifying which laws apply where. Preppa's own single-city, cottage-food-law-aware launch approach (Launch-Plan item 9) is already the more conservative posture — keep it that way rather than drifting toward ambiguity for growth's sake.
+
+**Already covered / not a gap:** weekly subscriptions, dietary filters/discovery, ratings/reviews, Stripe-based payouts, chat/notifications — Preppa already has equivalents for all of these.
+
+**Unverified, don't act on without confirming**: exact current cook payout percentage (sources conflict, ~75-85% range), which specific markets are MEHKO-legal for Shef today, whether any AI-matching/group-ordering/catering features have actually shipped (found only as speculative "could expand into" mentions, not confirmed live features).
 
 ## Newly discovered (2026-09-07 session)
 
