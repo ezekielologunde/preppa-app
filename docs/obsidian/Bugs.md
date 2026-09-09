@@ -2,13 +2,17 @@
 project: Preppa
 type: bugs
 status: active
-last_updated: 2026-09-07
+last_updated: 2026-09-08
 tags: [project/preppa, type/bugs]
 ---
 
 # Bugs
 
 Part of [[Project]]. See [[Security]] and [[Payments]] for the security/payment-specific risk lists; this is the general known-issues ledger.
+
+## Fixed 2026-09-08
+
+- **`safety@preppa.live` and `abuse@preppa.live` had zero mail routing** — Cloudflare Email Routing's catch-all is Drop, and no rule existed for either address, so any mail sent there was silently discarded. Compounding this, Email Routing itself was reporting **Disabled**/**Misconfigured** for the whole domain (missing SPF TXT record). Both fixed: added the SPF record, added routing rules for `safety@`/`abuse@` alongside the existing four addresses — all six now forward to a real monitored inbox. See [[Launch-Plan]] item 14.
 
 ## Docs drift
 

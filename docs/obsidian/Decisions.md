@@ -20,6 +20,11 @@ caller identity before later hardening. The current model — `SECURITY DEFINER`
 gate + inline `audit_log` write, server-priced money paths, Stripe as the sole payment rail — is
 the one to keep hardening; don't reintroduce the looser patterns above even under time pressure.
 
+## Transactional email scope correction (2026-09-08)
+
+- **"Verify X delivers" sometimes reveals X doesn't exist — say so plainly rather than testing around it.** Launch-Plan item 14 assumed cook-application, order-lifecycle, and payout emails existed and asked to verify delivery; grepping every Edge Function showed none of them ever call an email API — only `notify()` (in-app + push). Reported this as a scope correction (a product decision: build the email, or accept in-app/push as the real channel), not as "verified, working."
+- **Check the actual DNS/routing provider, not just the help-center copy listing an address** — `support@`/`safety@`/`abuse@preppa.live` were assumed to work because they're listed publicly; Cloudflare's own Email Routing dashboard showed the whole domain's routing was Disabled (missing SPF) and two of the three addresses had no rule at all. The public-facing claim and the actual infrastructure state were different things.
+
 ## Admin launch dashboard (2026-09-08)
 
 - **Never trust a new metrics query without checking it against live data first** — before calling `admin_dashboard_metrics()` done, ran it against production and found `live_meals_count` was silently counting dead seed-kitchen inventory as real. A metric that "runs without error" isn't the same as a metric that's *correct*; verify the actual numbers make sense given what you already know about the data (0 verified kitchens today, so 0 live meals was the only sane answer).
