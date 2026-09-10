@@ -277,6 +277,18 @@ begin
   perform public.detect_system_health_issues();
 end $$;
 
+do $$
+begin
+  if has_function_privilege('authenticated', 'public.prune_cron_job_run_details(int)', 'execute') then
+    raise exception 'REGRESSION: authenticated can call prune_cron_job_run_details() directly -- worker-only RPC exposed';
+  end if;
+  if has_function_privilege('anon', 'public.prune_cron_job_run_details(int)', 'execute') then
+    raise exception 'REGRESSION: anon can call prune_cron_job_run_details() directly';
+  end if;
+  -- Guarded no-op locally/CI (no pg_cron there) -- just confirm it doesn't raise.
+  perform public.prune_cron_job_run_details();
+end $$;
+
 rollback;
 
 select 'all regression checks passed' as result;
