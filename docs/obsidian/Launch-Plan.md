@@ -107,8 +107,37 @@ Funnel: Contacted → Interested → Signed up → Applied → Approved → Stri
 ### 9. Pick one launch geography
 Do not launch nationwide. One city/metro, one defined service radius. Then, for that specific jurisdiction: cottage-food rules, home-kitchen restrictions, allowed vs. commercial-kitchen-only foods, food-handler requirements, permits, labeling, allergen disclosure, sales tax, insurance. The app's food-handler cert field is self-reported and unverified against any registry (see [[PM-Onboarding]]) — compliance here is entirely an ops/legal responsibility, not something the code checks.
 
-### 10. Admin approval SOP
-For Cohort 0, do this manually per cook: identity, cert (where applicable), kitchen/fridge photos, Cook Agreement, address, Stripe Connect complete, menu review (allergens, pricing sanity). Automate later, once there's a real problem worth automating.
+### 10. Admin approval SOP — written 2026-09-10
+
+For Cohort 0, one person (can be you) does this manually, in order, for every application. Grounded in what the admin console actually shows today (`app/admin/applications.tsx`, `admin_application_detail()` RPC) — not a generic checklist.
+
+**Step 1 — Open the queue.** Admin → Applications. Each pending row is one kitchen application; tap it to open the detail view (photos load via signed URLs, expire after viewing — normal, just re-open if a photo looks broken).
+
+**Step 2 — Identity.** Confirm the `govid` and `selfie` photos are present, legible, and the face plausibly matches. There is no automated ID-verification check — this is entirely a human look.
+
+**Step 3 — Food safety self-attestation.** Three checkboxes (`food_safety.refrigeration`/`foodPrep`/`allergens`) plus a free-text `note` — confirm all three are checked and the note (if any) doesn't raise a red flag. This is self-reported, not verified against any registry (see [[PM-Onboarding]]) — don't treat a checked box as proof.
+
+**Step 4 — Food handler certification (where your launch jurisdiction requires one — see item 9).**
+- If they uploaded a real cert number/file: verify it looks legitimate, then run `admin_set_cert_status(kitchen_id, 'reviewed', expires_date)` — there's no UI button for this yet, call the RPC directly (Supabase SQL editor or a quick script). Set `expires_date` from the cert itself so it doesn't silently go stale.
+- If your jurisdiction doesn't require one for this category, or they didn't provide one: leave `food_handler_cert_status` at its default `'unverified'` — don't mark `'reviewed'` for something you didn't actually review.
+
+**Step 5 — Kitchen & fridge photos.** Confirm the `kitchen`/`fridge` photo groups show a real, plausibly-clean home kitchen — not a stock photo, not someone else's commercial kitchen.
+
+**Step 6 — Cook Agreement.** Confirm both `agreement_version` and `agreement_accepted_at` are populated (not null) — that's proof they actually clicked accept on the current version, not just that the field exists.
+
+**Step 7 — Address.** `kp.address` plus the geocoded `verified_lat`/`verified_lng` — sanity-check the pin actually lands in your chosen launch service radius (item 9). An address outside it should be rejected regardless of how good everything else looks — this is the one check with real legal consequences (cottage-food law is jurisdiction-specific).
+
+**Step 8 — Decide.** Approve or Reject, right there in the detail view.
+- **Approve** calls `approve_kitchen()`: sets `verification_status='verified'`, promotes the owner's role to `'prepper'`, opens the kitchen for listing. It does **not** check or require Stripe Connect completion — a cook can be approved before finishing Stripe onboarding.
+- **Reject** requires a reason (enforced client-side, minimum 3 characters) — write an actual reason, it's shown to the applicant and stored in `rejection_reason`.
+
+**Step 9 — For the "Cook at My Place" (in-home) category specifically: a second, separate review.** Admin → In-home safety (`app/admin/in-home-vetting.tsx`) — background-check and insurance documents, distinct from the kitchen application above and gated by its own `kitchens.in_home_vetting_status`. Do this before letting an approved cook accept in-home bookings, not as part of Step 8.
+
+**Step 10 — After approval, before calling a cook "launch ready":**
+- Confirm Stripe Connect actually completed: check `stripe_accounts.payouts_enabled = true` for their kitchen (Admin → Payouts, or query directly) — a verified-but-not-Stripe-ready cook can't actually get paid. The system already sends an automated nudge (`stripe-setup-nudge`, daily cron) if they stall.
+- Spot-check their first published menu for pricing sanity (no $0/$9999 typos) and obviously-missing allergen info in the description — there is **no structured per-dish allergen/ingredient field yet** (a real product gap, see [[Tasks]] Shef drill-down), so this is a manual read of whatever the cook wrote in the free-text description, not a system check.
+
+Automate later, once there's a real volume of applications to justify it — this SOP is intentionally manual for Cohort 0's scale (5-10 cooks).
 
 ## P0 — customer experience
 
