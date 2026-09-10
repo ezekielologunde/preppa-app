@@ -10,6 +10,10 @@ tags: [project/preppa, type/changelog]
 
 Part of [[Project]]. Reconstructed from 137 commits on `main`, 2026-07-06 → 2026-08-08, plus the 2026-09-07 session below.
 
+## Dependabot re-review (2026-09-10)
+
+Count jumped from 15 to 27 open alerts on a routine push (21 high, 6 moderate) — mostly one new `@xmldom/xmldom` disclosure cluster (13 alerts on that package alone), plus new/updated `browserslist`, `postcss`, and `brace-expansion` advisories superseding earlier partial fixes. Re-ran the same `npm ls` trace as the 2026-09-07 review: every alert still traces to Expo SDK 57's own build/CLI toolchain (`expo-splash-screen`'s `xcode`/`plist` chain, `expo-updates`' `glob`, `expo`'s own `@expo/metro-config`, `babel-preset-expo`) — none run in the shipped JS bundle. Same conclusion as before: left open rather than forcing transitive overrides against a pinned Expo SDK, revisit at the next SDK upgrade. See [[Bugs]] and [[Launch-Plan]] item 6.
+
 ## Fixed a real system-health-monitoring false alarm (2026-09-10)
 
 The monitoring added 2026-09-08 caught a real incident on its own: two "[Preppa admin] Outbound request failures" emails, 16:00 and 16:15 UTC on 2026-09-09, each a genuine `pg_net` "Timeout of 5000 ms reached." Investigated rather than dismissed: every payment/payout/subscription cron job's own run succeeded both times (`cron.job_run_details`), ruling out a real business-logic failure. Root cause was self-inflicted scheduling — `detect-admin-anomalies` and `detect-system-health-issues` were both set to `*/15 * * * *`, exactly coinciding with four `*/5 * * * *` jobs plus the every-minute `stripe-sync-worker`: up to 6 concurrent `net.http_post` calls firing in the same instant, occasionally exceeding pg_net's 5-second timeout. Fixed by offsetting both jobs to minutes 7/22/37/52. Also found, while diagnosing: `cron.job_run_details` had grown to 112,440 rows since 2026-07-07 (pg_cron has no built-in retention, and the project role doesn't own the table so it can't be indexed) — added a daily prune job, shrinking it to ~8,000 rows on the spot. See [[Decisions]] and [[Launch-Plan]] item 15.
