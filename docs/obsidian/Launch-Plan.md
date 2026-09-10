@@ -76,7 +76,7 @@ Confirmed real gap: there is one Supabase project and one live Stripe key for ev
 **Rule of thumb:** a developer running a preview build should not be able to accidentally create a real paid order.
 
 ### 6. Protect `main`
-- [ ] Enable branch protection.
+- [x] ~~Enable branch protection~~ — **confirmed active 2026-09-10** via `gh api repos/.../branches/main/protection` (this checklist item had gone stale — the sub-items below were already done, the parent line just never got checked off). `required_status_checks` (typecheck, db-regression-tests, strict), force-push/deletion both blocked.
 - [x] ~~Require CI before merge~~ — **done 2026-09-07**: both `typecheck` and `db-regression-tests` are now required status checks on `main`.
 - [x] ~~Block force pushes~~ — already enabled (confirmed 2026-09-07; deletions blocked too).
 - [ ] Require PRs — deliberately deferred: enforcing this (and `enforce_admins`) would block direct pushes entirely, including how work has shipped in this repo so far. Revisit once there's more than one contributor.
