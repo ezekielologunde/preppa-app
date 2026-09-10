@@ -20,6 +20,12 @@ caller identity before later hardening. The current model — `SECURITY DEFINER`
 gate + inline `audit_log` write, server-priced money paths, Stripe as the sole payment rail — is
 the one to keep hardening; don't reintroduce the looser patterns above even under time pressure.
 
+## Diagnosing the monitoring system's own false alarm (2026-09-10)
+
+- **When your own monitoring pages you, investigate before dismissing OR before panicking** — two real "outbound request failure" alerts arrived; the instinct to check could have stopped at "eh, transient blip, ignore it" or overreacted as "the payment infra is failing." Neither was right: reading `cron.job_run_details` directly showed every payment/payout job succeeded both times, and reading the *timing* of the failing job's own execution (took ~4.7s, suspiciously close to the 5000ms timeout in the alert) pointed straight at a scheduling collision, not infrastructure failure.
+- **A monitoring job's own schedule is part of the system it's supposed to protect, not exempt from load-planning** — `detect-admin-anomalies`/`detect-system-health-issues` were added without checking what else already ran on `*/5 * * * *`; the fix (offsetting to :07/:22/:37/:52) is a one-line schedule change once diagnosed, but would have kept recurring indefinitely if the alerts had just been dismissed as noise.
+- **Fix what you can at your actual privilege level, not what would be ideal** — the normal fix for an unindexed 112K-row table is an index; `must be owner of table job_run_details` ruled that out (Supabase's hosted pg_cron tables aren't owned by the project role). Periodic deletion was the fix actually available, and it's sufficient — the monitoring only ever looks back 15 minutes, so 3 days of retention is already generous, not a compromise.
+
 ## Transactional email scope correction (2026-09-08)
 
 - **"Verify X delivers" sometimes reveals X doesn't exist — say so plainly rather than testing around it.** Launch-Plan item 14 assumed cook-application, order-lifecycle, and payout emails existed and asked to verify delivery; grepping every Edge Function showed none of them ever call an email API — only `notify()` (in-app + push). Reported this as a scope correction (a product decision: build the email, or accept in-app/push as the real channel), not as "verified, working."
