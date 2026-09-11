@@ -2,7 +2,7 @@
 project: Preppa
 type: bugs
 status: active
-last_updated: 2026-09-10
+last_updated: 2026-09-11
 tags: [project/preppa, type/bugs]
 ---
 
@@ -42,6 +42,7 @@ Part of [[Project]]. See [[Security]] and [[Payments]] for the security/payment-
 - **2026-09-07**: `kitchen_balance_cents()` used a deprecated `current_setting('request.jwt.claim.role')` check that never fires for a real `service_role` caller, so every worker/cron call (payout reconciliation, the new auto-payout sweep) saw balance 0 instead of the kitchen's real balance. Fixed to use `auth.role() = 'service_role'`, matching the pattern already used elsewhere for the same class of bug.
 - **2026-09-07**: found an exposed Resend API key (`api-keys-*.csv`, full_access permission) sitting at the repo root, never committed to git but present on disk. Removed; flagged for rotation as a precaution — see [[Tasks]].
 - **2026-09-08**: found and fixed during the auth test pass — `Alert.alert` (from `react-native`) is a documented no-op on `react-native-web`, so "Delete account" (`app/(tabs)/profile.tsx`) and the admin "Delete signup" (`app/admin/waitlist.tsx`, which is web-only-gated so had **no working fallback at all**) silently did nothing on web: no dialog, no API call, no error. Fixed with a new `src/lib/confirm.ts` (`window.confirm` on web, real `Alert.alert` on native) used by both call sites.
+- **2026-09-09 → 2026-09-11, pg_net thundering herd (two-stage fix)**: real "[Preppa admin] Outbound request failures" alerts (genuine 5000ms `pg_net` timeouts, not false positives) fired repeatedly across three days as multiple cron jobs' `net.http_post` dispatches collided on the same tick. Stage 1 (09-10): offset `detect-admin-anomalies`/`detect-system-health-issues` off `*/15` onto `7,22,37,52` — real fix, but incomplete; four more alerts fired afterward with those two jobs confirmed absent at each failure instant. Stage 2 (09-11): found `charge-due-cycles` + `reconcile-payouts` (the only other `*/5` jobs that actually call `net.http_post`, confirmed via `pg_get_functiondef`) colliding with the every-minute `stripe-sync-worker` — staggered their schedules apart and raised `timeout_milliseconds` 5000→15000 on all three dispatchers. See [[Decisions]] and [[Launch-Plan]] item 15.
 
 ## No environment/config separation
 

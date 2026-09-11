@@ -2,13 +2,20 @@
 project: Preppa
 type: decisions
 status: active
-last_updated: 2026-09-07
+last_updated: 2026-09-11
 tags: [project/preppa, type/decisions]
 ---
 
 # Decisions
 
 Part of [[Project]]. Extracted from `AUDIT.md`, `docs/REDESIGN-DIRECTION.md`, `SPRINT-27-FEED-VIDEO-PLAN.md`, and code comments.
+
+## Correcting an incomplete root cause instead of re-closing the ticket (2026-09-11)
+
+- **"Fixed" a real incident on 09-10, then four more alerts fired on the identical fix — the honest move is to re-open and re-diagnose, not assume alert fatigue or bad luck.** The 09-10 fix (offsetting `detect-admin-anomalies`/`detect-system-health-issues`) was real and correct, but the write-up's confidence ("Root cause was self-inflicted scheduling") outran the evidence — it never checked whether the *other* jobs in that cluster could cause the same symptom on their own. They could: `charge-due-cycles`/`reconcile-payouts`/`stripe-sync-worker` collide independently of the two detect jobs.
+- **When two jobs share a schedule, check which of them actually make the risky call before assuming all of them are load-bearing** — `advance_cycles()`/`reap_experience_holds()` share `*/5 * * * *` with the two HTTP-dispatching jobs but are pure SQL (verified via `pg_get_functiondef`, not assumed from the function name); staggering them would have been wasted effort and a false sense of completeness.
+- **A job that must run every minute (`stripe-sync-worker`) can't be scheduled away from a collision — raise its tolerance instead of chasing an impossible offset.** `timeout_milliseconds` on `net.http_post` defaults to 5000 and is a real parameter, not a pg_net limitation; for three non-latency-sensitive background dispatchers, 15000 removes the false-positive risk directly instead of only reducing its odds.
+- Same "investigate before dismissing" instinct from [[#Diagnosing the monitoring system's own false alarm (2026-09-10)]] applied a second time — the user kept forwarding new alert emails rather than assuming the first fix worked, which is what surfaced that it hadn't fully.
 
 ## Legacy patterns explicitly not carried forward
 

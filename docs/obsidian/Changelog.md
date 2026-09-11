@@ -2,13 +2,17 @@
 project: Preppa
 type: changelog
 status: active
-last_updated: 2026-09-07
+last_updated: 2026-09-11
 tags: [project/preppa, type/changelog]
 ---
 
 # Changelog
 
 Part of [[Project]]. Reconstructed from 137 commits on `main`, 2026-07-06 → 2026-08-08, plus the 2026-09-07 session below.
+
+## Fixed the *actual* remaining cause of the outbound-timeout alerts (2026-09-11)
+
+The 2026-09-10 fix below offset the two `detect-*` monitoring jobs and assumed the rest of the `*/5`/`*/1` cluster was innocent. It wasn't the whole story: four more real "[Preppa admin] Outbound request failures" alerts fired afterward (2026-09-10 17:07 UTC and 18:52 UTC, then again 2026-09-11 ~17:22 and ~17:52 UTC-equivalent), each confirmed via `cron.job_run_details` to have neither `detect-*` job running at the actual failure instant. Traced properly this time: only `charge-due-cycles` and `reconcile-payouts` (of the four `*/5 * * * *` jobs) actually call `net.http_post` — confirmed via `pg_get_functiondef` that `advance_cycles`/`reap_experience_holds` are pure SQL with no outbound call — and both land on the exact same tick as the every-minute `stripe-sync-worker`, 3 concurrent dispatches every 5 minutes. Fixed by staggering `charge-due-cycles` and `reconcile-payouts` onto different minutes (clear of each other and of the `detect-*` jobs' `:x2/:x7` marks) and raising `timeout_milliseconds` on all three dispatch calls from the pg_net default 5000 to 15000 — none of the three are latency-sensitive. Applied to production and confirmed live via `cron.job`. See [[Decisions]], [[Bugs]], and [[Launch-Plan]] item 15.
 
 ## Dependabot re-review (2026-09-10)
 
