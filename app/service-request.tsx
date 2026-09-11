@@ -202,6 +202,14 @@ export default function ServiceRequestScreen() {
                 );
               })}
             </View>
+            {category === 'cook_at_home' ? (
+              <View style={{ flexDirection: 'row', alignItems: 'flex-start', gap: 10, marginTop: 14, padding: 12, borderRadius: radius.md, backgroundColor: c.greenL }}>
+                <Icon name="shield" size={16} color={c.green} />
+                <Text style={[type(12.5, 700), { color: c.ink, flex: 1, lineHeight: 18 }]}>
+                  Only preppers with a verified background check and liability insurance can accept in-home bookings.
+                </Text>
+              </View>
+            ) : null}
           </Block>
         ) : null}
 

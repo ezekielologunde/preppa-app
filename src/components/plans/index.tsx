@@ -7,6 +7,7 @@ import { useStore } from '../../store/store';
 import { FLAGS } from '../../config/flags';
 import { Icon, Press } from '../../ui';
 import { Stepper } from '../../ui/primitives';
+import { AutoScrollGallery } from '../cards';
 import { money } from '../../data/data';
 import { openThread } from '../../lib/messages';
 import {
@@ -234,7 +235,11 @@ export function SubCard({ s, busy, onAct, onEditMeals, onMessage }: {
   const canEditMeals = !!cy && cy.canEdit && s.selectionModel === 'customer_choice';
 
   return (
-    <View style={{ backgroundColor: c.surface, borderWidth: 1, borderColor: c.border2, borderRadius: radius.xl, padding: 16, ...shadow.card }}>
+    <View style={{ backgroundColor: c.surface, borderWidth: 1, borderColor: c.border2, borderRadius: radius.xl, overflow: 'hidden', ...shadow.card }}>
+      {s.photos && s.photos.length ? (
+        <AutoScrollGallery grad="g4" photos={s.photos} height={120} />
+      ) : null}
+      <View style={{ padding: 16 }}>
       <View style={{ flexDirection: 'row', alignItems: 'flex-start', justifyContent: 'space-between', gap: 10 }}>
         <View style={{ flex: 1 }}>
           <Text style={[type(16.5, 900), { color: c.ink, letterSpacing: -0.3 }]}>{s.planName}</Text>
@@ -284,6 +289,7 @@ export function SubCard({ s, busy, onAct, onEditMeals, onMessage }: {
         {!paused && canSkip ? <PillBtn label="Skip week" busy={busy} onPress={() => onAct('skip')} /> : null}
         {!paused && s.lifecycle === 'active' ? <PillBtn label="Pause" busy={busy} onPress={() => onAct('pause')} /> : null}
         <PillBtn label="Cancel" danger busy={busy} onPress={() => onAct('cancel')} />
+      </View>
       </View>
     </View>
   );
@@ -368,7 +374,11 @@ export function PlanCard({ p, onPress }: { p: Plan; onPress: () => void }) {
   const meals = p.mealsPerDelivery ?? p.items.reduce((n, i) => n + i.qty, 0);
   return (
     <Press scale={0.985} onPress={onPress} style={{ marginBottom: 12 }}>
-      <View style={{ backgroundColor: c.surface, borderWidth: 1, borderColor: c.border2, borderRadius: radius.xl, padding: 16, ...shadow.card }}>
+      <View style={{ backgroundColor: c.surface, borderWidth: 1, borderColor: c.border2, borderRadius: radius.xl, overflow: 'hidden', ...shadow.card }}>
+        {p.photos && p.photos.length ? (
+          <AutoScrollGallery grad="g4" photos={p.photos} height={130} />
+        ) : null}
+        <View style={{ padding: 16 }}>
         <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: 10 }}>
           <View style={{ flex: 1 }}>
             <Text numberOfLines={1} style={[type(16, 900), { color: c.ink, letterSpacing: -0.3 }]}>{p.name}</Text>
@@ -382,6 +392,7 @@ export function PlanCard({ p, onPress }: { p: Plan; onPress: () => void }) {
         {p.items.length > 0 ? (
           <Text numberOfLines={1} style={[type(12.5, 600), { color: c.ink2, marginTop: 10 }]}>{p.items.map((i) => i.name).join(' · ')}</Text>
         ) : null}
+        </View>
       </View>
     </Press>
   );

@@ -167,6 +167,10 @@ export default function CookStoreScreen() {
               <Icon name="flame" size={12} color={c.primary} />
               <Text style={[type(12, 800), { color: c.accentText }]}>PrepScore {cd.prepscore}</Text>
             </View>
+            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 5, height: 28, paddingHorizontal: 12, borderRadius: radius.pill, backgroundColor: c.greenL }}>
+              <Icon name="check" size={12} color={c.green} />
+              <Text style={[type(12, 800), { color: c.green }]}>Food safety reviewed</Text>
+            </View>
             {(STORE_SPECIALTIES[id] ?? []).map((t) => (
               <View key={t} style={{ height: 28, paddingHorizontal: 12, borderRadius: radius.pill, backgroundColor: c.bg2, alignItems: 'center', justifyContent: 'center' }}>
                 <Text style={[type(12, 800), { color: c.ink2 }]}>{t}</Text>
@@ -320,6 +324,10 @@ function RealKitchenStore({ profile, meals, mealsLoading, revCount, revAvg, inse
             <View style={{ flexDirection: 'row', alignItems: 'center', gap: 5, height: 28, paddingHorizontal: 12, borderRadius: radius.pill, backgroundColor: c.greenL }}>
               <Icon name="shield" size={12} color={c.green} />
               <Text style={[type(12, 800), { color: c.green }]}>Verified prepper</Text>
+            </View>
+            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 5, height: 28, paddingHorizontal: 12, borderRadius: radius.pill, backgroundColor: c.blueL }}>
+              <Icon name="check" size={12} color={c.blue} />
+              <Text style={[type(12, 800), { color: c.blue }]}>Food safety reviewed</Text>
             </View>
             {(profile.specialties ?? []).map((t) => (
               <View key={t} style={{ height: 28, paddingHorizontal: 12, borderRadius: radius.pill, backgroundColor: c.bg2, alignItems: 'center', justifyContent: 'center' }}>

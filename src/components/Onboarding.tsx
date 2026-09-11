@@ -60,21 +60,73 @@ function Mark({ size = 74, iconSize = 38 }: { size?: number; iconSize?: number }
   );
 }
 
+/** Fade + rise entrance for one welcome-screen element, staggered by `delay`. */
+function Reveal({ delay, children, style }: { delay: number; children: React.ReactNode; style?: any }) {
+  const op = useRef(new Animated.Value(0)).current;
+  const y = useRef(new Animated.Value(14)).current;
+  const reduced = useReducedMotion();
+  useEffect(() => {
+    if (reduced) { op.setValue(1); y.setValue(0); return; }
+    Animated.sequence([
+      Animated.delay(delay),
+      Animated.parallel([
+        Animated.timing(op, { toValue: 1, duration: 380, useNativeDriver: true }),
+        Animated.timing(y, { toValue: 0, duration: 420, easing: Easing.out(Easing.cubic), useNativeDriver: true }),
+      ]),
+    ]).start();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+  return <Animated.View style={[{ opacity: op, transform: [{ translateY: y }] }, style]}>{children}</Animated.View>;
+}
+
+/** Continuous slow breathing on the welcome mark — a gentle swell/settle plus a soft glow
+ *  ring behind it, same idle motion as the cold-launch splash mark, so the brand mark reads
+ *  as one living shape across the handoff rather than resetting to dead-still. */
+function FloatingMark({ size, iconSize }: { size: number; iconSize: number }) {
+  const c = useC();
+  const breathe = useRef(new Animated.Value(0)).current;
+  const reduced = useReducedMotion();
+  useEffect(() => {
+    if (reduced) return;
+    Animated.loop(
+      Animated.sequence([
+        Animated.timing(breathe, { toValue: 1, duration: 1600, easing: Easing.inOut(Easing.quad), useNativeDriver: true }),
+        Animated.timing(breathe, { toValue: 0, duration: 1600, easing: Easing.inOut(Easing.quad), useNativeDriver: true }),
+      ]),
+    ).start();
+  }, [breathe, reduced]);
+  const scale = breathe.interpolate({ inputRange: [0, 1], outputRange: [1, 1.06] });
+  const glowScale = breathe.interpolate({ inputRange: [0, 1], outputRange: [1, 1.28] });
+  const glowOpacity = breathe.interpolate({ inputRange: [0, 1], outputRange: [0.35, 0] });
+  return (
+    <View style={{ alignItems: 'center', justifyContent: 'center' }}>
+      {!reduced ? (
+        <Animated.View style={{ position: 'absolute', width: size, height: size, borderRadius: radius.xxl, backgroundColor: c.primaryD, opacity: glowOpacity, transform: [{ scale: glowScale }] }} />
+      ) : null}
+      <Animated.View style={{ transform: [{ scale: reduced ? 1 : scale }] }}>
+        <Mark size={size} iconSize={iconSize} />
+      </Animated.View>
+    </View>
+  );
+}
+
 function Welcome({ go }: { go: (s: string, m: 'signin' | 'signup') => void }) {
   const c = useC();
   return (
     <>
       <View style={{ flex: 0.6 }} />
-      <View style={{ alignSelf: 'center' }}><Mark size={88} iconSize={42} /></View>
-      <Text style={[type(28, 900), { color: c.ink, letterSpacing: -1, marginTop: 18, alignSelf: 'center' }]}>preppa</Text>
-      <Text style={[type(17, 600), { color: c.soft, lineHeight: 25, marginTop: 14, textAlign: 'center' }]}>Real food from real local Preppas near you.</Text>
-      <JoiningPill />
+      <Reveal delay={0} style={{ alignSelf: 'center' }}><FloatingMark size={88} iconSize={42} /></Reveal>
+      <Reveal delay={90}><Text style={[type(28, 900), { color: c.ink, letterSpacing: -1, marginTop: 18, alignSelf: 'center', textAlign: 'center' }]}>preppa</Text></Reveal>
+      <Reveal delay={160}><Text style={[type(17, 600), { color: c.soft, lineHeight: 25, marginTop: 14, textAlign: 'center' }]}>Real food from real local Preppas near you.</Text></Reveal>
+      <Reveal delay={240}><JoiningPill /></Reveal>
       <View style={{ flex: 1 }} />
-      <Btn label="Get Started — It's Free" variant="pri" onPress={() => go('auth', 'signup')} block lg />
-      <Pressable onPress={() => go('auth', 'signin')} style={{ marginTop: 16, alignSelf: 'center' }}>
-        <Text style={[type(14, 700), { color: c.soft }]}>Already a member? <Text style={{ color: c.ink, textDecorationLine: 'underline' }}>Sign in →</Text></Text>
-      </Pressable>
-      <Text style={[type(11.5, 600), { color: c.muted, textAlign: 'center', marginTop: 14 }]}>By continuing you agree to Preppa’s Terms & Food Safety Standards.</Text>
+      <Reveal delay={320}>
+        <Btn label="Get Started — It's Free" variant="pri" onPress={() => go('auth', 'signup')} block lg />
+        <Pressable onPress={() => go('auth', 'signin')} style={{ marginTop: 16, alignSelf: 'center' }}>
+          <Text style={[type(14, 700), { color: c.soft }]}>Already a member? <Text style={{ color: c.ink, textDecorationLine: 'underline' }}>Sign in →</Text></Text>
+        </Pressable>
+        <Text style={[type(11.5, 600), { color: c.muted, textAlign: 'center', marginTop: 14 }]}>By continuing you agree to Preppa’s Terms & Food Safety Standards.</Text>
+      </Reveal>
     </>
   );
 }
@@ -249,6 +301,7 @@ const GOALS = [
   { id: 'daily', ico: 'home', grad: GRAD.g4, t: 'Daily meals', s: 'Fresh dinners from cooks near me' },
   { id: 'prep', ico: 'repeat', grad: GRAD.g7, t: 'Meal-prep the week', s: 'A weekly box, dropped on schedule' },
   { id: 'health', ico: 'leaf', grad: GRAD.g3, t: 'Eat healthier', s: 'High-protein, balanced, fresh' },
+  { id: 'family', ico: 'heart', grad: GRAD.g2, t: 'New parent support', s: 'Nourishing meals while you recover and adjust' },
   { id: 'events', ico: 'gift', grad: GRAD.g6, t: 'Events & experiences', s: 'Book a chef, class or supper club' },
 ];
 function Goal({ onNext }: { onNext: () => void }) {
@@ -360,7 +413,7 @@ function useShake() {
 
 export function OnboardingFlow() {
   const c = useC();
-  const { setOnboarded, coords, setLocation, setCoords } = useStore();
+  const { setOnboarded, coords, setLocation, setCoords, setCountry } = useStore();
   // Assistive: the moment the user starts signing in, quietly resolve their location in the
   // background so the app lands already location-aware (nearby cooks, distances) with no
   // separate "set your location" step. Fire-and-forget; runs once; silent on denial.
@@ -369,7 +422,7 @@ export function OnboardingFlow() {
     if (prefetched.current || coords) return; // once; never override an existing fix
     prefetched.current = true;
     captureCurrentLocation()
-      .then((loc) => { setLocation(loc.label); setCoords({ lat: loc.lat, lng: loc.lng }); })
+      .then((loc) => { setLocation(loc.label); setCoords({ lat: loc.lat, lng: loc.lng }); if (loc.countryCode) setCountry(loc.countryCode); })
       .catch(() => { /* permission denied / unavailable — keep the default, no nag */ });
   };
   const insets = useSafeAreaInsets();

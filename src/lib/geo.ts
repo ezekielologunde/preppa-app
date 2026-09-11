@@ -9,7 +9,7 @@
  */
 
 export interface LatLng { lat: number; lng: number }
-export interface CapturedLocation extends LatLng { label: string }
+export interface CapturedLocation extends LatLng { label: string; countryCode?: string }
 
 export async function captureCurrentLocation(): Promise<CapturedLocation> {
   if (typeof navigator === 'undefined' || !navigator.geolocation) {
@@ -24,6 +24,7 @@ export async function captureCurrentLocation(): Promise<CapturedLocation> {
   });
   const { latitude, longitude } = pos.coords;
   let label = `${latitude.toFixed(3)}, ${longitude.toFixed(3)}`;
+  let countryCode: string | undefined;
   try {
     const res = await fetch(
       `https://api.bigdatacloud.net/data/reverse-geocode-client?latitude=${latitude}&longitude=${longitude}&localityLanguage=en`,
@@ -33,10 +34,11 @@ export async function captureCurrentLocation(): Promise<CapturedLocation> {
     const state = typeof j.principalSubdivisionCode === 'string' ? j.principalSubdivisionCode.split('-').pop() : '';
     const name = [city, state].filter(Boolean).join(', ');
     if (name) label = name;
+    if (typeof j.countryCode === 'string' && j.countryCode) countryCode = j.countryCode.toUpperCase();
   } catch {
     /* keep coordinate label */
   }
-  return { label, lat: latitude, lng: longitude };
+  return { label, lat: latitude, lng: longitude, countryCode };
 }
 
 /** Reverse-geocode coords to a neighborhood/locality string (for prefilling the
@@ -55,16 +57,24 @@ export async function reverseNeighborhood(lat: number, lng: number): Promise<str
 
 /** Forward-geocode an address/area string to coords (Nominatim/OSM, key-less). Null on failure. */
 export async function geocodeAddress(query: string): Promise<LatLng | null> {
+  const r = await geocodeAddressDetailed(query);
+  return r ? { lat: r.lat, lng: r.lng } : null;
+}
+
+/** Like `geocodeAddress`, but also returns the ISO-2 country code (for tax jurisdiction). */
+export async function geocodeAddressDetailed(query: string): Promise<CapturedLocation | null> {
   const q = (query || '').trim();
   if (q.length < 3) return null;
   try {
     const res = await fetch(
-      `https://nominatim.openstreetmap.org/search?format=json&limit=1&q=${encodeURIComponent(q)}`,
+      `https://nominatim.openstreetmap.org/search?format=jsonv2&addressdetails=1&limit=1&q=${encodeURIComponent(q)}`,
       { headers: { Accept: 'application/json' } },
     );
     const j: any = await res.json();
-    if (Array.isArray(j) && j[0]?.lat && j[0]?.lon) {
-      return { lat: parseFloat(j[0].lat), lng: parseFloat(j[0].lon) };
+    const hit = Array.isArray(j) ? j[0] : null;
+    if (hit?.lat && hit?.lon) {
+      const countryCode = typeof hit.address?.country_code === 'string' ? hit.address.country_code.toUpperCase() : undefined;
+      return { lat: parseFloat(hit.lat), lng: parseFloat(hit.lon), label: q, countryCode };
     }
   } catch {
     /* geocode failed */

@@ -36,7 +36,29 @@ const createOrderInput = z.object({
   tipCents: z.number().int().min(0).max(100_000).default(0),
   idempotencyKey: z.string().min(8).max(200),
   savePaymentMethod: z.boolean().optional(),
+  /** ISO-2 country of the buyer's confirmed area. Optional — omitted means $0 tax rather
+   *  than a guessed rate. Drives a real Stripe Tax calculation, not a hardcoded rate. */
+  country: z.string().length(2).optional(),
 });
+
+/** Real sales tax via Stripe Tax — replaces the old hardcoded flat-rate estimate.
+ *  Returns 0 (never guesses) if Tax isn't enabled/registered for the buyer's jurisdiction,
+ *  or if no country was supplied (e.g. location permission denied). */
+async function calculateTaxCents(subtotalCents: number, country: string | undefined): Promise<{ cents: number; calculationId: string | null }> {
+  if (!country || subtotalCents <= 0) return { cents: 0, calculationId: null };
+  try {
+    const calc = await stripe.tax.calculations.create({
+      currency: 'usd',
+      line_items: [{ amount: subtotalCents, reference: 'order_subtotal', tax_behavior: 'exclusive', tax_code: 'txcd_40060003' }],
+      customer_details: { address: { country }, address_source: 'shipping' },
+    });
+    return { cents: calc.tax_amount_exclusive ?? 0, calculationId: calc.id ?? null };
+  } catch {
+    // Not registered in this jurisdiction, Tax not enabled, or a transient API error —
+    // never block checkout and never fall back to a guessed rate.
+    return { cents: 0, calculationId: null };
+  }
+}
 
 const stripe = new Stripe(requireEnv('STRIPE_SECRET_KEY'), {
   apiVersion: '2024-06-20',
@@ -85,14 +107,14 @@ Deno.serve(async (req) => {
     if (input.method === 'cod') return json(400, { error: 'Cash on delivery isn\'t available yet.' });
 
     const { data: existing } = await db
-      .from('orders').select('id').eq('customer_id', customerId).eq('idempotency_key', input.idempotencyKey).maybeSingle();
+      .from('orders').select('id, tax_cents').eq('customer_id', customerId).eq('idempotency_key', input.idempotencyKey).maybeSingle();
     if (existing) {
       const { data: piRow } = await db
         .from('payment_intents').select('stripe_payment_intent_id').eq('order_id', existing.id)
         .order('created_at', { ascending: false }).limit(1).maybeSingle();
       let clientSecret: string | null = null;
       if (piRow) clientSecret = (await stripe.paymentIntents.retrieve(piRow.stripe_payment_intent_id)).client_secret;
-      return json(200, { orderId: existing.id, clientSecret, reused: true });
+      return json(200, { orderId: existing.id, clientSecret, taxCents: existing.tax_cents ?? 0, reused: true });
     }
 
     const mealIds = [...new Set(input.items.map((i) => i.mealId))];
@@ -125,14 +147,16 @@ Deno.serve(async (req) => {
     for (const it of input.items) subtotal += (priceById.get(it.mealId) ?? 0) * it.qty;
     const serviceFee = computeServiceFeeCents(subtotal);
     const tip = clampTipCents(input.tipCents);
-    const total = subtotal + serviceFee + tip;
+    const { cents: tax, calculationId: taxCalculationId } = await calculateTaxCents(subtotal, input.country);
+    const total = subtotal + serviceFee + tax + tip;
 
     const { data: order, error: oErr } = await db
       .from('orders')
       .insert({
         customer_id: customerId, kitchen_id: input.kitchenId, status: 'pending', method: 'card',
         pay_status: 'unpaid', fulfillment: input.fulfillment, subtotal_cents: subtotal,
-        service_fee_cents: serviceFee, tip_cents: tip, total_cents: total, idempotency_key: input.idempotencyKey,
+        service_fee_cents: serviceFee, tax_cents: tax, tax_calculation_id: taxCalculationId,
+        tip_cents: tip, total_cents: total, idempotency_key: input.idempotencyKey,
       })
       .select('id').single();
     if (oErr) {
@@ -156,13 +180,13 @@ Deno.serve(async (req) => {
       customer: stripeCustomerId,
       automatic_payment_methods: { enabled: true },
       ...(input.savePaymentMethod ? { setup_future_usage: 'off_session' as const } : {}),
-      metadata: { order_id: order.id, customer_id: customerId, kitchen_id: input.kitchenId, tip_cents: String(tip), subtotal_cents: String(subtotal) },
+      metadata: { order_id: order.id, customer_id: customerId, kitchen_id: input.kitchenId, tip_cents: String(tip), subtotal_cents: String(subtotal), tax_cents: String(tax) },
     }, { idempotencyKey: input.idempotencyKey });
     await db.from('payment_intents').insert({ order_id: order.id, stripe_payment_intent_id: pi.id, amount_cents: total, status: pi.status });
 
     return json(200, {
       orderId: order.id, clientSecret: pi.client_secret,
-      subtotalCents: subtotal, serviceFeeCents: serviceFee, tipCents: tip, totalCents: total,
+      subtotalCents: subtotal, serviceFeeCents: serviceFee, taxCents: tax, tipCents: tip, totalCents: total,
     });
   } catch (_e) {
     return json(500, { error: 'Could not create the order. Please try again.' });

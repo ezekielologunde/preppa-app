@@ -38,6 +38,7 @@ export interface Plan {
   trialPriceCents?: number | null;
   trialCycles?: number;
   coverUrl?: string | null;
+  photos?: string[];             // NEW: gallery photos for the browse card (item meals, else cover)
   dietaryTags?: string[];
   allergens?: string[];
   cadenceWeeks?: number;        // NEW: 1=weekly, 2=biweekly (cook-chosen)
@@ -79,6 +80,7 @@ export interface MySubscription {
   selectionModel: SelectionModel;
   isBox: boolean;             // customer-built cross-kitchen box (plan_id null)
   items: PlanItem[];          // the plan box/menu (for compact display)
+  photos: string[];           // NEW: gallery photos for the management card (item meals, else cover)
   nextCycle: CycleSummary | null;
 }
 
@@ -121,8 +123,14 @@ function planItems(rows: any[] | null | undefined, weekIndex?: number): PlanItem
     .filter((i) => i.name);
 }
 
+/** Gallery photos for a plan card: its item meals' photos (deduped), else its cover. */
+function planPhotos(rows: any[] | null | undefined, coverUrl?: string | null): string[] {
+  const fromItems = Array.from(new Set((rows ?? []).map((pi) => pi?.meals?.image_url).filter(Boolean)));
+  return fromItems.length ? fromItems : (coverUrl ? [coverUrl] : []);
+}
+
 const PLAN_SELECT =
-  'id, kitchen_id, name, description, price_cents, fulfillment, goal, selection_model, meals_per_delivery, servings, per_meal_cents, per_delivery_cents, service_fee_bps, delivery_days, cutoff_hours, lead_time_hours, min_commitment, trial_price_cents, trial_cycles, cadence_weeks, rotating, rotation_weeks, status, cover_url, dietary_tags, allergens, kitchens(name), plan_items(qty, meal_id, week_index, meals(id, name, price_cents))';
+  'id, kitchen_id, name, description, price_cents, fulfillment, goal, selection_model, meals_per_delivery, servings, per_meal_cents, per_delivery_cents, service_fee_bps, delivery_days, cutoff_hours, lead_time_hours, min_commitment, trial_price_cents, trial_cycles, cadence_weeks, rotating, rotation_weeks, status, cover_url, dietary_tags, allergens, kitchens(name), plan_items(qty, meal_id, week_index, meals(id, name, price_cents, image_url))';
 
 function rowToPlan(p: any): Plan {
   return {
@@ -148,6 +156,7 @@ function rowToPlan(p: any): Plan {
     trialPriceCents: p.trial_price_cents ?? null,
     trialCycles: p.trial_cycles ?? 0,
     coverUrl: p.cover_url ?? null,
+    photos: planPhotos(p.plan_items, p.cover_url),
     dietaryTags: p.dietary_tags ?? [],
     allergens: p.allergens ?? [],
     cadenceWeeks: p.cadence_weeks ?? 1,    // NEW: default to weekly
@@ -223,7 +232,7 @@ export async function listMySubscriptions(): Promise<MySubscription[]> {
   if (!uid) return [];
   const { data, error } = await supabase
     .from('subscriptions')
-    .select('id, lifecycle, kind, preferred_day, plan_id, fulfillment, plans(name, price_cents, fulfillment, selection_model, service_fee_bps, kitchen_id, kitchens(name), plan_items(qty, meal_id, meals(id, name, price_cents)))')
+    .select('id, lifecycle, kind, preferred_day, plan_id, fulfillment, plans(name, price_cents, fulfillment, selection_model, service_fee_bps, kitchen_id, cover_url, kitchens(name), plan_items(qty, meal_id, meals(id, name, price_cents, image_url)))')
     .eq('customer_id', uid)
     .not('lifecycle', 'in', '(cancelled,completed)')
     .order('created_at', { ascending: false });
@@ -264,6 +273,7 @@ export async function listMySubscriptions(): Promise<MySubscription[]> {
       selectionModel: isBox ? 'fixed' : (s.plans?.selection_model ?? 'fixed'),
       isBox,
       items: isBox ? (cyc?.items ?? []) : planItems(s.plans?.plan_items),
+      photos: isBox ? [] : planPhotos(s.plans?.plan_items, s.plans?.cover_url),
       nextCycle: cyc,
     };
   });

@@ -20,9 +20,12 @@ export interface TotalLine {
   cook: CookId;
 }
 
-const TAX_RATE = 0.089; // Atlanta, GA combined sales tax (illustrative)
 const round = (n: number) => Math.round(n * 100) / 100;
 
+/** Pre-checkout preview only — real tax is a Stripe Tax calculation done server-side in
+ *  `create-order` (jurisdiction-aware, not a single flat rate) once the buyer's country is
+ *  known. This preview always shows $0 tax; the real amount appears after the order is
+ *  created (see `taxCents` from `createRealOrder`/`payWithCard`) and on the order receipt. */
 export function computeTotals(cart: TotalLine[], tip: number, mode: 'delivery' | 'pickup'): Totals {
   const subtotal = round(cart.reduce((s, l) => s + l.price * l.qty, 0));
   const hasFounder = cart.some((l) => FOUNDING.has(l.cook));
@@ -30,7 +33,7 @@ export function computeTotals(cart: TotalLine[], tip: number, mode: 'delivery' |
   const service = hasFounder ? 0 : serviceFull;
   const deliveryFull = mode === 'pickup' ? 0 : 2.99;
   const delivery = 0; // free-delivery reward — shown struck-through, charged $0
-  const tax = round(subtotal * TAX_RATE);
+  const tax = 0;
   const total = round(subtotal + service + delivery + tax + tip);
   return { subtotal, service, serviceFull, hasFounder, deliveryFull, delivery, tax, total, tip };
 }

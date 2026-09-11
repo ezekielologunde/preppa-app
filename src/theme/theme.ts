@@ -147,11 +147,17 @@ export const SERIF: Record<number, string> = {
   700: 'Fraunces_700Bold',
 };
 
+/** Global type-scale multiplier — every `type()`/`serif()` call site goes through this, so
+ *  bumping it resizes the whole app's text from one place instead of touching each call site.
+ *  Rounded to the nearest 0.5px so sizes stay crisp. */
+const TYPE_SCALE = 1.12;
+const scaled = (size: number) => Math.round(size * TYPE_SCALE * 2) / 2;
+
 /** Build a text style with the right Hanken face. */
 export function type(size: number, weight: keyof typeof FONT | number = 500, opts: Partial<TextStyle> = {}): TextStyle {
   return {
     fontFamily: FONT[weight as number] || FONT[500],
-    fontSize: size,
+    fontSize: scaled(size),
     ...opts,
   };
 }
@@ -160,7 +166,7 @@ export function type(size: number, weight: keyof typeof FONT | number = 500, opt
 export function serif(size: number, weight: keyof typeof SERIF | number = 600, opts: Partial<TextStyle> = {}): TextStyle {
   return {
     fontFamily: SERIF[weight as number] || SERIF[600],
-    fontSize: size,
+    fontSize: scaled(size),
     ...opts,
   };
 }

@@ -214,7 +214,7 @@ function PreppersMode() {
   const list = !needle ? all : all.filter((k) => {
     const seed = seedCookForKitchen(k.id);
     const cook = seed ? COOKS[seed] : null;
-    const hay = [cook?.name ?? k.name, cook?.cuisine ?? k.cuisine, k.dist, cook?.dist, k.area].filter(Boolean).join(' ').toLowerCase();
+    const hay = [cook?.name ?? k.name, cook?.cuisine ?? k.cuisine, k.dist, k.area].filter(Boolean).join(' ').toLowerCase();
     return hay.includes(needle);
   });
   return (
@@ -244,7 +244,7 @@ function PrepperRow({ k, onPress }: { k: KitchenCard; onPress: () => void }) {
   const cook = seed ? COOKS[seed] : null;
   const name = cook?.name ?? k.name;
   const cuisine = cook?.cuisine ?? k.cuisine;
-  const distTxt = k.dist || cook?.dist || k.area;
+  const distTxt = k.dist || k.area;
   const rating = k.ratingCount > 0 ? k.ratingAvg.toFixed(1) : 'New';
   return (
     <Press scale={0.99} onPress={onPress} label={`${name} kitchen, verified, ${rating === 'New' ? 'new' : `${rating} stars`}${distTxt ? `, ${distTxt}` : ''}`}>

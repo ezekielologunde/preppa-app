@@ -77,10 +77,15 @@ Deno.serve(async (req) => {
       const seen = new Set<string>();
       for (const r of (rows ?? [])) { const k = (r as any).kitchens; if (k && !seen.has(k.id)) { seen.add(k.id); candidates.push(k); } }
     } else {
-      const { data: kitchens } = await db.from('kitchens')
+      // cook_at_home sends a prepper into the customer's home — gate on the separate,
+      // higher-bar in_home_vetting_status (background check + insurance), not just general
+      // kitchen verification.
+      let q = db.from('kitchens')
         .select('id, owner_id, approx_lat, approx_lng, service_categories')
         .eq('verification_status', 'verified')
         .contains('service_categories', [p.category]);
+      if (p.category === 'cook_at_home') q = q.eq('in_home_vetting_status', 'verified');
+      const { data: kitchens } = await q;
       candidates = kitchens ?? [];
     }
     candidates = candidates.filter((k: any) => k.owner_id !== uid);

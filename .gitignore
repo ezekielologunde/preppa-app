@@ -52,3 +52,13 @@ mux-preppa.env
 .vercel/
 
 .vercel
+
+# Claude Code / agent tooling local state (not app content)
+.claude/
+.agents/
+_bmad/
+.superpowers/
+.impeccable/
+skills-lock.json
+supabase/.temp/
+supabase/.branches/

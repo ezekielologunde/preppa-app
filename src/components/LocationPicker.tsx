@@ -1,20 +1,34 @@
 import React, { useState } from 'react';
-import { View, Text, ActivityIndicator } from 'react-native';
+import { View, Text, ActivityIndicator, TextInput } from 'react-native';
 import { useC } from '../theme/ThemeContext';
 import { type, radius } from '../theme/theme';
 import { useStore } from '../store/store';
-import { captureCurrentLocation } from '../lib/geo';
+import { captureCurrentLocation, geocodeAddressDetailed } from '../lib/geo';
 import { Icon, Press, Sheet } from '../ui';
 
-const AREAS = ['Atlanta, GA', 'Midtown, Atlanta', 'Old Fourth Ward', 'Inman Park', 'Poncey-Highland', 'Decatur, GA', 'Buckhead, Atlanta'];
-
 /** Bottom-sheet area picker bound to the global `location`. Offers real GPS capture
- *  ("Use my current location") with the manual area list as a fallback. */
+ *  ("Use my current location") plus free-text search (geocoded via Nominatim) — no
+ *  hardcoded city/neighborhood list, since Preppa is not scoped to one city. */
 export function LocationPicker({ visible, onClose }: { visible: boolean; onClose: () => void }) {
   const c = useC();
-  const { location, setLocation, setCoords, toast } = useStore();
+  const { location, setLocation, setCoords, setCountry, toast } = useStore();
   const [busy, setBusy] = useState(false);
-  const pick = (a: string) => { setLocation(a); setCoords(null); toast(`Location set to ${a}`, 'pin', true); onClose(); };
+  const [query, setQuery] = useState('');
+  const pick = async (a: string) => {
+    const q = a.trim();
+    if (!q) return;
+    setBusy(true);
+    try {
+      const hit = await geocodeAddressDetailed(q);
+      setLocation(q);
+      setCoords(hit ? { lat: hit.lat, lng: hit.lng } : null);
+      if (hit?.countryCode) setCountry(hit.countryCode);
+      toast(hit ? `Location set to ${q}` : `Location set to ${q} (distance unavailable)`, 'pin', true);
+      onClose();
+    } finally {
+      setBusy(false);
+    }
+  };
   const useCurrent = async () => {
     if (busy) return;
     setBusy(true);
@@ -22,6 +36,7 @@ export function LocationPicker({ visible, onClose }: { visible: boolean; onClose
       const loc = await captureCurrentLocation();
       setLocation(loc.label);
       setCoords({ lat: loc.lat, lng: loc.lng });
+      if (loc.countryCode) setCountry(loc.countryCode);
       toast(`Location set to ${loc.label}`, 'pin', true);
       onClose();
     } catch (e: any) {
@@ -38,18 +53,28 @@ export function LocationPicker({ visible, onClose }: { visible: boolean; onClose
           <Text style={[type(15, 800), { color: c.accentText, flex: 1 }]}>{busy ? 'Getting your location…' : 'Use my current location'}</Text>
         </View>
       </Press>
-      {AREAS.map((a) => {
-        const on = a === location;
-        return (
-          <Press key={a} scale={0.99} onPress={() => pick(a)} label={a}>
-            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 12, paddingVertical: 14, paddingHorizontal: 12, borderRadius: radius.md, backgroundColor: on ? c.primaryL : 'transparent' }}>
-              <Icon name="pin" size={18} color={on ? c.primary : c.soft} />
-              <Text style={[type(15, on ? 800 : 600), { color: c.ink, flex: 1 }]}>{a}</Text>
-              {on ? <Icon name="check" size={18} color={c.primary} /> : null}
-            </View>
-          </Press>
-        );
-      })}
+      <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10, paddingHorizontal: 12, paddingVertical: 4, marginTop: 4 }}>
+        <Icon name="pin" size={16} color={c.soft} />
+        <TextInput
+          value={query}
+          onChangeText={setQuery}
+          placeholder="Search for a city or area…"
+          placeholderTextColor={c.soft}
+          style={[type(15, 600), { color: c.ink, flex: 1, paddingVertical: 10 }]}
+          onSubmitEditing={() => pick(query)}
+          returnKeyType="search"
+          editable={!busy}
+        />
+      </View>
+      <Press scale={0.99} onPress={() => pick(query)} label="Set location" disabled={busy || query.trim().length < 3}>
+        <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8, paddingVertical: 14, paddingHorizontal: 12, marginTop: 4, borderRadius: radius.md, backgroundColor: query.trim().length >= 3 ? c.primaryL : 'transparent', opacity: query.trim().length >= 3 ? 1 : 0.4 }}>
+          {busy ? <ActivityIndicator size="small" color={c.primary} /> : <Icon name="check" size={18} color={c.primary} />}
+          <Text style={[type(15, 800), { color: c.accentText }]}>Set location</Text>
+        </View>
+      </Press>
+      {location ? (
+        <Text style={[type(12.5, 600), { color: c.soft, paddingHorizontal: 12, marginTop: 10 }]}>Current: {location}</Text>
+      ) : null}
     </Sheet>
   );
 }

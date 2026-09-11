@@ -1,7 +1,7 @@
-import React, { useRef, useState } from 'react';
-import { View, Text, ScrollView, Pressable, Animated, StyleSheet, LayoutChangeEvent, StyleProp, ViewStyle, ActivityIndicator } from 'react-native';
+import React, { useEffect, useRef, useState } from 'react';
+import { View, Text, ScrollView, Pressable, Animated, StyleSheet, LayoutChangeEvent, NativeSyntheticEvent, NativeScrollEvent, StyleProp, ViewStyle, ActivityIndicator } from 'react-native';
 import { useRouter } from 'expo-router';
-import { COOKS, CookId, Meal, Experience, PlanGoal, money, cookOf, thumb } from '../data/data';
+import { COOKS, CookId, Meal, Experience, PlanGoal, money, cookOf, thumb, mealPhotos } from '../data/data';
 import { useKitchenReviews, type KitchenCard } from '../data/hooks';
 import { seedCookForKitchen } from '../data/supabaseRepository';
 import { useC } from '../theme/ThemeContext';
@@ -82,7 +82,7 @@ export function PrepperRail({ kitchens }: { kitchens: KitchenCard[] }) {
         const cook = seed ? COOKS[seed] : null;
         const name = cook?.name ?? k.name;
         const cuisine = cook?.cuisine ?? k.cuisine;
-        const distTxt = k.dist || cook?.dist || k.area;
+        const distTxt = k.dist || k.area;
         const rating = k.ratingCount > 0 ? k.ratingAvg.toFixed(1) : 'New';
         return (
           <Press key={k.id} scale={0.97} onPress={() => router.push(`/store/${seed ?? k.id}`)} label={`${name} kitchen, verified, ${rating === 'New' ? 'new' : `${rating} stars`}${distTxt ? `, ${distTxt}` : ''}`}>
@@ -118,6 +118,69 @@ export function PrepperRail({ kitchens }: { kitchens: KitchenCard[] }) {
         );
       })}
     </ScrollView>
+  );
+}
+
+/** A photo carousel that auto-advances on a timer — for meal / plan cards with more than
+ *  one picture. Falls back to a plain `GradBox` when there's only one (or zero) photos, so
+ *  callers can pass any array without branching. Respects Reduce Motion (no auto-advance;
+ *  the dots + swipe still work). */
+export function AutoScrollGallery({
+  photos, grad, height, radius: r, children, interval = 3200,
+}: { photos: (string | undefined)[]; grad: string; height: number; radius?: number; children?: React.ReactNode; interval?: number }) {
+  const pics = photos.filter(Boolean) as string[];
+  const list = pics.length ? pics : [undefined];
+  const multi = list.length > 1;
+  const [w, setW] = useState(0);
+  const [idx, setIdx] = useState(0);
+  const scRef = useRef<ScrollView>(null);
+  const reduced = useReducedMotion();
+
+  useEffect(() => {
+    if (!multi || reduced || w === 0) return;
+    const t = setInterval(() => {
+      setIdx((i) => {
+        const next = (i + 1) % list.length;
+        scRef.current?.scrollTo({ x: next * w, animated: true });
+        return next;
+      });
+    }, interval);
+    return () => clearInterval(t);
+  }, [multi, reduced, w, list.length, interval]);
+
+  const onScrollEnd = (e: NativeSyntheticEvent<NativeScrollEvent>) => {
+    if (w === 0) return;
+    setIdx(Math.max(0, Math.min(list.length - 1, Math.round(e.nativeEvent.contentOffset.x / w))));
+  };
+
+  return (
+    <View
+      style={[{ height, overflow: 'hidden' }, r ? { borderRadius: r } : null]}
+      onLayout={(e: LayoutChangeEvent) => setW(e.nativeEvent.layout.width)}
+    >
+      {w > 0 ? (
+        <ScrollView
+          ref={scRef}
+          horizontal
+          pagingEnabled
+          scrollEnabled={multi}
+          showsHorizontalScrollIndicator={false}
+          onMomentumScrollEnd={onScrollEnd}
+        >
+          {list.map((p, i) => (
+            <GradBox key={i} grad={grad} img={p} style={{ width: w, height }} />
+          ))}
+        </ScrollView>
+      ) : null}
+      {children}
+      {multi ? (
+        <View pointerEvents="none" style={{ position: 'absolute', bottom: 8, left: 0, right: 0, flexDirection: 'row', justifyContent: 'center', gap: 4 }}>
+          {list.map((_, i) => (
+            <View key={i} style={{ width: i === idx ? 12 : 5, height: 5, borderRadius: 3, backgroundColor: i === idx ? '#fff' : 'rgba(255,255,255,.5)' }} />
+          ))}
+        </View>
+      ) : null}
+    </View>
   );
 }
 
@@ -259,7 +322,7 @@ export const MealCardLg = React.memo(function MealCardLg({ m, showMatch, width }
       {/* Visual content — non-interactive; scales with the nav layer's press. */}
       <Animated.View style={press.scaleStyle}>
         <View style={{ backgroundColor: c.surface, borderRadius: radius.card, borderWidth: 1, borderColor: c.border2, overflow: 'hidden', ...shadow.card }}>
-          <GradBox grad={m.grad} img={thumb(m.img)} style={{ height: 150 }}>
+          <AutoScrollGallery grad={m.grad} photos={mealPhotos(m).map(thumb)} height={150}>
             {showMatch && m.match ? (
               <View style={{ position: 'absolute', top: 8, left: 8, height: 22, borderRadius: radius.pill, paddingHorizontal: 8, flexDirection: 'row', alignItems: 'center', gap: 3, backgroundColor: c.green }}>
                 <Icon name="check" size={11} color="#fff" />
@@ -272,7 +335,7 @@ export const MealCardLg = React.memo(function MealCardLg({ m, showMatch, width }
                 <Text style={[type(10, 700), { color: ONWHITE_INK, textTransform: 'uppercase', letterSpacing: 0.3 }]}>Yours</Text>
               </View>
             ) : null}
-          </GradBox>
+          </AutoScrollGallery>
           <View style={{ padding: 12 }}>
             <Text numberOfLines={2} style={[type(15, 800), { color: c.ink, letterSpacing: -0.2 }]}>{m.name}</Text>
             <View style={{ flexDirection: 'row', alignItems: 'center', gap: 7, marginTop: 8 }}>

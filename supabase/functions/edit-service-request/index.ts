@@ -101,10 +101,14 @@ Deno.serve(async (req) => {
     if (catChanged || locChanged) {
       const { data: existing } = await db.from('service_request_targets').select('kitchen_id').eq('request_id', p.requestId);
       const have = new Set((existing ?? []).map((t: any) => t.kitchen_id));
-      const { data: kitchens } = await db.from('kitchens')
+      // Same in-home gate as create-service-request: cook_at_home requires the separate,
+      // higher-bar in_home_vetting_status, not just general kitchen verification.
+      let kq = db.from('kitchens')
         .select('id, owner_id, approx_lat, approx_lng, service_categories')
         .eq('verification_status', 'verified')
         .contains('service_categories', [newCat]);
+      if (newCat === 'cook_at_home') kq = kq.eq('in_home_vetting_status', 'verified');
+      const { data: kitchens } = await kq;
       let candidates = (kitchens ?? []).filter((k: any) => k.owner_id !== uid && !have.has(k.id));
       if (typeof newLat === 'number' && typeof newLng === 'number') {
         candidates = candidates

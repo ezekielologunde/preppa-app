@@ -23,7 +23,7 @@ export default function Checkout() {
   const router = useRouter();
   const { cook } = useLocalSearchParams<{ cook?: string }>();
   const ck = cook || undefined;
-  const { cart, tip, setTip, mode, placeOrder, address, orders, toast, resetOnboarding } = useStore();
+  const { cart, tip, setTip, mode, placeOrder, address, orders, toast, resetOnboarding, country } = useStore();
   const lines = ck ? cart.filter((l) => lineKey(l) === ck) : cart;
   const t = useTotals(lines, tip, mode);
   const { methods, defaultId } = useSavedCards();
@@ -33,6 +33,7 @@ export default function Checkout() {
   const [cardPayOpen, setCardPayOpen] = useState(false);
   const [cardSecret, setCardSecret] = useState<string | null>(null);
   const [cardOrderId, setCardOrderId] = useState<string | null>(null);
+  const [cardTaxCents, setCardTaxCents] = useState(0);
   // Which saved card to charge; `null` = enter a new card. Initialized to the default.
   const [selectedCardId, setSelectedCardId] = useState<string | null>(null);
   const [saveNewCard, setSaveNewCard] = useState(true);
@@ -83,21 +84,23 @@ export default function Checkout() {
     if (Platform.OS === 'web') {
       try {
         const useSaved = !!selectedCard;
-        const { orderId, clientSecret } = await createRealOrder({
+        const { orderId, clientSecret, taxCents } = await createRealOrder({
           cook: cookId, lines, mode, tipDollars: tip,
           idempotencyKey: idemKey,
           savePaymentMethod: useSaved ? false : saveNewCard,
+          taxCountry: country,
         });
         if (useSaved) {
           // Charge the saved card directly — no retype.
           await confirmSavedCardPayment(clientSecret, selectedCard!.id);
           setBusy(false);
-          placeOrder('paid', ck, orderId);
+          placeOrder('paid', ck, orderId, taxCents);
           router.replace(`/track?flow=paid&cook=${ck ?? ''}&orderId=${orderId}`);
           return;
         }
         // New card → collect it in the sheet and confirm there.
         setCardOrderId(orderId);
+        setCardTaxCents(taxCents);
         setCardSecret(clientSecret);
         setCardPayOpen(true);
         setBusy(false);
@@ -109,11 +112,11 @@ export default function Checkout() {
     }
     // Native: real order + Stripe's native PaymentSheet (real card entry, real charge).
     try {
-      const { orderId } = await payWithCard({
-        cook: cookId, lines, mode, tipDollars: tip, idempotencyKey: idemKey, savePaymentMethod: false,
+      const { orderId, taxCents } = await payWithCard({
+        cook: cookId, lines, mode, tipDollars: tip, idempotencyKey: idemKey, savePaymentMethod: false, taxCountry: country,
       });
       setBusy(false);
-      placeOrder('paid', ck, orderId);
+      placeOrder('paid', ck, orderId, taxCents);
       router.replace(`/track?flow=paid&cook=${ck ?? ''}&orderId=${orderId}`);
     } catch (e) {
       onError(e);
@@ -123,7 +126,7 @@ export default function Checkout() {
   // After a real card charge succeeds, mirror into local history + go to tracking.
   const onCardPaid = () => {
     setCardPayOpen(false);
-    placeOrder('paid', ck, cardOrderId ?? undefined);
+    placeOrder('paid', ck, cardOrderId ?? undefined, cardTaxCents);
     router.replace(`/track?flow=paid&cook=${ck ?? ''}${cardOrderId ? `&orderId=${cardOrderId}` : ''}`);
   };
 

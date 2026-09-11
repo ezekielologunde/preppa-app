@@ -29,7 +29,7 @@ export default function HomeScreen() {
   const c = useC();
   const insets = useSafeAreaInsets();
   const router = useRouter();
-  const { location, coords, setLocation, setCoords, toast, cartCount, notifCount, firstName, mode, setMode } = useStore();
+  const { location, coords, setLocation, setCoords, setCountry, toast, cartCount, notifCount, firstName, mode, setMode } = useStore();
   const { width } = useWindowDimensions();
   const wide = width >= 700; // logo + actions live in the SideRail on wide screens
   const [cartOpen, setCartOpen] = React.useState(false);
@@ -49,6 +49,7 @@ export default function HomeScreen() {
       const loc = await captureCurrentLocation();
       setLocation(loc.label);
       setCoords({ lat: loc.lat, lng: loc.lng });
+      if (loc.countryCode) setCountry(loc.countryCode);
       toast(`Location set to ${loc.label}`, 'pin', true);
     } catch { setLocPicker(true); } finally { setLocBusy(false); }
   };
@@ -62,7 +63,7 @@ export default function HomeScreen() {
   React.useEffect(() => {
     if (coords) return;
     captureCurrentLocation()
-      .then((loc) => { setLocation(loc.label); setCoords({ lat: loc.lat, lng: loc.lng }); })
+      .then((loc) => { setLocation(loc.label); setCoords({ lat: loc.lat, lng: loc.lng }); if (loc.countryCode) setCountry(loc.countryCode); })
       .catch(() => { /* permission denied or unavailable — keep the default, no nag */ });
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
@@ -77,7 +78,7 @@ export default function HomeScreen() {
       <ScrollView stickyHeaderIndices={[1]} showsVerticalScrollIndicator={false}
         contentContainerStyle={{ paddingBottom: 40, maxWidth: 1040, alignSelf: 'center', width: '100%' }} style={{ backgroundColor: c.bg }}>
         {/* [0] header — calm warm canvas, no orange wash */}
-        <View style={{ paddingHorizontal: 20, paddingTop: 8, paddingBottom: 18, backgroundColor: c.bg }}>
+        <View style={{ paddingHorizontal: 20, paddingTop: 16, paddingBottom: 26, backgroundColor: c.bg }}>
           {!wide ? (
             <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }}>
               <View style={{ flexDirection: 'row', alignItems: 'center', gap: 9 }}>
@@ -94,32 +95,32 @@ export default function HomeScreen() {
           ) : null}
 
           {/* location pill */}
-          <Press scale={0.98} onPress={useMyLocation} label={coords ? 'Change your location' : 'Confirm your location — showing a default area'} style={{ marginTop: wide ? 0 : 16, alignSelf: 'flex-start' }}>
-            <Text style={[type(11, 600), { color: c.muted, textTransform: 'uppercase', letterSpacing: 0.6 }]}>
+          <Press scale={0.98} onPress={useMyLocation} label={coords ? 'Change your location' : 'Confirm your location — showing a default area'} style={{ marginTop: wide ? 0 : 20, alignSelf: 'flex-start' }}>
+            <Text style={[type(12, 600), { color: c.muted, textTransform: 'uppercase', letterSpacing: 0.6 }]}>
               {coords ? (mode === 'pickup' ? 'Pick up in' : 'Deliver to') : 'Default area — tap to confirm'}
             </Text>
-            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 5, marginTop: 3 }}>
-              {locBusy ? <ActivityIndicator size="small" color={c.ink} /> : <Icon name="pin" size={15} color={c.primary} />}
-              <Text style={[type(16, 700), { color: c.ink, letterSpacing: -0.3 }]}>{location}</Text>
-              <Icon name="chevDown" size={13} color={c.muted} />
+            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6, marginTop: 4 }}>
+              {locBusy ? <ActivityIndicator size="small" color={c.ink} /> : <Icon name="pin" size={17} color={c.primary} />}
+              <Text style={[type(17.5, 700), { color: c.ink, letterSpacing: -0.3 }]}>{location}</Text>
+              <Icon name="chevDown" size={14} color={c.muted} />
             </View>
           </Press>
 
           {/* greeting — the one editorial serif moment */}
-          <View style={{ marginTop: 22 }}>
-            <Text style={[serif(30, 600), { color: c.ink, letterSpacing: -0.6, lineHeight: 34 }]}>{greetWord()}{firstName ? ', ' : ''}{firstName ? <Text style={[serif(30, 600), { color: c.primaryD }]}>{firstName}</Text> : null}</Text>
-            <Text style={[type(15.5, 400), { color: c.soft, marginTop: 8 }]}>What sounds good tonight?</Text>
+          <View style={{ marginTop: 28 }}>
+            <Text style={[serif(36, 600), { color: c.ink, letterSpacing: -0.7, lineHeight: 41 }]}>{greetWord()}{firstName ? ', ' : ''}{firstName ? <Text style={[serif(36, 600), { color: c.primaryD }]}>{firstName}</Text> : null}</Text>
+            <Text style={[type(17, 400), { color: c.soft, marginTop: 10 }]}>What sounds good tonight?</Text>
           </View>
 
           {/* mode toggle — Delivery · Pickup · Private Chef */}
-          <View style={{ flexDirection: 'row', alignSelf: 'flex-start', gap: 4, marginTop: 18, backgroundColor: c.bg2, padding: 4, borderRadius: 13 }}>
+          <View style={{ flexDirection: 'row', alignSelf: 'flex-start', gap: 4, marginTop: 24, backgroundColor: c.bg2, padding: 5, borderRadius: 15 }}>
             {MODES.map((m) => {
               const on = m.id === mode; // 'chef' is never the active fulfillment mode — it navigates
               return (
                 <Press key={m.id} scale={0.96} onPress={() => pickMode(m.id)} label={m.t} selected={on}>
-                  <View style={{ height: 40, paddingHorizontal: 16, borderRadius: 10, flexDirection: 'row', alignItems: 'center', gap: 6, backgroundColor: on ? c.surface : 'transparent', borderWidth: 1, borderColor: on ? c.border : 'transparent', ...(on ? shadow.soft : {}) }}>
-                    <Icon name={m.ico} size={15} color={on ? c.primary : c.soft} />
-                    <Text style={[type(13.5, on ? 600 : 500), { color: on ? c.ink : c.soft }]}>{m.t}</Text>
+                  <View style={{ height: 46, paddingHorizontal: 18, borderRadius: 11, flexDirection: 'row', alignItems: 'center', gap: 7, backgroundColor: on ? c.surface : 'transparent', borderWidth: 1, borderColor: on ? c.border : 'transparent', ...(on ? shadow.soft : {}) }}>
+                    <Icon name={m.ico} size={16} color={on ? c.primary : c.soft} />
+                    <Text style={[type(14.5, on ? 600 : 500), { color: on ? c.ink : c.soft }]}>{m.t}</Text>
                   </View>
                 </Press>
               );
