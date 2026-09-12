@@ -2,13 +2,17 @@
 project: Preppa
 type: changelog
 status: active
-last_updated: 2026-09-11
+last_updated: 2026-09-12
 tags: [project/preppa, type/changelog]
 ---
 
 # Changelog
 
 Part of [[Project]]. Reconstructed from 137 commits on `main`, 2026-07-06 → 2026-08-08, plus the 2026-09-07 session below.
+
+## Safety/abuse report alerting + order-ticket confirmation (2026-09-12)
+
+Closed Launch-Plan item 14's last open sub-item, working autonomously through everything that didn't require the user (real-money/real-device items, cook recruitment, geography/legal decisions were left alone). Traced "support ticket/safety report submission-confirmation notifications" fully: there is no separate safety-report flow — it's `public_support_requests`, the anon-writable marketing-site intake table (`report_type` support/safety/abuse, `immediate_risk` flag) added 2026-07-14. It had zero rows and, more importantly, zero alerting — unlike every other event in the app (role changes, kitchen suspensions, payout `needs_review` all call `notify_admins()`). Fixed with the existing, already-decided `notify_admins()` channel: an `AFTER INSERT` trigger alerts every admin (in-app + push + email) with escalated wording for `immediate_risk`/safety/abuse. Added `admin_list_support_requests()`/`admin_set_support_request_status()` RPCs (same `is_admin()` + `audit_log` pattern as the ticket RPCs) and a real Admin → Safety & support requests screen — there was no way to even view these reports before. Separately, `create_ticket()` (the authenticated order-ticket flow) wrote its row and audit entry but never confirmed receipt to the reporter — added the missing `notify()` call. Verified live in production: inserted a real `immediate_risk` test row, confirmed both admins received a genuine in-app notification and email, then deleted the test row. See [[Decisions]], [[Bugs]], and [[Launch-Plan]] item 14.
 
 ## Fixed the *actual* remaining cause of the outbound-timeout alerts (2026-09-11)
 

@@ -2,13 +2,20 @@
 project: Preppa
 type: decisions
 status: active
-last_updated: 2026-09-11
+last_updated: 2026-09-12
 tags: [project/preppa, type/decisions]
 ---
 
 # Decisions
 
 Part of [[Project]]. Extracted from `AUDIT.md`, `docs/REDESIGN-DIRECTION.md`, `SPRINT-27-FEED-VIDEO-PLAN.md`, and code comments.
+
+## Scoping autonomous work to what genuinely doesn't need the user (2026-09-12)
+
+- **Asked to "do all you can that doesn't need me" against the Launch-Plan P0 list — the right response was triage, not attempting everything.** Real-money E2E testing (item 2), Stripe Connect on a physical phone (item 3), and native auth QA (item 12) all genuinely require hardware/a real card/the user's presence — confirmed `ANDROID_HOME` isn't even set in this environment, so there's no emulator shortcut either. Cook recruitment (item 8), launch geography (item 9), and legal sign-off (item 13) are business/ops decisions only the user can make. Dev/prod separation (item 5) needs a recurring-cost approval already declined once — not something to re-spend without asking again. None of these were attempted; correctly identifying "needs the user" is itself the useful output, not a reason to force something anyway.
+- **What was left — the safety-report alerting gap — was chosen because it was fully within reach and genuinely valuable, not because it was easy.** It required tracing through `pg_get_functiondef` on live functions (not assuming from file names) to discover `public_support_requests` even existed and that it was completely unwired; a shallower pass would have reported "not traced to a call site" again, same as the prior review did.
+- **Declined the confirmed-dead `cod`-branch cleanup (8 files) despite having time for it** — real production data confirms zero orders ever used `method='cod'`, so it's genuinely safe to remove, but it's a purely cosmetic, multi-file, type-cascading refactor with no functional payoff and real diff-review risk, already explicitly deferred three times in [[Tasks]]/[[Bugs]]/[[Launch-Plan]]. "Can do it safely" and "should do it unprompted" aren't the same bar — low-value, higher-blast-radius cleanup stays opt-in.
+- **Verified the new alerting live in production with a real synthetic row, not a dry read of the SQL** — inserted a real `immediate_risk=true` test report, confirmed both admins actually received a genuine notification + email (`net._http_response` 200s), then deleted the test row and its notifications. A trigger that "should fire" per the SQL isn't the same as one confirmed to fire.
 
 ## Correcting an incomplete root cause instead of re-closing the ticket (2026-09-11)
 

@@ -2,7 +2,7 @@
 project: Preppa
 type: launch-plan
 status: active
-last_updated: 2026-09-11
+last_updated: 2026-09-12
 tags: [project/preppa, type/launch-plan]
 
 ---
@@ -181,7 +181,7 @@ Tested live against production (disposable `@mailinator.com` test accounts, clea
 - [x] **Signup/OTP email — already verified working**, see item 12 (real OTP sends confirmed via Resend, `200` logged).
 - [~] **Everything else on this list is not actually email — important scope correction.** Checked every Edge Function for outbound email calls: cook application received/approved/rejected, Stripe setup reminder, order lifecycle, cancellation, refund, and payout initiated/completed/needs-review all go through `notify()` only — an **in-app notification + push**, never an email. This isn't a delivery bug to fix; it's that the underlying feature (transactional email for these events) was never built. The checklist's premise assumed it existed. Two real options going forward: (a) treat in-app/push as the actual channel for these and drop the "email" framing, or (b) build real email sending for them using the now-proven Resend integration (the `preppa.live` domain, DKIM/SPF-verified for sending, and a scoped API key already exist from the admin-alerts and Auth-SMTP work). Neither built this round — needs a product decision on which events genuinely need email vs. in-app is enough.
 - [ ] Push notification delivery to a real device is unverified — the send-push Edge Function and push_tokens table exist, but no live device token was tested this session.
-- [ ] "Support ticket" and "safety report" submission-confirmation notifications specifically — not traced to a call site this round; only the inbox-routing half (this item) was checked.
+- [x] ~~"Support ticket" and "safety report" submission-confirmation notifications specifically~~ — **traced fully and fixed 2026-09-12.** There is no separate "safety report" flow: it's `public_support_requests` (anon-writable marketing-site intake, `report_type` support/safety/abuse, `immediate_risk` flag) — which had **zero rows and zero alerting** wired to it, unlike every other event in the app. Fixed with the existing, already-decided `notify_admins()` channel (no email-vs-in-app decision needed, unlike the bullet above): an `AFTER INSERT` trigger alerts every admin (in-app + push + email), escalated wording for `immediate_risk`. Also added `admin_list_support_requests()`/`admin_set_support_request_status()` RPCs and a real Admin → Safety & support requests screen (`app/admin/support-requests.tsx`) — there was previously no way to even view these reports in the app. Separately, the authenticated order-`tickets` flow's `create_ticket()` wrote the row and an audit entry but never confirmed receipt to the reporter — added one `notify()` call. Verified live: inserted a real test `immediate_risk` row, confirmed both admins got a real in-app notification and email (`net._http_response` 200s), then deleted the test row. See [[Decisions]] and [[Changelog]].
 
 ## P0 — monitoring
 
