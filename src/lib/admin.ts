@@ -243,6 +243,39 @@ export async function shareTicketWithCook(ticketId: string): Promise<void> {
   if (error) throw error;
 }
 
+// --- Public support/safety/abuse intake (marketing-site form, unauthenticated reporters) ---
+export type SupportRequestStatus = 'submitted' | 'acknowledged' | 'investigating' | 'resolved' | 'closed';
+export type SupportRequestType = 'support' | 'safety' | 'abuse';
+
+export interface AdminSupportRequest {
+  id: string;
+  ref: string | null;
+  report_type: SupportRequestType;
+  name: string | null;
+  email: string;
+  role: string | null;
+  category: string | null;
+  subject: string | null;
+  description: string;
+  related_ref: string | null;
+  immediate_risk: boolean;
+  status: SupportRequestStatus;
+  created_at: string;
+}
+
+export async function listSupportRequests(): Promise<AdminSupportRequest[]> {
+  ensureWeb();
+  const { data, error } = await supabase.rpc('admin_list_support_requests');
+  if (error) throw error;
+  return (data as AdminSupportRequest[]) ?? [];
+}
+
+export async function setSupportRequestStatus(requestId: string, status: SupportRequestStatus): Promise<void> {
+  ensureWeb();
+  const { error } = await supabase.rpc('admin_set_support_request_status', { p_request: requestId, p_status: status });
+  if (error) throw error;
+}
+
 // --- Orders & payments (read-only) ---
 export interface AdminOrder {
   order_id: string;

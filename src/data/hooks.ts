@@ -180,6 +180,9 @@ export function useAdminApplications(nonce = 0): AsyncState<admin.AdminApplicati
 export function useAdminTickets(nonce = 0): AsyncState<admin.AdminTicket[]> {
   return useAsync(() => admin.listTickets(), [nonce]);
 }
+export function useAdminSupportRequests(nonce = 0): AsyncState<admin.AdminSupportRequest[]> {
+  return useAsync(() => admin.listSupportRequests(), [nonce]);
+}
 export function useAdminOrders(nonce = 0): AsyncState<admin.AdminOrder[]> {
   return useAsync(() => admin.listOrders(), [nonce]);
 }

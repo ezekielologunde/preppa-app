@@ -75,6 +75,7 @@ export default function AdminHome() {
           <ModuleCard icon="repeat" title="Plans & subscriptions" sub="Meal plans & active subscribers" onPress={() => router.push('/admin/plans')} />
           <ModuleCard icon="calendar" title="Requests & bookings" sub="RFQs, quotes & confirmed bookings" onPress={() => router.push('/admin/bookings')} />
           <ModuleCard icon="ticket" title="Support tickets" sub="Disputes & order issues" onPress={() => router.push('/admin/tickets')} />
+          <ModuleCard icon="flag" title="Safety & support requests" sub="Reports from the marketing site" onPress={() => router.push('/admin/support-requests')} />
           <ModuleCard icon="users" title="Users" sub="Accounts & roles" onPress={() => router.push('/admin/users')} />
           <ModuleCard icon="clock" title="Audit log" sub="Admin action trail" onPress={() => router.push('/admin/audit')} />
           <ModuleCard icon="bell" title="Waitlist" sub="Signups from preppa.live" onPress={() => router.push('/admin/waitlist')} />
