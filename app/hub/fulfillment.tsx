@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import { View, Text, ScrollView, ActivityIndicator } from 'react-native';
 import { useRouter } from 'expo-router';
 import { useC } from '../../src/theme/ThemeContext';
@@ -20,34 +20,40 @@ export default function HubFulfillment() {
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState<'delivery' | 'pickup' | null>(null);
   const [loadError, setLoadError] = useState<string | null>(null);
+  const loadSequence = useRef(0);
+  const saveInFlight = useRef(false);
 
-  const load = () => {
-    let alive = true;
+  const load = async () => {
+    const sequence = ++loadSequence.current;
     setLoading(true);
     setLoadError(null);
-    getMyKitchen().then((k) => {
-      if (!alive || !k) return;
+    try {
+      const k = await getMyKitchen();
+      if (sequence !== loadSequence.current || !k) return;
       setKitchenId(k.id);
       setDelivery(k.supports_delivery);
       setPickup(k.supports_pickup);
-    }).catch((e: any) => {
-      if (alive) setLoadError(e?.message || 'Couldn’t load fulfillment settings.');
-    }).finally(() => { if (alive) setLoading(false); });
-    return () => { alive = false; };
+    } catch {
+      if (sequence === loadSequence.current) setLoadError('Check your connection and try loading fulfillment settings again.');
+    } finally {
+      if (sequence === loadSequence.current) setLoading(false);
+    }
   };
   useEffect(() => {
-    return load();
+    void load();
+    return () => { loadSequence.current += 1; };
     // load is intentionally mount-only; toggles update local state directly.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   const update = async (nextDelivery: boolean, nextPickup: boolean, which: 'delivery' | 'pickup') => {
-    if (!kitchenId || saving) return;
+    if (!kitchenId || saveInFlight.current) return;
     if (!nextDelivery && !nextPickup) {
       toast('You need at least one fulfillment method on.', 'info');
       return;
     }
     const prevDelivery = delivery, prevPickup = pickup;
+    saveInFlight.current = true;
     setDelivery(nextDelivery); setPickup(nextPickup); setSaving(which);
     try {
       await setKitchenFulfillment(kitchenId, nextDelivery, nextPickup);
@@ -55,6 +61,7 @@ export default function HubFulfillment() {
       setDelivery(prevDelivery); setPickup(prevPickup);
       toast(e?.message || 'Could not save. Please try again.', 'info');
     } finally {
+      saveInFlight.current = false;
       setSaving(null);
     }
   };
