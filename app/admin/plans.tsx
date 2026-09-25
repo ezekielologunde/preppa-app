@@ -2,7 +2,7 @@ import React, { useState } from 'react';
 import { View, Text, ScrollView } from 'react-native';
 import { useC } from '../../src/theme/ThemeContext';
 import { type, radius, tnum } from '../../src/theme/theme';
-import { Screen, Press } from '../../src/ui';
+import { Screen, Press, Btn } from '../../src/ui';
 import { StatusTag } from '../../src/ui/layout';
 import { Sheet } from '../../src/ui/overlay';
 import { money } from '../../src/data/data';
@@ -67,15 +67,23 @@ function PlansTab() {
   const [nonce, setNonce] = useState(0);
   const { data, loading, error } = useAdminPlans(nonce);
   const [detail, setDetail] = useState<admin.AdminPlanDetail | null>(null);
+  const [detailError, setDetailError] = useState('');
+  const [selected, setSelected] = useState<admin.AdminPlan | null>(null);
   const [open, setOpen] = useState(false);
   const [busy, setBusy] = useState(false);
 
   const openPlan = async (row: admin.AdminPlan) => {
+    setSelected(row);
     setOpen(true);
     setBusy(true);
     setDetail(null);
+    setDetailError('');
     try {
-      setDetail(await admin.planDetail(row.plan_id));
+      const result = await admin.planDetail(row.plan_id);
+      if (!result) throw new Error('This plan is no longer available.');
+      setDetail(result);
+    } catch (e: any) {
+      setDetailError(e?.message ?? 'Could not load this plan.');
     } finally {
       setBusy(false);
     }
@@ -121,8 +129,10 @@ function PlansTab() {
       </ScrollView>
 
       <Sheet visible={open} onClose={() => setOpen(false)} title="Plan detail" scroll>
-        {busy || !detail ? (
+        {busy ? (
           <Text style={[type(14, 600), { color: c.muted, paddingVertical: 20, textAlign: 'center' }]}>Loading…</Text>
+        ) : detailError || !detail ? (
+          <DetailFailure message={detailError || 'This plan is no longer available.'} onRetry={() => selected && openPlan(selected)} />
         ) : (
           <PlanDetailBody d={detail} />
         )}
@@ -182,15 +192,23 @@ function SubscriptionsTab() {
   const [nonce, setNonce] = useState(0);
   const { data, loading, error } = useAdminSubscriptions(nonce);
   const [detail, setDetail] = useState<admin.AdminSubscriptionDetail | null>(null);
+  const [detailError, setDetailError] = useState('');
+  const [selected, setSelected] = useState<admin.AdminSubscription | null>(null);
   const [open, setOpen] = useState(false);
   const [busy, setBusy] = useState(false);
 
   const openSub = async (row: admin.AdminSubscription) => {
+    setSelected(row);
     setOpen(true);
     setBusy(true);
     setDetail(null);
+    setDetailError('');
     try {
-      setDetail(await admin.subscriptionDetail(row.subscription_id));
+      const result = await admin.subscriptionDetail(row.subscription_id);
+      if (!result) throw new Error('This subscription is no longer available.');
+      setDetail(result);
+    } catch (e: any) {
+      setDetailError(e?.message ?? 'Could not load this subscription.');
     } finally {
       setBusy(false);
     }
@@ -236,13 +254,25 @@ function SubscriptionsTab() {
       </ScrollView>
 
       <Sheet visible={open} onClose={() => setOpen(false)} title="Subscription detail" scroll>
-        {busy || !detail ? (
+        {busy ? (
           <Text style={[type(14, 600), { color: c.muted, paddingVertical: 20, textAlign: 'center' }]}>Loading…</Text>
+        ) : detailError || !detail ? (
+          <DetailFailure message={detailError || 'This subscription is no longer available.'} onRetry={() => selected && openSub(selected)} />
         ) : (
           <SubscriptionDetailBody d={detail} />
         )}
       </Sheet>
     </>
+  );
+}
+
+function DetailFailure({ message, onRetry }: { message: string; onRetry: () => void }) {
+  const c = useC();
+  return (
+    <View style={{ paddingVertical: 16, alignItems: 'center', gap: 14 }}>
+      <Text style={[type(14, 700), { color: c.red, textAlign: 'center', lineHeight: 20 }]}>{message}</Text>
+      <Btn label="Try again" icon="repeat" variant="dark" onPress={onRetry} />
+    </View>
   );
 }
 

@@ -13,7 +13,7 @@ tags: [project/preppa, type/launch-plan]
 
 **Not signed off for public launch.** Core implementation exists, but the customer-to-cook money journey and operational gates remain open. Older completed items below are historical evidence, not a fresh production verification.
 
-- Local `npm run typecheck` passed. GitHub CI run `34698865511` at `c21c2fb` passed both `typecheck` and `db-regression-tests`. Local DB tests could not be rerun because Docker's Linux daemon is not running.
+- Local `npm run typecheck`, web export, targeted bundle-secret scan, full local migration replay, and SQL regressions passed on 2026-09-25. GitHub CI run `36144688801` at `67d1806` passed `typecheck`, `web-build-security`, and `db-regression-tests`.
 - Local `npx expo export --platform web` passed. Built output scan found no Stripe secret-key prefixes, PEM private-key headers or `SUPABASE_SERVICE_ROLE_KEY` identifiers; this is a targeted scan, not a comprehensive secret audit.
 - Expo SDK 57 patch alignment removed the 4 high findings and the Hermes regression. Current `npm audit`: 14 moderate, 0 high, 0 critical. `expo-doctor` passes 21/21. Remaining advisories are transitive in the Expo toolchain/router graph; no incompatible forced downgrade applied.
 - Fixed build-upload exclusions by removing the two-line `.easignore` overriding `.gitignore`; added general `.env.*` protection with example-file exceptions. A local `.p8` file exists and is Git-ignored; its contents were not read. Prior build archives were not inspected, so no credential leak is confirmed. See [[Security]].
@@ -21,7 +21,8 @@ tags: [project/preppa, type/launch-plan]
 - Development and preview profiles are now explicitly labeled and refuse every client-side live-money entry point when a live Stripe publishable key is present. Production native builds and `app.preppa.live` remain enabled. This prevents accidental charges/refunds/payouts from ordinary non-production clients; it is an accident guard, not a server authorization boundary, and a separate test backend is still required for realistic acceptance testing.
 - New meals now require a full ingredient list and explicit allergen review, store major allergens, and show the disclosure plus a cross-contact warning on meal detail. Historical meals without disclosure show a visible warning until updated.
 - Customer checkout now requires a delivery address, keeps payment failures visible, preserves quantity controls at one item, and discloses the server-calculated tax-inclusive total before charging a saved card. New-card Stripe sheets also receive the tax-inclusive amount.
-- Cook order and earnings surfaces now distinguish backend failures from legitimate empty or zero states. Order detail opens the real customer conversation, and cancellation can include a customer-facing reason in the refund notification. The supporting migrations and updated Edge Function still require replay and deployment evidence.
+- Cook order and earnings surfaces now distinguish backend failures from legitimate empty or zero states. Order detail opens the real customer conversation, and cancellation can include a customer-facing reason in the refund notification. The supporting migrations replayed locally and passed SQL regressions; target-project migration and Edge Function deployment evidence is still required.
+- Admin order, service-request, booking, plan, and subscription detail sheets now show load failures and a retry action instead of remaining on a false loading state. The public safety/support queue can open a pre-addressed email draft to the reporter while retaining audited status tracking.
 
 ### Customer acceptance evidence still needed
 

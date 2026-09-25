@@ -2,7 +2,7 @@ import React, { useState } from 'react';
 import { View, Text, ScrollView } from 'react-native';
 import { useC } from '../../src/theme/ThemeContext';
 import { type, radius, tnum } from '../../src/theme/theme';
-import { Screen } from '../../src/ui';
+import { Screen, Btn } from '../../src/ui';
 import { StatusTag } from '../../src/ui/layout';
 import { Sheet } from '../../src/ui/overlay';
 import { money } from '../../src/data/data';
@@ -20,15 +20,23 @@ export default function AdminOrders() {
   const [nonce, setNonce] = useState(0);
   const { data, loading, error } = useAdminOrders(nonce);
   const [detail, setDetail] = useState<admin.AdminOrderDetail | null>(null);
+  const [detailError, setDetailError] = useState('');
+  const [selectedOrder, setSelectedOrder] = useState<admin.AdminOrder | null>(null);
   const [open, setOpen] = useState(false);
   const [busy, setBusy] = useState(false);
 
   const openOrder = async (row: admin.AdminOrder) => {
+    setSelectedOrder(row);
     setOpen(true);
     setBusy(true);
     setDetail(null);
+    setDetailError('');
     try {
-      setDetail(await admin.orderDetail(row.order_id));
+      const result = await admin.orderDetail(row.order_id);
+      if (!result) throw new Error('This order could not be found. It may have been removed or you may no longer have access.');
+      setDetail(result);
+    } catch (e: any) {
+      setDetailError(e?.message ?? 'Could not load this order.');
     } finally {
       setBusy(false);
     }
@@ -76,8 +84,15 @@ export default function AdminOrders() {
       </ScrollView>
 
       <Sheet visible={open} onClose={() => setOpen(false)} title="Order detail" scroll>
-        {busy || !detail ? (
+        {busy ? (
           <Text style={[type(14, 600), { color: c.muted, paddingVertical: 20, textAlign: 'center' }]}>Loading…</Text>
+        ) : detailError || !detail ? (
+          <View style={{ paddingVertical: 16, alignItems: 'center', gap: 14 }}>
+            <Text style={[type(14, 700), { color: c.red, textAlign: 'center', lineHeight: 20 }]}>
+              {detailError || 'This order could not be found.'}
+            </Text>
+            {selectedOrder ? <Btn label="Try again" icon="repeat" variant="dark" onPress={() => openOrder(selectedOrder)} /> : null}
+          </View>
         ) : (
           <OrderDetailBody d={detail} />
         )}

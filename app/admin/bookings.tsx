@@ -2,7 +2,7 @@ import React, { useState } from 'react';
 import { View, Text, ScrollView } from 'react-native';
 import { useC } from '../../src/theme/ThemeContext';
 import { type, radius, tnum } from '../../src/theme/theme';
-import { Screen, Press } from '../../src/ui';
+import { Screen, Press, Btn } from '../../src/ui';
 import { StatusTag } from '../../src/ui/layout';
 import { Sheet } from '../../src/ui/overlay';
 import { money } from '../../src/data/data';
@@ -66,15 +66,23 @@ function RequestsTab() {
   const [nonce, setNonce] = useState(0);
   const { data, loading, error } = useAdminServiceRequests(nonce);
   const [detail, setDetail] = useState<admin.AdminServiceRequestDetail | null>(null);
+  const [detailError, setDetailError] = useState('');
+  const [selected, setSelected] = useState<admin.AdminServiceRequest | null>(null);
   const [open, setOpen] = useState(false);
   const [busy, setBusy] = useState(false);
 
   const openReq = async (row: admin.AdminServiceRequest) => {
+    setSelected(row);
     setOpen(true);
     setBusy(true);
     setDetail(null);
+    setDetailError('');
     try {
-      setDetail(await admin.serviceRequestDetail(row.request_id));
+      const result = await admin.serviceRequestDetail(row.request_id);
+      if (!result) throw new Error('This service request is no longer available.');
+      setDetail(result);
+    } catch (e: any) {
+      setDetailError(e?.message ?? 'Could not load this service request.');
     } finally {
       setBusy(false);
     }
@@ -119,8 +127,10 @@ function RequestsTab() {
       </ScrollView>
 
       <Sheet visible={open} onClose={() => setOpen(false)} title="Request detail" scroll>
-        {busy || !detail ? (
+        {busy ? (
           <Text style={[type(14, 600), { color: c.muted, paddingVertical: 20, textAlign: 'center' }]}>Loading…</Text>
+        ) : detailError || !detail ? (
+          <DetailFailure message={detailError || 'This service request is no longer available.'} onRetry={() => selected && openReq(selected)} />
         ) : (
           <RequestDetailBody d={detail} />
         )}
@@ -181,15 +191,23 @@ function BookingsTab() {
   const [nonce, setNonce] = useState(0);
   const { data, loading, error } = useAdminBookings(nonce);
   const [detail, setDetail] = useState<admin.AdminBookingDetail | null>(null);
+  const [detailError, setDetailError] = useState('');
+  const [selected, setSelected] = useState<admin.AdminBooking | null>(null);
   const [open, setOpen] = useState(false);
   const [busy, setBusy] = useState(false);
 
   const openBooking = async (row: admin.AdminBooking) => {
+    setSelected(row);
     setOpen(true);
     setBusy(true);
     setDetail(null);
+    setDetailError('');
     try {
-      setDetail(await admin.bookingDetail(row.booking_id));
+      const result = await admin.bookingDetail(row.booking_id);
+      if (!result) throw new Error('This booking is no longer available.');
+      setDetail(result);
+    } catch (e: any) {
+      setDetailError(e?.message ?? 'Could not load this booking.');
     } finally {
       setBusy(false);
     }
@@ -234,13 +252,25 @@ function BookingsTab() {
       </ScrollView>
 
       <Sheet visible={open} onClose={() => setOpen(false)} title="Booking detail" scroll>
-        {busy || !detail ? (
+        {busy ? (
           <Text style={[type(14, 600), { color: c.muted, paddingVertical: 20, textAlign: 'center' }]}>Loading…</Text>
+        ) : detailError || !detail ? (
+          <DetailFailure message={detailError || 'This booking is no longer available.'} onRetry={() => selected && openBooking(selected)} />
         ) : (
           <BookingDetailBody d={detail} />
         )}
       </Sheet>
     </>
+  );
+}
+
+function DetailFailure({ message, onRetry }: { message: string; onRetry: () => void }) {
+  const c = useC();
+  return (
+    <View style={{ paddingVertical: 16, alignItems: 'center', gap: 14 }}>
+      <Text style={[type(14, 700), { color: c.red, textAlign: 'center', lineHeight: 20 }]}>{message}</Text>
+      <Btn label="Try again" icon="repeat" variant="dark" onPress={onRetry} />
+    </View>
   );
 }
 

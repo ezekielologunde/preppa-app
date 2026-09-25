@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { View, Text, ScrollView } from 'react-native';
+import { View, Text, ScrollView, Linking } from 'react-native';
 import { useRouter } from 'expo-router';
 import { useC } from '../../src/theme/ThemeContext';
 import { type, radius } from '../../src/theme/theme';
@@ -35,6 +35,17 @@ function Row({ r, open, onToggle, onChanged }: { r: admin.AdminSupportRequest; o
     finally { setBusy(false); }
   };
 
+  const emailReporter = async () => {
+    const subject = `Preppa support${r.ref ? ` ${r.ref}` : ''}: ${r.subject || TYPE_LABEL[r.report_type]}`;
+    const body = `Hi${r.name ? ` ${r.name}` : ''},\n\nWe are following up on your Preppa ${TYPE_LABEL[r.report_type].toLowerCase()} request${r.ref ? ` (${r.ref})` : ''}.\n\n`;
+    const url = `mailto:${encodeURIComponent(r.email)}?subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(body)}`;
+    try {
+      await Linking.openURL(url);
+    } catch {
+      toast('Could not open an email app. Copy the reporter email shown above.', 'info');
+    }
+  };
+
   return (
     <Block>
       <Press scale={0.995} onPress={onToggle}>
@@ -59,6 +70,9 @@ function Row({ r, open, onToggle, onChanged }: { r: admin.AdminSupportRequest; o
               {[r.role, r.category, r.related_ref ? `re: ${r.related_ref}` : null].filter(Boolean).join(' · ')}
             </Text>
           ) : null}
+          <View style={{ alignItems: 'flex-start' }}>
+            <Btn label="Email reporter" icon="mail" variant="ghost" onPress={emailReporter} />
+          </View>
           <View>
             <Text style={[type(11, 800), { color: c.muted, textTransform: 'uppercase', letterSpacing: 0.4, marginBottom: 8 }]}>Status</Text>
             <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 8 }}>
