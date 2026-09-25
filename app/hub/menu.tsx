@@ -7,8 +7,8 @@ import { useStore } from '../../src/store/store';
 import { Icon, Press, GradBox, Btn } from '../../src/ui';
 import { Sheet } from '../../src/ui/overlay';
 import { money } from '../../src/data/data';
-import { fetchMyMeals, updateMeal, setMealStatus, MyMealRow, RealMealStatus } from '../../src/lib/kitchenMeals';
-import { HubHeader, KBtn, KSec, KPill } from '../(tabs)/my-hub';
+import { fetchMyMeals, updateMeal, setMealStatus, setMealDisclosure, MAJOR_ALLERGENS, MyMealRow, RealMealStatus } from '../../src/lib/kitchenMeals';
+import { HubHeader, KBtn, KSec, KPill, KChoice } from '../(tabs)/my-hub';
 
 function statusPill(c: any, s: RealMealStatus) {
   if (s === 'live') return { label: 'Live', bg: c.greenL, fg: c.green, dot: true };
@@ -123,10 +123,16 @@ function EditMealSheet({ meal, onClose, onSaved }: { meal: MyMealRow | null; onC
   const { toast } = useStore();
   const [name, setName] = useState('');
   const [price, setPrice] = useState('');
+  const [ingredients, setIngredients] = useState('');
+  const [allergens, setAllergens] = useState<string[]>([]);
+  const [reviewed, setReviewed] = useState(false);
   const [busy, setBusy] = useState(false);
 
   React.useEffect(() => {
-    if (meal) { setName(meal.name); setPrice((meal.price_cents / 100).toFixed(2)); }
+    if (meal) {
+      setName(meal.name); setPrice((meal.price_cents / 100).toFixed(2));
+      setIngredients(meal.ingredients ?? ''); setAllergens(meal.allergens ?? []); setReviewed(!!meal.allergen_reviewed_at);
+    }
   }, [meal?.id]);
 
   if (!meal) return null;
@@ -135,10 +141,21 @@ function EditMealSheet({ meal, onClose, onSaved }: { meal: MyMealRow | null; onC
     const cents = Math.round(parseFloat(price || '0') * 100);
     if (name.trim().length < 2) { toast('Dish name is too short', 'info'); return; }
     if (!cents || cents <= 0) { toast('Enter a valid price', 'info'); return; }
+    const hasDisclosure = !!meal.allergen_reviewed_at;
+    const disclosureTouched = ingredients.trim() !== (meal.ingredients ?? '') || allergens.join() !== (meal.allergens ?? []).join() || (!hasDisclosure && reviewed);
+    if (disclosureTouched && (ingredients.trim().length < 3 || !reviewed)) {
+      toast(ingredients.trim().length < 3 ? 'List the ingredients customers should know about' : 'Confirm you reviewed the allergen disclosure', 'info');
+      return;
+    }
     setBusy(true);
     try {
       await updateMeal(meal.id, { name: name.trim(), priceCents: cents });
-      onSaved({ ...meal, name: name.trim(), price_cents: cents });
+      let next: MyMealRow = { ...meal, name: name.trim(), price_cents: cents };
+      if (disclosureTouched) {
+        await setMealDisclosure(meal.id, { ingredients: ingredients.trim(), allergens, reviewed });
+        next = { ...next, ingredients: ingredients.trim(), allergens, allergen_reviewed_at: new Date().toISOString() };
+      }
+      onSaved(next);
       toast('Saved', 'check', true);
     } catch (e: any) {
       toast(e?.message || 'Could not save changes.', 'info');
@@ -148,7 +165,7 @@ function EditMealSheet({ meal, onClose, onSaved }: { meal: MyMealRow | null; onC
   };
 
   return (
-    <Sheet visible={!!meal} onClose={onClose} title="Edit dish">
+    <Sheet visible={!!meal} onClose={onClose} title="Edit dish" scroll>
       <Text style={[type(12, 800), { color: c.muted, textTransform: 'uppercase', letterSpacing: 0.4, marginBottom: 6 }]}>Name</Text>
       <TextInput
         value={name}
@@ -165,6 +182,25 @@ function EditMealSheet({ meal, onClose, onSaved }: { meal: MyMealRow | null; onC
         placeholderTextColor={c.muted}
         style={{ height: 50, borderWidth: 1, borderColor: c.border, borderRadius: radius.md, paddingHorizontal: 14, color: c.ink, backgroundColor: c.bg2, marginBottom: 18, ...(type(15, 600) as object) }}
       />
+      <Text style={[type(12, 800), { color: c.muted, textTransform: 'uppercase', letterSpacing: 0.4, marginBottom: 6 }]}>Ingredients</Text>
+      <TextInput
+        value={ingredients}
+        onChangeText={setIngredients}
+        multiline
+        placeholder="Chicken, rice, onion, garlic, olive oil, spices…"
+        placeholderTextColor={c.muted}
+        style={{ minHeight: 84, textAlignVertical: 'top', borderWidth: 1, borderColor: c.border, borderRadius: radius.md, padding: 14, color: c.ink, backgroundColor: c.bg2, marginBottom: 16, ...(type(15, 600) as object) }}
+      />
+      <Text style={[type(12, 800), { color: c.muted, textTransform: 'uppercase', letterSpacing: 0.4, marginBottom: 8 }]}>Contains allergens</Text>
+      <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 9, marginBottom: 16 }}>
+        {MAJOR_ALLERGENS.map((x) => <KChoice key={x} label={x} on={allergens.includes(x)} onPress={() => setAllergens((a) => (a.includes(x) ? a.filter((y) => y !== x) : [...a, x]))} check />)}
+      </View>
+      <Press scale={0.98} onPress={() => setReviewed((v) => !v)} label="I reviewed the full recipe and disclosed every applicable major allergen">
+        <View style={{ flexDirection: 'row', alignItems: 'flex-start', gap: 11, padding: 14, borderRadius: radius.md, backgroundColor: c.bg2, borderWidth: 1, borderColor: reviewed ? c.primary : c.border, marginBottom: 18 }}>
+          <View style={{ width: 22, height: 22, borderRadius: 7, borderWidth: 2, borderColor: reviewed ? c.primary : c.border, backgroundColor: reviewed ? c.primary : 'transparent', alignItems: 'center', justifyContent: 'center' }}>{reviewed ? <Icon name="check" size={13} color="#fff" /> : null}</View>
+          <Text style={[type(12.5, 700), { color: c.soft, lineHeight: 18, flex: 1 }]}>I reviewed the full recipe and disclosed every applicable major allergen.</Text>
+        </View>
+      </Press>
       <Btn label="Save changes" loading={busy} disabled={busy} onPress={save} />
     </Sheet>
   );

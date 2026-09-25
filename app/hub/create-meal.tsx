@@ -5,6 +5,7 @@ import { useC } from '../../src/theme/ThemeContext';
 import { type, radius, GradKey } from '../../src/theme/theme';
 import { useStore } from '../../src/store/store';
 import { createMeal, uploadMealPhoto, setMealPhoto, getMyKitchenId } from '../../src/lib/supabase';
+import { MAJOR_ALLERGENS } from '../../src/lib/kitchenMeals';
 import { invalidate } from '../../src/data/cache';
 import { Stepper, Icon, Press } from '../../src/ui';
 import { Screen, TopBar, Dock } from '../../src/ui/layout';
@@ -13,7 +14,7 @@ import { PhotoPick, KField, KInput, MoneyInput, KChoice, KBtn } from '../(tabs)/
 
 const CATS = ['Comfort', 'Pasta', 'Healthy', 'Soul food', 'Halal', 'Dessert', 'Seafood'];
 const DIETS = ['Vegetarian', 'Gluten-free', 'Halal', 'Dairy-free', 'Nut-free'];
-const ALLERGENS = ['Milk', 'Eggs', 'Fish', 'Shellfish', 'Tree nuts', 'Peanuts', 'Wheat', 'Soy', 'Sesame'];
+const ALLERGENS = MAJOR_ALLERGENS;
 
 export default function CreateMealFlow() {
   const c = useC();

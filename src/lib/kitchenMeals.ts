@@ -48,3 +48,16 @@ export async function setMealStatus(mealId: string, status: RealMealStatus): Pro
   const { error } = await supabase.rpc('set_meal_status', { p_meal_id: mealId, p_status: status });
   if (error) throw new Error(error.message || 'Could not update this dish.');
 }
+
+export async function setMealDisclosure(
+  mealId: string,
+  d: { ingredients: string; allergens: string[]; reviewed: boolean },
+): Promise<void> {
+  const { error } = await supabase.rpc('set_meal_disclosure', {
+    p_meal_id: mealId,
+    p_ingredients: d.ingredients,
+    p_allergens: d.allergens,
+    p_allergen_reviewed: d.reviewed,
+  });
+  if (error) throw new Error(error.message || 'Could not save the disclosure.');
+}

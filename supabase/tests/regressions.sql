@@ -348,6 +348,63 @@ begin
   perform public.prune_cron_job_run_details();
 end $$;
 
+-- Cook order detail must expose the customer id needed by the relationship-gated
+-- messaging RPC, while remaining unavailable to anonymous callers.
+do $$
+declare v_result text;
+begin
+  select pg_get_function_result('public.kitchen_order_detail(uuid)'::regprocedure) into v_result;
+  if v_result !~ 'buyer_id uuid' then
+    raise exception 'REGRESSION: kitchen_order_detail() no longer returns buyer_id -- cook-to-customer order messaging is broken';
+  end if;
+  if has_function_privilege('anon', 'public.kitchen_order_detail(uuid)', 'execute') then
+    raise exception 'REGRESSION: anon can call kitchen_order_detail() directly';
+  end if;
+  if not has_function_privilege('authenticated', 'public.kitchen_order_detail(uuid)', 'execute') then
+    raise exception 'REGRESSION: authenticated lost access to kitchen_order_detail()';
+  end if;
+end $$;
+
+do $$
+declare v_src text;
+begin
+  if to_regprocedure('public.finalize_order_cancel(uuid,boolean,text)') is null then
+    raise exception 'REGRESSION: reason-aware finalize_order_cancel() is missing';
+  end if;
+  select prosrc into v_src from pg_proc where oid = 'public.finalize_order_cancel(uuid,boolean,text)'::regprocedure;
+  if v_src !~ 'v_reason' or v_src !~ 'Reason:' then
+    raise exception 'REGRESSION: order cancellation reason is no longer included in the customer notification';
+  end if;
+  if has_function_privilege('authenticated', 'public.finalize_order_cancel(uuid,boolean,text)', 'execute') then
+    raise exception 'REGRESSION: authenticated can call service-only finalize_order_cancel()';
+  end if;
+end $$;
+
 rollback;
 
 select 'all regression checks passed' as result;
+
+-- Disclosure editing: cooks must be able to backfill ingredients/allergens on existing meals,
+-- the gate must stay (ingredients + explicit review), anon must never call it, and
+-- update_meal() must not wipe the description when the caller omits it.
+do $$
+declare v_src text;
+begin
+  select prosrc into v_src from pg_proc
+  where oid = 'public.set_meal_disclosure(uuid,text,text[],boolean)'::regprocedure;
+  if v_src !~ 'list the meal ingredients' or v_src !~ 'confirm the allergen review' or v_src !~ 'is_active_kitchen_owner' then
+    raise exception 'REGRESSION: set_meal_disclosure() lost its ingredient/review/ownership checks';
+  end if;
+  if has_function_privilege('anon', 'public.set_meal_disclosure(uuid,text,text[],boolean)', 'execute') then
+    raise exception 'REGRESSION: anonymous users can edit meal disclosures';
+  end if;
+  if (select prosrc from pg_proc where oid = 'public.update_meal(uuid,text,text,integer,integer,text[],text)'::regprocedure)
+     !~ 'p_description is null then description' then
+    raise exception 'REGRESSION: update_meal() wipes the description when it is omitted';
+  end if;
+  if not exists (
+    select 1 from pg_proc p, unnest(p.proargnames) n where p.oid = 'public.my_meals()'::regprocedure and n = 'allergen_reviewed_at'
+  ) then
+    raise exception 'REGRESSION: my_meals() no longer returns disclosure status';
+  end if;
+end $$;

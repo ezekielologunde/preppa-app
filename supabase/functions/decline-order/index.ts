@@ -44,7 +44,7 @@ Deno.serve(async (req) => {
 
     const parsed = input.safeParse(await req.json());
     if (!parsed.success) return json(400, { error: 'invalid input' });
-    const { orderId } = parsed.data;
+    const { orderId, reason } = parsed.data;
 
     const { data: order } = await db.from('orders')
       .select('id, status, pay_status, kitchen_id, box_order_id, subtotal_cents, tip_cents, kitchens!inner(owner_id)')
@@ -86,7 +86,11 @@ Deno.serve(async (req) => {
     // finalize_order_cancel does the ledger reversal + status update under an advisory lock,
     // re-checking status before writing -- see finalize_booking_cancel for the identical race
     // this closes (two concurrent cancel calls must not each insert a reversal ledger row).
-    const { error: finErr } = await db.rpc('finalize_order_cancel', { p_order_id: orderId, p_refunded: refunded });
+    const { error: finErr } = await db.rpc('finalize_order_cancel', {
+      p_order_id: orderId,
+      p_refunded: refunded,
+      p_reason: reason?.trim() || null,
+    });
     if (finErr) return json(500, { error: 'Could not finalize the cancellation.' });
 
     return json(200, { status: 'cancelled', refunded });
