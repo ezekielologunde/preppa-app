@@ -5,7 +5,7 @@ import { useC } from '../../theme/ThemeContext';
 import { type, radius, shadow } from '../../theme/theme';
 import { useStore } from '../../store/store';
 import { FLAGS } from '../../config/flags';
-import { Icon, Press } from '../../ui';
+import { Btn, Icon, Press } from '../../ui';
 import { Stepper } from '../../ui/primitives';
 import { AutoScrollGallery } from '../cards';
 import { money } from '../../data/data';
@@ -39,12 +39,22 @@ export function BrowsePlansSection() {
   const [plans, setPlans] = useState<Plan[]>([]);
   const [subs, setSubs] = useState<MySubscription[]>([]);
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState('');
 
   const load = useCallback(async () => {
-    const [p, s] = await Promise.all([fetchActivePlans(), listMySubscriptions()]);
-    setPlans(p); setSubs(s); setLoading(false);
+    setLoading(true);
+    setError('');
+    try {
+      const [p, s] = await Promise.all([fetchActivePlans(), listMySubscriptions()]);
+      setPlans(p);
+      setSubs(s);
+    } catch (e: any) {
+      setError(e?.message || 'Plans could not be loaded.');
+    } finally {
+      setLoading(false);
+    }
   }, []);
-  useFocusEffect(useCallback(() => { load(); }, [load]));
+  useFocusEffect(useCallback(() => { void load(); }, [load]));
 
   const subscribedPlanIds = new Set(subs.map((s) => s.planId));
   const available = plans.filter((p) => !subscribedPlanIds.has(p.id));
@@ -69,6 +79,13 @@ export function BrowsePlansSection() {
         <Text style={[type(12, 800), { color: c.muted, textTransform: 'uppercase', letterSpacing: 0.5, marginBottom: 10 }]}>Plans from cooks near you</Text>
         {loading ? (
           <View style={{ paddingVertical: 50, alignItems: 'center' }}><ActivityIndicator color={c.primary} /></View>
+        ) : error ? (
+          <View accessibilityRole="alert" style={{ alignItems: 'center', paddingVertical: 40, paddingHorizontal: 20 }}>
+            <View style={{ width: 56, height: 56, borderRadius: 18, backgroundColor: c.redL, alignItems: 'center', justifyContent: 'center' }}><Icon name="info" size={25} color={c.red} /></View>
+            <Text style={[type(16, 900), { color: c.ink, marginTop: 14 }]}>Plans couldn’t load</Text>
+            <Text style={[type(13.5, 600), { color: c.soft, textAlign: 'center', marginTop: 6, marginBottom: 16, maxWidth: 300, lineHeight: 20 }]}>{error}</Text>
+            <Btn label="Try again" icon="repeat" onPress={() => void load()} />
+          </View>
         ) : available.length === 0 ? (
           <View style={{ alignItems: 'center', paddingVertical: 40, paddingHorizontal: 20 }}>
             <View style={{ width: 56, height: 56, borderRadius: 18, backgroundColor: c.primaryL, alignItems: 'center', justifyContent: 'center' }}><Icon name="repeat" size={26} color={c.primary} /></View>
