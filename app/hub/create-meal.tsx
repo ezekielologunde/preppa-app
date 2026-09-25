@@ -48,6 +48,7 @@ export default function CreateMealFlow() {
   const [allergenReviewed, setAllergenReviewed] = useState(false);
   const [qty, setQty] = useState('');
   const [done, setDone] = useState(false);
+  const [photoUploadFailed, setPhotoUploadFailed] = useState(false);
   const [busy, setBusy] = useState(false);
   const toggleD = (d: string) => setDiet((p) => (p.includes(d) ? p.filter((x) => x !== d) : [...p, d]));
   const toggleAllergen = (a: string) => setAllergens((p) => (p.includes(a) ? p.filter((x) => x !== a) : [...p, a]));
@@ -78,7 +79,10 @@ export default function CreateMealFlow() {
             const url = await uploadMealPhoto(photoFile, ext, kid);
             await setMealPhoto(mealId, url);
           }
-        } catch { /* meal still published; photo can be added later */ }
+        } catch {
+          setPhotoUploadFailed(true);
+          toast('Meal published, but the photo couldn’t be added', 'info');
+        }
       }
       invalidate('catalog:live'); // new meal → refresh the cached catalog everywhere
       setDone(true);
@@ -92,11 +96,18 @@ export default function CreateMealFlow() {
     return (
       <Screen bg={c.surface}>
         {payoutsEnabled ? (
-          <Burst title="Meal published" body={`${name} is now live on your menu — customers near you can order it right away.`} actionLabel="Done" onAction={() => router.back()} />
+          <Burst
+            title={photoUploadFailed ? 'Meal published without photo' : 'Meal published'}
+            body={photoUploadFailed
+              ? `${name} is live and ready to order. The selected photo didn’t attach, so customers will see your fallback color for now.`
+              : `${name} is now live on your menu. Customers near you can order it right away.`}
+            actionLabel="Done"
+            onAction={() => router.back()}
+          />
         ) : (
           <Burst
             title="Saved as a draft"
-            body={`${name} is saved to your menu but won't be visible to customers yet. Complete payout setup to publish it and start accepting paid orders.`}
+            body={`${name} is saved to your menu but won't be visible to customers yet. Complete payout setup to publish it and start accepting paid orders.${photoUploadFailed ? ' The selected photo did not attach, so the fallback color will be used.' : ''}`}
             actionLabel="Set up payouts"
             onAction={() => router.replace('/hub/money')}
             secondaryLabel="Done for now"

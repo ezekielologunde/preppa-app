@@ -580,7 +580,8 @@ export async function fetchNotifications(): Promise<AppNotification[]> {
 
 /** Mark one notification read (RLS restricts to the caller's own rows). */
 export async function markNotificationRead(id: string): Promise<void> {
-  await supabase.from('notifications').update({ read_at: new Date().toISOString() }).eq('id', id).is('read_at', null);
+  const { error } = await supabase.from('notifications').update({ read_at: new Date().toISOString() }).eq('id', id).is('read_at', null);
+  if (error) throw error;
 }
 
 /** Mark all of the caller's unread notifications read. */
@@ -588,5 +589,6 @@ export async function markAllNotificationsRead(): Promise<void> {
   const { data: sess } = await supabase.auth.getSession();
   const uid = sess.session?.user?.id;
   if (!uid) return;
-  await supabase.from('notifications').update({ read_at: new Date().toISOString() }).eq('user_id', uid).is('read_at', null);
+  const { error } = await supabase.from('notifications').update({ read_at: new Date().toISOString() }).eq('user_id', uid).is('read_at', null);
+  if (error) throw error;
 }

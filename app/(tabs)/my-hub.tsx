@@ -45,8 +45,9 @@ export function AvailToggle({ on, loading, error, onToggle, onRetry }: { on: boo
 /* ---------- hub header (avatar + eyebrow/name + toggle + bell) ---------- */
 export function HubHeader({ eyebrow = 'My Hub', name, showBell, right, onBack, below, noAvail }: { eyebrow?: string; name: string; showBell?: boolean; right?: React.ReactNode; onBack?: () => void; below?: React.ReactNode; noAvail?: boolean }) {
   const c = useC();
+  const router = useRouter();
   const insets = useSafeAreaInsets();
-  const { avail, availLoading, availError, refreshAvail, toggleAvail, toast } = useStore();
+  const { avail, availLoading, availError, refreshAvail, toggleAvail, notifCount } = useStore();
   return (
     <View style={{ backgroundColor: c.surface, paddingTop: insets.top + 10, paddingBottom: 16, paddingHorizontal: 20, borderBottomWidth: 1, borderBottomColor: c.border2 }}>
       <View style={{ flexDirection: 'row', alignItems: 'center', gap: 12 }}>
@@ -72,10 +73,10 @@ export function HubHeader({ eyebrow = 'My Hub', name, showBell, right, onBack, b
           {noAvail ? null : <AvailToggle on={avail} loading={availLoading} error={!!availError} onToggle={toggleAvail} onRetry={() => void refreshAvail()} />}
           {right}
           {showBell ? (
-            <Press scale={0.9} onPress={() => toast('No new alerts', 'bell')}>
+            <Press scale={0.9} onPress={() => router.push('/notifications')} label={notifCount > 0 ? `Notifications, ${notifCount} unread` : 'Notifications'}>
               <View style={{ width: 42, height: 42, borderRadius: 13, backgroundColor: c.bg2, alignItems: 'center', justifyContent: 'center' }}>
                 <Icon name="bell" size={19} color={c.ink2} />
-                <View style={{ position: 'absolute', top: 9, right: 10, width: 9, height: 9, borderRadius: 5, backgroundColor: c.primary, borderWidth: 2, borderColor: c.bg2 }} />
+                {notifCount > 0 ? <View style={{ position: 'absolute', top: 9, right: 10, width: 9, height: 9, borderRadius: 5, backgroundColor: c.primary, borderWidth: 2, borderColor: c.bg2 }} /> : null}
               </View>
             </Press>
           ) : null}
