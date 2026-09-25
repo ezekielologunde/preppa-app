@@ -50,6 +50,7 @@ tags: [project/preppa, type/launch-plan]
 - Stripe Connect status errors now propagate from the Edge Function and the onboarding return flow distinguishes a verification failure from incomplete setup.
 - Service requests, bookings, experience review status, message threads, unread counts, and broadcast audience counts now propagate backend failures instead of appearing empty or complete.
 - Editing a customer service request now waits for saved data and provides a retry state instead of exposing a blank form during a failed prefill.
+- Kitchen directory and profile ratings now surface query failures instead of showing verified cooks as unrated.
 
 ### Customer acceptance evidence still needed
 

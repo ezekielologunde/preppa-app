@@ -88,11 +88,12 @@ export interface KitchenProfile extends KitchenCard {
 const KP_COLS = 'id,name,slug,cuisine,bio,approx_area,approx_lat,approx_lng,avatar_url,cover_url,specialties,years_active,availability,is_pro';
 
 async function fetchKitchensRaw(): Promise<KitchenCard[]> {
-  const [{ data: ks, error }, { data: rs }] = await Promise.all([
+  const [{ data: ks, error }, { data: rs, error: ratingError }] = await Promise.all([
     supabase.from('kitchen_public').select('id,name,slug,cuisine,approx_area,approx_lat,approx_lng,avatar_url,specialties,is_pro,supports_delivery,supports_pickup'),
     supabase.from('kitchen_rating').select('kitchen_id,rating_avg,rating_count'),
   ]);
   if (error) throw error;
+  if (ratingError) throw ratingError;
   const rating = new Map((rs ?? []).map((r: any) => [r.kitchen_id, r]));
   return (ks ?? []).map((k: any) => {
     const lat = k.approx_lat != null ? Number(k.approx_lat) : NaN;
@@ -149,17 +150,19 @@ function buildProfile(k: any, r: any): KitchenProfile {
 async function fetchKitchenProfile(idOrSlug: string): Promise<KitchenProfile | null> {
   if (UUID_RE.test(idOrSlug)) {
     // uuid → profile + rating in parallel (rating keys off the same id)
-    const [{ data, error }, { data: r }] = await Promise.all([
+    const [{ data, error }, { data: r, error: ratingError }] = await Promise.all([
       supabase.from('kitchen_public').select(KP_COLS).eq('id', idOrSlug).maybeSingle(),
       supabase.from('kitchen_rating').select('rating_avg,rating_count').eq('kitchen_id', idOrSlug).maybeSingle(),
     ]);
     if (error) throw error;
+    if (ratingError) throw ratingError;
     return data ? buildProfile(data, r) : null;
   }
   const { data, error } = await supabase.from('kitchen_public').select(KP_COLS).eq('slug', idOrSlug).maybeSingle();
   if (error) throw error;
   if (!data) return null;
-  const { data: r } = await supabase.from('kitchen_rating').select('rating_avg,rating_count').eq('kitchen_id', (data as any).id).maybeSingle();
+  const { data: r, error: ratingError } = await supabase.from('kitchen_rating').select('rating_avg,rating_count').eq('kitchen_id', (data as any).id).maybeSingle();
+  if (ratingError) throw ratingError;
   return buildProfile(data, r);
 }
 /** One verified kitchen's public profile, by UUID or slug (cached). */
