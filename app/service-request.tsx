@@ -344,9 +344,9 @@ const TIME_SLOTS: string[] = (() => {
 })();
 
 /** Button that looks like the text inputs on this screen but opens a picker sheet instead of a keyboard. */
-function PickerButton({ c, icon, value, placeholder, onPress }: { c: any; icon: string; value: string; placeholder: string; onPress: () => void }) {
+function PickerButton({ c, icon, value, placeholder, onPress, accessibilityLabel }: { c: any; icon: string; value: string; placeholder: string; onPress: () => void; accessibilityLabel?: string }) {
   return (
-    <Press scale={0.98} onPress={onPress}>
+    <Press scale={0.98} onPress={onPress} label={accessibilityLabel}>
       <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10, height: 52, paddingHorizontal: 15, backgroundColor: c.bg2, borderWidth: 1.5, borderColor: c.border, borderRadius: radius.md }}>
         <Icon name={icon} size={17} color={value ? c.ink2 : c.muted} />
         <Text style={[type(15.5, 600), { color: value ? c.ink : c.muted, flex: 1 }]}>{value || placeholder}</Text>
@@ -450,13 +450,13 @@ function Row({ c, k, v }: { c: any; k: string; v: string }) {
     </View>
   );
 }
-function Field({ c, label, children }: { c: any; label: string; children: React.ReactNode }) {
-  return <View><Text style={[type(12.5, 800), { color: c.soft, marginBottom: 8 }]}>{label}</Text>{children}</View>;
+function Field({ c, label, children }: { c: any; label: string; children: React.ReactElement<{ accessibilityLabel?: string }> }) {
+  return <View><Text style={[type(12.5, 800), { color: c.soft, marginBottom: 8 }]}>{label}</Text>{React.cloneElement(children, { accessibilityLabel: label })}</View>;
 }
-function Input({ c, value, onChange, placeholder, keyboardType, multiline }: { c: any; value: string; onChange: (t: string) => void; placeholder: string; keyboardType?: any; multiline?: boolean }) {
+function Input({ c, value, onChange, placeholder, keyboardType, multiline, accessibilityLabel }: { c: any; value: string; onChange: (t: string) => void; placeholder: string; keyboardType?: any; multiline?: boolean; accessibilityLabel?: string }) {
   const [f, setF] = useState(false);
   return (
-    <TextInput value={value} onChangeText={onChange} placeholder={placeholder} placeholderTextColor={c.muted}
+    <TextInput value={value} onChangeText={onChange} placeholder={placeholder} placeholderTextColor={c.muted} accessibilityLabel={accessibilityLabel}
       keyboardType={keyboardType} multiline={multiline} onFocus={() => setF(true)} onBlur={() => setF(false)}
       style={[type(15.5, 600), { color: c.ink, backgroundColor: f ? c.surface : c.bg2, borderWidth: 1.5, borderColor: f ? c.primary : c.border, borderRadius: radius.md, minHeight: multiline ? 84 : 52, paddingHorizontal: 15, paddingTop: multiline ? 14 : 0 }]} />
   );
