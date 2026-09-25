@@ -207,6 +207,7 @@ export async function fetchReorderMeals(mealIds: string[], kitchenId: string): P
  * table also has a UNIQUE(order_id) constraint, so this can never double-insert for one order.
  * (Audit Critical: this used to be a UI-only mock — a fake toast with no DB write at all.) */
 export async function submitReview(orderId: string, rating: number, body: string): Promise<void> {
+  if (body.trim().length > 2000) throw new Error('Keep the review under 2,000 characters.');
   const { data: order, error: orderErr } = await supabase.from('orders').select('kitchen_id').eq('id', orderId).maybeSingle();
   if (orderErr) throw orderErr;
   if (!order?.kitchen_id) throw new Error('Could not find that order.');

@@ -190,6 +190,7 @@ export async function bookExperience(experienceId: string, sessionId: string, gu
 // ---- Reviews (E4) ----------------------------------------------------------------------
 /** Rate an attended experience (feeds the kitchen's rating + storefront reviews). One per booking. */
 export async function reviewExperience(bookingId: string, rating: number, body: string): Promise<void> {
+  if (body.trim().length > 2000) throw new Error('Keep the review under 2,000 characters.');
   const { error } = await supabase.rpc('review_experience', { p_booking: bookingId, p_rating: rating, p_body: body });
   if (error) throw error;
 }

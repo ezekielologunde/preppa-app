@@ -75,8 +75,9 @@ export default function RateExperience() {
 
         {stars > 0 ? (
           <Block title="Add a note (optional)">
-            <TextInput value={text} onChangeText={setText} placeholder="Tell others what you loved…" placeholderTextColor={c.muted} multiline
+            <TextInput value={text} onChangeText={setText} maxLength={2000} placeholder="Tell others what you loved…" placeholderTextColor={c.muted} multiline accessibilityLabel="Experience review, 2,000 characters maximum"
               style={[type(14.5, 500), { color: c.ink, backgroundColor: c.bg2, borderRadius: radius.md, padding: 14, minHeight: 96, textAlignVertical: 'top' }]} />
+            <Text style={[type(11.5, 600), { color: c.muted, textAlign: 'right', marginTop: 6 }]}>{text.length}/2000</Text>
           </Block>
         ) : (
           <Text style={[type(13.5, 600), { color: c.muted, textAlign: 'center', marginTop: 28 }]}>Tap the stars to rate.</Text>

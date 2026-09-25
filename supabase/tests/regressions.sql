@@ -532,6 +532,18 @@ begin
   end if;
 end $$;
 
+do $$
+begin
+  if not exists (
+    select 1 from pg_constraint
+    where conrelid = 'public.reviews'::regclass
+      and conname = 'reviews_body_length'
+      and pg_get_constraintdef(oid) ~ 'char_length\(body\) <= 2000'
+  ) then
+    raise exception 'REGRESSION: review body length is no longer bounded at the database';
+  end if;
+end $$;
+
 rollback;
 
 select 'all regression checks passed' as result;

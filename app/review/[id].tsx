@@ -102,11 +102,14 @@ export default function Review() {
               <TextInput
                 value={text}
                 onChangeText={setText}
+                maxLength={1800}
                 placeholder="Tell others what you loved…"
                 placeholderTextColor={c.muted}
                 multiline
+                accessibilityLabel="Review note, 1,800 characters maximum"
                 style={[type(14.5, 500), { color: c.ink, backgroundColor: c.bg2, borderRadius: radius.md, padding: 14, minHeight: 96, textAlignVertical: 'top' }]}
               />
+              <Text style={[type(11.5, 600), { color: c.muted, textAlign: 'right', marginTop: 6 }]}>{text.length}/1800</Text>
             </Block>
           </>
         ) : (
