@@ -34,6 +34,24 @@ function today(): Date { const d = new Date(); return new Date(Date.UTC(d.getUTC
 function addDays(d: Date, n: number): Date { const x = new Date(d); x.setUTCDate(x.getUTCDate() + n); return x; }
 function iso(d: Date): string { return d.toISOString().slice(0, 10); }
 
+async function existingBoxResponse(db: any, subscriptionId: string, fallbackDate: string) {
+  const { count, error: itemError } = await db.from('subscription_box_items')
+    .select('meal_id', { count: 'exact', head: true }).eq('subscription_id', subscriptionId);
+  if (itemError) throw itemError;
+  if (!count) throw new Error('existing_box_has_no_items');
+  await db.rpc('advance_cycles');
+  const { data: cycle } = await db.from('subscription_cycles')
+    .select('id, delivery_date, billing_date, selection_deadline, status')
+    .eq('subscription_id', subscriptionId).order('cycle_start', { ascending: true }).limit(1).maybeSingle();
+  return {
+    subscriptionId, status: 'active', cycleId: cycle?.id ?? null,
+    firstDeliveryDate: cycle?.delivery_date ?? fallbackDate,
+    firstBillingDate: cycle?.billing_date ?? null,
+    selectionDeadline: cycle?.selection_deadline ?? null,
+    firstCycleSkipped: cycle?.status === 'skipped', recovered: true,
+  };
+}
+
 const input = z.object({
   items: z.array(z.object({ mealId: z.string().uuid(), qty: z.number().int().min(1).max(20) })).min(2).max(30),
   paymentMethodId: z.string().min(3).max(120).optional(),
@@ -87,9 +105,10 @@ Deno.serve(async (req) => {
     // One box per customer (audit Medium finding): a double-submit used to create two
     // independently-billed box subscriptions. This pre-check gives a clean message in the common
     // case; the actual race is closed by a DB-level partial unique index (caught below on insert).
-    const { data: existingBox } = await db.from('subscriptions').select('id')
+    const { data: existingBox } = await db.from('subscriptions').select('id, lifecycle, billing_anchor')
       .eq('customer_id', uid).eq('kind', 'box').not('lifecycle', 'in', '(cancelled,completed)').maybeSingle();
-    if (existingBox) return json(409, { error: 'You already have an active box. Manage it from Experiences → My Plans.' });
+    if (existingBox?.lifecycle === 'active') return json(200, await existingBoxResponse(db, existingBox.id, existingBox.billing_anchor));
+    if (existingBox) return json(409, { error: 'You already have a box that needs attention. Manage it from My Plans.' });
 
     const stripeCustomerId = await getOrCreateCustomer(db, uid, email);
     let pmId = inp.paymentMethodId;
@@ -113,7 +132,12 @@ Deno.serve(async (req) => {
     if (sErr) {
       // 23505 = unique_violation -- the partial index caught a genuine race (two near-simultaneous
       // submits both passed the pre-check above before either committed).
-      if ((sErr as any).code === '23505') return json(409, { error: 'You already have an active box. Manage it from Experiences → My Plans.' });
+      if ((sErr as any).code === '23505') {
+        const { data: raced } = await db.from('subscriptions').select('id, lifecycle, billing_anchor')
+          .eq('customer_id', uid).eq('kind', 'box').not('lifecycle', 'in', '(cancelled,completed)').maybeSingle();
+        if (raced?.lifecycle === 'active') return json(200, await existingBoxResponse(db, raced.id, raced.billing_anchor));
+        return json(409, { error: 'You already have a box that needs attention. Manage it from My Plans.' });
+      }
       throw sErr;
     }
     const subId = sub.id as string;
@@ -129,7 +153,11 @@ Deno.serve(async (req) => {
       .select('id, delivery_date, billing_date, selection_deadline').eq('subscription_id', subId)
       .order('cycle_start', { ascending: true }).limit(1).maybeSingle();
 
-    return json(200, { subscriptionId: subId, status: 'active', cycleId: cycle?.id ?? null, firstDeliveryDate: cycle?.delivery_date ?? iso(start) });
+    return json(200, {
+      subscriptionId: subId, status: 'active', cycleId: cycle?.id ?? null,
+      firstDeliveryDate: cycle?.delivery_date ?? iso(start), firstBillingDate: cycle?.billing_date ?? null,
+      selectionDeadline: cycle?.selection_deadline ?? null,
+    });
   } catch (_e) {
     return json(500, { error: 'Could not create your box. Please try again.' });
   }

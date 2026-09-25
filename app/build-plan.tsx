@@ -57,6 +57,7 @@ export default function BuildPlanFlow() {
         items: selected.map((m) => ({ mealId: m.mealUuid!, qty: 1 })),
         paymentMethodId: pmId, fulfillment: 'delivery', startDate: startIso, preferredDay: startDay,
       });
+      if (res.recovered) toast('Your existing box was recovered.', 'check', true);
       setResult({ firstDeliveryDate: res.firstDeliveryDate, count });
       setStage('done');
     } catch (e: any) {

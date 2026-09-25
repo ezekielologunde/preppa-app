@@ -660,6 +660,17 @@ begin
   end if;
 end $$;
 
+do $$
+begin
+  if not exists (
+    select 1 from pg_indexes where schemaname='public' and tablename='subscriptions'
+      and indexname='subscriptions_one_active_plan_per_customer'
+      and indexdef ~ 'customer_id, plan_id' and indexdef ~ 'cancelled' and indexdef ~ 'completed'
+  ) then
+    raise exception 'REGRESSION: concurrent active plan subscription guard is missing';
+  end if;
+end $$;
+
 rollback;
 
 select 'all regression checks passed' as result;

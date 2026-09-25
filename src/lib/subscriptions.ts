@@ -316,6 +316,7 @@ export interface SubscribeResult {
   subscriptionId: string; status: string; cycleId: string | null;
   firstDeliveryDate: string | null; firstBillingDate: string | null; selectionDeadline: string | null;
   firstCycleSkipped?: boolean; // this cook was already at capacity for the first delivery date
+  recovered?: boolean; // the server recovered a prior successful signup after a lost response
 }
 
 /** Subscribe to a plan (app-controlled; no charge now — each cycle bills at its billing date). */

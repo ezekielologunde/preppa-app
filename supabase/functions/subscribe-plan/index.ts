@@ -38,6 +38,20 @@ function today(): Date { const d = new Date(); return new Date(Date.UTC(d.getUTC
 function addDays(d: Date, n: number): Date { const x = new Date(d); x.setUTCDate(x.getUTCDate() + n); return x; }
 function iso(d: Date): string { return d.toISOString().slice(0, 10); }
 
+async function subscriptionResponse(db: any, subscriptionId: string, fallbackDate: string, recovered = false) {
+  await db.rpc('advance_cycles');
+  const { data: cycle } = await db.from('subscription_cycles')
+    .select('id, delivery_date, billing_date, selection_deadline, status')
+    .eq('subscription_id', subscriptionId).order('cycle_start', { ascending: true }).limit(1).maybeSingle();
+  return {
+    subscriptionId, status: 'active', cycleId: cycle?.id ?? null,
+    firstDeliveryDate: cycle?.delivery_date ?? fallbackDate,
+    firstBillingDate: cycle?.billing_date ?? null,
+    selectionDeadline: cycle?.selection_deadline ?? null,
+    firstCycleSkipped: cycle?.status === 'skipped', recovered,
+  };
+}
+
 const input = z.object({
   planId: z.string().uuid(),
   paymentMethodId: z.string().min(3).max(120).optional(),
@@ -99,10 +113,13 @@ Deno.serve(async (req) => {
     if (!orderable) return json(409, { error: 'This kitchen is not taking new plan subscribers right now.' });
 
     // one active subscription per plan
-    const { data: dupe } = await db.from('subscriptions').select('id')
+    const { data: dupe } = await db.from('subscriptions').select('id, lifecycle, billing_anchor')
       .eq('customer_id', uid).eq('plan_id', plan.id)
       .in('lifecycle', ['draft', 'pending_confirmation', 'active', 'paused', 'payment_failed']).maybeSingle();
-    if (dupe) return json(409, { error: "You're already subscribed to this plan.", code: 'already_subscribed' });
+    if (dupe?.lifecycle === 'active') {
+      return json(200, await subscriptionResponse(db, dupe.id, dupe.billing_anchor, true));
+    }
+    if (dupe) return json(409, { error: "You're already subscribed to this plan. Manage it from My Plans.", code: 'already_subscribed' });
 
     // require a saved card (charged later, per cycle)
     const stripeCustomerId = await getOrCreateCustomer(db, uid, email);
@@ -131,7 +148,15 @@ Deno.serve(async (req) => {
       stripe_payment_method_id: pmId, preferred_day: inp.preferredDay ?? null,
       trial_cycles_remaining: trialCycles,
     }).select('id').single();
-    if (sErr) throw sErr;
+    if (sErr) {
+      if ((sErr as any).code === '23505') {
+        const { data: raced } = await db.from('subscriptions').select('id, lifecycle, billing_anchor')
+          .eq('customer_id', uid).eq('plan_id', plan.id).not('lifecycle', 'in', '(cancelled,completed)').maybeSingle();
+        if (raced?.lifecycle === 'active') return json(200, await subscriptionResponse(db, raced.id, raced.billing_anchor, true));
+        return json(409, { error: "You're already subscribed to this plan. Manage it from My Plans.", code: 'already_subscribed' });
+      }
+      throw sErr;
+    }
     const subId = sub.id as string;
 
     // preferences (customer-provided, not medical)
@@ -163,16 +188,7 @@ Deno.serve(async (req) => {
       }
     }
 
-    return json(200, {
-      subscriptionId: subId, status: 'active',
-      cycleId: cycle?.id ?? null,
-      firstDeliveryDate: cycle?.delivery_date ?? iso(start),
-      firstBillingDate: cycle?.billing_date ?? null,
-      selectionDeadline: cycle?.selection_deadline ?? null,
-      // this cook was already at capacity for the first delivery date -- the subscription
-      // is still created (auto-retries next cycle) but the client should say so honestly.
-      firstCycleSkipped: cycle?.status === 'skipped',
-    });
+    return json(200, await subscriptionResponse(db, subId, iso(start)));
   } catch (_e) {
     return json(500, { error: 'Could not start your plan. Please try again.' });
   }

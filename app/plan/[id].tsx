@@ -109,6 +109,7 @@ function RealPlanDetail({ plan }: { plan: Plan }) {
         preferredDay: startDay,
         selection: selModel === 'customer_choice' ? selectedItems.map((i) => ({ mealId: i.mealId!, qty: i.qty })) : undefined,
       });
+      if (res.recovered) toast('Your existing subscription was recovered.', 'check', true);
       setResult({ firstDeliveryDate: res.firstDeliveryDate, firstCycleSkipped: res.firstCycleSkipped });
       setStage('done');
     } catch (e: any) {
