@@ -1,4 +1,4 @@
-import React, { useCallback, useState } from 'react';
+import React, { useCallback, useRef, useState } from 'react';
 import { View, Text, ScrollView, TextInput, ActivityIndicator } from 'react-native';
 import { useRouter, useFocusEffect } from 'expo-router';
 import { useC } from '../../src/theme/ThemeContext';
@@ -26,19 +26,30 @@ export default function MenuScreen() {
   const [error, setError] = useState<string | null>(null);
   const [busyId, setBusyId] = useState<string | null>(null);
   const [editing, setEditing] = useState<MyMealRow | null>(null);
+  const loadSequence = useRef(0);
+  const mealActionInFlight = useRef<string | null>(null);
 
-  const load = useCallback(() => {
-    setMeals(null);
+  const load = useCallback(async () => {
+    const sequence = ++loadSequence.current;
     setError(null);
-    fetchMyMeals().then(setMeals).catch((e) => setError(e?.message || 'Could not load your menu.'));
+    try {
+      const nextMeals = await fetchMyMeals();
+      if (sequence === loadSequence.current) setMeals(nextMeals);
+    } catch {
+      if (sequence === loadSequence.current) setError('Check your connection and try loading your menu again.');
+    }
   }, []);
-  useFocusEffect(useCallback(() => { load(); }, [load]));
+  useFocusEffect(useCallback(() => {
+    void load();
+    return () => { loadSequence.current += 1; };
+  }, [load]));
 
   const live = (meals ?? []).filter((m) => m.status === 'live').length;
 
   const cycleStatus = async (m: MyMealRow) => {
-    if (busyId) return;
+    if (mealActionInFlight.current) return;
     const next: RealMealStatus = m.status === 'live' ? 'paused' : 'live';
+    mealActionInFlight.current = m.id;
     setBusyId(m.id);
     try {
       await setMealStatus(m.id, next);
@@ -47,12 +58,14 @@ export default function MenuScreen() {
     } catch (e: any) {
       toast(e?.message || 'Could not update this dish.', 'info');
     } finally {
+      mealActionInFlight.current = null;
       setBusyId(null);
     }
   };
 
   const archive = async (m: MyMealRow) => {
-    if (busyId) return;
+    if (mealActionInFlight.current) return;
+    mealActionInFlight.current = m.id;
     setBusyId(m.id);
     try {
       await setMealStatus(m.id, 'archived');
@@ -61,10 +74,12 @@ export default function MenuScreen() {
     } catch (e: any) {
       toast(e?.message || 'Could not archive this dish.', 'info');
     } finally {
+      mealActionInFlight.current = null;
       setBusyId(null);
     }
   };
   const requestArchive = (m: MyMealRow) => {
+    if (mealActionInFlight.current) return;
     confirmAction(
       `Archive ${m.name}?`,
       'Customers will no longer see or order this dish. Existing orders keep their saved item details.',
@@ -79,20 +94,27 @@ export default function MenuScreen() {
       <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={{ paddingTop: 14, paddingBottom: 40, maxWidth: 1040, alignSelf: 'center', width: '100%' }}>
         {meals === null && !error ? (
           <View style={{ paddingVertical: 40, alignItems: 'center' }}><ActivityIndicator color={c.primary} /></View>
-        ) : error ? (
+        ) : error && meals === null ? (
           <View accessibilityRole="alert" style={{ alignItems: 'center', paddingHorizontal: 24, paddingVertical: 40 }}>
             <Icon name="info" size={28} color={c.red} />
             <Text style={[type(16, 900), { color: c.ink, marginTop: 12 }]}>Menu couldn’t load</Text>
             <Text style={[type(13, 600), { color: c.soft, textAlign: 'center', lineHeight: 20, marginTop: 6, marginBottom: 16 }]}>{error}</Text>
             <Btn label="Try again" icon="repeat" onPress={load} />
           </View>
-        ) : meals!.length === 0 ? (
+        ) : meals!.length === 0 && !error ? (
           <View style={{ paddingHorizontal: 20, paddingVertical: 30, alignItems: 'center' }}>
             <Text style={[type(15, 800), { color: c.ink }]}>No dishes yet</Text>
             <Text style={[type(13, 600), { color: c.soft, marginTop: 6, textAlign: 'center' }]}>Add your first meal to start taking orders.</Text>
           </View>
         ) : (
           <>
+            {error ? (
+              <View accessibilityRole="alert" style={{ marginHorizontal: 20, marginBottom: 14, borderWidth: 1, borderColor: c.red, backgroundColor: c.redL, borderRadius: radius.lg, padding: 14 }}>
+                <Text style={[type(13.5, 900), { color: c.ink }]}>Couldn’t refresh your menu</Text>
+                <Text style={[type(12.5, 600), { color: c.soft, marginTop: 4, lineHeight: 18 }]}>{error} Your current dishes are still shown.</Text>
+                <View style={{ marginTop: 10, alignSelf: 'flex-start' }}><KBtn label="Try again" variant="ghost" icon="repeat" onPress={load} /></View>
+              </View>
+            ) : null}
             <Text style={[type(13, 600), { color: c.soft, paddingHorizontal: 20, paddingBottom: 8 }]}>{live} live · {meals!.length} total dishes</Text>
             {meals!.map((m) => {
               const p = statusPill(c, m.status);

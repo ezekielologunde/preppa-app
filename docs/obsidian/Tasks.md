@@ -8,6 +8,8 @@ tags: [project/preppa, type/tasks]
 
 # Tasks
 
+- [x] Harden cook menu operations: sequence focus refreshes, preserve visible dishes through refresh failures, provide inline accessible recovery, and synchronously lock meal status and archive actions (2026-09-25)
+
 - [x] Keep the cook order queue usable through failed refreshes: sequence focus loads, retain the current order list with an accessible retry alert, and give each order row a complete spoken label (2026-09-25)
 
 - [x] Harden cook request refreshes and quote validation: sequence focus loads, preserve current bookings on refresh failure, match the server's price, deposit, and 1,000-character note limits, and expose recovery status accessibly (2026-09-25)
