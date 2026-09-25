@@ -2,6 +2,7 @@ import React, { useCallback, useEffect, useRef, useState } from 'react';
 import { View, Text, ScrollView, ActivityIndicator, TextInput, Modal, Pressable, KeyboardAvoidingView, Platform, Image } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useLocalSearchParams, useRouter } from 'expo-router';
+import * as ImagePicker from 'expo-image-picker';
 import { useC } from '../../src/theme/ThemeContext';
 import { type, radius, shadow } from '../../src/theme/theme';
 import { useStore } from '../../src/store/store';
@@ -178,10 +179,11 @@ export default function ThreadView() {
     } finally { sendInFlight.current = false; setSending(false); }
   };
 
-  const sendAttachment = async (file: Blob) => {
+  const sendAttachment = async (file: Blob, localPreview?: string) => {
     if (sendInFlight.current) return;
     const tempId = `temp-${Date.now()}`;
-    const tempUrl = URL.createObjectURL(file);
+    const tempUrl = localPreview ?? URL.createObjectURL(file);
+    const revokePreview = !localPreview;
     sendInFlight.current = true;
     const optimistic: Message = {
       id: tempId, threadId, senderId: meIdRef.current ?? 'me', senderRole: header?.iAmCook ? 'kitchen' : 'customer',
@@ -199,19 +201,42 @@ export default function ThreadView() {
     } catch {
       setMsgs((m) => m.filter((x) => x.id !== tempId));
       toast('Could not send the photo. Please try again.', 'info');
-    } finally { sendInFlight.current = false; setSending(false); URL.revokeObjectURL(tempUrl); }
+    } finally {
+      sendInFlight.current = false;
+      setSending(false);
+      if (revokePreview) URL.revokeObjectURL(tempUrl);
+    }
   };
 
-  // Web-only picker (matches the pattern used for plan/meal cover uploads elsewhere).
-  const pickAttachment = () => {
-    if (Platform.OS !== 'web' || typeof document === 'undefined') return;
-    const input = document.createElement('input');
-    input.type = 'file'; input.accept = 'image/*';
-    input.onchange = () => {
-      const f = (input.files || [])[0];
-      if (f) sendAttachment(f);
-    };
-    input.click();
+  const pickAttachment = async () => {
+    if (Platform.OS === 'web' && typeof document !== 'undefined') {
+      const input = document.createElement('input');
+      input.type = 'file'; input.accept = 'image/*';
+      input.onchange = () => {
+        const f = (input.files || [])[0];
+        if (f) void sendAttachment(f);
+      };
+      input.click();
+      return;
+    }
+    try {
+      const permission = await ImagePicker.requestMediaLibraryPermissionsAsync();
+      if (!permission.granted) {
+        toast('Photo library access is off. Enable it in Settings to attach a photo.', 'info');
+        return;
+      }
+      const result = await ImagePicker.launchImageLibraryAsync({
+        mediaTypes: ['images'],
+        allowsEditing: false,
+        quality: 0.85,
+      });
+      if (result.canceled || !result.assets?.[0]) return;
+      const response = await fetch(result.assets[0].uri);
+      if (!response.ok) throw new Error('PHOTO_READ_FAILED');
+      await sendAttachment(await response.blob(), result.assets[0].uri);
+    } catch {
+      toast('Could not open that photo. Please try another.', 'info');
+    }
   };
 
   const doBlock = async (blocked: boolean) => {
@@ -328,13 +353,11 @@ export default function ThreadView() {
             </View>
           ) : (
             <View style={{ backgroundColor: c.surface, borderTopWidth: 1, borderTopColor: c.border2, flexDirection: 'row', alignItems: 'flex-end', gap: 10, padding: 12, paddingBottom: Math.max(insets.bottom, 12) }}>
-              {Platform.OS === 'web' ? (
-                <Press scale={0.94} onPress={pickAttachment} disabled={sending} label="Attach photo">
-                  <View style={{ width: 48, height: 48, borderRadius: radius.md, backgroundColor: c.bg2, alignItems: 'center', justifyContent: 'center' }}>
-                    <Icon name="camera" size={19} color={c.ink} />
-                  </View>
-                </Press>
-              ) : null}
+              <Press scale={0.94} onPress={pickAttachment} disabled={sending} label="Attach photo">
+                <View style={{ width: 48, height: 48, borderRadius: radius.md, backgroundColor: c.bg2, alignItems: 'center', justifyContent: 'center' }}>
+                  <Icon name="camera" size={19} color={c.ink} />
+                </View>
+              </Press>
               <View style={{ flex: 1, minHeight: 48, maxHeight: 120, borderRadius: radius.md, backgroundColor: c.bg2, justifyContent: 'center', paddingHorizontal: 16, paddingVertical: 6 }}>
                 <TextInput
                   value={text}
