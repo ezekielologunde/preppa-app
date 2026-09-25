@@ -1,4 +1,4 @@
-import React, { useEffect, useState, useCallback } from 'react';
+import React, { useEffect, useRef, useState, useCallback } from 'react';
 import { View, Text, ScrollView, ActivityIndicator, Switch } from 'react-native';
 import { useRouter } from 'expo-router';
 import { useC } from '../../src/theme/ThemeContext';
@@ -30,8 +30,12 @@ export default function MoneyScreen() {
   const [autoEnabled, setAutoEnabled] = useState(true);
   const [loading, setLoading] = useState(true);
   const [busy, setBusy] = useState(false);
+  const [accountAction, setAccountAction] = useState<'onboarding' | 'dashboard' | null>(null);
   const [autoSaving, setAutoSaving] = useState(false);
   const [loadError, setLoadError] = useState<string | null>(null);
+  const cashOutInFlight = useRef(false);
+  const accountActionInFlight = useRef(false);
+  const autoSaveInFlight = useRef(false);
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -58,13 +62,20 @@ export default function MoneyScreen() {
   useEffect(() => { load(); }, [load]);
 
   const onboard = async () => {
-    if (!kitchenId) return;
+    if (!kitchenId || accountActionInFlight.current) return;
+    accountActionInFlight.current = true;
+    setAccountAction('onboarding');
     try { await startConnectOnboarding(kitchenId); }
     catch (e: any) { toast(e?.message || 'Couldn’t start payout setup — try again.', 'info'); }
+    finally {
+      accountActionInFlight.current = false;
+      setAccountAction(null);
+    }
   };
   const doCashOut = async () => {
-    if (!kitchenId || busy) return;
+    if (!kitchenId || cashOutInFlight.current) return;
     if (summary.availableCents <= 0) { toast('Nothing to cash out yet', 'info'); return; }
+    cashOutInFlight.current = true;
     setBusy(true);
     try {
       const result = await cashOut(kitchenId);
@@ -76,26 +87,38 @@ export default function MoneyScreen() {
       await load();
     } catch (e: any) {
       toast(e?.message || 'Payout failed — try again.', 'info');
-    } finally { setBusy(false); }
+    } finally {
+      cashOutInFlight.current = false;
+      setBusy(false);
+    }
   };
   const manageBank = async () => {
-    if (!kitchenId) return;
+    if (!kitchenId || accountActionInFlight.current) return;
+    accountActionInFlight.current = true;
+    setAccountAction('dashboard');
     try {
       const opened = await openPayoutDashboard(kitchenId);
       if (!opened) await startConnectOnboarding(kitchenId);
     } catch (e: any) {
       toast(e?.message || 'Couldn’t open your payout dashboard — try again.', 'info');
+    } finally {
+      accountActionInFlight.current = false;
+      setAccountAction(null);
     }
   };
   const toggleAuto = async (next: boolean) => {
-    if (!kitchenId || autoSaving) return;
+    if (!kitchenId || autoSaveInFlight.current) return;
+    autoSaveInFlight.current = true;
     setAutoSaving(true);
     setAutoEnabled(next);
     try { await setPayoutPreferences(kitchenId, next, 2000); }
     catch (e: any) {
       setAutoEnabled(!next);
       toast(e?.message || 'Couldn’t update automatic payouts.', 'info');
-    } finally { setAutoSaving(false); }
+    } finally {
+      autoSaveInFlight.current = false;
+      setAutoSaving(false);
+    }
   };
 
   const payoutsReady = !!status?.payoutsEnabled;
@@ -134,8 +157,8 @@ export default function MoneyScreen() {
                     <Icon name="shield" size={16} color={c.green} />
                     <Text style={[type(13.5, 800), { color: c.green }]}>Identity verified · payouts enabled</Text>
                   </View>
-                  <KBtn label={busy ? 'Paying out…' : `Cash out ${money(summary.availableCents / 100)}`} variant="pri" block icon="bank" onPress={doCashOut} style={{ opacity: summary.availableCents > 0 && !busy ? 1 : 0.5 }} />
-                  <KBtn label="Manage bank account" variant="ghost" block icon="card" onPress={manageBank} />
+                  <KBtn label={busy ? 'Paying out…' : `Cash out ${money(summary.availableCents / 100)}`} variant="pri" block icon="bank" onPress={doCashOut} disabled={summary.availableCents <= 0 || busy} />
+                  <KBtn label={accountAction === 'dashboard' ? 'Opening Stripe…' : 'Manage bank account'} variant="ghost" block icon="card" onPress={manageBank} disabled={accountAction !== null} />
 
                   <View style={{ backgroundColor: c.surface, borderWidth: 1, borderColor: c.border2, borderRadius: 18, padding: 16, marginTop: 6, flexDirection: 'row', alignItems: 'center', gap: 12 }}>
                     <View style={{ flex: 1 }}>
@@ -162,8 +185,8 @@ export default function MoneyScreen() {
                       <Text style={[type(12.5, 600), { color: c.soft, marginTop: 2, lineHeight: 17 }]}>Secure Stripe setup — you don’t need your own Stripe account.</Text>
                     </View>
                   </View>
-                  <KBtn label={status?.detailsSubmitted ? 'Continue setup' : 'Set up payouts'} variant="pri" block icon="card" onPress={onboard} />
-                  {status?.detailsSubmitted ? <KBtn label="Refresh status" variant="ghost" sm onPress={load} /> : null}
+                  <KBtn label={accountAction === 'onboarding' ? 'Opening Stripe…' : status?.detailsSubmitted ? 'Continue setup' : 'Set up payouts'} variant="pri" block icon="card" onPress={onboard} disabled={accountAction !== null} />
+                  {status?.detailsSubmitted ? <KBtn label="Refresh status" variant="ghost" sm onPress={load} disabled={accountAction !== null} /> : null}
                 </View>
               )}
             </View>

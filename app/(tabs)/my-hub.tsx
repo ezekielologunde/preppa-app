@@ -130,13 +130,13 @@ export function KPill({ label, bg, fg, dot }: { label: string; bg: string; fg: s
 }
 
 /* ---------- small pill button ---------- */
-export function KBtn({ label, variant = 'pri', sm, block, icon, onPress, flex, style, height }: { label: string; variant?: 'pri' | 'dark' | 'ghost'; sm?: boolean; block?: boolean; icon?: string; onPress?: () => void; flex?: number; style?: StyleProp<ViewStyle>; height?: number }) {
+export function KBtn({ label, variant = 'pri', sm, block, icon, onPress, flex, style, height, disabled = false }: { label: string; variant?: 'pri' | 'dark' | 'ghost'; sm?: boolean; block?: boolean; icon?: string; onPress?: () => void; flex?: number; style?: StyleProp<ViewStyle>; height?: number; disabled?: boolean }) {
   const c = useC();
   const bg = variant === 'pri' ? c.primary : variant === 'dark' ? c.ink : c.bg2;
   const fg = variant === 'ghost' ? c.ink : variant === 'dark' ? c.surface : '#fff';
   const h = height ?? (block ? 48 : sm ? 32 : 36);
   return (
-    <Press scale={0.94} onPress={onPress} style={[block ? { width: '100%' } : null, flex ? { flex } : null, style]}>
+    <Press scale={0.94} onPress={onPress} disabled={disabled} style={[block ? { width: '100%' } : null, flex ? { flex } : null, disabled ? { opacity: 0.5 } : null, style]}>
       <View style={{ height: h, paddingHorizontal: sm ? 12 : 16, borderRadius: radius.pill, backgroundColor: bg, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 6, ...(variant === 'pri' ? shadow.brand : {}) }}>
         {icon ? <Icon name={icon} size={sm ? 14 : 16} color={fg} /> : null}
         <Text style={[type(block ? 15 : sm ? 12.5 : 13, 800), { color: fg }]}>{label}</Text>

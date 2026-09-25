@@ -87,6 +87,7 @@ tags: [project/preppa, type/launch-plan]
 - Live meal cards now carry the kitchen's current delivery and pickup capabilities into cart and reorder state. Checkout disables unavailable fulfillment choices, automatically moves a stale global selection to the kitchen's valid option, and the order function independently rejects disabled methods.
 - Cook order detail now reads the authoritative payment status from its owner-scoped RPC. Unpaid deep links show a prominent wait-for-payment warning and cannot expose preparation, completion, or refund actions until payment is confirmed.
 - The owner-scoped `update_order_status` RPC now independently requires `pay_status = paid` before any preparation, ready, delivery, pickup, or completion transition. SQL regressions pin both the payment-status detail field and the server-side fulfillment guard.
+- Cook payout setup and bank-management actions now allow only one Stripe account session request at a time. Cash out and shared hub buttons expose real disabled semantics, so unavailable or in-progress financial controls cannot be retriggered by rapid taps, keyboard input, or assistive technology.
 
 ### Customer acceptance evidence still needed
 

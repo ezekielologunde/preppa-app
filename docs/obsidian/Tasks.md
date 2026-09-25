@@ -10,6 +10,8 @@ tags: [project/preppa, type/tasks]
 
 Part of [[Project]]. Outstanding work discovered during the audit — not a sprint backlog, a snapshot.
 
+- [x] Serialize Stripe Connect onboarding and dashboard launches, and give unavailable or in-progress payout actions real disabled semantics (2026-09-25).
+
 ## Competitive gap analysis: Shef (2026-09-09)
 
 Shef (shef.com) is the closest direct competitor — a home-cook meal marketplace, $142M raised (incl. a $73.5M Series B), operating/recruiting cooks nationwide since 2023. Researched via public web sources (help center, press, App Store/Trustpilot reviews, one investigative piece) — not a code audit, and several figures below are single-sourced or conflicting; verify before treating as fact. Sources noted inline.
