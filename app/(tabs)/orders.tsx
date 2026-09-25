@@ -15,6 +15,7 @@ const STATUS: Record<CustomerOrder['status'], { label: string; bg: (c: any) => s
   preparing: { label: 'Preparing', bg: (c) => c.primaryL, fg: (c) => c.primaryD },
   ready: { label: 'Ready', bg: (c) => c.greenL, fg: (c) => c.green },
   completed: { label: 'Completed', bg: (c) => c.bg2, fg: (c) => c.soft },
+  cancelled: { label: 'Cancelled', bg: (c) => c.redL, fg: (c) => c.red },
 };
 
 /** Unified activity: meal orders + service bookings. (Weekly plans live under Experiences → My Plans.) */
@@ -37,7 +38,7 @@ export default function Orders() {
   }, []);
   useFocusEffect(useCallback(() => { load(); }, [load]));
   useFocusEffect(useCallback(() => {
-    orders.filter((o) => o.dbId && o.status !== 'completed').forEach((o) => refreshOrderStatus(o.id));
+    orders.filter((o) => o.dbId && o.status !== 'completed' && o.status !== 'cancelled').forEach((o) => { void refreshOrderStatus(o.id); });
   }, [orders, refreshOrderStatus]));
 
   const cancelExp = async (b: BookingView) => {

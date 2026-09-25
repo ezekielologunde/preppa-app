@@ -58,7 +58,7 @@ export interface CustomerOrder {
   total: number;
   mode: 'delivery' | 'pickup';
   flow: OrderFlow;
-  status: 'preparing' | 'ready' | 'completed';
+  status: 'preparing' | 'ready' | 'completed' | 'cancelled';
   when: string;
 }
 const SEED_ORDERS: CustomerOrder[] = [
@@ -150,7 +150,7 @@ interface Store {
   placeOrder: (flow: OrderFlow, cook?: string, dbId?: string, taxCents?: number) => void;
   orders: CustomerOrder[];
   reorder: (id: string) => void;
-  refreshOrderStatus: (id: string) => void;
+  refreshOrderStatus: (id: string) => Promise<boolean>;
 
   subscription: Subscription | null;
   subscribe: (s: Subscription) => void;
@@ -495,17 +495,21 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
     toast(`Added to cart · ${lines.length} item${lines.length !== 1 ? 's' : ''}`, 'cart', true);
   }, [orders, addToCart, toast, isMine]);
   // Pulls the real fulfillment status for a real (dbId-backed) order and patches it into local state.
-  const refreshOrderStatus = useCallback((id: string) => {
+  const refreshOrderStatus = useCallback(async (id: string) => {
     const o = orders.find((x) => x.id === id);
-    if (!o?.dbId || o.status === 'completed') return;
-    fetchOrderStatus(o.dbId).then((row) => {
-      if (!row) return;
+    if (!o?.dbId || o.status === 'completed' || o.status === 'cancelled') return true;
+    try {
+      const row = await fetchOrderStatus(o.dbId);
+      if (!row) return true;
       const next: CustomerOrder['status'] | null =
         row.status === 'ready' ? 'ready' : row.status === 'completed' ? 'completed'
         : row.status === 'preparing' || row.status === 'confirmed' || row.status === 'pending' ? 'preparing'
-        : null; // cancelled or unrecognized: leave display as-is
+        : row.status === 'cancelled' ? 'cancelled' : null;
       if (next && next !== o.status) setOrders((os) => os.map((x) => (x.id === id ? { ...x, status: next } : x)));
-    }).catch(() => {});
+      return true;
+    } catch {
+      return false;
+    }
   }, [orders]);
 
   const resetOnboarding = useCallback(() => setOnboardedState(false), []);

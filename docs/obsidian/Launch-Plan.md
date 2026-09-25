@@ -27,6 +27,7 @@ tags: [project/preppa, type/launch-plan]
 - OTP resend now shows success and starts its cooldown only after the resend request succeeds; failures remain retryable and visible instead of being reported as a sent code.
 - Customer experience browsing, kitchen feeds, message lists and threads, support history, and experience review loading now recover from request failures. Cook experience, meal-plan, service-request, subscriber/prep, and admin experience-review queues also distinguish load failures from legitimate empty queues.
 - Customer orders and request detail, cook order detail, and shared post detail distinguish transient load failures from empty or missing records and provide retry recovery.
+- Customer order detail now preserves the real order and kitchen identifiers when opening live tracking, represents cancelled orders honestly, and warns when status refresh fails instead of showing a false live state.
 
 ### Customer acceptance evidence still needed
 

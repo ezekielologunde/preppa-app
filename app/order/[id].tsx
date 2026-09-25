@@ -21,8 +21,14 @@ export default function OrderDetail() {
   const { id } = useLocalSearchParams<{ id: string }>();
   const { orders, reorder, toast, refreshOrderStatus } = useStore();
   const o = orders.find((x) => x.id === id);
+  const [refreshError, setRefreshError] = useState(false);
 
-  useFocusEffect(useCallback(() => { if (id) refreshOrderStatus(id); }, [id, refreshOrderStatus]));
+  const refresh = useCallback(async () => {
+    if (!id) return;
+    const ok = await refreshOrderStatus(id);
+    setRefreshError(!ok);
+  }, [id, refreshOrderStatus]);
+  useFocusEffect(useCallback(() => { void refresh(); }, [refresh]));
 
   if (!o) {
     return (
@@ -41,7 +47,7 @@ export default function OrderDetail() {
     catch (e: any) { toast(e?.message || 'Could not open chat', 'info'); }
   };
   const active = o.status === 'completed' ? 3 : o.status === 'ready' ? 2 : 1;
-  const headline = o.status === 'completed' ? (o.flow === 'cod' ? 'Completed · paid in cash' : 'Completed — enjoy!') : o.status === 'ready' ? (o.mode === 'pickup' ? 'Ready for pickup' : 'On its way') : 'Your cook is preparing';
+  const headline = o.status === 'cancelled' ? 'Order cancelled' : o.status === 'completed' ? (o.flow === 'cod' ? 'Completed · paid in cash' : 'Completed — enjoy!') : o.status === 'ready' ? (o.mode === 'pickup' ? 'Ready for pickup' : 'On its way') : 'Your cook is preparing';
 
   return (
     <Screen>
@@ -50,12 +56,19 @@ export default function OrderDetail() {
         <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }}>
           <Text style={[type(22, 900), { color: c.ink, letterSpacing: -0.7, flex: 1 }]}>{headline}</Text>
           {o.status !== 'completed' ? (
-            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6, height: 30, paddingHorizontal: 12, borderRadius: radius.pill, backgroundColor: c.greenL }}>
-              <View style={{ width: 7, height: 7, borderRadius: 4, backgroundColor: c.green }} />
-              <Text style={[type(12, 900), { color: c.green }]}>Live</Text>
+            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6, height: 30, paddingHorizontal: 12, borderRadius: radius.pill, backgroundColor: o.status === 'cancelled' || refreshError ? c.redL : c.greenL }}>
+              <View style={{ width: 7, height: 7, borderRadius: 4, backgroundColor: o.status === 'cancelled' || refreshError ? c.red : c.green }} />
+              <Text style={[type(12, 900), { color: o.status === 'cancelled' || refreshError ? c.red : c.green }]}>{o.status === 'cancelled' ? 'Cancelled' : refreshError ? 'Unavailable' : 'Live'}</Text>
             </View>
           ) : null}
         </View>
+
+        {refreshError ? (
+          <View accessibilityRole="alert" style={{ padding: 13, borderRadius: radius.md, backgroundColor: c.redL, borderWidth: 1, borderColor: c.red }}>
+            <Text style={[type(12.5, 700), { color: c.red, lineHeight: 18, marginBottom: 9 }]}>We couldn’t refresh this order. The status shown may be out of date.</Text>
+            <View style={{ alignSelf: 'flex-start' }}><Btn label="Try again" icon="repeat" variant="ghost" onPress={refresh} /></View>
+          </View>
+        ) : null}
 
         {/* cook card */}
         <Press scale={0.99} onPress={() => router.push(`/store/${o.cook}`)}>
@@ -77,7 +90,7 @@ export default function OrderDetail() {
         ) : null}
 
         {/* steps */}
-        {o.status !== 'completed' ? (
+        {o.status !== 'completed' && o.status !== 'cancelled' ? (
           <View style={{ backgroundColor: c.surface, borderRadius: radius.card, borderWidth: 1, borderColor: c.border2, padding: 16 }}>
             {STEPS.map((label, i) => {
               const done = i < active;
@@ -120,7 +133,7 @@ export default function OrderDetail() {
 
         <View style={{ flexDirection: 'row', gap: 10 }}>
           <Btn variant="ghost" icon="repeat" label="Reorder" flex={1} onPress={() => { reorder(o.id); router.push('/cart'); }} />
-          {o.status === 'completed' ? <Btn icon="star" label="Rate your cook" flex={1} onPress={() => router.push(`/review/${o.id}`)} /> : <Btn label="Track order" flex={1} onPress={() => router.push(`/track?flow=${o.flow}`)} />}
+          {o.status === 'completed' ? <Btn icon="star" label="Rate your cook" flex={1} onPress={() => router.push(`/review/${o.id}`)} /> : o.status === 'cancelled' ? null : <Btn label="Track order" flex={1} onPress={() => router.push(`/track?flow=${o.flow}&cook=${encodeURIComponent(o.cook)}${o.dbId ? `&orderId=${encodeURIComponent(o.dbId)}` : ''}`)} />}
         </View>
 
         {o.dbId ? <ReportIssue orderId={o.dbId} /> : null}
