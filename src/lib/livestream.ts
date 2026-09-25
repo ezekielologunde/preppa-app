@@ -1,4 +1,4 @@
-import { supabase } from './supabase';
+import { supabase, assertFunctionSuccess } from './supabase';
 
 /**
  * Mux-backed livestreaming. Preppa creates the Mux Live Stream server-side (live-start edge
@@ -19,7 +19,7 @@ export interface StartedStream {
  * retrievable again after this call returns. */
 export async function startLivestream(kitchenId: string, title?: string): Promise<StartedStream> {
   const { data, error } = await supabase.functions.invoke('live-start', { body: { kitchenId, title } });
-  if (error || data?.error) throw new Error(data?.error || error?.message || 'Could not start your live stream.');
+  await assertFunctionSuccess(data, error, 'Could not start your live stream.');
   return {
     livestreamId: data.livestreamId,
     rtmpUrl: data.rtmpUrl,
@@ -31,7 +31,7 @@ export async function startLivestream(kitchenId: string, title?: string): Promis
 /** End a live stream (owner-initiated; belt-and-suspenders alongside the Mux webhook). */
 export async function endLivestream(livestreamId: string): Promise<void> {
   const { data, error } = await supabase.functions.invoke('live-end', { body: { livestreamId } });
-  if (error || data?.error) throw new Error(data?.error || error?.message || 'Could not end the stream.');
+  await assertFunctionSuccess(data, error, 'Could not end the stream.');
 }
 
 export interface LiveStreamRow {
@@ -66,7 +66,8 @@ export async function fetchLiveNow(): Promise<LiveStreamRow[]> {
     .eq('status', 'live')
     .eq('kitchens.verification_status', 'verified')
     .order('started_at', { ascending: false });
-  if (error || !data) return [];
+  if (error) throw error;
+  if (!data) return [];
   return (data as any[]).map(mapRow);
 }
 

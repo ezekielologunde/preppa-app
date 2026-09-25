@@ -1,4 +1,4 @@
-import { supabase, assertLiveMoneyAllowed } from './supabase';
+import { supabase, assertLiveMoneyAllowed, assertFunctionSuccess } from './supabase';
 
 /**
  * Prepper-published Experience listings (cooking classes / supper clubs / private dinners) with
@@ -167,7 +167,7 @@ export interface UpsertExperienceInput {
 }
 export async function upsertExperience(input: UpsertExperienceInput): Promise<{ experienceId: string; status: string }> {
   const { data, error } = await supabase.functions.invoke('experience-upsert', { body: input });
-  if (error || data?.error) throw new Error(data?.error || error?.message || 'Could not save the experience.');
+  await assertFunctionSuccess(data, error, 'Could not save the experience.');
   return { experienceId: data.experienceId, status: data.status };
 }
 
@@ -183,7 +183,7 @@ export async function fetchAvailability(experienceId: string): Promise<Availabil
 export async function bookExperience(experienceId: string, sessionId: string, guests: number): Promise<{ bookingId: string; clientSecret: string | null; amountCents: number }> {
   assertLiveMoneyAllowed();
   const { data, error } = await supabase.functions.invoke('book-experience', { body: { experienceId, sessionId, guests } });
-  if (error || data?.error) throw new Error(data?.error || error?.message || 'Could not start your booking.');
+  await assertFunctionSuccess(data, error, 'Could not start your booking.');
   return { bookingId: data.bookingId, clientSecret: data.clientSecret, amountCents: data.amountCents };
 }
 
@@ -232,14 +232,14 @@ export async function leaveWaitlist(sessionId: string): Promise<void> {
 export async function cancelExperienceBooking(bookingId: string): Promise<{ refundedCents: number; status: string }> {
   assertLiveMoneyAllowed();
   const { data, error } = await supabase.functions.invoke('cancel-experience-booking', { body: { bookingId } });
-  if (error || data?.error) throw new Error(data?.error || error?.message || 'Could not cancel this booking.');
+  await assertFunctionSuccess(data, error, 'Could not cancel this booking.');
   return { refundedCents: data.refundedCents ?? 0, status: data.status };
 }
 /** Cook cancels one of their sessions — every live booking is fully refunded + customers notified. */
 export async function cancelExperienceSession(sessionId: string): Promise<{ cancelledBookings: number; refunded: number }> {
   assertLiveMoneyAllowed();
   const { data, error } = await supabase.functions.invoke('cancel-experience-session', { body: { sessionId } });
-  if (error || data?.error) throw new Error(data?.error || error?.message || 'Could not cancel the session.');
+  await assertFunctionSuccess(data, error, 'Could not cancel the session.');
   return { cancelledBookings: data.cancelledBookings ?? 0, refunded: data.refunded ?? 0 };
 }
 
@@ -247,7 +247,8 @@ export async function cancelExperienceSession(sessionId: string): Promise<{ canc
 /** Pending experiences awaiting review (admin-readable via RLS). */
 export async function fetchPendingExperiences(): Promise<Experience[]> {
   const { data, error } = await supabase.from('experiences').select(SELECT).eq('status', 'pending').order('created_at', { ascending: true });
-  if (error || !data) return [];
+  if (error) throw error;
+  if (!data) return [];
   return Promise.all((data as any[]).map(async (r) => rowToExperience(r, await sessionsFor(r.id))));
 }
 export async function adminSetExperienceStatus(experienceId: string, status: 'published' | 'archived' | 'paused'): Promise<void> {

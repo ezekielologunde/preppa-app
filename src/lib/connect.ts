@@ -1,5 +1,5 @@
 import { Platform } from 'react-native';
-import { supabase, assertLiveMoneyAllowed } from './supabase';
+import { supabase, assertLiveMoneyAllowed, assertFunctionSuccess } from './supabase';
 
 /**
  * Stripe Connect (Express) — Preppa is the payment hub. Cooks don't set up their own
@@ -43,7 +43,8 @@ export async function startConnectOnboarding(kitchenId: string): Promise<void> {
   const returnUrl = web ? `${window.location.origin}/my-hub?connect=return` : undefined;
   const refreshUrl = web ? `${window.location.origin}/my-hub?connect=refresh` : undefined;
   const { data, error } = await supabase.functions.invoke('connect-onboard', { body: { kitchenId, returnUrl, refreshUrl } });
-  if (error || !data?.url) throw new Error(data?.error || error?.message || 'Could not start payout setup.');
+  await assertFunctionSuccess(data, error, 'Could not start payout setup.');
+  if (!data?.url) throw new Error('Could not start payout setup.');
   const url = data.url as string;
   if (web) {
     window.location.href = url; // returns to /my-hub?connect=return
@@ -56,7 +57,7 @@ export async function startConnectOnboarding(kitchenId: string): Promise<void> {
 /** Sync + return the cook's Connect onboarding status from Stripe. */
 export async function refreshConnectStatus(kitchenId: string): Promise<ConnectStatus> {
   const { data, error } = await supabase.functions.invoke('connect-status', { body: { kitchenId } });
-  if (error || data?.error) throw new Error(data?.error || error?.message || 'Could not verify payout setup.');
+  await assertFunctionSuccess(data, error, 'Could not verify payout setup.');
   return {
     onboarded: !!data?.onboarded,
     chargesEnabled: !!data?.chargesEnabled,
@@ -78,7 +79,7 @@ export async function cashOut(kitchenId: string): Promise<CashOutResult> {
   assertLiveMoneyAllowed();
   const { data, error } = await supabase.functions.invoke('connect-payout', { body: { kitchenId } });
   if (data?.pending) return { amountCents: 0, pending: true };
-  if (error || data?.error) throw new Error(data?.error || error?.message || 'Payout failed.');
+  await assertFunctionSuccess(data, error, 'Payout failed.');
   return { amountCents: Number(data?.amountCents ?? 0), pending: false };
 }
 
@@ -154,7 +155,7 @@ export async function setPayoutPreferences(kitchenId: string, autoEnabled: boole
 export async function setStripePayoutSchedule(kitchenId: string, interval: 'daily' | 'weekly' | 'manual'): Promise<void> {
   assertLiveMoneyAllowed();
   const { data, error } = await supabase.functions.invoke('connect-payout-settings', { body: { kitchenId, interval } });
-  if (error || data?.error) throw new Error(data?.error || error?.message || 'Could not update payout schedule.');
+  await assertFunctionSuccess(data, error, 'Could not update payout schedule.');
 }
 
 /** Open the cook's Stripe Express Dashboard to manage their bank account/debit card. Returns
@@ -162,7 +163,7 @@ export async function setStripePayoutSchedule(kitchenId: string, interval: 'dail
  *  (caller should fall back to startConnectOnboarding). */
 export async function openPayoutDashboard(kitchenId: string): Promise<boolean> {
   const { data, error } = await supabase.functions.invoke('connect-dashboard-link', { body: { kitchenId } });
-  if (error || data?.error) throw new Error(data?.error || error?.message || 'Could not open your payout dashboard.');
+  await assertFunctionSuccess(data, error, 'Could not open your payout dashboard.');
   if (data?.needsOnboarding) return false;
   const url = data?.url as string;
   if (!url) throw new Error('Could not open your payout dashboard.');

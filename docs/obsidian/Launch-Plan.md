@@ -63,6 +63,7 @@ tags: [project/preppa, type/launch-plan]
 - Delivery addresses now preserve separate unit, city, state or region, postal code, and ISO country fields. Checkout rejects incomplete legacy rows and Stripe Tax receives the owner-verified saved delivery address instead of a broad client location.
 - Pickup checkout now requires a geocoded country before order creation, and failed area geocoding clears any stale prior country instead of silently reusing the wrong tax jurisdiction.
 - Payment and service clients now extract the JSON reason from failed Edge Function responses, preserving actionable checkout, saved-card, request, quote, booking, and refund messages instead of replacing them with a generic SDK failure.
+- The same Edge Function error handling now covers cook onboarding, payouts, order refunds, experiences, subscriptions, plan publishing, and livestream controls. Admin experience review and live-feed reads no longer convert backend failures into false empty states.
 
 ### Customer acceptance evidence still needed
 

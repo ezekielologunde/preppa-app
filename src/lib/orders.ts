@@ -4,7 +4,7 @@
  * `update_order_status` all re-check `is_kitchen_owner()` server-side; a non-owner session
  * gets empty reads and a rejected write regardless of what this client does.
  */
-import { supabase, assertLiveMoneyAllowed } from './supabase';
+import { supabase, assertLiveMoneyAllowed, assertFunctionSuccess } from './supabase';
 
 export type KitchenOrderStatus = 'confirmed' | 'preparing' | 'ready' | 'completed' | 'cancelled';
 
@@ -104,7 +104,7 @@ export async function updateOrderStatus(orderId: string, status: KitchenOrderSta
 export async function declineOrder(orderId: string, reason?: string): Promise<{ refunded: boolean }> {
   assertLiveMoneyAllowed();
   const { data, error } = await supabase.functions.invoke('decline-order', { body: { orderId, reason } });
-  if (error || data?.error) throw new Error(data?.error || error?.message || 'Could not cancel the order.');
+  await assertFunctionSuccess(data, error, 'Could not cancel the order.');
   return { refunded: !!data.refunded };
 }
 

@@ -1,4 +1,4 @@
-import { supabase, assertLiveMoneyAllowed } from './supabase';
+import { supabase, assertLiveMoneyAllowed, assertFunctionSuccess } from './supabase';
 
 /**
  * Meal-plan subscriptions — the recurring relationship layer.
@@ -322,11 +322,7 @@ export interface SubscribeResult {
 export async function subscribeToPlan(opts: SubscribeOptions): Promise<SubscribeResult> {
   assertLiveMoneyAllowed();
   const { data, error } = await supabase.functions.invoke('subscribe-plan', { body: opts });
-  if (error || data?.error) {
-    const e: any = new Error(data?.error || error?.message || 'Could not start your plan.');
-    e.code = data?.code;
-    throw e;
-  }
+  await assertFunctionSuccess(data, error, 'Could not start your plan.');
   return data as SubscribeResult;
 }
 
@@ -358,11 +354,7 @@ export function estimateBox(items: { qty: number; priceCents: number }[]): {
 export async function buildBox(opts: BuildBoxOptions): Promise<SubscribeResult> {
   assertLiveMoneyAllowed();
   const { data, error } = await supabase.functions.invoke('subscribe-box', { body: opts });
-  if (error || data?.error) {
-    const e: any = new Error(data?.error || error?.message || 'Could not create your box.');
-    e.code = data?.code;
-    throw e;
-  }
+  await assertFunctionSuccess(data, error, 'Could not create your box.');
   return data as SubscribeResult;
 }
 
@@ -481,7 +473,7 @@ export interface UpsertPlanInput {
 }
 export async function upsertPlan(input: UpsertPlanInput): Promise<string> {
   const { data, error } = await supabase.functions.invoke('plan-upsert', { body: input });
-  if (error || data?.error) throw new Error(data?.error || error?.message || 'Could not save the plan.');
+  await assertFunctionSuccess(data, error, 'Could not save the plan.');
   return data.planId as string;
 }
 

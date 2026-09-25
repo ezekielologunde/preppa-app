@@ -59,7 +59,9 @@ export async function assertFunctionSuccess(data: any, error: any, fallback: str
   if (context && typeof context.json === 'function') {
     try { payload = await context.json(); } catch { /* fall back to the SDK message */ }
   }
-  throw new Error(payload?.error || error?.message || fallback);
+  const result: any = new Error(payload?.error || error?.message || fallback);
+  if (payload?.code) result.code = payload.code;
+  throw result;
 }
 
 /**
