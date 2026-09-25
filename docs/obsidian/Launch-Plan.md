@@ -88,6 +88,7 @@ tags: [project/preppa, type/launch-plan]
 - Cook order detail now reads the authoritative payment status from its owner-scoped RPC. Unpaid deep links show a prominent wait-for-payment warning and cannot expose preparation, completion, or refund actions until payment is confirmed.
 - The owner-scoped `update_order_status` RPC now independently requires `pay_status = paid` before any preparation, ready, delivery, pickup, or completion transition. SQL regressions pin both the payment-status detail field and the server-side fulfillment guard.
 - Cook payout setup and bank-management actions now allow only one Stripe account session request at a time. Cash out and shared hub buttons expose real disabled semantics, so unavailable or in-progress financial controls cannot be retriggered by rapid taps, keyboard input, or assistive technology.
+- CI now pins the Supabase CLI and GitHub Actions to reviewed versions and immutable action commits. The database job logs the CLI version, preventing an unreviewed upstream release from silently changing clean-schema migration evidence.
 
 ### Customer acceptance evidence still needed
 

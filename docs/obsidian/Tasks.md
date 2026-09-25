@@ -11,6 +11,7 @@ tags: [project/preppa, type/tasks]
 Part of [[Project]]. Outstanding work discovered during the audit — not a sprint backlog, a snapshot.
 
 - [x] Serialize Stripe Connect onboarding and dashboard launches, and give unavailable or in-progress payout actions real disabled semantics (2026-09-25).
+- [x] Pin CI actions and the Supabase CLI to reviewed versions, and log the CLI version used for clean-schema migration evidence (2026-09-25).
 
 ## Competitive gap analysis: Shef (2026-09-09)
 
