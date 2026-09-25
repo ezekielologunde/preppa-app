@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useRef, useState } from 'react';
 import { View, Text, ActivityIndicator, TextInput } from 'react-native';
 import { useC } from '../theme/ThemeContext';
 import { type, radius } from '../theme/theme';
@@ -13,10 +13,13 @@ export function LocationPicker({ visible, onClose }: { visible: boolean; onClose
   const c = useC();
   const { location, setLocation, setCoords, setCountry, toast } = useStore();
   const [busy, setBusy] = useState(false);
+  const actionInFlight = useRef(false);
   const [query, setQuery] = useState('');
   const pick = async (a: string) => {
+    if (actionInFlight.current) return;
     const q = a.trim();
     if (!q) return;
+    actionInFlight.current = true;
     setBusy(true);
     try {
       const hit = await geocodeAddressDetailed(q);
@@ -26,11 +29,13 @@ export function LocationPicker({ visible, onClose }: { visible: boolean; onClose
       toast(hit ? `Location set to ${q}` : `Location set to ${q} (distance unavailable)`, 'pin', true);
       onClose();
     } finally {
+      actionInFlight.current = false;
       setBusy(false);
     }
   };
   const useCurrent = async () => {
-    if (busy) return;
+    if (actionInFlight.current) return;
+    actionInFlight.current = true;
     setBusy(true);
     try {
       const loc = await captureCurrentLocation();
@@ -42,6 +47,7 @@ export function LocationPicker({ visible, onClose }: { visible: boolean; onClose
     } catch (e: any) {
       toast(e?.message || 'Couldn’t get your location — pick an area below.', 'info');
     } finally {
+      actionInFlight.current = false;
       setBusy(false);
     }
   };

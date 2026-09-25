@@ -91,7 +91,10 @@ function ServicesMode() {
       const { clientSecret } = await acceptQuoteAndDeposit(quoteId);
       if (clientSecret) setPay({ clientSecret, label: amountLabel });
       else { toast('Booking confirmed', 'check', true); load(); }
-    } catch (e: any) { toast(e?.message || 'Could not start your booking', 'info'); }
+    } catch {
+      toast('Could not start this booking. The quote may have changed, so refresh your requests and try again.', 'info');
+      load();
+    }
     finally { quoteInFlight.current = false; setBusyQuote(null); }
   };
   const confirmAccept = () => {
@@ -115,7 +118,7 @@ function ServicesMode() {
       </Press>
 
       <Text style={[type(12, 800), { color: c.muted, textTransform: 'uppercase', letterSpacing: 0.5, marginTop: 22, marginBottom: 10 }]}>Your requests</Text>
-      {loading ? (
+      {loading && requests.length === 0 ? (
         <View style={{ paddingVertical: 40, alignItems: 'center' }}><ActivityIndicator color={c.primary} /></View>
       ) : loadError && requests.length === 0 ? (
         <View style={{ alignItems: 'center', paddingVertical: 30, paddingHorizontal: 24 }}>
@@ -127,6 +130,12 @@ function ServicesMode() {
           <Text style={[type(13.5, 600), { color: c.soft, textAlign: 'center' }]}>No requests yet. Post one above to get quotes from local preppers.</Text>
         </View>
       ) : <>
+        {loading ? (
+          <View accessibilityRole="alert" style={{ flexDirection: 'row', alignItems: 'center', gap: 8, marginBottom: 12 }}>
+            <ActivityIndicator size="small" color={c.primary} />
+            <Text style={[type(12.5, 700), { color: c.soft }]}>Refreshing your requests…</Text>
+          </View>
+        ) : null}
         {loadError ? (
           <View accessibilityRole="alert" style={{ backgroundColor: c.bg2, borderWidth: 1, borderColor: c.border, borderRadius: radius.md, padding: 12, marginBottom: 12 }}>
             <Text style={[type(12.5, 700), { color: c.soft, lineHeight: 18 }]}>Your requests may be out of date. You can keep reviewing the last loaded results.</Text>

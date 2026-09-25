@@ -9,6 +9,7 @@ import { Screen, TopBar, Block, Empty } from '../../src/ui/layout';
 import { NotFound } from '../../src/components/NotFound';
 import { CardPaymentSheet } from '../../src/components/CardPaymentSheet';
 import { money } from '../../src/data/data';
+import { confirmAction } from '../../src/lib/confirm';
 import {
   fetchServiceRequest, acceptQuoteAndDeposit, cancelServiceRequest,
   SERVICE_LABELS, type RequestView, type QuoteView,
@@ -26,21 +27,27 @@ export default function RequestDetailScreen() {
   const [loadError, setLoadError] = useState('');
   const [busyQ, setBusyQ] = useState<string | null>(null);
   const requestActionInFlight = useRef(false);
+  const loadSequence = useRef(0);
   const [canceling, setCanceling] = useState(false);
   const [pay, setPay] = useState<{ clientSecret: string; label: string } | null>(null);
 
   const load = useCallback(() => {
     if (!id) return;
+    const sequence = ++loadSequence.current;
     setReq(undefined);
     setLoadError('');
     fetchServiceRequest(id)
-      .then(setReq)
-      .catch((e: any) => {
-        setLoadError(e?.message || 'Could not load this request.');
+      .then((next) => { if (sequence === loadSequence.current) setReq(next); })
+      .catch(() => {
+        if (sequence !== loadSequence.current) return;
+        setLoadError('Check your connection and try loading this request again.');
         setReq(null);
       });
   }, [id]);
-  useFocusEffect(useCallback(() => { load(); }, [load]));
+  useFocusEffect(useCallback(() => {
+    load();
+    return () => { loadSequence.current += 1; };
+  }, [load]));
 
   if (req === undefined) return <Screen><View style={{ flex: 1, alignItems: 'center', justifyContent: 'center' }}><ActivityIndicator color={c.primary} /></View></Screen>;
   if (loadError) return <Screen><TopBar title="Request" onBack={() => router.back()} /><Empty icon="info" title="Could not load request" body={loadError} action={<Btn label="Try again" icon="repeat" onPress={load} />} /></Screen>;
@@ -64,7 +71,10 @@ export default function RequestDetailScreen() {
       if (alreadyPaid) { toast('Deposit confirmed. Opening your bookings.', 'check', true); router.replace('/orders'); }
       else if (clientSecret) setPay({ clientSecret, label: money2(depositCents ?? q.depositCents) });
       else throw new Error('Could not resume the deposit payment. Please try again.');
-    } catch (e: any) { toast(e?.message || 'Could not start your booking', 'info'); }
+    } catch {
+      toast('Could not start this booking. The quote may no longer be available, so refresh and try again.', 'info');
+      load();
+    }
     finally { requestActionInFlight.current = false; setBusyQ(null); }
   };
 
@@ -73,8 +83,18 @@ export default function RequestDetailScreen() {
     requestActionInFlight.current = true;
     setCanceling(true);
     try { await cancelServiceRequest(id!); toast('Request cancelled', 'x'); router.back(); }
-    catch (e: any) { toast(e?.message || 'Could not cancel', 'info'); }
+    catch { toast('Could not cancel this request. Refresh it and try again.', 'info'); }
     finally { requestActionInFlight.current = false; setCanceling(false); }
+  };
+
+  const requestCancel = () => {
+    if (requestActionInFlight.current) return;
+    confirmAction(
+      'Cancel this request?',
+      'Any open quotes will be withdrawn and cooks will no longer be able to respond. This cannot be undone.',
+      () => void cancel(),
+      'Cancel request',
+    );
   };
 
   return (
@@ -144,7 +164,7 @@ export default function RequestDetailScreen() {
           <View style={{ flexDirection: 'row', gap: 10, marginHorizontal: 16, marginTop: 6 }}>
             {canEdit ? <View style={{ flex: 1 }}><Btn label="Edit request" icon="edit" variant="ghost" block onPress={() => router.push(`/service-request?edit=${id}`)} /></View> : null}
             {canCancel ? (
-              <Press scale={0.97} onPress={cancel} disabled={canceling || busyQ !== null} style={{ flex: canEdit ? 0.7 : 1, opacity: canceling || busyQ !== null ? 0.6 : 1 }}>
+              <Press scale={0.97} onPress={requestCancel} disabled={canceling || busyQ !== null} style={{ flex: canEdit ? 0.7 : 1, opacity: canceling || busyQ !== null ? 0.6 : 1 }} label="Cancel service request">
                 <View style={{ height: 52, borderRadius: radius.pill, borderWidth: 1.5, borderColor: c.border, alignItems: 'center', justifyContent: 'center' }}>
                   {canceling ? <ActivityIndicator size="small" color={c.red} /> : <Text style={[type(14, 800), { color: c.red }]}>Cancel</Text>}
                 </View>

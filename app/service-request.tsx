@@ -124,8 +124,8 @@ export default function ServiceRequestScreen() {
       setGuests(r.guests ? String(r.guests) : '');
       setAddress(r.addressText ?? '');
       setBudget(r.budgetCents ? String(r.budgetCents / 100) : '');
-    }).catch((e: any) => {
-      if (alive) setEditLoadError(e?.message || 'Could not load your request.');
+    }).catch(() => {
+      if (alive) setEditLoadError('Check your connection and try loading your request again.');
     }).finally(() => {
       if (alive) setEditLoading(false);
     });
@@ -165,8 +165,8 @@ export default function ServiceRequestScreen() {
         const res = await createServiceRequest(body);
         setDone({ targets: res.targets, edited: false });
       }
-    } catch (e: any) {
-      toast(e?.message || 'Could not post your request', 'info');
+    } catch {
+      toast(editing ? 'Could not update your request. Review the details and try again.' : 'Could not post your request. Review the details and try again.', 'info');
     } finally { submissionInFlight.current = false; setBusy(false); }
   };
 
