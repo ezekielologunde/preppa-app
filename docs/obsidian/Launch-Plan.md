@@ -52,6 +52,7 @@ tags: [project/preppa, type/launch-plan]
 - Editing a customer service request now waits for saved data and provides a retry state instead of exposing a blank form during a failed prefill.
 - Kitchen directory and profile ratings now surface query failures instead of showing verified cooks as unrated.
 - Checkout now clears stale saved-card selections when payment methods cannot be refreshed, and the web card sheet reports Stripe or mount failures instead of remaining indefinitely disabled.
+- Order tracking no longer presents a decorative route as live location data. It identifies the screen as kitchen status updates, discloses that location tracking is unavailable, and provides recovery when an order cannot be read.
 
 ### Customer acceptance evidence still needed
 

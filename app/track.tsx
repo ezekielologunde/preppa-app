@@ -1,7 +1,6 @@
 import React, { useCallback, useEffect, useState } from 'react';
 import { View, Text, ScrollView } from 'react-native';
 import { useLocalSearchParams, useRouter, useFocusEffect } from 'expo-router';
-import Svg, { Line } from 'react-native-svg';
 import { cookOfLine } from '../src/data/data';
 import { useC } from '../src/theme/ThemeContext';
 import { type, radius } from '../src/theme/theme';
@@ -46,7 +45,11 @@ export default function Track() {
   const poll = useCallback(() => {
     if (!orderId) return;
     fetchOrderStatus(orderId)
-      .then((next) => { setLive(next); setLoadError(''); })
+      .then((next) => {
+        if (!next) throw new Error('This order could not be found. Open Orders to view your current activity.');
+        setLive(next);
+        setLoadError('');
+      })
       .catch((e) => setLoadError(e?.message ?? 'Couldn’t refresh this order.'))
       .finally(() => setLoading(false));
   }, [orderId]);
@@ -76,22 +79,14 @@ export default function Track() {
     <Screen>
       <TopBar title={cod ? 'Order complete' : 'Track order'} sub={orderId ? `#${orderId.slice(0, 8)}` : undefined} onBack={() => router.replace('/home')} />
       <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={{ paddingBottom: 40 }}>
-        {/* map */}
-        <View style={{ height: 180, backgroundColor: c.bg2, overflow: 'hidden' }}>
-          <Svg width="100%" height={180}>
-            {Array.from({ length: 20 }).map((_, i) => (
-              <Line key={`v${i}`} x1={i * 28} y1={0} x2={i * 28} y2={180} stroke={c.border} strokeWidth={1} />
-            ))}
-            {Array.from({ length: 7 }).map((_, i) => (
-              <Line key={`h${i}`} x1={0} y1={i * 28} x2={600} y2={i * 28} stroke={c.border} strokeWidth={1} />
-            ))}
-            <Line x1={44} y1={70} x2={300} y2={70} stroke={c.primary} strokeWidth={3} strokeDasharray="8 6" strokeLinecap="round" />
-          </Svg>
-          {/* c.feature (not c.ink) -- the pin's icon is hardcoded white, so the fill needs to
-              stay dark in BOTH themes; c.ink flips to near-white in dark mode and the icon
-              would vanish. */}
-          <Pin left={30} bg={c.feature} icon="chefhat" />
-          <Pin right={46} bg={c.primaryD} icon="home" />
+        <View style={{ minHeight: 116, backgroundColor: c.bg2, paddingHorizontal: 20, paddingVertical: 22, flexDirection: 'row', alignItems: 'center', gap: 14 }}>
+          <View style={{ width: 48, height: 48, borderRadius: 16, backgroundColor: c.primaryL, alignItems: 'center', justifyContent: 'center' }}>
+            <Icon name={pickup ? 'bag' : 'truck'} size={23} color={c.primary} />
+          </View>
+          <View style={{ flex: 1 }}>
+            <Text style={[type(15, 900), { color: c.ink }]}>Live kitchen updates</Text>
+            <Text style={[type(12.5, 600), { color: c.soft, lineHeight: 18, marginTop: 3 }]}>This timeline reflects status updates from {theCook.name}. Location tracking is not available.</Text>
+          </View>
         </View>
 
         <View style={{ backgroundColor: c.surface, borderTopLeftRadius: radius.xxl, borderTopRightRadius: radius.xxl, marginTop: -22, padding: 18, paddingTop: 20 }}>
@@ -164,13 +159,5 @@ export default function Track() {
         </View>
       </ScrollView>
     </Screen>
-  );
-}
-
-function Pin({ left, right, bg, icon }: { left?: number; right?: number; bg: string; icon: string }) {
-  return (
-    <View style={{ position: 'absolute', top: 48, left, right, width: 34, height: 34, borderRadius: 17, borderBottomRightRadius: 2, backgroundColor: bg, alignItems: 'center', justifyContent: 'center', transform: [{ rotate: '45deg' }], shadowColor: '#000', shadowOpacity: 0.2, shadowRadius: 6, elevation: 4 }}>
-      <View style={{ transform: [{ rotate: '-45deg' }] }}><Icon name={icon} size={16} color="#fff" /></View>
-    </View>
   );
 }
