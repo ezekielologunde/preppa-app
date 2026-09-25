@@ -42,23 +42,16 @@ const createOrderInput = z.object({
   addressId: z.string().uuid().optional(),
 });
 
-/** Real sales tax via Stripe Tax — replaces the old hardcoded flat-rate estimate.
- *  Returns 0 (never guesses) if Tax isn't enabled/registered for the buyer's jurisdiction,
- *  or if no country was supplied (e.g. location permission denied). */
+/** Real sales tax via Stripe Tax. A successful zero-tax calculation remains valid, but an
+ *  API/configuration failure must stop checkout so a transient error cannot become a tax-free order. */
 async function calculateTaxCents(subtotalCents: number, country: string | undefined): Promise<{ cents: number; calculationId: string | null }> {
   if (!country || subtotalCents <= 0) return { cents: 0, calculationId: null };
-  try {
-    const calc = await stripe.tax.calculations.create({
-      currency: 'usd',
-      line_items: [{ amount: subtotalCents, reference: 'order_subtotal', tax_behavior: 'exclusive', tax_code: 'txcd_40060003' }],
-      customer_details: { address: { country }, address_source: 'shipping' },
-    });
-    return { cents: calc.tax_amount_exclusive ?? 0, calculationId: calc.id ?? null };
-  } catch {
-    // Not registered in this jurisdiction, Tax not enabled, or a transient API error —
-    // never block checkout and never fall back to a guessed rate.
-    return { cents: 0, calculationId: null };
-  }
+  const calc = await stripe.tax.calculations.create({
+    currency: 'usd',
+    line_items: [{ amount: subtotalCents, reference: 'order_subtotal', tax_behavior: 'exclusive', tax_code: 'txcd_40060003' }],
+    customer_details: { address: { country }, address_source: 'shipping' },
+  });
+  return { cents: calc.tax_amount_exclusive ?? 0, calculationId: calc.id ?? null };
 }
 
 const stripe = new Stripe(requireEnv('STRIPE_SECRET_KEY'), {
