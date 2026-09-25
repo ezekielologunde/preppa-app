@@ -148,7 +148,7 @@ export default function Profile() {
 
         {isAdmin && Platform.OS === 'web' ? (
           <Group label="Admin">
-            <Pressable onPress={() => router.push('/admin')} style={rowStyle(c, true)}>
+            <Pressable onPress={() => router.push('/admin')} accessibilityRole="button" accessibilityLabel="Admin dashboard" style={rowStyle(c, true)}>
               <View style={{ width: 36, height: 36, borderRadius: 11, backgroundColor: c.primaryL, alignItems: 'center', justifyContent: 'center' }}>
                 <Icon name="shield" size={19} color={c.primaryD} />
               </View>
@@ -179,11 +179,11 @@ export default function Profile() {
         </Group>
 
         <Group>
-          <Pressable onPress={logout} style={rowStyle(c, false)}>
+          <Pressable onPress={logout} accessibilityRole="button" accessibilityLabel="Log out" style={rowStyle(c, false)}>
             <IconWell ico="logout" tone="" />
             <Text style={[type(15, 700), { color: c.ink, flex: 1 }]}>Log out</Text>
           </Pressable>
-          <Pressable onPress={confirmDelete} style={rowStyle(c, true)}>
+          <Pressable onPress={confirmDelete} accessibilityRole="button" accessibilityLabel="Delete account" style={rowStyle(c, true)}>
             <View style={{ width: 36, height: 36, borderRadius: 11, backgroundColor: c.pinkL, alignItems: 'center', justifyContent: 'center' }}>
               <Icon name="x" size={19} color={c.red} />
             </View>
@@ -216,7 +216,7 @@ function Group({ label, children }: { label?: string; children: React.ReactNode 
 function RowItem({ ico, cls, t, act, last }: Row & { last?: boolean }) {
   const c = useC();
   return (
-    <Pressable onPress={act} style={rowStyle(c, !!last)}>
+    <Pressable onPress={act} accessibilityRole="button" accessibilityLabel={t} style={rowStyle(c, !!last)}>
       <IconWell ico={ico} tone={cls} />
       <Text style={[type(15, 700), { color: c.ink, flex: 1 }]}>{t}</Text>
       <Icon name="chevRight" size={18} color={c.muted} />

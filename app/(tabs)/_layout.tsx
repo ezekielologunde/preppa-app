@@ -46,7 +46,7 @@ function BottomNav({ state, navigation }: any) {
           if (!focused && !event.defaultPrevented) navigation.navigate(route.name);
         };
         return (
-          <Pressable key={route.key} onPress={onPress} style={{ flex: 1, alignItems: 'center', gap: 4, paddingTop: 2 }}>
+          <Pressable key={route.key} onPress={onPress} accessibilityRole="tab" accessibilityLabel={meta.lbl} accessibilityState={{ selected: focused }} style={{ flex: 1, alignItems: 'center', gap: 4, paddingTop: 2 }}>
             <Icon name={meta.ico} size={23} color={focused ? c.primary : c.muted} />
             <Text style={[type(10, 800), { color: focused ? c.primary : c.muted }]}>{meta.lbl}</Text>
           </Pressable>

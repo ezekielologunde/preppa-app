@@ -122,7 +122,7 @@ function Welcome({ go }: { go: (s: string, m: 'signin' | 'signup') => void }) {
       <View style={{ flex: 1 }} />
       <Reveal delay={320}>
         <Btn label="Get Started — It's Free" variant="pri" onPress={() => go('auth', 'signup')} block lg />
-        <Pressable onPress={() => go('auth', 'signin')} style={{ marginTop: 16, alignSelf: 'center' }}>
+      <Pressable onPress={() => go('auth', 'signin')} accessibilityRole="button" style={{ marginTop: 16, alignSelf: 'center' }}>
           <Text style={[type(14, 700), { color: c.soft }]}>Already a member? <Text style={{ color: c.ink, textDecorationLine: 'underline' }}>Sign in →</Text></Text>
         </Pressable>
         <Text style={[type(11.5, 600), { color: c.muted, textAlign: 'center', marginTop: 14 }]}>By continuing you agree to Preppa’s Terms & Food Safety Standards.</Text>
@@ -224,7 +224,7 @@ function Auth({ mode, onNext, onRecovery }: { mode: 'signin' | 'signup'; onNext:
         <View style={{ height: 14 }} />
         <Text style={[type(12.5, 800), { color: c.soft, marginBottom: 8 }]}>{recovering ? 'New password' : 'Password'}</Text>
         <TextInput value={password} onChangeText={(t) => { setPassword(t); clearMsgs(); }} onSubmitEditing={submit} secureTextEntry autoCapitalize="none" autoComplete={mode === 'signup' || recovering ? 'password-new' : 'password'} textContentType={mode === 'signup' || recovering ? 'newPassword' : 'password'} placeholder={mode === 'signup' || recovering ? 'At least 8 characters' : 'Your password'} placeholderTextColor={c.muted} style={inputStyle(!!err)} />
-        {mode === 'signin' ? <Pressable onPress={() => { setRecovering((v) => !v); setErr(null); setInfo(null); setPassword(''); }} style={{ marginTop: 11, alignSelf: 'flex-end' }}><Text style={[type(13, 700), { color: c.primary }]}>{recovering ? 'Back to sign in' : 'Forgot password?'}</Text></Pressable> : null}
+      {mode === 'signin' ? <Pressable onPress={() => { setRecovering((v) => !v); setErr(null); setInfo(null); setPassword(''); }} accessibilityRole="button" style={{ marginTop: 11, alignSelf: 'flex-end' }}><Text style={[type(13, 700), { color: c.primary }]}>{recovering ? 'Back to sign in' : 'Forgot password?'}</Text></Pressable> : null}
         {err ? <View style={{ flexDirection: 'row', alignItems: 'center', gap: 7, marginTop: 9 }}><Icon name="info" size={15} color={c.red} /><Text style={[type(13, 700), { color: c.red, flex: 1 }]}>{err}</Text></View> : null}
         {info ? <View style={{ flexDirection: 'row', alignItems: 'center', gap: 7, marginTop: 9 }}><Icon name="check" size={15} color={c.green} /><Text style={[type(13, 700), { color: c.green, flex: 1 }]}>{info}</Text></View> : null}
       </Animated.View>
@@ -233,7 +233,7 @@ function Auth({ mode, onNext, onRecovery }: { mode: 'signin' | 'signup'; onNext:
         label={busy ? (recovering ? 'Sending code…' : mode === 'signin' ? 'Signing in…' : 'Creating…') : (recovering ? 'Send recovery code' : mode === 'signin' ? 'Sign in' : 'Create account')}
         iconRight={busy ? undefined : 'arrow'} loading={busy} onPress={submit} block lg
       />
-      {!recovering ? <Pressable onPress={emailCode} style={{ marginTop: 16, alignSelf: 'center' }}>
+      {!recovering ? <Pressable onPress={emailCode} accessibilityRole="button" style={{ marginTop: 16, alignSelf: 'center' }}>
         <Text style={[type(13.5, 700), { color: c.soft }]}>{codeBusy ? 'Sending code…' : 'Email me a sign-in code instead'}</Text>
       </Pressable> : null}
     </>
@@ -317,7 +317,7 @@ function Code({ email, onNext, newPassword }: { email: string; onNext: () => voi
       <View style={{ flex: 1, minHeight: 24 }} />
       <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 6, paddingBottom: 4 }}>
         <Text style={[type(14, 600), { color: c.muted }]}>{resent ? 'Code re-sent ✓' : resending ? 'Sending another code…' : 'Didn’t get it?'}</Text>
-        {!resent && !resending ? <Pressable disabled={cool > 0} onPress={resend}><Text style={[type(14, 800), { color: cool > 0 ? c.muted : c.primary, textDecorationLine: cool > 0 ? 'none' : 'underline' }]}>{cool > 0 ? `Resend in ${cool}s` : 'Resend code'}</Text></Pressable> : null}
+      {!resent && !resending ? <Pressable disabled={cool > 0} onPress={resend} accessibilityRole="button" accessibilityState={{ disabled: cool > 0 }}><Text style={[type(14, 800), { color: cool > 0 ? c.muted : c.primary, textDecorationLine: cool > 0 ? 'none' : 'underline' }]}>{cool > 0 ? `Resend in ${cool}s` : 'Resend code'}</Text></Pressable> : null}
       </View>
     </>
   );
@@ -476,7 +476,7 @@ export function OnboardingFlow() {
           <View style={{ flexDirection: 'row', alignItems: 'center', gap: 14, minHeight: 42 }}>
             <Press scale={0.9} onPress={() => setStep(back)} label="Back"><View style={{ width: 42, height: 42, borderRadius: 21, backgroundColor: c.surface, borderWidth: 1, borderColor: c.border, alignItems: 'center', justifyContent: 'center', ...shadow.soft }}><Icon name="chevLeft" size={20} color={c.ink} /></View></Press>
             <View style={{ flex: 1, flexDirection: 'row', gap: 6 }}>{STEPS.map((s, i) => <View key={s} style={{ flex: 1, height: 4, borderRadius: 2, backgroundColor: i <= at ? c.primary : c.border2 }} />)}</View>
-            {canSkip ? <Pressable onPress={() => setStep('finish')}><Text style={[type(14, 700), { color: c.soft }]}>Skip</Text></Pressable> : <View style={{ width: 30 }} />}
+            {canSkip ? <Pressable onPress={() => setStep('finish')} accessibilityRole="button"><Text style={[type(14, 700), { color: c.soft }]}>Skip</Text></Pressable> : <View style={{ width: 30 }} />}
           </View>
         ) : null}
         <Animated.View style={{ flex: 1, opacity: fade, transform: [{ translateY: slide }] }}>

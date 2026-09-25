@@ -46,7 +46,7 @@ export function MealGallery({
     <View style={{ height }} onLayout={onLayout}>
       {w === 0 ? (
         // pre-measure: render the cover full-bleed so there's no flash of empty space
-        <Pressable onPress={() => onOpen(0)} style={{ flex: 1 }} accessibilityLabel="View photo">
+      <Pressable onPress={() => onOpen(0)} style={{ flex: 1 }} accessibilityRole="button" accessibilityLabel="View photo">
           <GradBox grad={grad} img={photos[0]} style={{ flex: 1 }} />
         </Pressable>
       ) : (
@@ -59,7 +59,7 @@ export function MealGallery({
           onMomentumScrollEnd={onEnd}
         >
           {photos.map((p, i) => (
-            <Pressable key={i} onPress={() => onOpen(i)} style={{ width: w, height }} accessibilityLabel={`View photo ${i + 1} of ${photos.length}`}>
+          <Pressable key={i} onPress={() => onOpen(i)} style={{ width: w, height }} accessibilityRole="button" accessibilityLabel={`View photo ${i + 1} of ${photos.length}`}>
               <GradBox grad={grad} img={p} style={{ width: w, height }} />
             </Pressable>
           ))}
@@ -98,6 +98,7 @@ function Arrow({ side, onPress }: { side: 'left' | 'right'; onPress: () => void 
   return (
     <Pressable
       onPress={onPress}
+      accessibilityRole="button"
       accessibilityLabel={side === 'left' ? 'Previous photo' : 'Next photo'}
       style={{ position: 'absolute', top: '50%', marginTop: -20, [side]: 12, width: 40, height: 40, borderRadius: 20, backgroundColor: 'rgba(0,0,0,.5)', alignItems: 'center', justifyContent: 'center' } as any}
     >

@@ -21,14 +21,14 @@ export function ImageViewer({ uri, caption, visible, onClose }: { uri?: string; 
           showsVerticalScrollIndicator={false}
           showsHorizontalScrollIndicator={false}
         >
-          <Pressable onPress={onClose} style={{ flex: 1, justifyContent: 'center', paddingVertical: 48 }}>
+          <Pressable onPress={onClose} accessibilityRole="button" accessibilityLabel="Close photo" style={{ flex: 1, justifyContent: 'center', paddingVertical: 48 }}>
             <Image source={{ uri }} resizeMode="contain" style={{ width: '100%', flex: 1 }} />
           </Pressable>
         </ScrollView>
         {caption ? (
           <Text pointerEvents="none" style={[type(14, 700), { position: 'absolute', left: 0, right: 0, bottom: insets.bottom + 24, color: 'rgba(255,255,255,.9)', paddingHorizontal: 24, textAlign: 'center' }]}>{caption}</Text>
         ) : null}
-        <Pressable onPress={onClose} accessibilityLabel="Close photo" style={{ position: 'absolute', top: insets.top + 12, right: 16, width: 42, height: 42, borderRadius: 21, backgroundColor: 'rgba(255,255,255,.16)', alignItems: 'center', justifyContent: 'center' }}>
+        <Pressable onPress={onClose} accessibilityRole="button" accessibilityLabel="Close photo" style={{ position: 'absolute', top: insets.top + 12, right: 16, width: 42, height: 42, borderRadius: 21, backgroundColor: 'rgba(255,255,255,.16)', alignItems: 'center', justifyContent: 'center' }}>
           <Icon name="x" size={20} color="#fff" />
         </Pressable>
       </View>
