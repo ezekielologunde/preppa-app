@@ -19,21 +19,35 @@ export default function HubRequests() {
   const [bookings, setBookings] = useState<KitchenBookingView[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
+  const loadSequence = useRef(0);
   const load = useCallback(async () => {
+    const sequence = ++loadSequence.current;
     setLoading(true);
     setError('');
-    try { const [r, b] = await Promise.all([listIncomingRequests(), listMyKitchenBookings()]); setItems(r); setBookings(b); }
-    catch (e: any) { setError(e?.message ?? 'Couldn’t load service requests.'); }
-    finally { setLoading(false); }
+    try {
+      const [r, b] = await Promise.all([listIncomingRequests(), listMyKitchenBookings()]);
+      if (sequence !== loadSequence.current) return;
+      setItems(r);
+      setBookings(b);
+    } catch {
+      if (sequence === loadSequence.current) setError('Check your connection and try loading service requests again.');
+    } finally {
+      if (sequence === loadSequence.current) setLoading(false);
+    }
   }, []);
-  useFocusEffect(useCallback(() => { load(); }, [load]));
+  useFocusEffect(useCallback(() => {
+    void load();
+    return () => { loadSequence.current += 1; };
+  }, [load]));
+
+  const hasContent = items.length > 0 || bookings.length > 0;
 
   return (
     <Screen>
       <TopBar title="Service requests" sub={loading ? '' : `${items.length} incoming`} onBack={() => router.back()} />
-      {loading ? (
+      {loading && !hasContent ? (
         <View style={{ flex: 1, alignItems: 'center', justifyContent: 'center' }}><ActivityIndicator color={c.primary} /></View>
-      ) : error ? (
+      ) : error && !hasContent ? (
         <View style={{ flex: 1, alignItems: 'center', justifyContent: 'center', padding: 28 }}>
           <Icon name="info" size={38} color={c.red} />
           <Text style={[type(16, 900), { color: c.ink, marginTop: 12 }]}>Couldn’t load requests</Text>
@@ -48,6 +62,13 @@ export default function HubRequests() {
         </View>
       ) : (
         <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={{ padding: 16, paddingBottom: 40, gap: 12 }}>
+          {error ? (
+            <View accessibilityRole="alert" style={{ borderWidth: 1, borderColor: c.red, backgroundColor: c.redL, borderRadius: radius.lg, padding: 14 }}>
+              <Text style={[type(13.5, 900), { color: c.ink }]}>Couldn’t refresh requests</Text>
+              <Text style={[type(12.5, 600), { color: c.soft, marginTop: 4, lineHeight: 18 }]}>{error} Your current list is still shown below.</Text>
+              <View style={{ marginTop: 10, alignSelf: 'flex-start' }}><KBtn label="Try again" variant="ghost" icon="repeat" onPress={load} disabled={loading} /></View>
+            </View>
+          ) : null}
           {bookings.length ? (
             <>
               <Text style={[type(12, 900), { color: c.muted, textTransform: 'uppercase', letterSpacing: 0.5 }]}>Active bookings</Text>
@@ -148,7 +169,8 @@ function RequestCard({ r, onQuoted, toast }: { r: IncomingRequest; onQuoted: () 
     if (quoteInFlight.current) return;
     const amt = Math.round(Number(amount) * 100);
     const dep = deposit ? Math.round(Number(deposit) * 100) : Math.round(amt * 0.25);
-    if (!(amt > 0)) { toast('Enter your price', 'info'); return; }
+    if (!Number.isSafeInteger(amt) || amt < 100 || amt > 100_000_000) { toast('Enter a total from $1 to $1,000,000', 'info'); return; }
+    if (!Number.isSafeInteger(dep) || dep < 0 || dep > 100_000_000) { toast('Enter a deposit from $0 to $1,000,000', 'info'); return; }
     if (dep > amt) { toast('Deposit can’t exceed the total', 'info'); return; }
     quoteInFlight.current = true;
     setBusy(true);
@@ -174,10 +196,11 @@ function RequestCard({ r, onQuoted, toast }: { r: IncomingRequest; onQuoted: () 
         ) : (
           <View style={{ marginTop: 12, gap: 10 }}>
             <View style={{ flexDirection: 'row', gap: 10 }}>
-              <QInput c={c} value={amount} onChange={setAmount} placeholder="Your price $" />
-              <QInput c={c} value={deposit} onChange={setDeposit} placeholder="Deposit $ (opt)" />
+              <QInput c={c} value={amount} onChange={setAmount} placeholder="Your price $" maxLength={12} />
+              <QInput c={c} value={deposit} onChange={setDeposit} placeholder="Deposit $ (opt)" maxLength={12} />
             </View>
-            <QInput c={c} value={note} onChange={setNote} placeholder="Note to the customer (optional)" multiline />
+            <QInput c={c} value={note} onChange={setNote} placeholder="Note to the customer (optional)" multiline maxLength={1000} />
+            <Text style={[type(11.5, 700), { color: c.muted, textAlign: 'right' }]} accessibilityLabel={`${note.length} of 1000 characters used`}>{note.length}/1000</Text>
             <KBtn label={busy ? 'Sending…' : 'Send quote'} variant="pri" onPress={send} disabled={busy} />
           </View>
         )
@@ -186,9 +209,10 @@ function RequestCard({ r, onQuoted, toast }: { r: IncomingRequest; onQuoted: () 
   );
 }
 
-function QInput({ c, value, onChange, placeholder, multiline }: { c: any; value: string; onChange: (t: string) => void; placeholder: string; multiline?: boolean }) {
+function QInput({ c, value, onChange, placeholder, multiline, maxLength }: { c: any; value: string; onChange: (t: string) => void; placeholder: string; multiline?: boolean; maxLength?: number }) {
   return (
     <TextInput value={value} onChangeText={onChange} placeholder={placeholder} placeholderTextColor={c.muted} accessibilityLabel={placeholder} multiline={multiline}
+      maxLength={maxLength}
       keyboardType={multiline ? undefined : 'decimal-pad'}
       style={[type(15, 600), { flex: 1, color: c.ink, backgroundColor: c.bg2, borderWidth: 1.5, borderColor: c.border, borderRadius: radius.md, minHeight: multiline ? 68 : 48, paddingHorizontal: 14, paddingTop: multiline ? 12 : 0 }]} />
   );

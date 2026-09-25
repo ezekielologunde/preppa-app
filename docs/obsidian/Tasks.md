@@ -8,6 +8,8 @@ tags: [project/preppa, type/tasks]
 
 # Tasks
 
+- [x] Harden cook request refreshes and quote validation: sequence focus loads, preserve current bookings on refresh failure, match the server's price, deposit, and 1,000-character note limits, and expose recovery status accessibly (2026-09-25)
+
 Part of [[Project]]. Outstanding work discovered during the audit — not a sprint backlog, a snapshot.
 
 - [x] Serialize Stripe Connect onboarding and dashboard launches, and give unavailable or in-progress payout actions real disabled semantics (2026-09-25).
