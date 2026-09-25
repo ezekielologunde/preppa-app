@@ -1,7 +1,7 @@
 import React, { useMemo, useState } from 'react';
 import { View, Text, ScrollView, Platform, ActivityIndicator } from 'react-native';
 import { useRouter } from 'expo-router';
-import { COOKS, money } from '../src/data/data';
+import { money } from '../src/data/data';
 import { useMeals } from '../src/data/hooks';
 import { useC } from '../src/theme/ThemeContext';
 import { type, radius } from '../src/theme/theme';
@@ -130,9 +130,16 @@ export default function BuildPlanFlow() {
             <Text style={[type(13.5, 600), { color: c.soft, textAlign: 'center', lineHeight: 20, marginTop: 6, marginBottom: 16 }]}>{mealsError.message || 'Check your connection and try again.'}</Text>
             <Btn label="Try again" icon="repeat" onPress={() => invalidate('catalog:live')} />
           </View>
+        ) : pool.length === 0 ? (
+          <View style={{ alignItems: 'center', paddingHorizontal: 24, paddingVertical: 50 }}>
+            <View style={{ width: 58, height: 58, borderRadius: 18, backgroundColor: c.primaryL, alignItems: 'center', justifyContent: 'center' }}><Icon name="box" size={27} color={c.primary} /></View>
+            <Text style={[type(17, 900), { color: c.ink, marginTop: 14 }]}>No meals available for a box</Text>
+            <Text style={[type(13.5, 600), { color: c.soft, textAlign: 'center', lineHeight: 20, marginTop: 6, marginBottom: 16, maxWidth: 320 }]}>A custom box needs at least two live meals. Check back when cooks add more, or browse one-time meals now.</Text>
+            <Btn label="Browse meals" onPress={() => router.replace('/discover?mode=meals')} />
+          </View>
         ) : pool.map((m) => {
           const on = !!picked[m.mealUuid!];
-          const cook = m.kitchenName ?? COOKS[m.cook as keyof typeof COOKS]?.name ?? 'A cook';
+          const cook = m.kitchenName ?? 'Local kitchen';
           return (
             <Press key={m.mealUuid} scale={0.99} onPress={() => setPicked((p) => ({ ...p, [m.mealUuid!]: !p[m.mealUuid!] }))}>
               <View style={{ flexDirection: 'row', alignItems: 'center', gap: 12, paddingHorizontal: 16, paddingVertical: 11, borderBottomWidth: 1, borderBottomColor: c.border2 }}>
