@@ -35,7 +35,7 @@ function Row({ r, open, onToggle, onChanged }: { r: admin.AdminSupportRequest; o
     statusInFlight.current = true;
     setBusy(true);
     try { await admin.setSupportRequestStatus(r.id, s); toast(`Marked ${STATUS_LABEL[s].toLowerCase()}`, 'check', true); onChanged(); }
-    catch (e: any) { toast(e?.message ?? 'Update failed', 'info'); }
+    catch { toast('Could not update this request. Refresh it and try again.', 'info'); }
     finally { statusInFlight.current = false; setBusy(false); }
   };
   const requestStatus = (s: admin.SupportRequestStatus) => {
@@ -76,7 +76,7 @@ function Row({ r, open, onToggle, onChanged }: { r: admin.AdminSupportRequest; o
 
   return (
     <Block>
-      <Press scale={0.995} onPress={onToggle}>
+      <Press scale={0.995} onPress={onToggle} label={`${open ? 'Hide' : 'Show'} ${TYPE_LABEL[r.report_type].toLowerCase()} request: ${r.subject || r.description.slice(0, 60)}`} expanded={open}>
         <View style={{ flexDirection: 'row', alignItems: 'center', gap: 12 }}>
           <View style={{ flex: 1 }}>
             <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
@@ -143,7 +143,7 @@ export default function AdminSupportRequests() {
         {loading ? (
           <Block><Text style={[type(14, 600), { color: c.soft }]}>Loading…</Text></Block>
         ) : error ? (
-          <ErrorRetry message={error.message} onRetry={refetch} />
+          <ErrorRetry message="Check your connection and try loading safety and support requests again." onRetry={refetch} />
         ) : !data || data.length === 0 ? (
           <Empty icon="flag" title="No requests" body="Safety, abuse, and support submissions from the marketing site show up here." />
         ) : (

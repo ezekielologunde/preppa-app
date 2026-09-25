@@ -36,7 +36,7 @@ function Detail({ ticketId, onChanged }: { ticketId: string; onChanged: () => vo
     setLoading(true);
     setLoadError(null);
     try { setDetail(await admin.ticketDetail(ticketId)); }
-    catch (e: any) { setLoadError(e?.message || 'Couldn’t load this ticket.'); }
+    catch { setLoadError('Check your connection and try loading this ticket again.'); }
     finally { setLoading(false); }
   };
   useEffect(() => { load(); /* eslint-disable-next-line react-hooks/exhaustive-deps */ }, [ticketId]);
@@ -46,7 +46,7 @@ function Detail({ ticketId, onChanged }: { ticketId: string; onChanged: () => vo
     mutationInFlight.current = true;
     setBusy(true);
     try { await admin.setTicketStatus(ticketId, s); toast(`Marked ${STATUS_LABEL[s].toLowerCase()}`, 'check', true); await load(); onChanged(); }
-    catch (e: any) { toast(e?.message ?? 'Update failed', 'info'); }
+    catch { toast('Could not update the ticket. Refresh it and try again.', 'info'); }
     finally { mutationInFlight.current = false; setBusy(false); }
   };
   const requestStatus = (s: admin.TicketStatus) => {
@@ -67,7 +67,7 @@ function Detail({ ticketId, onChanged }: { ticketId: string; onChanged: () => vo
     mutationInFlight.current = true;
     setBusy(true);
     try { await admin.replyToTicket(ticketId, reply.trim(), internal); setReply(''); setInternal(false); await load(); onChanged(); }
-    catch (e: any) { toast(e?.message ?? 'Reply failed', 'info'); }
+    catch { toast('Could not send the reply. Try again.', 'info'); }
     finally { mutationInFlight.current = false; setBusy(false); }
   };
   const shareCook = async () => {
@@ -75,7 +75,7 @@ function Detail({ ticketId, onChanged }: { ticketId: string; onChanged: () => vo
     mutationInFlight.current = true;
     setBusy(true);
     try { await admin.shareTicketWithCook(ticketId); toast('Shared with the cook', 'check', true); await load(); onChanged(); }
-    catch (e: any) { toast(e?.message ?? 'Share failed', 'info'); }
+    catch { toast('Could not share this ticket with the cook. Try again.', 'info'); }
     finally { mutationInFlight.current = false; setBusy(false); }
   };
 
@@ -106,8 +106,10 @@ function Detail({ ticketId, onChanged }: { ticketId: string; onChanged: () => vo
       <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
         {detail.cook_visible ? (
           <MiniTag label="Shared with cook" tone="green" />
+        ) : closed ? (
+          <Text style={[type(12.5, 700), { color: c.soft }]}>Reopen this ticket before sharing it with the cook.</Text>
         ) : (
-          <Btn label="Share with cook" variant="ghost" icon="chefhat" loading={busy} onPress={shareCook} height={44} />
+          <Btn label="Share with cook" variant="ghost" icon="chefhat" loading={busy} disabled={busy} onPress={shareCook} height={44} />
         )}
       </View>
 
@@ -175,7 +177,7 @@ export default function AdminTickets() {
         {loading ? (
           <Block><Text style={[type(14, 600), { color: c.soft }]}>Loading…</Text></Block>
         ) : error ? (
-          <ErrorRetry message={error.message} onRetry={refetch} />
+          <ErrorRetry message="Check your connection and try loading support tickets again." onRetry={refetch} />
         ) : !data || data.length === 0 ? (
           <Empty icon="bell" title="No tickets" body="Order issues reported by customers or preppers will show up here." />
         ) : (
@@ -183,7 +185,7 @@ export default function AdminTickets() {
             const open = openId === t.ticket_id;
             return (
               <Block key={t.ticket_id}>
-                <Press scale={0.995} onPress={() => setOpenId(open ? null : t.ticket_id)}>
+                <Press scale={0.995} onPress={() => setOpenId(open ? null : t.ticket_id)} label={`${open ? 'Hide' : 'Show'} ticket: ${t.subject}`} expanded={open}>
                   <View style={{ flexDirection: 'row', alignItems: 'center', gap: 12 }}>
                     <View style={{ flex: 1 }}>
                       <Text style={[type(16, 900), { color: c.ink, letterSpacing: -0.3 }]}>{t.subject}</Text>

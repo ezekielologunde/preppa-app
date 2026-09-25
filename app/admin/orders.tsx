@@ -35,8 +35,8 @@ export default function AdminOrders() {
       const result = await admin.orderDetail(row.order_id);
       if (!result) throw new Error('This order could not be found. It may have been removed or you may no longer have access.');
       setDetail(result);
-    } catch (e: any) {
-      setDetailError(e?.message ?? 'Could not load this order.');
+    } catch {
+      setDetailError('Check your connection and try loading this order again.');
     } finally {
       setBusy(false);
     }
@@ -67,7 +67,7 @@ export default function AdminOrders() {
       <AdminHeader title="Orders & payments" sub={loading ? 'Loading…' : `${data?.length ?? 0} orders`} back={true} />
       <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={{ paddingBottom: 44 }}>
         {error ? (
-          <ErrorRetry message={error.message} onRetry={() => setNonce((n) => n + 1)} />
+          <ErrorRetry message="Check your connection and try loading orders again." onRetry={() => setNonce((n) => n + 1)} />
         ) : (
           <DataTable
             columns={columns}
