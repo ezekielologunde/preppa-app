@@ -8,6 +8,8 @@ tags: [project/preppa, type/tasks]
 
 # Tasks
 
+- [x] Harden shared cook support handling: decouple identity lookup from ticket loading, preserve current requests and thread messages through refresh failures, sequence thread loads, and expose accessible retry alerts (2026-09-25)
+
 - [x] Keep cook experience listings usable through failed refreshes: sequence focus loads, retain current listings with accessible recovery, and add complete spoken labels for listing rows (2026-09-25)
 
 - [x] Keep cook meal plans usable through refresh failures: sequence focus loads, retain the current plan list with accessible recovery, and add complete spoken labels to plan rows (2026-09-25)

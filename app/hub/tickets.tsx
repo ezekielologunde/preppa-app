@@ -18,14 +18,26 @@ function Thread({ ticketId, status, myUid, onReplied }: { ticketId: string; stat
   const [reply, setReply] = useState('');
   const [busy, setBusy] = useState(false);
   const replyInFlight = useRef(false);
+  const loadSequence = useRef(0);
 
   const load = async () => {
+    const sequence = ++loadSequence.current;
+    setLoadError('');
+    try {
+      const nextMessages = await tickets.ticketThread(ticketId);
+      if (sequence === loadSequence.current) setMsgs(nextMessages);
+    } catch {
+      if (sequence === loadSequence.current) setLoadError('Check your connection and try loading this conversation again.');
+    }
+  };
+  useEffect(() => {
     setMsgs(null);
     setLoadError('');
-    try { setMsgs(await tickets.ticketThread(ticketId)); }
-    catch { setLoadError('Check your connection and try loading this conversation again.'); }
-  };
-  useEffect(() => { load(); /* eslint-disable-next-line react-hooks/exhaustive-deps */ }, [ticketId]);
+    void load();
+    return () => { loadSequence.current += 1; };
+    // load intentionally follows the current ticket id.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [ticketId]);
 
   const send = async () => {
     if (replyInFlight.current || reply.trim().length < 1) return;
@@ -43,9 +55,10 @@ function Thread({ ticketId, status, myUid, onReplied }: { ticketId: string; stat
           <Text style={[type(12.5, 700), { color: c.red, marginBottom: 10 }]}>{loadError}</Text>
           <View style={{ alignSelf: 'flex-start' }}><Btn label="Try again" icon="repeat" variant="ghost" onPress={load} /></View>
         </View>
-      ) : msgs === null ? (
+      ) : null}
+      {msgs === null && !loadError ? (
         <Text style={[type(13, 600), { color: c.soft }]}>Loading…</Text>
-      ) : (
+      ) : msgs ? (
         msgs.map((m) => {
           const mine = !!myUid && m.author_id === myUid;
           return (
@@ -55,7 +68,7 @@ function Thread({ ticketId, status, myUid, onReplied }: { ticketId: string; stat
             </View>
           );
         })
-      )}
+      ) : null}
       {!loadError && status !== 'closed' ? <TextInput
         value={reply}
         onChangeText={setReply}
@@ -86,10 +99,15 @@ export default function HubTickets() {
 
   useEffect(() => {
     let alive = true;
+    setError(null);
     (async () => {
       try {
         const u = await currentUser();
         if (alive) setMyUid(u?.id ?? null);
+      } catch {
+        if (alive) setMyUid(null);
+      }
+      try {
         const data = await tickets.listSharedTickets();
         if (alive) setItems(data);
       } catch {
@@ -103,17 +121,27 @@ export default function HubTickets() {
     <Screen>
       <TopBar title="Support" sub="Issues about your orders" onBack={() => router.push('/my-hub')} />
       <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={{ paddingBottom: 60 }}>
-        {error ? (
+        {error && items === null ? (
           <Block title="Couldn’t load support">
-            <Text style={[type(13.5, 600), { color: c.red, marginBottom: 12 }]}>{error}</Text>
+            <View accessibilityRole="alert"><Text style={[type(13.5, 600), { color: c.red, marginBottom: 12 }]}>{error}</Text></View>
             <View style={{ alignSelf: 'flex-start' }}><Btn label="Try again" icon="repeat" variant="ghost" onPress={() => { setError(null); setItems(null); setNonce((n) => n + 1); }} /></View>
           </Block>
         ) : items === null ? (
           <Block><Text style={[type(14, 600), { color: c.soft }]}>Loading…</Text></Block>
-        ) : items.length === 0 ? (
+        ) : items.length === 0 && !error ? (
           <Empty icon="info" title="Nothing to review" body="When an admin shares a customer issue about one of your orders, it'll appear here." />
         ) : (
-          items.map((t) => {
+          <>
+          {error ? (
+            <Block>
+              <View accessibilityRole="alert">
+                <Text style={[type(13.5, 800), { color: c.ink }]}>Couldn’t refresh support</Text>
+                <Text style={[type(12.5, 600), { color: c.soft, marginTop: 4, marginBottom: 12, lineHeight: 18 }]}>{error} Your current requests are still shown.</Text>
+                <View style={{ alignSelf: 'flex-start' }}><Btn label="Try again" icon="repeat" variant="ghost" onPress={() => setNonce((n) => n + 1)} /></View>
+              </View>
+            </Block>
+          ) : null}
+          {items.map((t) => {
             const open = openId === t.id;
             return (
               <Block key={t.id}>
@@ -135,7 +163,8 @@ export default function HubTickets() {
                 ) : null}
               </Block>
             );
-          })
+          })}
+          </>
         )}
       </ScrollView>
     </Screen>
