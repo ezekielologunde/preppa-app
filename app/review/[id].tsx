@@ -1,12 +1,12 @@
 import React, { useState } from 'react';
-import { View, Text, ScrollView, TextInput } from 'react-native';
+import { View, Text, ScrollView, TextInput, ActivityIndicator } from 'react-native';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { cookOfLine } from '../../src/data/data';
 import { useC } from '../../src/theme/ThemeContext';
 import { type, radius } from '../../src/theme/theme';
 import { useStore } from '../../src/store/store';
 import { Icon, Press, Avatar, Btn } from '../../src/ui';
-import { Screen, TopBar, Dock, Block } from '../../src/ui/layout';
+import { Screen, TopBar, Dock, Block, Empty } from '../../src/ui/layout';
 import { submitReview } from '../../src/lib/orders';
 
 const TAGS = ['Delicious 😋', 'On time', 'Great packaging', 'Generous portion', 'Would reorder', 'Friendly cook'];
@@ -15,14 +15,32 @@ export default function Review() {
   const c = useC();
   const router = useRouter();
   const { id } = useLocalSearchParams<{ id: string }>();
-  const { orders, toast } = useStore();
+  const { orders, ordersLoading, ordersError, refreshOrders, toast } = useStore();
   const o = orders.find((x) => x.id === id);
-  const cook = cookOfLine({ cook: o?.cook ?? 'maria', kitchenName: o?.kitchenName, grad: o?.lines[0]?.grad ?? 'g1' });
   const [stars, setStars] = useState(0);
   const [tags, setTags] = useState<string[]>([]);
   const [text, setText] = useState('');
   const [busy, setBusy] = useState(false);
   const toggle = (t: string) => setTags((p) => (p.includes(t) ? p.filter((x) => x !== t) : [...p, t]));
+
+  if (!o && ordersLoading) {
+    return <Screen><TopBar title="Rate your cook" /><ActivityIndicator style={{ marginTop: 60 }} color={c.primary} /></Screen>;
+  }
+  if (!o || o.status !== 'completed') {
+    const loadFailed = !o && !!ordersError;
+    return (
+      <Screen>
+        <TopBar title="Rate your cook" />
+        <Empty
+          icon="star"
+          title={loadFailed ? 'Could not load order' : o ? 'Review not available yet' : 'Order not found'}
+          body={loadFailed ? ordersError : o ? 'You can leave a review after the order is completed.' : 'We couldn’t find that order.'}
+          action={loadFailed ? <Btn label="Try again" icon="repeat" onPress={() => void refreshOrders()} /> : <Btn label="Your orders" onPress={() => router.replace('/orders')} />}
+        />
+      </Screen>
+    );
+  }
+  const cook = cookOfLine({ cook: o.cook, kitchenName: o.kitchenName, grad: o.lines[0]?.grad ?? 'g1' });
 
   // Real DB write (audit Critical: this used to be a fake toast with no DB write at all).
   // `o.dbId` is the real Supabase orders.id — a review is only ever left against that, never
@@ -52,7 +70,7 @@ export default function Review() {
       <TopBar title="Rate your cook" />
       <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={{ paddingBottom: 120 }}>
         <View style={{ alignItems: 'center', paddingVertical: 22, backgroundColor: c.surface, borderBottomWidth: 1, borderBottomColor: c.border2 }}>
-          <Avatar cook={o ? o.cook : 'maria'} initial={cook.initial} grad={cook.grad} size={64} rad={20} />
+          <Avatar cook={o.cook} initial={cook.initial} grad={cook.grad} size={64} rad={20} />
           <Text style={[type(18, 900), { color: c.ink, marginTop: 12 }]}>{cook.name}</Text>
           <Text style={[type(13, 600), { color: c.soft, marginTop: 2 }]}>How was your order?</Text>
           <View style={{ flexDirection: 'row', gap: 8, marginTop: 16 }}>

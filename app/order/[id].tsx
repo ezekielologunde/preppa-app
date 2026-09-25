@@ -1,5 +1,5 @@
 import React, { useCallback, useState } from 'react';
-import { View, Text, ScrollView, TextInput } from 'react-native';
+import { View, Text, ScrollView, TextInput, ActivityIndicator } from 'react-native';
 import { useLocalSearchParams, useRouter, useFocusEffect } from 'expo-router';
 import { cookOfLine, money, CookId } from '../../src/data/data';
 import { useC } from '../../src/theme/ThemeContext';
@@ -19,7 +19,7 @@ export default function OrderDetail() {
   const c = useC();
   const router = useRouter();
   const { id } = useLocalSearchParams<{ id: string }>();
-  const { orders, reorder, toast, refreshOrderStatus } = useStore();
+  const { orders, ordersLoading, ordersError, refreshOrders, reorder, toast, refreshOrderStatus } = useStore();
   const o = orders.find((x) => x.id === id);
   const [refreshError, setRefreshError] = useState(false);
   const [reordering, setReordering] = useState(false);
@@ -36,11 +36,15 @@ export default function OrderDetail() {
     return () => clearInterval(timer);
   }, [refresh, o?.status]));
 
+  if (!o && ordersLoading) {
+    return <Screen><TopBar title="Order" /><ActivityIndicator style={{ marginTop: 60 }} color={c.primary} /></Screen>;
+  }
+
   if (!o) {
     return (
       <Screen>
         <TopBar title="Order" />
-        <Empty icon="ticket" title="Order not found" body="We couldn’t find that order." action={<Btn label="Your orders" onPress={() => router.replace('/orders')} />} />
+        <Empty icon="ticket" title={ordersError ? 'Could not load order' : 'Order not found'} body={ordersError || 'We couldn’t find that order.'} action={ordersError ? <Btn label="Try again" icon="repeat" onPress={() => void refreshOrders()} /> : <Btn label="Your orders" onPress={() => router.replace('/orders')} />} />
       </Screen>
     );
   }
