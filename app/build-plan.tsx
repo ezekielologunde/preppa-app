@@ -71,7 +71,7 @@ export default function BuildPlanFlow() {
       if (e?.code === 'no_card') {
         try { const { clientSecret } = await createSetupIntent(); setAddCard(clientSecret); }
         catch { toast('Add a card to subscribe.', 'info'); }
-      } else { toast(e?.message || 'Could not create your box.', 'info'); }
+      } else { toast('Could not create your box. Please try again.', 'info'); }
     } finally { subscribeInFlight.current = false; setBusy(false); }
   };
   const subscribe = async () => {
@@ -144,7 +144,7 @@ export default function BuildPlanFlow() {
         ) : mealsError && pool.length === 0 ? (
           <View accessibilityRole="alert" style={{ alignItems: 'center', paddingHorizontal: 24, paddingVertical: 50 }}>
             <Text style={[type(16, 900), { color: c.ink }]}>Meals couldn’t load</Text>
-            <Text style={[type(13.5, 600), { color: c.soft, textAlign: 'center', lineHeight: 20, marginTop: 6, marginBottom: 16 }]}>{mealsError.message || 'Check your connection and try again.'}</Text>
+            <Text style={[type(13.5, 600), { color: c.soft, textAlign: 'center', lineHeight: 20, marginTop: 6, marginBottom: 16 }]}>Check your connection and try loading meals again.</Text>
             <Btn label="Try again" icon="repeat" onPress={() => invalidate('catalog:live')} />
           </View>
         ) : pool.length === 0 ? (

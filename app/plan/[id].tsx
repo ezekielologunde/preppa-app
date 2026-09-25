@@ -50,7 +50,7 @@ export default function PlanDetailScreen() {
     let alive = true;
     setPlan(undefined);
     setLoadError('');
-    fetchPlan(id!).then((p) => { if (alive) setPlan(p); }).catch((e) => { if (alive) { setPlan(null); setLoadError(e?.message || 'Couldn’t load this meal plan.'); } });
+    fetchPlan(id!).then((p) => { if (alive) setPlan(p); }).catch(() => { if (alive) { setPlan(null); setLoadError('Check your connection and try loading this meal plan again.'); } });
     return () => { alive = false; };
   }, [id, retryNonce]);
 
@@ -131,7 +131,7 @@ function RealPlanDetail({ plan }: { plan: Plan }) {
       } else if (e?.code === 'already_subscribed') {
         toast("You're already subscribed to this plan.", 'info'); router.replace('/experiences?tab=mine');
       } else {
-        toast(e?.message || 'Could not start your plan. Please try again.', 'info');
+        toast('Could not start your plan. Please try again.', 'info');
       }
     } finally { subscribeInFlight.current = false; setBusy(false); }
   };

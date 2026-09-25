@@ -47,6 +47,9 @@ export default function ExperienceDetail() {
   const [guests, setGuests] = useState(1);
   const [busy, setBusy] = useState(false);
   const bookingInFlight = useRef(false);
+  const waitlistInFlight = useRef(false);
+  const [availabilityLoading, setAvailabilityLoading] = useState(false);
+  const [availabilityError, setAvailabilityError] = useState(false);
   const [pay, setPay] = useState<{ clientSecret: string; label: string } | null>(null);
   const [waitlisted, setWaitlisted] = useState<Set<string>>(new Set());
   const [rating, setRating] = useState({ avg: 0, count: 0 });
@@ -57,9 +60,18 @@ export default function ExperienceDetail() {
   const [viewerIdx, setViewerIdx] = useState(0);
 
   const loadAvail = async (expId: string) => {
-    const a = await fetchAvailability(expId);
-    setAvail(a);
-    try { setWaitlisted(new Set(await fetchMyWaitlistSessions(a.map((s) => s.sessionId)))); } catch { /* signed-out */ }
+    setAvailabilityLoading(true);
+    setAvailabilityError(false);
+    try {
+      const a = await fetchAvailability(expId);
+      setAvail(a);
+      try { setWaitlisted(new Set(await fetchMyWaitlistSessions(a.map((s) => s.sessionId)))); } catch { /* signed-out */ }
+    } catch {
+      setAvailabilityError(true);
+      throw new Error('availability unavailable');
+    } finally {
+      setAvailabilityLoading(false);
+    }
   };
   useEffect(() => {
     let alive = true;
@@ -72,9 +84,9 @@ export default function ExperienceDetail() {
         if (!alive) return;
         if (!e) { setNotFound(true); return; }
         setExp(e); setGuests(e.minGuests);
-        await loadAvail(e.id);
-      } catch (err: any) {
-        if (alive) setLoadError(err?.message ?? 'Couldn’t load this experience. Check your connection and try again.');
+        try { await loadAvail(e.id); } catch { /* keep the experience visible with date recovery */ }
+      } catch {
+        if (alive) setLoadError('Check your connection and try loading this experience again.');
       } finally {
         if (alive) setLoading(false);
       }
@@ -134,21 +146,25 @@ export default function ExperienceDetail() {
     } catch (e: any) {
       const msg = String(e?.message || '');
       if (/unauthorized|auth/i.test(msg)) toast('Sign in to book this experience', 'info');
-      else if (/full|no longer|unavailable/i.test(msg)) { toast('That session just changed — pick another', 'info'); await loadAvail(exp.id); setSelSession(null); }
-      else toast(msg || 'Couldn’t start your booking', 'info');
+      else if (/full|no longer|unavailable/i.test(msg)) { toast('That session just changed. Pick another date.', 'info'); try { await loadAvail(exp.id); } catch { /* recovery is shown by the date picker */ } setSelSession(null); }
+      else toast('Couldn’t start your booking. Please try again.', 'info');
     } finally { bookingInFlight.current = false; setBusy(false); }
   };
 
   const onWait = !!sel && waitlisted.has(sel.sessionId);
   const joinWl = async () => {
-    if (!sel) return;
-    try { await joinWaitlist(sel.sessionId, guests); setWaitlisted((w) => new Set(w).add(sel.sessionId)); toast('You’re on the waitlist — we’ll ping you if a seat opens', 'check', true); }
-    catch (e: any) { toast(/auth/i.test(String(e?.message)) ? 'Sign in to join the waitlist' : (e?.message || 'Could not join'), 'info'); }
+    if (!sel || waitlistInFlight.current) return;
+    waitlistInFlight.current = true; setBusy(true);
+    try { await joinWaitlist(sel.sessionId, guests); setWaitlisted((w) => new Set(w).add(sel.sessionId)); toast('You’re on the waitlist. We’ll notify you if a seat opens.', 'check', true); }
+    catch (e: any) { toast(/auth/i.test(String(e?.message)) ? 'Sign in to join the waitlist' : 'Could not join the waitlist. Please try again.', 'info'); }
+    finally { waitlistInFlight.current = false; setBusy(false); }
   };
   const leaveWl = async () => {
-    if (!sel) return;
+    if (!sel || waitlistInFlight.current) return;
+    waitlistInFlight.current = true; setBusy(true);
     try { await leaveWaitlist(sel.sessionId); setWaitlisted((w) => { const n = new Set(w); n.delete(sel.sessionId); return n; }); toast('Left the waitlist', 'x'); }
-    catch (e: any) { toast(e?.message || 'Could not update', 'info'); }
+    catch { toast('Could not update the waitlist. Please try again.', 'info'); }
+    finally { waitlistInFlight.current = false; setBusy(false); }
   };
   const primaryAction = !sel ? undefined : canBook ? book : onWait ? leaveWl : joinWl;
   const primaryLabel = !sel ? 'Pick a date' : canBook ? (isFlat ? `Book the whole session · ${money(total / 100)}` : `Book · ${money(total / 100)}`) : onWait ? 'On the waitlist' : 'Join waitlist';
@@ -157,7 +173,7 @@ export default function ExperienceDetail() {
   const initial = exp.kitchenName.trim()[0]?.toUpperCase() ?? 'K';
   const messageHost = async () => {
     try { const tid = await openThread(exp.kitchenId, 'experience', exp.id); router.push(`/messages/${tid}`); }
-    catch (e: any) { toast(/auth/i.test(String(e?.message)) ? 'Sign in to message the host' : (e?.message || 'Could not open chat'), 'info'); }
+    catch (e: any) { toast(/auth/i.test(String(e?.message)) ? 'Sign in to message the host' : 'Could not open chat. Please try again.', 'info'); }
   };
 
   return (
@@ -210,7 +226,14 @@ export default function ExperienceDetail() {
 
           {/* Pick a session */}
           <SectionLabel>Pick a date</SectionLabel>
-          {sessions.length === 0 ? (
+          {availabilityLoading && avail.length === 0 ? (
+            <View style={{ paddingVertical: 18, alignItems: 'center' }}><ActivityIndicator color={c.primary} /></View>
+          ) : availabilityError ? (
+            <View accessibilityRole="alert" style={{ padding: 14, borderRadius: radius.lg, backgroundColor: c.redL, alignItems: 'center', gap: 10 }}>
+              <Text style={[type(13, 700), { color: c.red, textAlign: 'center' }]}>Available dates could not be refreshed.</Text>
+              <Btn label="Try dates again" icon="repeat" variant="ghost" height={38} onPress={() => { void loadAvail(exp.id).catch(() => undefined); }} />
+            </View>
+          ) : sessions.length === 0 ? (
             <Text style={[type(13.5, 600), { color: c.muted, lineHeight: 20 }]}>No upcoming sessions right now — check back soon.</Text>
           ) : (
             <>
