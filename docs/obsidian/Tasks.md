@@ -19,6 +19,7 @@ Part of [[Project]]. Outstanding work discovered during the audit — not a spri
 - [x] Serialize admin application, vetting, experience-review, role, suspension, and reinstatement decisions before UI rerender (2026-09-25).
 - [x] Serialize customer booking, service-request, and address mutations before UI rerender, including refund and balance-collection actions (2026-09-25).
 - [x] Serialize cook booking and quote actions, support replies, customer reviews, and chat text or image sends before UI rerender (2026-09-25).
+- [x] Serialize cook application, Stripe onboarding, vetting, meal, post, plan, and experience publication mutations before UI rerender (2026-09-25).
 
 ## Competitive gap analysis: Shef (2026-09-09)
 

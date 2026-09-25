@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import { View, Text, ScrollView, Image, Platform, ActivityIndicator } from 'react-native';
 import { useRouter, useLocalSearchParams } from 'expo-router';
 import { useC } from '../../src/theme/ThemeContext';
@@ -29,6 +29,7 @@ export default function PostReelFlow() {
   const [mealsLoading, setMealsLoading] = useState(true);
   const [mealsError, setMealsError] = useState(false);
   const [busy, setBusy] = useState(false);
+  const publishInFlight = useRef(false);
   const [done, setDone] = useState(false);
 
   const loadMeals = React.useCallback(async () => {
@@ -63,15 +64,16 @@ export default function PostReelFlow() {
   };
 
   const submit = async () => {
-    if (busy) return;
+    if (publishInFlight.current) return;
     if (!valid) { toast('Add a photo and a caption', 'info'); return; }
+    publishInFlight.current = true;
     setBusy(true);
     try {
       await createPost(coverUrl!, caption.trim(), tag, mealId || undefined, videoUrl ?? undefined);
       setDone(true);
     } catch (e: any) {
       toast(e?.message || 'Could not publish your post.', 'info');
-    } finally { setBusy(false); }
+    } finally { publishInFlight.current = false; setBusy(false); }
   };
 
   if (done) {

@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useRef, useState } from 'react';
 import { View, Text, ScrollView, Image, Platform } from 'react-native';
 import { useRouter } from 'expo-router';
 import { useC } from '../../src/theme/ThemeContext';
@@ -49,13 +49,15 @@ export default function CreateMealFlow() {
   const [done, setDone] = useState(false);
   const [photoUploadFailed, setPhotoUploadFailed] = useState(false);
   const [busy, setBusy] = useState(false);
+  const publishInFlight = useRef(false);
   const toggleD = (d: string) => setDiet((p) => (p.includes(d) ? p.filter((x) => x !== d) : [...p, d]));
   const toggleAllergen = (a: string) => setAllergens((p) => (p.includes(a) ? p.filter((x) => x !== a) : [...p, a]));
   const valid = !!name.trim() && Number(price) > 0 && ingredients.trim().length >= 3 && allergenReviewed;
   const reason = !name.trim() ? 'Add a dish name' : Number(price) <= 0 ? 'Set a price above $0' : ingredients.trim().length < 3 ? 'List the ingredients customers should know about' : 'Confirm you reviewed the allergen disclosure';
   const submit = async () => {
-    if (busy) return;
+    if (publishInFlight.current) return;
     if (!valid) { toast(reason, 'info'); return; }
+    publishInFlight.current = true;
     setBusy(true);
     try {
       const mealId = await createMeal({
@@ -85,9 +87,8 @@ export default function CreateMealFlow() {
       invalidate('catalog:live'); // new meal → refresh the cached catalog everywhere
       setDone(true);
     } catch (e: any) {
-      setBusy(false);
       toast(e?.message === 'no approved kitchen for this account' ? 'Your kitchen isn’t approved yet' : 'Couldn’t publish your meal — please try again', 'info');
-    }
+    } finally { publishInFlight.current = false; setBusy(false); }
   };
 
   if (done) {

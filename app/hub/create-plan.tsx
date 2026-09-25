@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import { View, Text, ScrollView, ActivityIndicator, Image, Platform } from 'react-native';
 import { useRouter, useLocalSearchParams } from 'expo-router';
 import { useC } from '../../src/theme/ThemeContext';
@@ -58,6 +58,7 @@ export default function CreatePlanFlow() {
   const [cadenceWeeks, setCadenceWeeks] = useState<1 | 2>(1); // NEW: 1=weekly, 2=biweekly
   const [rotating, setRotating] = useState(false); // NEW: meals rotate weekly
   const [busy, setBusy] = useState(false);
+  const saveInFlight = useRef(false);
   const [savingDraft, setSavingDraft] = useState(false);
   const [existingStatus, setExistingStatus] = useState<'draft' | 'active' | 'archived' | null>(null);
   const [done, setDone] = useState(false);
@@ -152,7 +153,7 @@ export default function CreatePlanFlow() {
   const clampInt = (s: string, lo: number, hi: number) => Math.min(hi, Math.max(lo, parseInt(s, 10) || lo));
 
   const submit = async (asDraft = false) => {
-    if (busy) return;
+    if (saveInFlight.current) return;
     if (!valid) {
       toast(!name.trim() ? 'Add a plan name'
         : week0Items.length === 0 ? (choice ? 'Add meals to the menu' : 'Add at least one meal to the box')
@@ -160,6 +161,7 @@ export default function CreatePlanFlow() {
         : 'Set a price above $0', 'info');
       return;
     }
+    saveInFlight.current = true;
     setBusy(true);
     setSavingDraft(asDraft);
     try {
@@ -204,7 +206,7 @@ export default function CreatePlanFlow() {
       setDone(true);
     } catch (e: any) {
       toast(e?.message || 'Could not publish the plan', 'info');
-    } finally { setBusy(false); }
+    } finally { saveInFlight.current = false; setBusy(false); }
   };
 
   if (done) {

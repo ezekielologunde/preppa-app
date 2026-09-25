@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useRef, useState, useEffect } from 'react';
 import { View, Text, ScrollView, TextInput, Linking, ActivityIndicator } from 'react-native';
 import { useRouter } from 'expo-router';
 import { useC } from '../src/theme/ThemeContext';
@@ -32,6 +32,8 @@ export default function Apply() {
 
   const [idx, setIdx] = useState(0);
   const [busy, setBusy] = useState(false);
+  const submissionInFlight = useRef(false);
+  const onboardingInFlight = useRef(false);
   const [err, setErr] = useState<string | null>(null);
 
   const [types, setTypes] = useState<ServiceType[]>([]);
@@ -109,12 +111,16 @@ export default function Apply() {
   // payouts). Shown before the pending guard, since submit sets prepperStatus='pending'.
   if (submittedKitchen) {
     const onboard = async () => {
+      if (onboardingInFlight.current) return;
+      onboardingInFlight.current = true;
       setOnboarding(true);
       try {
         await startConnectOnboarding(submittedKitchen);
       } catch (e: any) {
-        setOnboarding(false);
         toast(e?.message || 'Couldn’t start setup — you can finish it in My Hub.', 'info');
+      } finally {
+        onboardingInFlight.current = false;
+        setOnboarding(false);
       }
     };
     return (
@@ -126,7 +132,7 @@ export default function Apply() {
           <Text style={[type(14, 500), { color: c.soft, textAlign: 'center', marginTop: 8, maxWidth: 330, lineHeight: 21 }]}>Preppa uses Stripe to confirm your identity and pay you. It’s quick and secure — you don’t need your own Stripe account.</Text>
           <View style={{ marginTop: 24, width: '100%', maxWidth: 360, gap: 10 }}>
             <Btn label="Verify & set up payouts" icon="card" block loading={onboarding} onPress={onboard} />
-            <Btn label="Do this later in My Hub" variant="ghost" block onPress={() => router.replace('/(tabs)/profile')} />
+            <Btn label="Do this later in My Hub" variant="ghost" block disabled={onboarding} onPress={() => router.replace('/(tabs)/profile')} />
           </View>
         </View>
       </Screen>
@@ -213,7 +219,7 @@ export default function Apply() {
   const toggleType = (t: ServiceType) => setTypes((p) => (p.includes(t) ? p.filter((x) => x !== t) : [...p, t]));
 
   const submit = async () => {
-    if (busy) return;
+    if (submissionInFlight.current) return;
     // Photos are editable on this review step — re-check the minimum so removing them
     // here can't slip through the foodsafety-step gate.
     if (meals && (fridgePhotos.length < 1 || kitchenPhotos.length < 1)) {
@@ -224,6 +230,7 @@ export default function Apply() {
       setErr('A food-handler certificate number is required.');
       return;
     }
+    submissionInFlight.current = true;
     setBusy(true); setErr(null);
     try {
       const kitchenId = await submitApplication({
@@ -250,12 +257,13 @@ export default function Apply() {
         story: story.trim(),
         agreementVersion: COOK_AGREEMENT_VERSION,
       });
-      setBusy(false);
       toast('Application received', 'check', true);
       setSubmittedKitchen(kitchenId); // → identity + payout setup (Stripe Connect)
     } catch {
-      setBusy(false);
       setErr('Couldn’t submit your application right now. Please check your details and try again.');
+    } finally {
+      submissionInFlight.current = false;
+      setBusy(false);
     }
   };
 

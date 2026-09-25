@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import { View, Text, ScrollView, TextInput, ActivityIndicator } from 'react-native';
 import { useC } from '../../src/theme/ThemeContext';
 import { type, radius, shadow } from '../../src/theme/theme';
@@ -30,6 +30,7 @@ export default function InHomeVetting() {
   const [insurance, setInsurance] = useState<PhotoRef[]>([]);
   const [expires, setExpires] = useState('');
   const [busy, setBusy] = useState(false);
+  const submissionInFlight = useRef(false);
 
   const load = async () => {
     setLoading(true);
@@ -62,9 +63,10 @@ export default function InHomeVetting() {
   useEffect(() => { void load(); }, []);
 
   const submit = async () => {
-    if (busy || !kitchenId) return;
+    if (submissionInFlight.current || !kitchenId) return;
     if (bg.length === 0) { toast('Add your background-check document.', 'info'); return; }
     if (insurance.length === 0) { toast('Add your liability insurance document.', 'info'); return; }
+    submissionInFlight.current = true;
     setBusy(true);
     try {
       await submitInHomeVetting(kitchenId, {
@@ -74,7 +76,7 @@ export default function InHomeVetting() {
       toast('Sent for review — usually within a couple days.', 'check', true);
     } catch (e: any) {
       toast(e?.message || 'Could not submit. Please try again.', 'info');
-    } finally { setBusy(false); }
+    } finally { submissionInFlight.current = false; setBusy(false); }
   };
 
   if (loading) {

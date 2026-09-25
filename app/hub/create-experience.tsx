@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import { View, Text, ScrollView, ActivityIndicator, Image, Platform } from 'react-native';
 import { useRouter, useLocalSearchParams } from 'expo-router';
 import { useC } from '../../src/theme/ThemeContext';
@@ -69,6 +69,7 @@ export default function CreateExperienceFlow() {
   const [repeatN, setRepeatN] = useState('4');
   const [status, setStatus] = useState<string>('draft');
   const [busy, setBusy] = useState(false);
+  const mutationInFlight = useRef(false);
   const [done, setDone] = useState<{ status: string } | null>(null);
 
   const load = async () => {
@@ -148,15 +149,17 @@ export default function CreateExperienceFlow() {
   };
   const cancelBooked = async (i: number, s: SessRow) => {
     if (!s.id) { removeSess(i); return; }
-    if (busy) return;
+    if (mutationInFlight.current) return;
+    mutationInFlight.current = true;
+    mutationInFlight.current = true;
     setBusy(true);
     try { const r = await cancelExperienceSession(s.id); toast(`Session cancelled — ${r.refunded} booking${r.refunded !== 1 ? 's' : ''} refunded`, 'check', true); removeSess(i); }
     catch (e: any) { toast(e?.message || 'Could not cancel the session', 'info'); }
-    finally { setBusy(false); }
+    finally { mutationInFlight.current = false; setBusy(false); }
   };
   const requestCancelBooked = (i: number, s: SessRow) => {
     if (!s.id) { removeSess(i); return; }
-    if (busy) return;
+    if (mutationInFlight.current) return;
     confirmAction(
       'Cancel this session?',
       `All ${s.seatsTaken} booked guest${s.seatsTaken === 1 ? '' : 's'} must be fully refunded before cancellation completes.`,
@@ -166,7 +169,7 @@ export default function CreateExperienceFlow() {
   };
 
   const save = async (submit: boolean) => {
-    if (busy) return;
+    if (mutationInFlight.current) return;
     if (submit && !canSubmit) {
       toast(!title.trim() ? 'Add a title' : perPersonCents < 100 ? 'Set a price per person (at least $1)' : validSessions.length === 0 ? 'Add at least one session' : (locationType === 'virtual' && !meetingUrl.trim()) ? 'Add a meeting link for the online session' : 'Check your guest limits', 'info');
       return;
@@ -195,7 +198,7 @@ export default function CreateExperienceFlow() {
       setDone({ status: res.status });
     } catch (e: any) {
       toast(e?.message || 'Could not save the experience', 'info');
-    } finally { setBusy(false); }
+    } finally { mutationInFlight.current = false; setBusy(false); }
   };
 
   if (done) {

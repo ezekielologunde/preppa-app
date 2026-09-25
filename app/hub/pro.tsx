@@ -113,7 +113,7 @@ export default function CookPro() {
   };
 
   const requestSwitch = () => {
-    if (busy) return;
+    if (membershipActionInFlight.current) return;
     const nextInterval = mem?.planInterval === 'year' ? 'month' : 'year';
     const nextPrice = nextInterval === 'year' ? COOK_PRO_ANNUAL_CENTS : COOK_PRO_MONTHLY_CENTS;
     confirmAction(
@@ -125,7 +125,7 @@ export default function CookPro() {
   };
 
   const requestCancel = () => {
-    if (busy) return;
+    if (membershipActionInFlight.current) return;
     confirmAction(
       'Cancel Preppa Pro?',
       'Your membership will stay active until the current paid period ends. Lower processing fees, priority placement, and Pro benefits will then stop.',
