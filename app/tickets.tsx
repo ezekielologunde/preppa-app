@@ -25,7 +25,7 @@ function TicketThread({ ticket, onReplied }: { ticket: MyTicket; onReplied: () =
       const [{ data }, rows] = await Promise.all([supabase.auth.getSession(), ticketThread(ticket.id)]);
       setMyUid(data.session?.user?.id ?? null);
       setMessages(rows);
-    } catch (e: any) { setError(e?.message || 'Could not load this conversation.'); }
+    } catch { setError('Could not load this conversation. Check your connection and try again.'); }
   };
   useEffect(() => { void load(); /* eslint-disable-next-line react-hooks/exhaustive-deps */ }, [ticket.id]);
 
@@ -82,7 +82,7 @@ export default function MyTickets() {
         .select('id,subject,body,status,category,created_at')
         .order('created_at', { ascending: false });
       if (!alive) return;
-      if (error) setError(error.message);
+      if (error) setError('Could not load your support requests. Check your connection and try again.');
       else setTickets((data as MyTicket[]) ?? []);
     })();
     return () => { alive = false; };
@@ -106,7 +106,7 @@ export default function MyTickets() {
             const open = openId === t.id;
             return (
             <Block key={t.id}>
-              <Press scale={0.995} onPress={() => setOpenId(open ? null : t.id)} label={`${open ? 'Close' : 'Open'} support request ${t.subject}`}>
+              <Press scale={0.995} onPress={() => setOpenId(open ? null : t.id)} label={`${open ? 'Close' : 'Open'} support request ${t.subject}`} expanded={open}>
               <View style={{ flexDirection: 'row', alignItems: 'center', gap: 12 }}>
                 <View style={{ flex: 1 }}>
                   <Text style={[type(15, 900), { color: c.ink, letterSpacing: -0.3 }]}>{t.subject}</Text>

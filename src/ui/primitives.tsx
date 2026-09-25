@@ -27,6 +27,7 @@ export function Press({
   selected,
   role,
   checked,
+  expanded,
 }: {
   children: React.ReactNode;
   onPress?: () => void;
@@ -42,6 +43,8 @@ export function Press({
   role?: PressableProps['accessibilityRole'];
   /** Accessibility checked state for checkbox and radio controls. */
   checked?: boolean;
+  /** Accessibility expanded state for disclosure and accordion controls. */
+  expanded?: boolean;
 }) {
   const a = useRef(new Animated.Value(1)).current;
   const reduced = useReducedMotion();
@@ -69,7 +72,7 @@ export function Press({
       hitSlop={hitSlop}
       accessibilityRole={role ?? (onPress ? 'button' : undefined)}
       accessibilityLabel={label}
-      accessibilityState={{ disabled: !!disabled, selected, checked }}
+      accessibilityState={{ disabled: !!disabled, selected, checked, expanded }}
       onPressIn={() => to(scale)}
       onPressOut={() => to(1)}
     >
