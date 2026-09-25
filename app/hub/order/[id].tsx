@@ -12,7 +12,7 @@ import { KBtn } from '../../(tabs)/my-hub';
 import { openThreadAsKitchen } from '../../../src/lib/messages';
 
 const FLOW: KitchenOrderStatus[] = ['confirmed', 'preparing', 'ready', 'completed'];
-const LABELS: Record<KitchenOrderStatus, string> = { confirmed: 'New', preparing: 'Preparing', ready: 'Ready', completed: 'Completed' };
+const LABELS: Record<KitchenOrderStatus, string> = { confirmed: 'New', preparing: 'Preparing', ready: 'Ready', completed: 'Completed', cancelled: 'Cancelled' };
 const NEXT: Partial<Record<KitchenOrderStatus, KitchenOrderStatus>> = { confirmed: 'preparing', preparing: 'ready', ready: 'completed' };
 
 export default function OrderDetail() {
@@ -100,7 +100,7 @@ export default function OrderDetail() {
       setCancelling(false);
     }
   };
-  const canCancel = status !== 'completed';
+  const canCancel = status !== 'completed' && status !== 'cancelled';
   const messageCustomer = async () => {
     if (openingChat) return;
     setOpeningChat(true);
@@ -153,8 +153,15 @@ export default function OrderDetail() {
           </View>
         </View>
 
+        {status === 'cancelled' ? (
+          <View accessibilityRole="alert" style={{ marginHorizontal: 20, backgroundColor: c.redL, borderWidth: 1, borderColor: c.red, borderRadius: 16, padding: 14 }}>
+            <Text style={[type(14, 900), { color: c.red }]}>This order is cancelled</Text>
+            <Text style={[type(12.5, 600), { color: c.red, marginTop: 4, lineHeight: 18 }]}>No more fulfillment actions are available for this order.</Text>
+          </View>
+        ) : null}
+
         {/* progress */}
-        <View style={{ marginHorizontal: 20, backgroundColor: c.surface, borderWidth: 1, borderColor: c.border2, borderRadius: 20, padding: 16 }}>
+        {status !== 'cancelled' ? <View style={{ marginHorizontal: 20, backgroundColor: c.surface, borderWidth: 1, borderColor: c.border2, borderRadius: 20, padding: 16 }}>
           <Text style={[type(13, 900), { color: c.ink, marginBottom: 4 }]}>Progress</Text>
           {FLOW.map((s, i) => {
             const reached = i <= idx;
@@ -167,7 +174,7 @@ export default function OrderDetail() {
               </View>
             );
           })}
-        </View>
+        </View> : null}
 
         {canCancel ? (
           confirmCancel ? (

@@ -8,12 +8,13 @@ import { money, GradKey } from '../../src/data/data';
 import { fetchKitchenOrders, timeAgo, type KitchenOrderRow } from '../../src/lib/orders';
 import { HubHeader, KSeg, KPill } from '../(tabs)/my-hub';
 
-type UiStatus = 'confirmed' | 'preparing' | 'ready' | 'completed';
+type UiStatus = 'confirmed' | 'preparing' | 'ready' | 'completed' | 'cancelled';
 const STATUS: Record<UiStatus, { label: string; bg: (c: any) => string; fg: (c: any) => string }> = {
   confirmed: { label: 'New', bg: (c) => c.primaryL, fg: (c) => c.primaryD },
   preparing: { label: 'Preparing', bg: (c) => c.amberL, fg: (c) => c.amber },
   ready: { label: 'Ready', bg: (c) => c.blueL, fg: (c) => c.blue },
   completed: { label: 'Done', bg: (c) => c.bg2, fg: (c) => c.soft },
+  cancelled: { label: 'Cancelled', bg: (c) => c.redL, fg: (c) => c.red },
 };
 const GRADS: GradKey[] = ['g1', 'g2', 'g3', 'g4', 'g5', 'g6', 'g7', 'g8'];
 const gradFor = (id: string) => GRADS[[...id].reduce((h, ch) => h + ch.charCodeAt(0), 0) % GRADS.length];
@@ -60,8 +61,8 @@ export default function OrdersScreen() {
   }, []);
   useFocusEffect(useCallback(() => { load(); }, [load]));
 
-  const active = orders.filter((o) => o.status !== 'completed');
-  const past = orders.filter((o) => o.status === 'completed');
+  const active = orders.filter((o) => o.status !== 'completed' && o.status !== 'cancelled');
+  const past = orders.filter((o) => o.status === 'completed' || o.status === 'cancelled');
   const list = seg === 'active' ? active : past;
 
   return (

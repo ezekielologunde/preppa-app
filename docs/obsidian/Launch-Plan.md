@@ -28,6 +28,7 @@ tags: [project/preppa, type/launch-plan]
 - Customer experience browsing, kitchen feeds, message lists and threads, support history, and experience review loading now recover from request failures. Cook experience, meal-plan, service-request, subscriber/prep, and admin experience-review queues also distinguish load failures from legitimate empty queues.
 - Customer orders and request detail, cook order detail, and shared post detail distinguish transient load failures from empty or missing records and provide retry recovery.
 - Customer order detail now preserves the real order and kitchen identifiers when opening live tracking, represents cancelled orders honestly, and warns when status refresh fails instead of showing a false live state.
+- Cook order lists and detail now place cancelled orders in history, label them correctly, and remove duplicate fulfillment and cancellation actions.
 
 ### Customer acceptance evidence still needed
 
