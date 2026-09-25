@@ -10,6 +10,7 @@ import { Stepper } from '../../ui/primitives';
 import { AutoScrollGallery } from '../cards';
 import { money } from '../../data/data';
 import { openThread } from '../../lib/messages';
+import { confirmAction } from '../../lib/confirm';
 import {
   fetchActivePlans, listMySubscriptions, pauseSubscription, resumeSubscription, cancelSubscription,
   skipCycle, selectCycleMeals, customerWeeklyCents, fetchBoxKitchens,
@@ -107,14 +108,23 @@ export function MyPlansSection({ onBrowse }: { onBrowse: () => void }) {
   const { toast } = useStore();
   const [subs, setSubs] = useState<MySubscription[]>([]);
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState('');
   const [busy, setBusy] = useState<string | null>(null);
   const [editSub, setEditSub] = useState<MySubscription | null>(null);
   const [boxPicker, setBoxPicker] = useState<MySubscription | null>(null);
 
   const load = useCallback(async () => {
-    setSubs(await listMySubscriptions()); setLoading(false);
+    setLoading(true);
+    setError('');
+    try {
+      setSubs(await listMySubscriptions());
+    } catch (e: any) {
+      setError(e?.message || 'Your plans could not be loaded.');
+    } finally {
+      setLoading(false);
+    }
   }, []);
-  useFocusEffect(useCallback(() => { load(); }, [load]));
+  useFocusEffect(useCallback(() => { void load(); }, [load]));
 
   const act = async (sub: MySubscription, action: 'pause' | 'resume' | 'cancel' | 'skip') => {
     if (busy) return;
@@ -139,11 +149,31 @@ export function MyPlansSection({ onBrowse }: { onBrowse: () => void }) {
     } catch (e: any) { toast(e?.message || 'Could not open chat', 'info'); }
   };
 
+  const requestAction = (sub: MySubscription, action: 'pause' | 'resume' | 'cancel' | 'skip') => {
+    if (action !== 'cancel') {
+      void act(sub, action);
+      return;
+    }
+    confirmAction(
+      'Cancel this plan?',
+      'Your plan will end according to its current billing terms. This does not refund charges that have already been processed.',
+      () => void act(sub, 'cancel'),
+      'Cancel plan',
+    );
+  };
+
   return (
     <View style={{ flex: 1 }}>
       <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={{ paddingBottom: 40, maxWidth: 760, alignSelf: 'center', width: '100%' }}>
         {loading ? (
           <View style={{ paddingVertical: 60, alignItems: 'center' }}><ActivityIndicator color={c.primary} /></View>
+        ) : error ? (
+          <View accessibilityRole="alert" style={{ alignItems: 'center', paddingVertical: 50, paddingHorizontal: 24 }}>
+            <View style={{ width: 56, height: 56, borderRadius: 18, backgroundColor: c.redL, alignItems: 'center', justifyContent: 'center' }}><Icon name="info" size={25} color={c.red} /></View>
+            <Text style={[type(16, 900), { color: c.ink, marginTop: 14 }]}>Your plans couldn’t load</Text>
+            <Text style={[type(13.5, 600), { color: c.soft, textAlign: 'center', marginTop: 6, marginBottom: 16, maxWidth: 300, lineHeight: 20 }]}>{error}</Text>
+            <Btn label="Try again" icon="repeat" onPress={() => void load()} />
+          </View>
         ) : subs.length === 0 ? (
           <View style={{ alignItems: 'center', paddingVertical: 50, paddingHorizontal: 24 }}>
             <View style={{ width: 56, height: 56, borderRadius: 18, backgroundColor: c.primaryL, alignItems: 'center', justifyContent: 'center' }}><Icon name="repeat" size={26} color={c.primary} /></View>
@@ -158,7 +188,7 @@ export function MyPlansSection({ onBrowse }: { onBrowse: () => void }) {
         ) : (
           <View style={{ paddingHorizontal: 16, paddingTop: 16, gap: 12 }}>
             {subs.map((s) => (
-              <SubCard key={s.id} s={s} busy={busy === s.id} onAct={(a) => act(s, a)} onEditMeals={() => setEditSub(s)} onMessage={() => message(s)} />
+              <SubCard key={s.id} s={s} busy={busy === s.id} onAct={(a) => requestAction(s, a)} onEditMeals={() => setEditSub(s)} onMessage={() => void message(s)} />
             ))}
           </View>
         )}
@@ -181,12 +211,22 @@ export function BoxCookPicker({ sub, onClose }: { sub: MySubscription | null; on
   const { toast } = useStore();
   const [kitchens, setKitchens] = useState<BoxKitchen[]>([]);
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState('');
 
-  React.useEffect(() => {
+  const load = React.useCallback(async () => {
     if (!sub) return;
     setLoading(true);
-    fetchBoxKitchens(sub.id).then(setKitchens).catch(() => setKitchens([])).finally(() => setLoading(false));
+    setError('');
+    try {
+      setKitchens(await fetchBoxKitchens(sub.id));
+    } catch (e: any) {
+      setKitchens([]);
+      setError(e?.message || 'The kitchens in this box could not be loaded.');
+    } finally {
+      setLoading(false);
+    }
   }, [sub?.id]);
+  React.useEffect(() => { void load(); }, [load]);
 
   if (!sub) return null;
   const pick = async (k: BoxKitchen) => {
@@ -202,6 +242,11 @@ export function BoxCookPicker({ sub, onClose }: { sub: MySubscription | null; on
           <Text style={[type(12.5, 600), { color: c.soft, marginTop: 4 }]}>Your box spans a few kitchens — pick who to message.</Text>
           {loading ? (
             <View style={{ paddingVertical: 30, alignItems: 'center' }}><ActivityIndicator color={c.primary} /></View>
+          ) : error ? (
+            <View accessibilityRole="alert" style={{ alignItems: 'flex-start', paddingVertical: 20 }}>
+              <Text style={[type(13, 700), { color: c.red, marginBottom: 10 }]}>{error}</Text>
+              <Btn label="Try again" icon="repeat" onPress={() => void load()} />
+            </View>
           ) : kitchens.length === 0 ? (
             <Text style={[type(13, 600), { color: c.muted, paddingVertical: 20 }]}>No kitchens found for this box.</Text>
           ) : (

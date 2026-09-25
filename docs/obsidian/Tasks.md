@@ -110,6 +110,7 @@ Went end-to-end through Shef's actual ordering flow (add to cart → cross-sell 
 - [x] ~~Remove seed UUID fallbacks from paid checkout~~ — done 2026-09-25. Order creation now requires server-backed kitchen and meal IDs on every cart line. Persisted prototype lines are discarded during hydration, and any malformed line that reaches payment receives a clear stale-cart recovery message before Stripe is invoked.
 - [x] ~~Remove seed identity from the custom-box picker~~ — done 2026-09-25. Build-a-box meal rows now use live kitchen names only, and an empty live catalog renders a clear explanation plus a path back to one-time meal discovery instead of a blank picker with a disabled action.
 - [x] ~~Make customer plan browsing recover from load failures~~ — done 2026-09-25. The plans and subscription request is now caught and always leaves its loading state; customers see the actual failure and can retry instead of being left on an indefinite spinner with an unhandled promise.
+- [x] ~~Harden customer subscription management recovery~~ — done 2026-09-25. Active-plan loads and cross-kitchen message lookups now distinguish backend failures from empty results and provide retry actions. Plan cancellation requires an explicit cross-platform confirmation that explains the billing consequence before the mutation runs.
 - [ ] In-app camera broadcast for Go Live (currently external RTMP only — no official Mux RN SDK).
 - Cash on delivery is not offered. Any future version requires a separately approved held-card, deposit, and identity design before client work begins.
 
