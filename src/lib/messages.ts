@@ -49,7 +49,8 @@ export interface Message {
 }
 
 async function myUid(): Promise<string | null> {
-  const { data } = await supabase.auth.getSession();
+  const { data, error } = await supabase.auth.getSession();
+  if (error) throw error;
   return data.session?.user?.id ?? null;
 }
 
@@ -64,7 +65,8 @@ export async function openThread(kitchenId: string, contextType?: string, contex
 
 export async function listThreads(): Promise<Thread[]> {
   const { data, error } = await supabase.rpc('list_threads');
-  if (error || !data) return [];
+  if (error) throw error;
+  if (!data) return [];
   return (data as any[]).map((r) => ({
     id: r.thread_id, kitchenId: r.kitchen_id, name: r.counterpart_name ?? 'Conversation',
     avatarUrl: r.counterpart_avatar ?? null, contextType: r.context_type, contextId: r.context_id,
@@ -76,7 +78,8 @@ export async function listThreads(): Promise<Thread[]> {
 export async function fetchThreadHeader(threadId: string): Promise<ThreadHeader | null> {
   const { data, error } = await supabase.rpc('thread_header', { p_thread: threadId });
   const r = (data as any[])?.[0];
-  if (error || !r) return null;
+  if (error) throw error;
+  if (!r) return null;
   return {
     id: r.thread_id, kitchenId: r.kitchen_id, name: r.counterpart_name ?? 'Conversation',
     avatarUrl: r.counterpart_avatar ?? null, contextType: r.context_type, contextId: r.context_id,
@@ -109,7 +112,8 @@ export async function fetchMessages(threadId: string, limit = 200): Promise<Mess
   const { data, error } = await supabase
     .from('messages').select(MSG_COLS)
     .eq('thread_id', threadId).order('created_at', { ascending: true }).limit(limit);
-  if (error || !data) return [];
+  if (error) throw error;
+  if (!data) return [];
   return (data as any[]).map((r) => rowToMessage(r, me));
 }
 
@@ -141,7 +145,8 @@ export async function sendImageMessage(threadId: string, file: Blob): Promise<Me
 }
 
 export async function markThreadRead(threadId: string): Promise<void> {
-  await supabase.rpc('mark_thread_read', { p_thread: threadId });
+  const { error } = await supabase.rpc('mark_thread_read', { p_thread: threadId });
+  if (error) throw error;
 }
 
 export async function setThreadBlock(threadId: string, blocked: boolean): Promise<void> {
@@ -155,14 +160,16 @@ export async function reportMessage(messageId: string, reason?: string): Promise
 }
 
 export async function threadUnreadCount(): Promise<number> {
-  const { data } = await supabase.rpc('my_thread_unread_count');
+  const { data, error } = await supabase.rpc('my_thread_unread_count');
+  if (error) throw error;
   return Number(data) || 0;
 }
 
 // ---- Broadcast (cook → all subscribers, WhatsApp-style fan-out) ------------------------
 /** How many subscribers the caller's broadcast would reach (composer preview). */
 export async function broadcastAudienceCount(): Promise<number> {
-  const { data } = await supabase.rpc('my_broadcast_audience_count');
+  const { data, error } = await supabase.rpc('my_broadcast_audience_count');
+  if (error) throw error;
   return Number(data) || 0;
 }
 

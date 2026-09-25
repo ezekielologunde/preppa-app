@@ -150,6 +150,7 @@ function BroadcastComposer({ open, onClose }: { open: boolean; onClose: () => vo
   const { toast } = useStore();
   const [body, setBody] = useState('');
   const [count, setCount] = useState<number | null>(null);
+  const [countError, setCountError] = useState(false);
   const [sending, setSending] = useState(false);
   const idemKey = useRef('');
 
@@ -157,9 +158,10 @@ function BroadcastComposer({ open, onClose }: { open: boolean; onClose: () => vo
     if (!open) return;
     setBody('');
     setCount(null);
+    setCountError(false);
     // one idempotency key per compose session — a double-tap Send can't send twice
     idemKey.current = `bc-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
-    broadcastAudienceCount().then(setCount).catch(() => setCount(0));
+    broadcastAudienceCount().then(setCount).catch(() => setCountError(true));
   }, [open]);
 
   const send = async () => {
@@ -186,7 +188,8 @@ function BroadcastComposer({ open, onClose }: { open: boolean; onClose: () => vo
             <Press onPress={onClose} label="Close"><Icon name="x" size={20} color={c.muted} /></Press>
           </View>
           <Text style={[type(12.5, 600), { color: c.soft, marginTop: 6, lineHeight: 18 }]}>
-            {count === null ? 'Counting your subscribers…'
+            {countError ? 'Couldn’t count your subscribers. Close this window and try again.'
+              : count === null ? 'Counting your subscribers…'
               : count === 0 ? 'You have no active subscribers to message yet.'
               : `Goes to all ${count} subscriber${count !== 1 ? 's' : ''} as a private 1:1 message — replies come straight back to you.`}
           </Text>

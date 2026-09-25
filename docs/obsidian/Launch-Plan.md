@@ -48,6 +48,7 @@ tags: [project/preppa, type/launch-plan]
 - Customer and cook membership, meal-plan, subscription, cycle, capacity, prep, and subscriber reads now propagate backend failures. Real plan detail distinguishes load failure from a missing plan and provides retry.
 - Cook plan editing now blocks on an unknown kitchen capacity instead of treating it as unlimited, and publishing reports a partial save if the capacity limit could not be updated.
 - Stripe Connect status errors now propagate from the Edge Function and the onboarding return flow distinguishes a verification failure from incomplete setup.
+- Service requests, bookings, experience review status, message threads, unread counts, and broadcast audience counts now propagate backend failures instead of appearing empty or complete.
 
 ### Customer acceptance evidence still needed
 

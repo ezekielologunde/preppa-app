@@ -41,13 +41,15 @@ const num = (v: any) => Number(v) || 0;
 
 /** The customer's own requests + the quotes on them (customer view). */
 export async function listMyRequests(): Promise<RequestView[]> {
-  const { data: sess } = await supabase.auth.getSession();
+  const { data: sess, error: sessionError } = await supabase.auth.getSession();
+  if (sessionError) throw sessionError;
   if (!sess.session?.user) return [];
   const { data, error } = await supabase
     .from('service_requests')
     .select('id, category, event_date, event_time, approx_area, address_text, guests, budget_cents, details, answers, status, fulfilled_plan_id, quotes(id, kitchen_id, amount_cents, deposit_cents, note, status, kitchens(name))')
     .order('created_at', { ascending: false });
-  if (error || !data) return [];
+  if (error) throw error;
+  if (!data) return [];
   return (data as any[]).map(rowToRequest);
 }
 
@@ -72,7 +74,8 @@ export async function fetchServiceRequest(id: string): Promise<RequestView | nul
     .from('service_requests')
     .select('id, category, event_date, event_time, approx_area, address_text, guests, budget_cents, details, answers, status, fulfilled_plan_id, quotes(id, kitchen_id, amount_cents, deposit_cents, note, status, kitchens(name))')
     .eq('id', id).maybeSingle();
-  if (error || !data) return null;
+  if (error) throw error;
+  if (!data) return null;
   return rowToRequest(data);
 }
 
@@ -96,7 +99,8 @@ export async function cancelServiceRequest(requestId: string): Promise<void> {
 
 /** The customer's service bookings. */
 export async function listMyBookings(): Promise<BookingView[]> {
-  const { data: sess } = await supabase.auth.getSession();
+  const { data: sess, error: sessionError } = await supabase.auth.getSession();
+  if (sessionError) throw sessionError;
   const uid = sess.session?.user?.id;
   if (!uid) return [];
   const { data, error } = await supabase
@@ -104,12 +108,14 @@ export async function listMyBookings(): Promise<BookingView[]> {
     .select('id, status, amount_cents, deposit_cents, balance_cents, event_date, booking_kind, experience_id, kitchens(name), experiences(title, location_type)')
     .eq('customer_id', uid)
     .order('created_at', { ascending: false });
-  if (error || !data) return [];
+  if (error) throw error;
+  if (!data) return [];
   const rows = data as any[];
   const expIds = rows.filter((b) => b.booking_kind === 'experience').map((b) => b.id);
   let reviewed = new Set<string>();
   if (expIds.length) {
-    const { data: rv } = await supabase.from('reviews').select('booking_id').in('booking_id', expIds);
+    const { data: rv, error: reviewError } = await supabase.from('reviews').select('booking_id').in('booking_id', expIds);
+    if (reviewError) throw reviewError;
     reviewed = new Set((rv as any[] ?? []).map((r) => r.booking_id));
   }
   return rows.map((b) => ({ id: b.id, kitchenName: b.kitchens?.name ?? 'A prepper', status: b.status, amountCents: num(b.amount_cents), depositCents: num(b.deposit_cents), balanceCents: num(b.balance_cents), eventDate: b.event_date, kind: b.booking_kind ?? 'rfq', title: b.experiences?.title ?? null, reviewed: reviewed.has(b.id), experienceId: b.experience_id ?? null, locationType: b.experiences?.location_type ?? null }));
@@ -121,7 +127,8 @@ export async function listMyBookings(): Promise<BookingView[]> {
  *  would silently return no name. */
 export async function listMyKitchenBookings(): Promise<KitchenBookingView[]> {
   const { data, error } = await supabase.rpc('prepper_active_bookings');
-  if (error || !data) return [];
+  if (error) throw error;
+  if (!data) return [];
   return (data as any[]).map((b) => ({
     id: b.booking_id, customerName: b.customer_name ?? 'A customer', status: b.status,
     amountCents: num(b.amount_cents), depositCents: num(b.deposit_cents), balanceCents: num(b.balance_cents), eventDate: b.event_date,
@@ -131,7 +138,8 @@ export async function listMyKitchenBookings(): Promise<KitchenBookingView[]> {
 /** A prepper's incoming (routed) requests. */
 export async function listIncomingRequests(): Promise<IncomingRequest[]> {
   const { data, error } = await supabase.rpc('prepper_incoming_requests');
-  if (error || !data) return [];
+  if (error) throw error;
+  if (!data) return [];
   return (data as any[]).map((r) => ({
     requestId: r.request_id, kitchenId: r.kitchen_id, category: r.category, eventDate: r.event_date, approxArea: r.approx_area,
     guests: r.guests, budgetCents: r.budget_cents, details: r.details, myQuoteId: r.my_quote_id, myAmountCents: r.my_amount_cents != null ? num(r.my_amount_cents) : null,
