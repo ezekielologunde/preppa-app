@@ -23,7 +23,7 @@ function Thread({ ticketId, status, myUid, onReplied }: { ticketId: string; stat
     setMsgs(null);
     setLoadError('');
     try { setMsgs(await tickets.ticketThread(ticketId)); }
-    catch (e: any) { setLoadError(e?.message ?? 'Couldn’t load this conversation.'); }
+    catch { setLoadError('Check your connection and try loading this conversation again.'); }
   };
   useEffect(() => { load(); /* eslint-disable-next-line react-hooks/exhaustive-deps */ }, [ticketId]);
 
@@ -32,14 +32,14 @@ function Thread({ ticketId, status, myUid, onReplied }: { ticketId: string; stat
     replyInFlight.current = true;
     setBusy(true);
     try { await tickets.replyToSharedTicket(ticketId, reply.trim()); setReply(''); await load(); onReplied(); }
-    catch (e: any) { toast(e?.message ?? 'Could not send', 'info'); }
+    catch { toast('Could not send your reply. Try again.', 'info'); }
     finally { replyInFlight.current = false; setBusy(false); }
   };
 
   return (
     <View style={{ marginTop: 12, borderTopWidth: 1, borderTopColor: c.border2, paddingTop: 12, gap: 10 }}>
       {loadError ? (
-        <View style={{ padding: 12, borderRadius: radius.md, backgroundColor: c.redL, borderWidth: 1, borderColor: c.red }}>
+        <View accessibilityRole="alert" style={{ padding: 12, borderRadius: radius.md, backgroundColor: c.redL, borderWidth: 1, borderColor: c.red }}>
           <Text style={[type(12.5, 700), { color: c.red, marginBottom: 10 }]}>{loadError}</Text>
           <View style={{ alignSelf: 'flex-start' }}><Btn label="Try again" icon="repeat" variant="ghost" onPress={load} /></View>
         </View>
@@ -92,8 +92,8 @@ export default function HubTickets() {
         if (alive) setMyUid(u?.id ?? null);
         const data = await tickets.listSharedTickets();
         if (alive) setItems(data);
-      } catch (e: any) {
-        if (alive) setError(e?.message ?? 'Could not load');
+      } catch {
+        if (alive) setError('Check your connection and try loading support again.');
       }
     })();
     return () => { alive = false; };
@@ -117,7 +117,7 @@ export default function HubTickets() {
             const open = openId === t.id;
             return (
               <Block key={t.id}>
-                <Press scale={0.995} onPress={() => setOpenId(open ? null : t.id)}>
+                <Press scale={0.995} onPress={() => setOpenId(open ? null : t.id)} label={`${open ? 'Hide' : 'Show'} support request: ${t.subject}`} expanded={open}>
                   <View style={{ flexDirection: 'row', alignItems: 'center', gap: 12 }}>
                     <View style={{ flex: 1 }}>
                       <Text style={[type(16, 900), { color: c.ink, letterSpacing: -0.3 }]}>{t.subject}</Text>
