@@ -34,6 +34,7 @@ tags: [project/preppa, type/launch-plan]
 - Cook experience and meal-plan editors now recover from failed or missing edit records instead of remaining on an indefinite loading screen or opening a blank form that could overwrite the wrong state.
 - Cook in-home vetting and Preppa Pro membership now distinguish backend failures from missing applications or non-membership and provide retry recovery, preventing duplicate or incorrect membership actions.
 - Admin role changes now require a separate review step, with typed confirmation for any admin elevation or demotion. Payout reconciliation now validates Stripe transfer IDs and requires an explanatory note before marking a payout failed.
+- Admin application and in-home-vetting document previews now tolerate partial signed-URL failures, report unavailable evidence, and provide retry actions instead of displaying an indefinite loading label.
 
 ### Customer acceptance evidence still needed
 

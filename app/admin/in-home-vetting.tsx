@@ -143,23 +143,34 @@ export default function AdminInHomeVetting() {
 function PhotoStrip({ label, paths, onOpen }: { label: string; paths: string[]; onOpen: (uri: string) => void }) {
   const c = useC();
   const [urls, setUrls] = useState<string[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [loadError, setLoadError] = useState('');
+  const [nonce, setNonce] = useState(0);
   useEffect(() => {
     let alive = true;
-    if (!paths.length) { setUrls([]); return; }
-    Promise.all(paths.map((p) => createCookDocSignedUrl(p))).then((r) => { if (alive) setUrls(r.filter(Boolean) as string[]); });
+    if (!paths.length) { setUrls([]); setLoading(false); return; }
+    setLoading(true); setLoadError('');
+    Promise.allSettled(paths.map((p) => createCookDocSignedUrl(p))).then((r) => {
+      if (!alive) return;
+      const next = r.flatMap((item) => item.status === 'fulfilled' && item.value ? [item.value] : []);
+      setUrls(next);
+      if (next.length < paths.length) setLoadError(next.length ? 'Some documents could not be opened.' : 'Documents could not be opened.');
+      setLoading(false);
+    });
     return () => { alive = false; };
-  }, [paths.join(',')]);
+  }, [paths.join(','), nonce]);
   if (!paths.length) return <Text style={[type(12.5, 600), { color: c.muted }]}>{label}: none submitted</Text>;
   return (
     <View style={{ gap: 6 }}>
       <Text style={[type(12, 800), { color: c.muted, textTransform: 'uppercase', letterSpacing: 0.4 }]}>{label} ({paths.length})</Text>
       <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ gap: 8 }}>
-        {urls.length === 0 ? <Text style={[type(12, 600), { color: c.soft }]}>Loading…</Text> : urls.map((u, i) => (
+        {loading ? <Text style={[type(12, 600), { color: c.soft }]}>Loading…</Text> : urls.map((u, i) => (
           <Press key={i} scale={0.95} onPress={() => onOpen(u)} label={`View ${label} document`}>
             <Image source={{ uri: u }} style={{ width: 74, height: 74, borderRadius: radius.md, backgroundColor: c.surface }} resizeMode="cover" />
           </Press>
         ))}
       </ScrollView>
+      {loadError ? <View accessibilityRole="alert" style={{ alignItems: 'flex-start', gap: 6 }}><Text style={[type(12, 700), { color: c.red }]}>{loadError}</Text><Btn label="Retry documents" icon="repeat" variant="ghost" height={40} onPress={() => setNonce((n) => n + 1)} /></View> : null}
     </View>
   );
 }
