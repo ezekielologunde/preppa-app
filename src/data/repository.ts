@@ -10,7 +10,7 @@ import {
 import { makeSupabaseRepositories } from './supabaseRepository';
 
 export interface MealQuery {
-  cook?: CookId;
+  cook?: string;
   kitchenUuid?: string; // filter by a real kitchen's DB id (for real-prepper storefronts)
   cat?: string; // matches a tag substring, case-insensitive
   q?: string; // free text over meal name + cook name
@@ -42,7 +42,7 @@ function makeMockRepositories(): Repositories {
         if (query?.cat && query.cat !== 'All') out = out.filter((m) => m.tags.some((t) => t.toLowerCase().includes(query.cat!.toLowerCase())));
         if (query?.q) {
           const q = query.q.toLowerCase();
-          out = out.filter((m) => m.name.toLowerCase().includes(q) || COOKS[m.cook].name.toLowerCase().includes(q));
+          out = out.filter((m) => m.name.toLowerCase().includes(q) || (COOKS[m.cook as CookId]?.name ?? '').toLowerCase().includes(q));
         }
         return out;
       },

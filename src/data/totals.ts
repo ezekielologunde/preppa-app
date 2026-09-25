@@ -17,7 +17,7 @@ export interface Totals {
 export interface TotalLine {
   price: number;
   qty: number;
-  cook: CookId;
+  cook: string;
 }
 
 const round = (n: number) => Math.round(n * 100) / 100;
@@ -28,7 +28,7 @@ const round = (n: number) => Math.round(n * 100) / 100;
  *  created (see `taxCents` from `createRealOrder`/`payWithCard`) and on the order receipt. */
 export function computeTotals(cart: TotalLine[], tip: number, mode: 'delivery' | 'pickup'): Totals {
   const subtotal = round(cart.reduce((s, l) => s + l.price * l.qty, 0));
-  const hasFounder = cart.some((l) => FOUNDING.has(l.cook));
+  const hasFounder = cart.some((l) => FOUNDING.has(l.cook as CookId));
   const serviceFull = round(subtotal * 0.1);
   const service = hasFounder ? 0 : serviceFull;
   const deliveryFull = mode === 'pickup' ? 0 : 2.99;

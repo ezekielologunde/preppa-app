@@ -1,6 +1,6 @@
 import React, { useMemo, useState } from 'react';
 import { View, Text, ScrollView, TextInput, ActivityIndicator } from 'react-native';
-import { COOKS, Meal } from '../data/data';
+import { cookOf, Meal } from '../data/data';
 import { useMeals } from '../data/hooks';
 import { useC } from '../theme/ThemeContext';
 import { type, radius } from '../theme/theme';
@@ -52,7 +52,7 @@ export function MealsBrowser({ initialCat, initialGoal }: { initialCat?: string;
 
   let list = meals.filter((m) => {
     const okCat = cat === 'All' || m.tags.some((t) => t.toLowerCase().includes(cat.toLowerCase()));
-    const okQ = !q || m.name.toLowerCase().includes(q.toLowerCase()) || COOKS[m.cook].name.toLowerCase().includes(q.toLowerCase());
+    const okQ = !q || m.name.toLowerCase().includes(q.toLowerCase()) || cookOf(m).name.toLowerCase().includes(q.toLowerCase());
     const okTags = tags.length === 0 || m.tags.some((t) => tags.includes(t));
     const okPrice = !price || PRICES.find((b) => b.label === price)!.test(m.price);
     const okGoal = !goal || GOALS.find((g) => g.label === goal)!.test(m);

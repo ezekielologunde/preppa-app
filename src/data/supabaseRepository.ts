@@ -1,26 +1,16 @@
 /**
  * Supabase-backed repository (R1). Reads the buyer catalog from the real `meals`
  * table instead of the in-memory mock. Meals map to the app `Meal` shape with
- * `id = slug` (cart/route-compatible) and `cook` reverse-mapped from `kitchen_id`,
- * so consumers don't change. Cooks/experiences/plans still delegate to the seed
+ * `id = slug` (cart/route-compatible) and the real kitchen UUID as its stable identity.
+ * Cooks/experiences/plans still delegate to the seed
  * for this slice (migrated next). No mock fallback — a DB error surfaces to the
  * screen's error state rather than silently showing fixtures.
  */
-import { supabase, KITCHEN_ID } from '../lib/supabase';
+import { supabase } from '../lib/supabase';
 import { Meal, Cook, CookId, COOKS } from './data';
 import { distanceKm, distanceLabel, type LatLng } from '../lib/geo';
 import type { GradKey } from '../theme/theme';
 import type { Repositories, MealQuery } from './repository';
-
-// kitchen UUID -> mock cook key (reverse of KITCHEN_ID)
-const KITCHEN_TO_COOK: Record<string, CookId> = Object.fromEntries(
-  Object.entries(KITCHEN_ID).map(([key, uuid]) => [uuid, key as CookId]),
-) as Record<string, CookId>;
-
-/** The seed CookId a verified kitchen UUID maps to (only the 6 seed kitchens), else undefined.
- *  Lets discovery keep the rich seed presentation for the seeded six while real kitchens
- *  render from live data. */
-export const seedCookForKitchen = (kitchenUuid: string): CookId | undefined => KITCHEN_TO_COOK[kitchenUuid];
 
 // The viewer's captured coordinates, pushed by the store on GPS capture. Used to
 // compute real distance to each kitchen and sort the catalog nearest-first.
@@ -33,7 +23,6 @@ const MEAL_COLS =
   'id,slug,name,kitchen_id,price_cents,grad,rating,review_count,prep_label,tags,is_match,kcal,protein_g,serves,description,ingredients,allergens,allergen_reviewed_at,image_url,photos,kitchens(name,cuisine,approx_area,approx_lat,approx_lng,is_pro,supports_delivery,supports_pickup)';
 
 function rowToMeal(r: any): Meal {
-  const seedCook = KITCHEN_TO_COOK[r.kitchen_id]; // defined only for the 6 seed kitchens
   const k = r.kitchens ?? null; // joined kitchen row (to-one embed)
   // numeric columns arrive from supabase-js as strings — coerce + guard.
   const lat = k?.approx_lat != null ? Number(k.approx_lat) : NaN;
@@ -41,9 +30,7 @@ function rowToMeal(r: any): Meal {
   return {
     id: r.slug,
     name: r.name,
-    // Seed kitchens map to their rich seed cook; real kitchens keep a harmless seed
-    // fallback for legacy plumbing but display via the carried kitchen fields below.
-    cook: (seedCook ?? 'maria') as CookId,
+    cook: r.kitchen_id,
     price: (r.price_cents ?? 0) / 100,
     grad: (r.grad ?? 'g1') as GradKey,
     rating: Number(r.rating ?? 0),
@@ -65,15 +52,14 @@ function rowToMeal(r: any): Meal {
     photos: r.photos && r.photos.length ? (r.photos as string[]) : undefined,
     mealUuid: r.id,
     kitchenUuid: r.kitchen_id,
-    // Real-kitchen identity (only for non-seed kitchens) → cookOf() renders it.
-    kitchenName: seedCook ? undefined : (k?.name ?? 'Kitchen'),
-    kitchenCuisine: seedCook ? undefined : (k?.cuisine ?? undefined),
-    kitchenArea: seedCook ? undefined : (k?.approx_area ?? undefined),
-    kitchenIsPro: seedCook ? false : !!k?.is_pro,
+    kitchenName: k?.name ?? 'Kitchen',
+    kitchenCuisine: k?.cuisine ?? undefined,
+    kitchenArea: k?.approx_area ?? undefined,
+    kitchenIsPro: !!k?.is_pro,
     kitchenLat: Number.isFinite(lat) ? lat : undefined,
     kitchenLng: Number.isFinite(lng) ? lng : undefined,
-    // Seed kitchens (no joined row) always support both; real kitchens default true/true
-    // in the DB too, so `?? true` only matters if the join itself is missing.
+    // Real kitchens default true/true in the DB, so this only defaults when the
+    // joined kitchen row is unavailable.
     supportsDelivery: k ? k.supports_delivery !== false : true,
     supportsPickup: k ? k.supports_pickup !== false : true,
   };
@@ -115,7 +101,7 @@ export function filterMeals(meals: Meal[], query?: MealQuery): Meal[] {
   }
   if (query?.q) {
     const q = query.q.toLowerCase();
-    out = out.filter((m) => m.name.toLowerCase().includes(q) || (COOKS[m.cook]?.name ?? '').toLowerCase().includes(q));
+    out = out.filter((m) => m.name.toLowerCase().includes(q) || (m.kitchenName ?? COOKS[m.cook as CookId]?.name ?? '').toLowerCase().includes(q));
   }
   return out;
 }

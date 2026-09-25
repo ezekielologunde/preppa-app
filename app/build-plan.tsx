@@ -132,7 +132,7 @@ export default function BuildPlanFlow() {
           </View>
         ) : pool.map((m) => {
           const on = !!picked[m.mealUuid!];
-          const cook = m.kitchenName ?? COOKS[m.cook]?.name ?? 'A cook';
+          const cook = m.kitchenName ?? COOKS[m.cook as keyof typeof COOKS]?.name ?? 'A cook';
           return (
             <Press key={m.mealUuid} scale={0.99} onPress={() => setPicked((p) => ({ ...p, [m.mealUuid!]: !p[m.mealUuid!] }))}>
               <View style={{ flexDirection: 'row', alignItems: 'center', gap: 12, paddingHorizontal: 16, paddingVertical: 11, borderBottomWidth: 1, borderBottomColor: c.border2 }}>

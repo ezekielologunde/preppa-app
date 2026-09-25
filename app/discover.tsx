@@ -4,10 +4,9 @@ import { useRouter, useLocalSearchParams, useFocusEffect } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useC } from '../src/theme/ThemeContext';
 import { type, radius, shadow } from '../src/theme/theme';
-import { Icon, Press, Avatar } from '../src/ui';
-import { money, COOKS } from '../src/data/data';
+import { Icon, Press } from '../src/ui';
+import { money } from '../src/data/data';
 import { useKitchens, type KitchenCard } from '../src/data/hooks';
-import { seedCookForKitchen } from '../src/data/supabaseRepository';
 import { MealsBrowser } from '../src/components/MealsBrowser';
 import { ModeTabs } from '../src/components/ModeTabs';
 import { CardPaymentSheet } from '../src/components/CardPaymentSheet';
@@ -208,13 +207,10 @@ function PreppersMode() {
       <Text style={[type(14, 600), { color: c.soft, textAlign: 'center' }]}>No preppers near you yet.</Text>
     </View>
   );
-  // Same search-bar pattern as MealsBrowser — Preppers mode had none, so it was unusable
-  // past a handful of seed cooks; matches name, cuisine, and area/distance text.
+  // Same search-bar pattern as MealsBrowser. Matches live directory fields.
   const needle = q.trim().toLowerCase();
   const list = !needle ? all : all.filter((k) => {
-    const seed = seedCookForKitchen(k.id);
-    const cook = seed ? COOKS[seed] : null;
-    const hay = [cook?.name ?? k.name, cook?.cuisine ?? k.cuisine, k.dist, k.area].filter(Boolean).join(' ').toLowerCase();
+    const hay = [k.name, k.cuisine, k.dist, k.area].filter(Boolean).join(' ').toLowerCase();
     return hay.includes(needle);
   });
   return (
@@ -231,7 +227,7 @@ function PreppersMode() {
         </View>
       ) : (
         <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={{ padding: 16, paddingBottom: 40, gap: 12 }}>
-          {list.map((k) => <PrepperRow key={k.id} k={k} onPress={() => router.push(`/store/${seedCookForKitchen(k.id) ?? k.id}`)} />)}
+          {list.map((k) => <PrepperRow key={k.id} k={k} onPress={() => router.push(`/store/${k.id}`)} />)}
         </ScrollView>
       )}
     </View>
@@ -240,20 +236,16 @@ function PreppersMode() {
 
 function PrepperRow({ k, onPress }: { k: KitchenCard; onPress: () => void }) {
   const c = useC();
-  const seed = seedCookForKitchen(k.id);
-  const cook = seed ? COOKS[seed] : null;
-  const name = cook?.name ?? k.name;
-  const cuisine = cook?.cuisine ?? k.cuisine;
+  const name = k.name;
+  const cuisine = k.cuisine;
   const distTxt = k.dist || k.area;
   const rating = k.ratingCount > 0 ? k.ratingAvg.toFixed(1) : 'New';
   return (
     <Press scale={0.99} onPress={onPress} label={`${name} kitchen, verified, ${rating === 'New' ? 'new' : `${rating} stars`}${distTxt ? `, ${distTxt}` : ''}`}>
       <View style={{ flexDirection: 'row', alignItems: 'center', gap: 13, backgroundColor: c.surface, borderWidth: 1, borderColor: c.border2, borderRadius: radius.xl, padding: 14, ...shadow.card }}>
-        {seed ? <Avatar cook={seed} size={52} rad={16} /> : (
-          <View style={{ width: 52, height: 52, borderRadius: 16, backgroundColor: c.primaryL, alignItems: 'center', justifyContent: 'center' }}>
-            <Text style={[type(21, 900), { color: c.primaryD }]}>{name.trim()[0]?.toUpperCase() ?? 'K'}</Text>
-          </View>
-        )}
+        <View style={{ width: 52, height: 52, borderRadius: 16, backgroundColor: c.primaryL, alignItems: 'center', justifyContent: 'center' }}>
+          <Text style={[type(21, 900), { color: c.primaryD }]}>{name.trim()[0]?.toUpperCase() ?? 'K'}</Text>
+        </View>
         <View style={{ flex: 1, minWidth: 0 }}>
           <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
             <Text numberOfLines={1} style={[type(16, 900), { color: c.ink, letterSpacing: -0.3 }]}>{name}</Text>

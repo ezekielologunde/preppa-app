@@ -42,7 +42,8 @@ export const COOKS: Record<CookId, Cook> = {
 export interface Meal {
   id: string;
   name: string;
-  cook: CookId;
+  /** Stable kitchen identity: a seed CookId for fixtures, or the real kitchen UUID. */
+  cook: string;
   price: number;
   grad: GradKey;
   rating: number;
@@ -100,7 +101,10 @@ export function cookOf(m: Meal): Cook {
       isPro: !!m.kitchenIsPro,
     };
   }
-  return COOKS[m.cook] ?? COOKS.maria;
+  return COOKS[m.cook as CookId] ?? {
+    name: 'Kitchen', kitchen: 'Kitchen', initial: 'K', grad: m.grad, cuisine: '',
+    rating: m.rating, reviews: m.reviews, dist: m.dist, verified: true, prepscore: 0,
+  };
 }
 
 /** Same resolution as `cookOf`, for a cart/order line instead of a catalog `Meal` — checkout,
@@ -124,11 +128,9 @@ export function cookOfLine(l: { cook: string; kitchenName?: string; grad: GradKe
   return COOKS[l.cook as CookId] ?? COOKS.maria;
 }
 
-/** The real grouping/routing key for a cart or order line — a real kitchen's UUID when
- *  present, else the seed CookId. Real (non-seed) kitchens all share the placeholder
- *  `cook: 'maria'`, so grouping/filtering by `l.cook` alone silently merges different real
- *  kitchens' items into one order. Always group/filter/route by this key instead. */
-export function lineKey(l: { cook: CookId; kitchenUuid?: string }): string {
+/** The real grouping/routing key for a cart or order line: a real kitchen's UUID when
+ *  present, else the seed CookId. */
+export function lineKey(l: { cook: string; kitchenUuid?: string }): string {
   return l.kitchenUuid ?? l.cook;
 }
 

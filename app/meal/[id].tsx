@@ -2,7 +2,7 @@ import React, { useState } from 'react';
 import { View, Text, ScrollView, ActivityIndicator } from 'react-native';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { mealPhotos, ADDONS, money, cookOf } from '../../src/data/data';
+import { mealPhotos, ADDONS, money, cookOf, type CookId } from '../../src/data/data';
 import { useMeal, useKitchenReviews } from '../../src/data/hooks';
 import { useC } from '../../src/theme/ThemeContext';
 import { type, radius } from '../../src/theme/theme';
@@ -73,7 +73,7 @@ export default function MealDetail() {
           </View>
 
           {isSeedKitchen ? (
-            <CookRow cook={m.cook} meta={`${cook.cuisine} · PrepScore ${cook.prepscore} · ${cook.reviews} reviews`} />
+            <CookRow cook={m.cook as CookId} meta={`${cook.cuisine} · PrepScore ${cook.prepscore} · ${cook.reviews} reviews`} />
           ) : (
             <CookRow name={cook.name} initial={cook.initial} meta={cook.cuisine} isPro={cook.isPro}
               onPress={() => kitchenLink && router.push(`/store/${kitchenLink}`)} />

@@ -3,7 +3,6 @@ import { View, Text, ScrollView, Pressable, Animated, StyleSheet, LayoutChangeEv
 import { useRouter } from 'expo-router';
 import { COOKS, CookId, Meal, Experience, PlanGoal, money, cookOf, thumb, mealPhotos } from '../data/data';
 import { useKitchenReviews, type KitchenCard } from '../data/hooks';
-import { seedCookForKitchen } from '../data/supabaseRepository';
 import { useC } from '../theme/ThemeContext';
 import { type, radius, shadow, tnum } from '../theme/theme';
 import { useActions, useFav } from '../store/store';
@@ -70,28 +69,23 @@ export function CookRail({ cooks }: { cooks: CookId[] }) {
   );
 }
 
-/** Horizontal rail of REAL verified kitchens (from the directory). Keeps the rich seed
- *  presentation for the six seeded kitchens; real preppers render from live data. */
+/** Horizontal rail of verified kitchens from the live directory. */
 export function PrepperRail({ kitchens }: { kitchens: KitchenCard[] }) {
   const c = useC();
   const router = useRouter();
   return (
     <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ gap: 12, paddingHorizontal: 20, paddingVertical: 4 }}>
       {kitchens.map((k) => {
-        const seed = seedCookForKitchen(k.id); // rich seed presentation for the seeded six
-        const cook = seed ? COOKS[seed] : null;
-        const name = cook?.name ?? k.name;
-        const cuisine = cook?.cuisine ?? k.cuisine;
+        const name = k.name;
+        const cuisine = k.cuisine;
         const distTxt = k.dist || k.area;
         const rating = k.ratingCount > 0 ? k.ratingAvg.toFixed(1) : 'New';
         return (
-          <Press key={k.id} scale={0.97} onPress={() => router.push(`/store/${seed ?? k.id}`)} label={`${name} kitchen, verified, ${rating === 'New' ? 'new' : `${rating} stars`}${distTxt ? `, ${distTxt}` : ''}`}>
+          <Press key={k.id} scale={0.97} onPress={() => router.push(`/store/${k.id}`)} label={`${name} kitchen, verified, ${rating === 'New' ? 'new' : `${rating} stars`}${distTxt ? `, ${distTxt}` : ''}`}>
             <View style={{ width: 150, backgroundColor: c.surface, borderWidth: 1, borderColor: c.border2, borderRadius: radius.card, padding: 14, alignItems: 'center', ...shadow.card }}>
-              {seed ? <Avatar cook={seed} size={54} rad={17} /> : (
-                <View style={{ width: 54, height: 54, borderRadius: 17, backgroundColor: c.primary, alignItems: 'center', justifyContent: 'center' }}>
-                  <Text style={[type(22, 900), { color: '#fff' }]}>{name.trim()[0]?.toUpperCase() ?? 'K'}</Text>
-                </View>
-              )}
+              <View style={{ width: 54, height: 54, borderRadius: 17, backgroundColor: c.primary, alignItems: 'center', justifyContent: 'center' }}>
+                <Text style={[type(22, 900), { color: '#fff' }]}>{name.trim()[0]?.toUpperCase() ?? 'K'}</Text>
+              </View>
               <View style={{ flexDirection: 'row', alignItems: 'center', gap: 5, marginTop: 10, maxWidth: '100%' }}>
                 <Text numberOfLines={1} style={[type(14, 900), { color: c.ink, flexShrink: 1 }]}>{name}</Text>
                 {/* Every kitchen in this directory is already verified before it's listed, but

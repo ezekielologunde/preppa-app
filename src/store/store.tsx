@@ -28,16 +28,15 @@ const LS = 'preppa.v1';
 export interface CartLine {
   key: string;
   name: string;
-  cook: CookId;
+  /** Seed CookId for fixtures, or the real kitchen UUID for live catalog items. */
+  cook: string;
   price: number;
   grad: GradKey;
   qty: number;
   img?: string; // public meal photo; GradBox falls back to `grad` when absent/errored
   mealUuid?: string; // real DB meals.id when the item came from the Supabase catalog
   kitchenUuid?: string; // real DB kitchens.id
-  /** Real kitchen display name — set only for non-seed kitchens (see rowToMeal in
-   *  supabaseRepository.ts). `cook` is a placeholder demo persona for these; wherever the
-   *  cook's name/avatar is shown, prefer this field over COOKS[cook] when it's present. */
+  /** Real kitchen display name, set for non-seed kitchens (see rowToMeal). */
   kitchenName?: string;
 }
 export interface CustomerOrder {
@@ -136,7 +135,7 @@ interface Store {
   approvalNoticePending: boolean; // one-time "you're approved" welcome not yet acknowledged
   ackApprovalNotice: () => Promise<void>;
   submitApplication: (f: ApplicationFields) => Promise<string>;
-  isMine: (cook: CookId, kitchenUuid?: string) => boolean; // server-derived kitchen UUID comparison
+  isMine: (cook: string, kitchenUuid?: string) => boolean; // server-derived kitchen UUID comparison
 
   fav: Set<string>;
   toggleFav: (id: string) => void;
@@ -458,9 +457,9 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
   }, [uid]);
 
   const role: 'customer' | 'prepper' = prepperStatus === 'approved' ? 'prepper' : 'customer';
-  const isMine = useCallback((cook: CookId, kitchenUuid?: string) => {
+  const isMine = useCallback((cook: string, kitchenUuid?: string) => {
     if (prepperStatus !== 'approved' || !ownKitchenId) return false;
-    return (kitchenUuid ?? KITCHEN_ID[cook]) === ownKitchenId;
+    return (kitchenUuid ?? KITCHEN_ID[cook as CookId] ?? cook) === ownKitchenId;
   }, [prepperStatus, ownKitchenId]);
   // Full cook application (identity + kitchen + food-safety + agreement). Admin-driven
   // approval — no client-side auto-approve. Throws on failure so the form can show it.
