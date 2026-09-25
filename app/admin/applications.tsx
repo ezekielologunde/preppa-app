@@ -204,7 +204,7 @@ function AppDetail({ kitchenId }: { kitchenId: string }) {
         {d.bio ? <DRow c={c} k="About" v={d.bio} /> : null}
         <DRow c={c} k="Food safety" v={`Refrigeration ${yn(fs.refrigeration)} · Prep ${yn(fs.foodPrep)} · Allergens ${yn(fs.allergens)}`} />
         <DRow c={c} k="Food-handler cert" v={d.food_handler_cert || '—'} />
-        <CertStatusRow c={c} kitchenId={d.kitchen_id} status={d.food_handler_cert_status ?? 'unverified'} />
+        <CertStatusRow c={c} kitchenId={d.kitchen_id} status={d.food_handler_cert_status ?? 'unverified'} expiresAt={d.food_handler_cert_expires_at} />
         <DRow c={c} k="Agreement" v={d.agreement_version ? `${d.agreement_version} · accepted` : 'not accepted'} />
         <ConnectStatusRow c={c} kitchenId={d.kitchen_id} />
         {hasPhotos ? (
@@ -327,31 +327,86 @@ const CERT_STATUSES: { value: 'unverified' | 'reviewed' | 'expired'; label: stri
 
 /** The cert number itself is unverifiable free text — this is where an admin records
  *  having actually checked it (or flags it expired) after looking it up separately. */
-function CertStatusRow({ c, kitchenId, status }: { c: any; kitchenId: string; status: 'unverified' | 'reviewed' | 'expired' }) {
+function CertStatusRow({ c, kitchenId, status, expiresAt }: { c: any; kitchenId: string; status: 'unverified' | 'reviewed' | 'expired'; expiresAt: string | null }) {
   const { toast } = useStore();
   const [current, setCurrent] = useState(status);
+  const [currentExpires, setCurrentExpires] = useState(expiresAt ?? '');
+  const [draft, setDraft] = useState(status);
+  const [expires, setExpires] = useState(expiresAt ?? '');
   const [busy, setBusy] = useState(false);
-  const setStatus = async (next: typeof current) => {
-    if (next === current || busy) return;
+  const changed = draft !== current || expires.trim() !== currentExpires;
+  const validDate = (value: string) => {
+    const parsed = /^\d{4}-\d{2}-\d{2}$/.test(value) ? new Date(`${value}T00:00:00Z`) : null;
+    return !!parsed && !Number.isNaN(parsed.getTime()) && parsed.toISOString().slice(0, 10) === value;
+  };
+  const save = async () => {
+    if (!changed || busy) return;
+    const nextExpires = expires.trim();
+    if (draft === 'reviewed') {
+      if (!validDate(nextExpires)) {
+        toast('Enter the certificate expiration date as YYYY-MM-DD', 'info');
+        return;
+      }
+      if (nextExpires < new Date().toISOString().slice(0, 10)) {
+        toast('An expired certificate cannot be marked reviewed', 'info');
+        return;
+      }
+    } else if (nextExpires && !validDate(nextExpires)) {
+      toast('Enter the certificate expiration date as YYYY-MM-DD', 'info');
+      return;
+    }
     setBusy(true);
     try {
-      await admin.setCertStatus(kitchenId, next);
-      setCurrent(next);
+      const savedExpires = draft === 'unverified' ? null : nextExpires || null;
+      await admin.setCertStatus(kitchenId, draft, savedExpires);
+      setCurrent(draft);
+      setCurrentExpires(savedExpires ?? '');
+      if (draft === 'unverified') setExpires('');
+      toast('Certificate review saved', 'check', true);
     } catch (e: any) {
       toast(e?.message ?? 'Could not update cert status', 'info');
     } finally { setBusy(false); }
   };
+  const requestSave = () => {
+    if (!changed || busy) return;
+    if (draft === 'unverified') { void save(); return; }
+    confirmAction(
+      draft === 'reviewed' ? 'Mark certificate reviewed?' : 'Mark certificate expired?',
+      draft === 'reviewed'
+        ? `Confirm you checked this certificate and its expiration date is ${expires.trim() || 'not entered'}.`
+        : 'This status will flag the certificate as expired in the application record.',
+      () => void save(),
+      draft === 'reviewed' ? 'Save review' : 'Mark expired',
+    );
+  };
   return (
-    <View style={{ flexDirection: 'row', gap: 10, alignItems: 'center' }}>
+    <View style={{ flexDirection: 'row', gap: 10, alignItems: 'flex-start' }}>
       <Text style={[type(12, 700), { color: c.muted, width: 130 }]}>Cert status</Text>
-      <View style={{ flexDirection: 'row', gap: 6, flex: 1, flexWrap: 'wrap' }}>
-        {CERT_STATUSES.map((s) => (
-          <Press key={s.value} scale={0.95} disabled={busy} onPress={() => setStatus(s.value)}>
-            <View style={{ opacity: current === s.value ? 1 : 0.45 }}>
-              <StatusTag label={s.label} tone={s.tone} />
-            </View>
-          </Press>
-        ))}
+      <View style={{ flex: 1, gap: 10 }}>
+        <View style={{ flexDirection: 'row', gap: 6, flexWrap: 'wrap' }}>
+          {CERT_STATUSES.map((s) => (
+            <Press key={s.value} scale={0.95} disabled={busy} onPress={() => setDraft(s.value)} label={`${s.label}${draft === s.value ? ', selected' : ''}`} selected={draft === s.value}>
+              <View style={{ opacity: draft === s.value ? 1 : 0.45 }}>
+                <StatusTag label={s.label} tone={s.tone} />
+              </View>
+            </Press>
+          ))}
+        </View>
+        {draft !== 'unverified' ? (
+          <TextInput
+            value={expires}
+            onChangeText={setExpires}
+            editable={!busy}
+            maxLength={10}
+            placeholder="Expiration date, YYYY-MM-DD"
+            placeholderTextColor={c.muted}
+            accessibilityLabel="Food handler certificate expiration date"
+            style={{ height: 44, borderRadius: radius.sm, paddingHorizontal: 12, borderWidth: 1, borderColor: c.border, backgroundColor: c.surface, color: c.ink, ...(type(13, 600) as object) }}
+          />
+        ) : null}
+        <View style={{ alignSelf: 'flex-start' }}>
+          <Btn label="Save certificate review" icon="check" height={42} loading={busy} disabled={busy || !changed} onPress={requestSave} />
+        </View>
       </View>
     </View>
   );

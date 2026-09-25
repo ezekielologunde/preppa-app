@@ -215,7 +215,7 @@ For Cohort 0, one person (can be you) does this manually, in order, for every ap
 **Step 3 — Food safety self-attestation.** Three checkboxes (`food_safety.refrigeration`/`foodPrep`/`allergens`) plus a free-text `note` — confirm all three are checked and the note (if any) doesn't raise a red flag. This is self-reported, not verified against any registry (see [[PM-Onboarding]]) — don't treat a checked box as proof.
 
 **Step 4 — Food handler certification (where your launch jurisdiction requires one — see item 9).**
-- If they uploaded a real cert number/file: verify it looks legitimate, then run `admin_set_cert_status(kitchen_id, 'reviewed', expires_date)` — there's no UI button for this yet, call the RPC directly (Supabase SQL editor or a quick script). Set `expires_date` from the cert itself so it doesn't silently go stale.
+- If they uploaded a real cert number/file: verify it looks legitimate, then use the certificate review controls in Admin → Applications. Enter the expiration date from the certificate and save it as Reviewed. The form rejects invalid or past dates and records the audited status through `admin_set_cert_status()`.
 - If your jurisdiction doesn't require one for this category, or they didn't provide one: leave `food_handler_cert_status` at its default `'unverified'` — don't mark `'reviewed'` for something you didn't actually review.
 
 **Step 5 — Kitchen & fridge photos.** Confirm the `kitchen`/`fridge` photo groups show a real, plausibly-clean home kitchen — not a stock photo, not someone else's commercial kitchen.

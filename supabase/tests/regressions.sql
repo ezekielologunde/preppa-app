@@ -498,6 +498,23 @@ begin
   perform public.prune_cron_job_run_details();
 end $$;
 
+do $$
+declare v_src text;
+begin
+  select prosrc into v_src
+  from pg_proc
+  where oid = 'public.admin_set_cert_status(uuid,text,date)'::regprocedure;
+  if v_src !~ 'reviewed.*p_expires is null' then
+    raise exception 'REGRESSION: reviewed certificate no longer requires an expiration date';
+  end if;
+  if v_src !~ 'reviewed.*p_expires < current_date' then
+    raise exception 'REGRESSION: expired certificate can be marked reviewed';
+  end if;
+  if v_src !~ 'case when p_status = ''unverified'' then null' then
+    raise exception 'REGRESSION: unverified certificate can retain a stale expiration date';
+  end if;
+end $$;
+
 -- Cook order detail must expose the customer id needed by the relationship-gated
 -- messaging RPC, while remaining unavailable to anonymous callers.
 do $$
