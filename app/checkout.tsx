@@ -53,7 +53,7 @@ export default function Checkout() {
     else setSelectedCardId(null);
   }, [methods, defaultId, pickedCard]);
   const selectedCard = methods.find((mm) => mm.id === selectedCardId) ?? null;
-  const theCook = cookOfLine(lines[0] ?? { cook: 'maria', grad: 'g1' });
+  const theCook = cookOfLine(lines[0] ?? { cook: '', grad: 'g1' });
   const deliveryAddressMissing = mode === 'delivery' && !isCompleteDeliveryAddress(address);
   const finalTotal = t.total + cardTaxCents / 100;
 

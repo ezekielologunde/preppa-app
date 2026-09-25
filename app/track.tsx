@@ -31,11 +31,11 @@ export default function Track() {
   const router = useRouter();
   const { cook, orderId } = useLocalSearchParams<{ cook?: string; orderId?: string }>();
   const { mode, orders } = useStore();
-  const ck = cook || 'maria';
   // The freshest source for this order's real kitchen identity is the just-created
   // CustomerOrder (matched by dbId/orderId, or by the same grouping key) — cookOfLine's
   // COOKS fallback only covers the 6 seed kitchens.
-  const matchedOrder = orders.find((o) => (orderId && o.dbId === orderId) || o.cook === ck);
+  const matchedOrder = orders.find((o) => (orderId && o.dbId === orderId) || (!!cook && o.cook === cook));
+  const ck = cook ?? matchedOrder?.cook ?? '';
   const theCook = cookOfLine({ cook: ck, kitchenName: matchedOrder?.kitchenName, grad: matchedOrder?.lines[0]?.grad ?? 'g1' });
   const [live, setLive] = useState<{ status: string; fulfillment: string; payStatus: string } | null>(null);
   const [loadError, setLoadError] = useState('');

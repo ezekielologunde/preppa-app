@@ -299,7 +299,7 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
         kitchenName: r.kitchenName,
         lines: r.items.map((i) => ({
           key: i.mealId, mealUuid: i.mealId, kitchenUuid: r.kitchenId, kitchenName: r.kitchenName,
-          name: i.name, cook: 'maria', price: i.unitPriceCents / 100, grad: 'g1', qty: i.qty,
+          name: i.name, cook: r.kitchenId, price: i.unitPriceCents / 100, grad: 'g1', qty: i.qty,
         })),
         subtotal: r.subtotalCents / 100,
         service: r.serviceFeeCents / 100,
@@ -589,7 +589,7 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
         addToCart({
           key: meal.slug,
           name: meal.name,
-          cook: 'maria',
+          cook: meal.kitchenId,
           price: meal.priceCents / 100,
           grad: meal.grad as GradKey,
           img: meal.imageUrl ?? undefined,
