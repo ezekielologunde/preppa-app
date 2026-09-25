@@ -35,6 +35,10 @@ const stripe = new Stripe(requireEnv('STRIPE_SECRET_KEY'), {
 function admin() {
   return createClient(requireEnv('SUPABASE_URL'), requireEnv('SUPABASE_SERVICE_ROLE_KEY'), { auth: { persistSession: false } });
 }
+function isAmbiguousStripeError(error: any): boolean {
+  const type = error?.type ?? error?.raw?.type;
+  return type === 'StripeConnectionError' || type === 'StripeAPIError' || type === 'StripeTimeoutError';
+}
 async function getOrCreateCustomer(db: any, uid: string, email: string | null): Promise<string> {
   const { data: prof } = await db.from('profiles').select('stripe_customer_id').eq('id', uid).maybeSingle();
   if (prof?.stripe_customer_id) return prof.stripe_customer_id as string;
@@ -90,7 +94,7 @@ Deno.serve(async (req) => {
     if (!kitchen || kitchen.owner_id !== uid) return json(403, { error: 'not your kitchen' });
 
     const { data: existing } = await db.from('cook_memberships')
-      .select('status, current_period_end, trial_consumed').eq('kitchen_id', kitchenId).maybeSingle();
+      .select('status, current_period_end, trial_consumed, stripe_subscription_id').eq('kitchen_id', kitchenId).maybeSingle();
     if (existing && ['active', 'trialing'].includes(existing.status)
         && existing.current_period_end && new Date(existing.current_period_end) > new Date()) {
       return json(200, { status: existing.status, already: true });
@@ -120,13 +124,16 @@ Deno.serve(async (req) => {
         payment_behavior: 'error_if_incomplete',
         ...(trialDays > 0 ? { trial_period_days: trialDays } : {}),
         metadata: { kind: 'cook_pro', kitchen_id: kitchenId },
-      }, { idempotencyKey: `cookpro_sub_${kitchenId}_${interval}` });
+      }, { idempotencyKey: `cookpro_sub_${kitchenId}_${interval}_${existing?.stripe_subscription_id ?? 'first'}` });
     } catch (e: any) {
+      if (isAmbiguousStripeError(e)) {
+        return json(503, { error: 'Stripe could not confirm the membership request. Retry safely; the kitchen will not be subscribed twice.', code: 'retryable_provider_error' });
+      }
       return json(402, { error: e?.message || 'Your card was declined.', code: 'charge_failed' });
     }
 
     const startedTrial = sub.status === 'trialing';
-    await db.from('cook_memberships').upsert({
+    const { error: membershipError } = await db.from('cook_memberships').upsert({
       kitchen_id: kitchenId,
       stripe_subscription_id: sub.id,
       stripe_price_id: priceId,
@@ -137,6 +144,7 @@ Deno.serve(async (req) => {
       ...(startedTrial ? { trial_consumed: true } : {}),
       updated_at: new Date().toISOString(),
     }, { onConflict: 'kitchen_id' });
+    if (membershipError) throw membershipError;
 
     return json(200, { status: sub.status, subscriptionId: sub.id, trial: startedTrial, currentPeriodEnd: sub.current_period_end });
   } catch (_e) {

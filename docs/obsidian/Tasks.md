@@ -75,6 +75,7 @@ Went end-to-end through Shef's actual ordering flow (add to cart → cross-sell 
 - [x] ~~Protect booking balance collection from ambiguous Stripe responses~~ — completed locally 2026-09-25. The booking records a durable charge claim before contacting Stripe, pending confirmation is shown truthfully to both parties, and `reconcile-booking-balances` resolves the original PaymentIntent without creating another charge. Production migration, worker deployment, and controlled Stripe acceptance remain launch gates.
 - [x] ~~Recover checkout after a lost successful-payment response~~ — completed locally 2026-09-25. Reusing the same checkout key now returns the existing paid order when either the database or Stripe confirms success, and web/native checkout proceeds to order tracking without attempting another confirmation.
 - [x] ~~Recover quote and experience booking payments after a lost response~~ — completed locally 2026-09-25. Both flows resume the original PaymentIntent or return the confirmed booking, and experience retries cannot create another active booking for the same customer and session.
+- [x] ~~Make membership retries and resubscription distinct~~ — completed locally 2026-09-25. PrepPlus and Cook Pro reuse the same Stripe request after an ambiguous response, use a new key after a canceled subscription, report provider uncertainty truthfully, and fail when the local entitlement row cannot be persisted.
 
 ## Security / ops hardening (from AUDIT.md's own recommended next steps)
 
