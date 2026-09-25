@@ -6,13 +6,18 @@ import { type, radius } from '../theme/theme';
 import { useStore } from '../store/store';
 import { Icon, Press, Btn, Sheet } from '../ui';
 import { SavedCard } from '../lib/payments';
+import { addressLocality, isCompleteDeliveryAddress } from '../lib/addresses';
 
 /** Quick delivery-address picker (bottom sheet) — stays in checkout context. */
 export function AddressPickerSheet({ visible, onClose }: { visible: boolean; onClose: () => void }) {
   const c = useC();
   const router = useRouter();
   const { addresses, addressId, addressesLoading, addressesError, refreshAddresses, selectAddress, toast } = useStore();
-  const pick = (id: string) => { selectAddress(id); toast('Delivery address updated', 'pin', true); onClose(); };
+  const pick = (id: string) => {
+    const selected = addresses.find((address) => address.id === id);
+    if (!isCompleteDeliveryAddress(selected)) { toast('Edit this address and add city, state, postal code, and country first.', 'info'); return; }
+    selectAddress(id); toast('Delivery address updated', 'pin', true); onClose();
+  };
   return (
     <Sheet visible={visible} onClose={onClose} title="Delivery address" scroll>
       {addressesLoading && addresses.length === 0 ? (
@@ -33,7 +38,7 @@ export function AddressPickerSheet({ visible, onClose }: { visible: boolean; onC
                 <Icon name="pin" size={18} color={on ? c.primary : c.soft} />
                 <View style={{ flex: 1, minWidth: 0 }}>
                   <Text style={[type(14.5, 800), { color: c.ink }]}>{a.label}</Text>
-                  <Text numberOfLines={1} style={[type(12.5, 500), { color: c.soft, marginTop: 2 }]}>{a.line1}</Text>
+                  <Text numberOfLines={1} style={[type(12.5, 500), { color: isCompleteDeliveryAddress(a) ? c.soft : c.red, marginTop: 2 }]}>{[a.line1, a.line2, addressLocality(a)].filter(Boolean).join(' · ') || 'Complete this address before checkout'}</Text>
                 </View>
                 {on ? <Icon name="check" size={18} color={c.primary} /> : null}
               </View>

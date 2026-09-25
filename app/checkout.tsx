@@ -14,6 +14,7 @@ import { ModeToggle } from '../src/components/ModeToggle';
 import { AddressPickerSheet, CardPickerSheet } from '../src/components/PickerSheets';
 import { CardPaymentSheet } from '../src/components/CardPaymentSheet';
 import { Dialog } from '../src/ui/overlay';
+import { addressLocality, isCompleteDeliveryAddress } from '../src/lib/addresses';
 
 const brandName = (b: string) => (b ? b.charAt(0).toUpperCase() + b.slice(1) : 'Card');
 
@@ -52,7 +53,7 @@ export default function Checkout() {
   }, [methods, defaultId, pickedCard]);
   const selectedCard = methods.find((mm) => mm.id === selectedCardId) ?? null;
   const theCook = cookOfLine(lines[0] ?? { cook: 'maria', grad: 'g1' });
-  const deliveryAddressMissing = mode === 'delivery' && !address;
+  const deliveryAddressMissing = mode === 'delivery' && !isCompleteDeliveryAddress(address);
   const finalTotal = t.total + cardTaxCents / 100;
 
   if (lines.length === 0) {
@@ -67,7 +68,7 @@ export default function Checkout() {
   const place = async () => {
     if (busy) return; // guard against double-fire / double-order
     if (deliveryAddressMissing) {
-      setPaymentError('Add a delivery address before continuing to payment.');
+      setPaymentError(address ? 'Update your delivery address with city, state, postal code, and country before payment.' : 'Add a delivery address before continuing to payment.');
       setAddrSheet(true);
       return;
     }
@@ -187,7 +188,7 @@ export default function Checkout() {
               {mode === 'pickup' ? (
                 <><Text style={[type(14.5, 800), { color: c.ink }]}>{theCook.kitchen}</Text><Text style={[type(13, 500), { color: c.soft, marginTop: 2 }]}>Pick up · {theCook.dist} away · ready ~25 min</Text></>
               ) : address ? (
-                <><Text numberOfLines={1} style={[type(14.5, 800), { color: c.ink }]}>{address.label} · {address.line1}</Text>{address.line2 ? <Text numberOfLines={1} style={[type(13, 500), { color: c.soft, marginTop: 2 }]}>{address.line2}</Text> : null}</>
+                <><Text numberOfLines={1} style={[type(14.5, 800), { color: c.ink }]}>{address.label} · {address.line1}</Text><Text numberOfLines={1} style={[type(13, 500), { color: isCompleteDeliveryAddress(address) ? c.soft : c.red, marginTop: 2 }]}>{[address.line2, addressLocality(address)].filter(Boolean).join(' · ') || 'Complete this address before payment'}</Text></>
               ) : (
                 <Text accessibilityRole="alert" style={[type(14, 700), { color: c.red }]}>Delivery address required</Text>
               )}

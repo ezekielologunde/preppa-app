@@ -73,6 +73,13 @@ declare v_src text;
 begin
   if not exists (
     select 1 from information_schema.columns
+    where table_schema = 'public' and table_name = 'addresses' and column_name = 'country'
+  ) then
+    raise exception 'REGRESSION: addresses.country is missing';
+  end if;
+
+  if not exists (
+    select 1 from information_schema.columns
     where table_schema = 'public' and table_name = 'meals' and column_name = 'ingredients'
   ) or not exists (
     select 1 from information_schema.columns

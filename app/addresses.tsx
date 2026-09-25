@@ -6,6 +6,7 @@ import { type, radius } from '../src/theme/theme';
 import { useStore } from '../src/store/store';
 import { Icon, Press, Btn } from '../src/ui';
 import { Screen, TopBar, MiniTag, Empty } from '../src/ui/layout';
+import { addressLocality, type SavedAddress } from '../src/lib/addresses';
 
 export default function Addresses() {
   const c = useC();
@@ -19,12 +20,16 @@ export default function Addresses() {
   const [label, setLabel] = useState('');
   const [line1, setLine1] = useState('');
   const [line2, setLine2] = useState('');
+  const [city, setCity] = useState('');
+  const [region, setRegion] = useState('');
+  const [postalCode, setPostalCode] = useState('');
+  const [country, setCountry] = useState('US');
   const [busy, setBusy] = useState(false);
 
-  const reset = () => { setAdding(false); setEditId(null); setLabel(''); setLine1(''); setLine2(''); };
-  const openNew = () => { setEditId(null); setLabel(''); setLine1(''); setLine2(''); setAdding(true); };
-  const openEdit = (a: { id: string; label: string; line1: string; line2: string }) => {
-    setEditId(a.id); setLabel(a.label); setLine1(a.line1); setLine2(a.line2); setAdding(true);
+  const reset = () => { setAdding(false); setEditId(null); setLabel(''); setLine1(''); setLine2(''); setCity(''); setRegion(''); setPostalCode(''); setCountry('US'); };
+  const openNew = () => { reset(); setAdding(true); };
+  const openEdit = (a: SavedAddress) => {
+    setEditId(a.id); setLabel(a.label); setLine1(a.line1); setLine2(a.line2); setCity(a.city); setRegion(a.region); setPostalCode(a.postalCode); setCountry(a.country); setAdding(true);
   };
 
   const pick = (id: string) => {
@@ -36,11 +41,11 @@ export default function Addresses() {
   };
 
   const save = async () => {
-    if (!label.trim() || !line1.trim()) {
-      toast('Add a label and street address', 'info');
+    if (!label.trim() || !line1.trim() || !city.trim() || !region.trim() || !postalCode.trim() || !/^[A-Za-z]{2}$/.test(country.trim())) {
+      toast('Add a complete address with a two-letter country code', 'info');
       return;
     }
-    const patch = { label: label.trim(), line1: line1.trim(), line2: line2.trim() };
+    const patch = { label: label.trim(), line1: line1.trim(), line2: line2.trim(), city: city.trim(), region: region.trim(), postalCode: postalCode.trim(), country: country.trim().toUpperCase() };
     setBusy(true);
     try {
       if (editId) {
@@ -91,6 +96,7 @@ export default function Addresses() {
                   </View>
                   <Text numberOfLines={1} style={[type(13, 500), { color: c.soft, marginTop: 3 }]}>{a.line1}</Text>
                   {a.line2 ? <Text numberOfLines={1} style={[type(12.5, 500), { color: c.muted, marginTop: 1 }]}>{a.line2}</Text> : null}
+                  <Text numberOfLines={1} style={[type(12.5, 500), { color: c.muted, marginTop: 1 }]}>{addressLocality(a) || 'Complete this address before checkout'}</Text>
                 </View>
                 <View style={{ width: 22, height: 22, borderRadius: 11, borderWidth: 2, borderColor: on ? c.primary : c.border, alignItems: 'center', justifyContent: 'center' }}>
                   {on ? <View style={{ width: 11, height: 11, borderRadius: 6, backgroundColor: c.primary }} /> : null}
@@ -127,8 +133,14 @@ export default function Addresses() {
               })}
             </View>
             <Field c={c} label="Label" value={label} onChange={setLabel} placeholder="e.g. Home, Work" />
-            <Field c={c} label="Street address" value={line1} onChange={setLine1} placeholder="Street address, apt/unit" autoComplete="street-address" textContentType="fullStreetAddress" />
-            <Field c={c} label="City, state ZIP" value={line2} onChange={setLine2} placeholder="City, state ZIP" autoComplete="postal-address-locality" textContentType="addressCityAndState" />
+            <Field c={c} label="Street address" value={line1} onChange={setLine1} placeholder="123 Main St" autoComplete="street-address" textContentType="fullStreetAddress" />
+            <Field c={c} label="Apartment or unit (optional)" value={line2} onChange={setLine2} placeholder="Apt 4B" />
+            <Field c={c} label="City" value={city} onChange={setCity} placeholder="Atlanta" autoComplete="postal-address-locality" textContentType="addressCity" />
+            <View style={{ flexDirection: 'row', gap: 10 }}>
+              <View style={{ flex: 1 }}><Field c={c} label="State or region" value={region} onChange={setRegion} placeholder="GA" autoComplete="postal-address-region" textContentType="addressState" /></View>
+              <View style={{ flex: 1 }}><Field c={c} label="Postal code" value={postalCode} onChange={setPostalCode} placeholder="30312" autoComplete="postal-code" textContentType="postalCode" /></View>
+            </View>
+            <Field c={c} label="Country code" value={country} onChange={(value) => setCountry(value.toUpperCase().slice(0, 2))} placeholder="US" autoComplete="country" textContentType="countryCode" />
             <View style={{ flexDirection: 'row', gap: 10, marginTop: 2 }}>
               <Btn label="Cancel" variant="ghost" flex={1} onPress={reset} />
               <Btn label={editId ? 'Save changes' : 'Save address'} icon="check" flex={1} loading={busy} onPress={save} />

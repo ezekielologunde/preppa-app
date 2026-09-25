@@ -44,12 +44,13 @@ const createOrderInput = z.object({
 
 /** Real sales tax via Stripe Tax. A successful zero-tax calculation remains valid, but an
  *  API/configuration failure must stop checkout so a transient error cannot become a tax-free order. */
-async function calculateTaxCents(subtotalCents: number, country: string | undefined): Promise<{ cents: number; calculationId: string | null }> {
-  if (!country || subtotalCents <= 0) return { cents: 0, calculationId: null };
+interface TaxAddress { line1?: string; line2?: string; city?: string; state?: string; postal_code?: string; country: string }
+async function calculateTaxCents(subtotalCents: number, address: TaxAddress | null): Promise<{ cents: number; calculationId: string | null }> {
+  if (!address || subtotalCents <= 0) return { cents: 0, calculationId: null };
   const calc = await stripe.tax.calculations.create({
     currency: 'usd',
     line_items: [{ amount: subtotalCents, reference: 'order_subtotal', tax_behavior: 'exclusive', tax_code: 'txcd_40060003' }],
-    customer_details: { address: { country }, address_source: 'shipping' },
+    customer_details: { address, address_source: 'shipping' },
   });
   return { cents: calc.tax_amount_exclusive ?? 0, calculationId: calc.id ?? null };
 }
@@ -112,18 +113,23 @@ Deno.serve(async (req) => {
     }
 
     let deliveryAddressText: string | null = null;
+    let deliveryTaxAddress: TaxAddress | null = null;
     if (input.fulfillment === 'delivery') {
       if (!input.addressId) return json(400, { error: 'Add a delivery address before checkout.' });
       const { data: address, error: addressErr } = await db
         .from('addresses')
-        .select('line1,line2,city,region,postal_code')
+        .select('line1,line2,city,region,postal_code,country')
         .eq('id', input.addressId)
         .eq('owner_id', customerId)
         .eq('kind', 'customer_delivery')
         .maybeSingle();
       if (addressErr) throw addressErr;
       if (!address) return json(400, { error: 'That delivery address is no longer available.' });
+      if (!address.line1 || !address.city || !address.region || !address.postal_code || !/^[A-Z]{2}$/.test(address.country || '')) {
+        return json(400, { error: 'Update your delivery address with city, state, postal code, and country before checkout.' });
+      }
       deliveryAddressText = [address.line1, address.line2, address.city, address.region, address.postal_code].filter(Boolean).join(', ');
+      deliveryTaxAddress = { line1: address.line1, line2: address.line2 || undefined, city: address.city, state: address.region, postal_code: address.postal_code, country: address.country };
     }
 
     const mealIds = [...new Set(input.items.map((i) => i.mealId))];
@@ -156,7 +162,10 @@ Deno.serve(async (req) => {
     for (const it of input.items) subtotal += (priceById.get(it.mealId) ?? 0) * it.qty;
     const serviceFee = computeServiceFeeCents(subtotal);
     const tip = clampTipCents(input.tipCents);
-    const { cents: tax, calculationId: taxCalculationId } = await calculateTaxCents(subtotal, input.country);
+    const taxAddress = input.fulfillment === 'delivery'
+      ? deliveryTaxAddress
+      : (input.country ? { country: input.country.toUpperCase() } : null);
+    const { cents: tax, calculationId: taxCalculationId } = await calculateTaxCents(subtotal, taxAddress);
     const total = subtotal + serviceFee + tax + tip;
 
     const { data: order, error: oErr } = await db

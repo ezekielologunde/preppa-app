@@ -68,6 +68,10 @@ export interface Address {
   label: string;
   line1: string;
   line2: string;
+  city: string;
+  region: string;
+  postalCode: string;
+  country: string;
 }
 export interface Toast {
   id: number;
@@ -502,7 +506,7 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
   }, []);
 
   // --- addresses ---
-  const norm = (a: Omit<Address, 'id'>) => `${a.label.trim().toLowerCase()}|${a.line1.trim().toLowerCase()}|${a.line2.trim().toLowerCase()}`;
+  const norm = (a: Omit<Address, 'id'>) => `${a.label.trim().toLowerCase()}|${a.line1.trim().toLowerCase()}|${a.line2.trim().toLowerCase()}|${a.city.trim().toLowerCase()}|${a.region.trim().toLowerCase()}|${a.postalCode.trim().toLowerCase()}|${a.country.trim().toUpperCase()}`;
   const addAddress = useCallback(async (a: Omit<Address, 'id'>): Promise<string> => {
     const dup = addresses.find((x) => norm(x) === norm(a));
     if (dup) {
