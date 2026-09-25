@@ -331,8 +331,8 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
       const rows = await fetchSavedAddresses();
       setAddresses(rows);
       setAddressId((current) => rows.some((a) => a.id === current) ? current : rows[0]?.id ?? '');
-    } catch (e: any) {
-      setAddressesError(e?.message || 'Could not load your delivery addresses.');
+    } catch {
+      setAddressesError('Check your connection and try loading your delivery addresses again.');
     } finally {
       setAddressesLoading(false);
     }

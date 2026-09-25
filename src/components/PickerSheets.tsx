@@ -24,16 +24,23 @@ export function AddressPickerSheet({ visible, onClose }: { visible: boolean; onC
         <ActivityIndicator color={c.primary} style={{ marginVertical: 18 }} />
       ) : addressesError && addresses.length === 0 ? (
         <View accessibilityRole="alert" style={{ paddingVertical: 10 }}>
-          <Text style={[type(13, 700), { color: c.red, marginBottom: 10 }]}>{addressesError}</Text>
+          <Text style={[type(13, 700), { color: c.red, marginBottom: 10 }]}>Check your connection and try loading your delivery addresses again.</Text>
           <Btn label="Try again" icon="repeat" variant="ghost" onPress={() => { void refreshAddresses(); }} />
         </View>
       ) : addresses.length === 0 ? (
         <Text style={[type(14, 500), { color: c.soft, paddingHorizontal: 4, paddingVertical: 10 }]}>No saved addresses yet.</Text>
       ) : (
-        addresses.map((a) => {
+        <>
+        {addressesError ? (
+          <View accessibilityRole="alert" style={{ padding: 10, marginBottom: 8, borderRadius: radius.md, backgroundColor: c.redL }}>
+            <Text style={[type(12.5, 700), { color: c.red, marginBottom: 8 }]}>Saved addresses could not be refreshed. Your existing choices are still shown.</Text>
+            <Btn label="Retry addresses" icon="repeat" variant="ghost" onPress={() => { void refreshAddresses(); }} />
+          </View>
+        ) : null}
+        {addresses.map((a) => {
           const on = a.id === addressId;
           return (
-            <Press key={a.id} scale={0.99} onPress={() => pick(a.id)} label={`Use ${a.label}`}>
+            <Press key={a.id} scale={0.99} onPress={() => pick(a.id)} label={`Use ${a.label}${on ? ', selected address' : ''}`} role="radio" checked={on}>
               <View style={{ flexDirection: 'row', alignItems: 'center', gap: 12, padding: 12, borderRadius: radius.md, backgroundColor: on ? c.primaryL : 'transparent' }}>
                 <Icon name="pin" size={18} color={on ? c.primary : c.soft} />
                 <View style={{ flex: 1, minWidth: 0 }}>
@@ -44,7 +51,8 @@ export function AddressPickerSheet({ visible, onClose }: { visible: boolean; onC
               </View>
             </Press>
           );
-        })
+        })}
+        </>
       )}
       <View style={{ marginTop: 8 }}>
         <Btn label="Manage addresses" icon="plus" variant="ghost" block onPress={() => { onClose(); router.push('/addresses'); }} />
@@ -81,7 +89,7 @@ export function CardPickerSheet({
       {methods.map((cd) => {
         const on = cd.id === selectedId;
         return (
-          <Press key={cd.id} scale={0.99} onPress={() => pick(cd.id)} label={`Use ${brand(cd.brand)} ending ${cd.last4}`}>
+          <Press key={cd.id} scale={0.99} onPress={() => pick(cd.id)} label={`Use ${brand(cd.brand)} ending ${cd.last4}${on ? ', selected card' : ''}`} role="radio" checked={on}>
             <View style={{ flexDirection: 'row', alignItems: 'center', gap: 12, padding: 12, borderRadius: radius.md, backgroundColor: on ? c.primaryL : 'transparent' }}>
               <Icon name="card" size={18} color={on ? c.primary : c.soft} />
               <Text style={[type(14.5, 800), { color: c.ink, flex: 1 }]}>{brand(cd.brand)} •••• {cd.last4}</Text>
@@ -90,7 +98,7 @@ export function CardPickerSheet({
           </Press>
         );
       })}
-      <Press scale={0.99} onPress={() => pick(null)} label="Use a new card">
+      <Press scale={0.99} onPress={() => pick(null)} label={`Use a new card${selectedId === null ? ', selected' : ''}`} role="radio" checked={selectedId === null}>
         <View style={{ flexDirection: 'row', alignItems: 'center', gap: 12, padding: 12, borderRadius: radius.md, backgroundColor: selectedId === null ? c.primaryL : 'transparent' }}>
           <Icon name="plus" size={18} color={selectedId === null ? c.primary : c.soft} />
           <Text style={[type(14.5, 800), { color: c.ink, flex: 1 }]}>Use a new card</Text>

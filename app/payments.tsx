@@ -68,8 +68,8 @@ export default function Payments() {
       await detachPaymentMethod(card.id);
       await refetch();
       toast('Card removed', 'x');
-    } catch (e: any) {
-      toast(e?.message || 'Couldn’t remove the card. Add another card first if this one supports an active membership or meal plan.', 'info');
+    } catch {
+      toast('Couldn’t remove the card. Add another card first if this one supports an active membership or meal plan, then try again.', 'info');
     } finally {
       setBusyId(null);
     }

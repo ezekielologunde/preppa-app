@@ -62,7 +62,7 @@ export default function Addresses() {
       }
       reset();
     } catch (e: any) {
-      toast(e?.message === 'AUTH_REQUIRED' ? 'Sign in to save an address.' : (e?.message || 'Could not save this address.'), 'info');
+      toast(e?.message === 'AUTH_REQUIRED' ? 'Sign in to save an address.' : 'Could not save this address. Check your connection and try again.', 'info');
     } finally { addressActionInFlight.current = false; setBusy(false); }
   };
 
@@ -71,7 +71,7 @@ export default function Addresses() {
     addressActionInFlight.current = true;
     setBusy(true);
     try { await removeAddress(id); toast('Address removed', 'x'); }
-    catch (e: any) { toast(e?.message || 'Could not remove this address.', 'info'); }
+    catch { toast('Could not remove this address. Check your connection and try again.', 'info'); }
     finally { addressActionInFlight.current = false; setBusy(false); }
   };
 
@@ -85,12 +85,18 @@ export default function Addresses() {
   };
 
   if (addressesLoading && addresses.length === 0) return <Screen><TopBar title="Addresses" /><View style={{ flex: 1, alignItems: 'center', justifyContent: 'center' }}><ActivityIndicator color={c.primary} /></View></Screen>;
-  if (addressesError && addresses.length === 0) return <Screen><TopBar title="Addresses" /><Empty icon="info" title="Couldn’t load addresses" body={addressesError} action={<Btn label="Try again" icon="repeat" onPress={() => { void refreshAddresses(); }} />} /></Screen>;
+  if (addressesError && addresses.length === 0) return <Screen><TopBar title="Addresses" /><Empty icon="info" title="Couldn’t load addresses" body="Check your connection and try loading your delivery addresses again." action={<Btn label="Try again" icon="repeat" onPress={() => { void refreshAddresses(); }} />} /></Screen>;
 
   return (
     <Screen>
       <TopBar title="Addresses" sub={selecting ? 'Pick one' : undefined} />
       <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={{ padding: 16, paddingBottom: 40, gap: 12 }}>
+        {addressesError ? (
+          <View accessibilityRole="alert" style={{ padding: 12, borderWidth: 1, borderColor: c.red, borderRadius: radius.md, backgroundColor: c.redL }}>
+            <Text style={[type(12.5, 700), { color: c.red, marginBottom: 8 }]}>Saved addresses could not be refreshed. Your existing addresses are still shown.</Text>
+            <Btn label="Retry addresses" icon="repeat" variant="ghost" onPress={() => { void refreshAddresses(); }} />
+          </View>
+        ) : null}
         {addresses.length === 0 && !adding ? (
           <Empty icon="pin" title="No addresses yet" body="Add a delivery address to check out." />
         ) : null}
@@ -138,7 +144,7 @@ export default function Addresses() {
               {['Home', 'Work', 'Other'].map((l) => {
                 const on = label.trim().toLowerCase() === l.toLowerCase();
                 return (
-                  <Press key={l} scale={0.96} onPress={() => setLabel(l)} label={`Label ${l}`} style={{ flex: 1 }}>
+                  <Press key={l} scale={0.96} onPress={() => setLabel(l)} label={`Label ${l}${on ? ', selected' : ''}`} selected={on} style={{ flex: 1 }}>
                     <View style={{ height: 38, borderRadius: radius.sm, borderWidth: 1.5, borderColor: on ? c.primary : c.border, backgroundColor: on ? c.primaryL : c.surface, alignItems: 'center', justifyContent: 'center' }}>
                       <Text style={[type(13, 800), { color: on ? c.primaryD : c.soft }]}>{l}</Text>
                     </View>
