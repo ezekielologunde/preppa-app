@@ -288,6 +288,9 @@ The two auth-hardening gaps found in that pass were closed 2026-09-17: native se
 - [x] In-home cooking vetting now requires an explicit confirmation before granting or denying access. Approval copy tells reviewers to confirm current background-check and insurance evidence; rejection shows the recorded reason before submission.
 - [x] User administration now enforces its mutation lock inside suspension, reinstatement, and role handlers and disables other row actions while a privileged write is running.
 
+### Storefront interaction safety — hardened locally 2026-09-25
+- [x] Kitchen follow and unfollow writes are serialized. The button shows a saving state, blocks rapid duplicate taps, and restores the prior state when the server rejects the change.
+
 ### 16. Apple App Store
 An `ascAppId` is already configured (`6802527112`) — **verify what that actually points to** before assuming setup starts from zero. Then: distribution cert, push entitlement, associated domains/deep links, production EAS build, TestFlight, screenshots/description/privacy disclosures, support/privacy URLs, account deletion, review notes.
 

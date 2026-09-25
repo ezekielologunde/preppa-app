@@ -119,10 +119,7 @@ export default function CookStoreScreen() {
   return <RealKitchenStore profile={profile} meals={meals ?? []} mealsLoading={mealsLoading} mealsError={!!mealsError} reviewsError={!!reviewsError} revCount={kitchenRevs?.count ?? 0} revAvg={kitchenRevs?.avg ?? 0} insetsTop={insets.top} onBack={() => router.back()} />;
 }
 
-/** Storefront for a REAL verified kitchen (live data, keyed by kitchen UUID).
- *  TODO(follow-up): near-total layout duplication with CookStoreScreen's seed-cook render —
- *  worth flattening into one parametrized component. Left alone in this visual-only redesign
- *  pass (structural refactor risks behavior changes, out of scope here). */
+/** Storefront for a verified kitchen, backed by its live UUID-keyed data. */
 function RealKitchenStore({ profile, meals, mealsLoading, mealsError, reviewsError, revCount, revAvg, insetsTop, onBack }: {
   profile: KitchenProfile; meals: any[]; mealsLoading: boolean; mealsError: boolean; reviewsError: boolean; revCount: number; revAvg: number; insetsTop: number; onBack: () => void;
 }) {
@@ -131,6 +128,7 @@ function RealKitchenStore({ profile, meals, mealsLoading, mealsError, reviewsErr
   const { toast } = useStore();
   const [following, setFollowing] = useState(false);
   const [followLoading, setFollowLoading] = useState(true);
+  const [followMutating, setFollowMutating] = useState(false);
   const [followError, setFollowError] = useState(false);
   const [followNonce, setFollowNonce] = useState(0);
   React.useEffect(() => {
@@ -144,7 +142,9 @@ function RealKitchenStore({ profile, meals, mealsLoading, mealsError, reviewsErr
     return () => { alive = false; };
   }, [profile.id, followNonce]);
   const onFollow = async () => {
+    if (followLoading || followMutating) return;
     const next = !following;
+    setFollowMutating(true);
     setFollowing(next); // optimistic
     try {
       const real = await toggleFollow(profile.id);
@@ -153,6 +153,8 @@ function RealKitchenStore({ profile, meals, mealsLoading, mealsError, reviewsErr
     } catch (e: any) {
       setFollowing(!next);
       toast(/auth|session|sign in/i.test(String(e?.message)) ? 'Sign in to follow kitchens' : 'Could not update your follow. Try again.', 'info');
+    } finally {
+      setFollowMutating(false);
     }
   };
   const initial = profile.name.trim()[0]?.toUpperCase() ?? 'K';
@@ -206,7 +208,7 @@ function RealKitchenStore({ profile, meals, mealsLoading, mealsError, reviewsErr
 
           <View style={{ flexDirection: 'row', gap: 10, marginTop: 14 }}>
             <View style={{ flex: 1 }}>
-              <Btn label={followLoading ? 'Checking…' : followError ? 'Retry follow status' : following ? 'Following' : 'Follow'} icon={followError ? 'repeat' : following ? 'check' : 'plus'} variant={following || followError ? 'ghost' : 'pri'} block height={46} disabled={followLoading}
+              <Btn label={followLoading ? 'Checking…' : followMutating ? 'Saving…' : followError ? 'Retry follow status' : following ? 'Following' : 'Follow'} icon={followError ? 'repeat' : following ? 'check' : 'plus'} variant={following || followError ? 'ghost' : 'pri'} block height={46} disabled={followLoading || followMutating} loading={followMutating}
                 onPress={followError ? () => setFollowNonce((n) => n + 1) : onFollow} />
             </View>
             {FLAGS.chat ? (
