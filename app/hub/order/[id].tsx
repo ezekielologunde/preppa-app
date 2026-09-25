@@ -1,4 +1,4 @@
-import React, { useCallback, useState } from 'react';
+import React, { useCallback, useRef, useState } from 'react';
 import { View, Text, ScrollView, ActivityIndicator, TextInput } from 'react-native';
 import { useLocalSearchParams, useRouter, useFocusEffect } from 'expo-router';
 import { useC } from '../../../src/theme/ThemeContext';
@@ -27,6 +27,7 @@ export default function OrderDetail() {
   const [cancelling, setCancelling] = useState(false);
   const [cancelReason, setCancelReason] = useState('');
   const [openingChat, setOpeningChat] = useState(false);
+  const orderActionInFlight = useRef(false);
 
   const load = useCallback(() => {
     if (!id) return;
@@ -34,8 +35,8 @@ export default function OrderDetail() {
     setLoadError('');
     fetchKitchenOrderDetail(id)
       .then(setO)
-      .catch((e: any) => {
-        setLoadError(e?.message || 'Could not load this order.');
+      .catch(() => {
+        setLoadError('Check your connection and try loading this order again.');
         setO(null);
       });
   }, [id]);
@@ -70,34 +71,39 @@ export default function OrderDetail() {
   const isPaid = o.pay_status === 'paid';
   const idx = FLOW.indexOf(status);
   const isPickup = o.fulfillment === 'pickup';
+  const deliveryAddressMissing = !isPickup && !o.delivery_address_text?.trim();
   const nextLbl: Partial<Record<KitchenOrderStatus, string>> = { confirmed: 'Accept & start cooking', preparing: 'Mark ready', ready: isPickup ? 'Mark picked up' : 'Mark delivered' };
-  const next = isPaid ? NEXT[status] : undefined;
+  const next = isPaid && !deliveryAddressMissing ? NEXT[status] : undefined;
 
   const advance = async () => {
-    if (!next || busy) return;
+    if (!next || orderActionInFlight.current) return;
+    orderActionInFlight.current = true;
     setBusy(true);
     try {
       await updateOrderStatus(o.order_id, next);
       toast(nextLbl[status] ?? 'Updated', 'check', true);
       load();
-    } catch (e: any) {
-      toast(e?.message || 'Could not update the order', 'info');
+    } catch {
+      toast('Could not update the order. Refresh it and try again.', 'info');
     } finally {
+      orderActionInFlight.current = false;
       setBusy(false);
     }
   };
 
   const cancelOrder = async () => {
-    if (cancelling) return;
+    if (orderActionInFlight.current) return;
+    orderActionInFlight.current = true;
     setCancelling(true);
     try {
        const { refunded } = await declineOrder(o.order_id, cancelReason.trim() || undefined);
       toast(refunded ? 'Order cancelled — customer refunded' : 'Order cancelled', 'check', true);
       setConfirmCancel(false);
       load();
-    } catch (e: any) {
-      toast(e?.message || 'Could not cancel the order', 'info');
+    } catch {
+      toast('Could not cancel the order. Refresh it and try again.', 'info');
     } finally {
+      orderActionInFlight.current = false;
       setCancelling(false);
     }
   };
@@ -185,6 +191,16 @@ export default function OrderDetail() {
           </View>
         ) : null}
 
+        {deliveryAddressMissing && status !== 'cancelled' && status !== 'completed' ? (
+          <View accessibilityRole="alert" style={{ marginHorizontal: 20, marginBottom: 14, backgroundColor: c.redL, borderWidth: 1, borderColor: c.red, borderRadius: 16, padding: 14 }}>
+            <Text style={[type(14, 900), { color: c.red }]}>Delivery address required</Text>
+            <Text style={[type(12.5, 600), { color: c.red, marginTop: 4, lineHeight: 18 }]}>Message the customer to confirm the address, then contact support to correct the order before preparing it.</Text>
+            <View style={{ marginTop: 12, alignSelf: 'flex-start' }}>
+              <KBtn label="Contact support" variant="ghost" onPress={() => router.push('/hub/tickets')} />
+            </View>
+          </View>
+        ) : null}
+
         {/* progress */}
         {status !== 'cancelled' ? <View style={{ marginHorizontal: 20, backgroundColor: c.surface, borderWidth: 1, borderColor: c.border2, borderRadius: 20, padding: 16 }}>
           <Text style={[type(13, 900), { color: c.ink, marginBottom: 4 }]}>Progress</Text>
@@ -217,9 +233,10 @@ export default function OrderDetail() {
                 multiline
                 style={[type(14, 500), { color: c.ink, minHeight: 52, borderWidth: 1, borderColor: c.border, borderRadius: 12, backgroundColor: c.surface, paddingHorizontal: 12, paddingVertical: 10 }]}
               />
+              <Text style={[type(11.5, 600), { color: c.red, textAlign: 'right', marginTop: 5 }]}>{cancelReason.length}/240</Text>
               <View style={{ flexDirection: 'row', gap: 10, marginTop: 12 }}>
-                <KBtn label="Never mind" variant="ghost" flex={1} onPress={() => setConfirmCancel(false)} />
-                <KBtn label={cancelling ? 'Cancelling…' : 'Yes, cancel'} flex={1} onPress={cancelOrder} style={{ backgroundColor: c.red }} />
+                <KBtn label="Never mind" variant="ghost" flex={1} disabled={cancelling || busy} onPress={() => setConfirmCancel(false)} />
+                <KBtn label={cancelling ? 'Cancelling…' : 'Yes, cancel'} flex={1} disabled={cancelling || busy} onPress={cancelOrder} style={{ backgroundColor: c.red }} />
               </View>
             </View>
           ) : (
@@ -231,7 +248,7 @@ export default function OrderDetail() {
       </ScrollView>
       {next ? (
         <Dock>
-          <KBtn label={busy ? 'Saving…' : nextLbl[status] ?? 'Next'} variant="pri" block onPress={advance} />
+          <KBtn label={busy ? 'Saving…' : nextLbl[status] ?? 'Next'} variant="pri" block disabled={busy || cancelling} onPress={advance} />
         </Dock>
       ) : null}
     </Screen>

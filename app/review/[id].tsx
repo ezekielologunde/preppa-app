@@ -92,7 +92,7 @@ export default function Review() {
                 {TAGS.map((t) => {
                   const on = tags.includes(t);
                   return (
-                    <Press key={t} scale={0.95} onPress={() => toggle(t)}>
+                    <Press key={t} scale={0.95} onPress={() => toggle(t)} label={t} selected={on}>
                       <View style={{ height: 38, paddingHorizontal: 14, borderRadius: radius.pill, borderWidth: 1.5, borderColor: on ? c.primary : c.border, backgroundColor: on ? c.primaryL : c.surface, alignItems: 'center', justifyContent: 'center' }}>
                         <Text style={[type(13, 700), { color: on ? c.primaryD : c.soft }]}>{t}</Text>
                       </View>

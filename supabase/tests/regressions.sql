@@ -568,6 +568,9 @@ begin
   if v_src !~ 'pay_status.*paid' then
     raise exception 'REGRESSION: update_order_status() no longer blocks unpaid fulfillment';
   end if;
+  if v_src !~ 'delivery_address_text' then
+    raise exception 'REGRESSION: update_order_status() no longer blocks delivery fulfillment without an address';
+  end if;
 end $$;
 
 do $$
