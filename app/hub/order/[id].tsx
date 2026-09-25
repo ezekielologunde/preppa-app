@@ -12,7 +12,7 @@ import { KBtn } from '../../(tabs)/my-hub';
 import { openThreadAsKitchen } from '../../../src/lib/messages';
 
 const FLOW: KitchenOrderStatus[] = ['confirmed', 'preparing', 'ready', 'completed'];
-const LABELS: Record<KitchenOrderStatus, string> = { confirmed: 'New', preparing: 'Preparing', ready: 'Ready', completed: 'Completed', cancelled: 'Cancelled' };
+const LABELS: Record<KitchenOrderStatus, string> = { pending: 'Awaiting payment', confirmed: 'New', preparing: 'Preparing', ready: 'Ready', completed: 'Completed', cancelled: 'Cancelled' };
 const NEXT: Partial<Record<KitchenOrderStatus, KitchenOrderStatus>> = { confirmed: 'preparing', preparing: 'ready', ready: 'completed' };
 
 export default function OrderDetail() {
@@ -67,10 +67,11 @@ export default function OrderDetail() {
   }
 
   const status = (o.status as KitchenOrderStatus) ?? 'confirmed';
+  const isPaid = o.pay_status === 'paid';
   const idx = FLOW.indexOf(status);
   const isPickup = o.fulfillment === 'pickup';
   const nextLbl: Partial<Record<KitchenOrderStatus, string>> = { confirmed: 'Accept & start cooking', preparing: 'Mark ready', ready: isPickup ? 'Mark picked up' : 'Mark delivered' };
-  const next = NEXT[status];
+  const next = isPaid ? NEXT[status] : undefined;
 
   const advance = async () => {
     if (!next || busy) return;
@@ -100,7 +101,7 @@ export default function OrderDetail() {
       setCancelling(false);
     }
   };
-  const canCancel = status !== 'completed' && status !== 'cancelled';
+  const canCancel = isPaid && status !== 'completed' && status !== 'cancelled';
   const messageCustomer = async () => {
     if (openingChat) return;
     setOpeningChat(true);
@@ -143,7 +144,7 @@ export default function OrderDetail() {
             </GradBox>
             <View style={{ flex: 1, minWidth: 0 }}>
               <Text style={[type(15, 900), { color: c.ink, letterSpacing: -0.2 }]}>{o.buyer_name ?? 'Customer'}</Text>
-              <Text style={[type(12.5, 600), { color: c.soft, marginTop: 2 }]}>{isPickup ? 'Picking up' : 'Delivery'} · Paid</Text>
+              <Text style={[type(12.5, 600), { color: isPaid ? c.soft : c.red, marginTop: 2 }]}>{isPickup ? 'Picking up' : 'Delivery'} · {isPaid ? 'Paid' : o.pay_status === 'refunded' ? 'Refunded' : 'Payment not confirmed'}</Text>
             </View>
             <Press scale={0.9} onPress={messageCustomer} disabled={openingChat} label={`Message ${o.buyer_name ?? 'customer'}`}>
               <View style={{ width: 38, height: 38, borderRadius: 12, backgroundColor: c.bg2, alignItems: 'center', justifyContent: 'center' }}>
@@ -174,6 +175,13 @@ export default function OrderDetail() {
           <View accessibilityRole="alert" style={{ marginHorizontal: 20, backgroundColor: c.redL, borderWidth: 1, borderColor: c.red, borderRadius: 16, padding: 14 }}>
             <Text style={[type(14, 900), { color: c.red }]}>This order is cancelled</Text>
             <Text style={[type(12.5, 600), { color: c.red, marginTop: 4, lineHeight: 18 }]}>No more fulfillment actions are available for this order.</Text>
+          </View>
+        ) : null}
+
+        {!isPaid && status !== 'cancelled' ? (
+          <View accessibilityRole="alert" style={{ marginHorizontal: 20, marginBottom: 14, backgroundColor: c.amberL, borderWidth: 1, borderColor: c.amber, borderRadius: 16, padding: 14 }}>
+            <Text style={[type(14, 900), { color: c.ink }]}>Wait for payment confirmation</Text>
+            <Text style={[type(12.5, 600), { color: c.soft, marginTop: 4, lineHeight: 18 }]}>Do not start preparing this order. Fulfillment actions will appear after payment is confirmed.</Text>
           </View>
         ) : null}
 

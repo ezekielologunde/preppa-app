@@ -6,7 +6,7 @@
  */
 import { supabase, assertLiveMoneyAllowed, assertFunctionSuccess } from './supabase';
 
-export type KitchenOrderStatus = 'confirmed' | 'preparing' | 'ready' | 'completed' | 'cancelled';
+export type KitchenOrderStatus = 'pending' | 'confirmed' | 'preparing' | 'ready' | 'completed' | 'cancelled';
 
 export interface KitchenOrderRow {
   order_id: string;
@@ -76,6 +76,7 @@ export interface KitchenOrderDetail {
   buyer_id: string;
   buyer_name: string | null;
   status: string;
+  pay_status: string;
   fulfillment: string;
   delivery_address_text: string | null;
   delivery_instructions: string | null;
