@@ -9,6 +9,7 @@ import { Screen, TopBar, MiniTag, Empty } from '../src/ui/layout';
 import { CardPaymentSheet } from '../src/components/CardPaymentSheet';
 import { useSavedCards } from '../src/lib/useSavedCards';
 import { createSetupIntent, detachPaymentMethod, setDefaultPaymentMethod, SavedCard } from '../src/lib/payments';
+import { confirmAction } from '../src/lib/confirm';
 
 const brandName = (b: string) => (b ? b.charAt(0).toUpperCase() + b.slice(1) : 'Card');
 const expLabel = (m: number | null, y: number | null) =>
@@ -74,6 +75,18 @@ export default function Payments() {
     }
   };
 
+  const requestRemove = (card: SavedCard) => {
+    const recurringWarning = card.id === defaultId
+      ? ' This is your default card. Removing it may interrupt memberships, meal plans, and other recurring charges until you choose another default.'
+      : '';
+    confirmAction(
+      `Remove ${brandName(card.brand)} ending ${card.last4}?`,
+      `You will need to add this card again before using it for a future payment.${recurringWarning}`,
+      () => void remove(card),
+      'Remove card',
+    );
+  };
+
   return (
     <Screen>
       <TopBar title="Payment methods" sub={selecting ? 'Pick one' : undefined} />
@@ -114,7 +127,7 @@ export default function Payments() {
                         {on ? <View style={{ width: 11, height: 11, borderRadius: 6, backgroundColor: c.primary }} /> : null}
                       </View>
                     </Press>
-                    <Press scale={0.9} onPress={() => remove(card)} label={`Remove ${brandName(card.brand)} ending ${card.last4}`} hitSlop={8} disabled={rowBusy}>
+                    <Press scale={0.9} onPress={() => requestRemove(card)} label={`Remove ${brandName(card.brand)} ending ${card.last4}`} hitSlop={8} disabled={rowBusy}>
                       <View style={{ width: 34, height: 34, alignItems: 'center', justifyContent: 'center' }}>
                         <Icon name="x" size={16} color={c.muted} />
                       </View>

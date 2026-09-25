@@ -8,6 +8,7 @@ import { Icon, Btn, GradBox, Press } from '../src/ui';
 import { Screen, TopBar, Dock, DockTotal } from '../src/ui/layout';
 import { CardPaymentSheet } from '../src/components/CardPaymentSheet';
 import { createSetupIntent } from '../src/lib/payments';
+import { confirmAction } from '../src/lib/confirm';
 import {
   fetchMembership, subscribeToPrepPlus, manageMembership, membershipActive,
   Membership, PREPPLUS_MONTHLY_CENTS, PREPPLUS_ANNUAL_CENTS,
@@ -151,7 +152,12 @@ export default function PrepPlus() {
               <>
                 <Btn label={`Switch to ${mem?.planInterval === 'year' ? 'monthly' : 'annual'}`} variant="ghost"
                   onPress={() => doManage('switch', mem?.planInterval === 'year' ? 'month' : 'year')} disabled={busy} />
-                <Press scale={0.98} onPress={() => doManage('cancel')} disabled={busy} label="Cancel membership"
+                <Press scale={0.98} onPress={() => confirmAction(
+                  'Cancel PrepPlus?',
+                  `Your benefits will remain active until ${fmtDate(mem?.currentPeriodEnd ?? null) || 'the end of your paid period'}. After that, service fees will apply again.`,
+                  () => void doManage('cancel'),
+                  'Cancel membership',
+                )} disabled={busy} label="Cancel membership"
                   style={{ alignItems: 'center', paddingVertical: 12 }}>
                   <Text style={[type(13.5, 800), { color: c.red }]}>Cancel membership</Text>
                 </Press>
