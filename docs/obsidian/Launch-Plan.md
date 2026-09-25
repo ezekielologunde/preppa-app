@@ -31,6 +31,7 @@ tags: [project/preppa, type/launch-plan]
 - Cook order lists and detail now place cancelled orders in history, label them correctly, and remove duplicate fulfillment and cancellation actions.
 - Checkout now distinguishes saved-card loading and failure from an empty wallet, supports retry or an explicit new-card path, and recovers from rejected Stripe card and wallet promises without leaving payment controls stuck busy.
 - Favorites and custom-box catalog failures now show retry recovery instead of false empty inventory. PrepPlus blocks subscription actions when membership state cannot be loaded, preventing a failed lookup from being presented as a non-member state.
+- Cook experience and meal-plan editors now recover from failed or missing edit records instead of remaining on an indefinite loading screen or opening a blank form that could overwrite the wrong state.
 
 ### Customer acceptance evidence still needed
 

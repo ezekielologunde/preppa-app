@@ -44,6 +44,7 @@ export default function CreateExperienceFlow() {
   const editing = typeof experienceId === 'string' && experienceId.length > 0;
   const { toast } = useStore();
   const [loading, setLoading] = useState(true);
+  const [loadError, setLoadError] = useState('');
 
   const [title, setTitle] = useState('');
   const [desc, setDesc] = useState('');
@@ -69,11 +70,14 @@ export default function CreateExperienceFlow() {
   const [busy, setBusy] = useState(false);
   const [done, setDone] = useState<{ status: string } | null>(null);
 
-  useEffect(() => {
-    (async () => {
+  const load = async () => {
+    setLoading(true);
+    setLoadError('');
+    try {
       if (editing) {
         const e = await fetchExperience(experienceId!);
-        if (e) {
+        if (!e) throw new Error('This experience is no longer available.');
+        {
           setTitle(e.title); setDesc(e.description ?? ''); setEtype(e.experienceType);
           setPhotos(e.photoUrls && e.photoUrls.length ? e.photoUrls : (e.coverUrl ? [e.coverUrl] : []));
           setAddress(e.addressText ?? ''); setDuration(String(e.durationMin)); setMinG(String(e.minGuests)); setMaxG(String(e.maxGuests));
@@ -85,9 +89,13 @@ export default function CreateExperienceFlow() {
           setSessions(e.sessions.filter((s) => s.status !== 'cancelled').map((s) => ({ id: s.id, ...splitISO(s.startsAt), seats: String(s.capacity), seatsTaken: s.seatsTaken, status: s.status })));
         }
       }
+    } catch (e: any) {
+      setLoadError(e?.message || 'Could not load this experience.');
+    } finally {
       setLoading(false);
-    })();
-  }, []);
+    }
+  };
+  useEffect(() => { void load(); }, []);
 
   const pickPhotos = () => {
     if (Platform.OS !== 'web' || typeof document === 'undefined') return;
@@ -192,6 +200,9 @@ export default function CreateExperienceFlow() {
   }
   if (loading) {
     return <Screen bg={c.surface}><TopBar title={editing ? 'Edit experience' : 'Create an experience'} onBack={() => router.back()} /><View style={{ flex: 1, alignItems: 'center', justifyContent: 'center' }}><ActivityIndicator color={c.primary} /></View></Screen>;
+  }
+  if (loadError) {
+    return <Screen bg={c.surface}><TopBar title={editing ? 'Edit experience' : 'Create an experience'} onBack={() => router.back()} /><View accessibilityRole="alert" style={{ flex: 1, alignItems: 'center', justifyContent: 'center', padding: 24 }}><Text style={[type(16, 900), { color: c.ink, textAlign: 'center' }]}>Experience couldn’t load</Text><Text style={[type(13.5, 600), { color: c.soft, textAlign: 'center', lineHeight: 20, marginTop: 6, marginBottom: 16 }]}>{loadError}</Text><KBtn label="Try again" variant="pri" onPress={load} /></View></Screen>;
   }
 
   return (

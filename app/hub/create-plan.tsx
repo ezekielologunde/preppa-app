@@ -25,6 +25,7 @@ export default function CreatePlanFlow() {
   const editing = typeof planId === 'string' && planId.length > 0;
   const { toast } = useStore();
   const [loading, setLoading] = useState(true);
+  const [loadError, setLoadError] = useState('');
   const [meals, setMeals] = useState<CookMeal[]>([]);
   const [hasKitchen, setHasKitchen] = useState(true);
   const [kitchenId, setKitchenId] = useState<string | null>(null);
@@ -61,14 +62,17 @@ export default function CreatePlanFlow() {
   const [existingStatus, setExistingStatus] = useState<'draft' | 'active' | 'archived' | null>(null);
   const [done, setDone] = useState(false);
 
-  useEffect(() => {
-    (async () => {
+  const load = async () => {
+    setLoading(true);
+    setLoadError('');
+    try {
       const { kitchenId: kid, meals } = await fetchMyKitchenMeals();
       setHasKitchen(!!kid); setKitchenId(kid); setMeals(meals);
       if (kid) { try { const cap = await fetchKitchenCapacity(kid); if (cap != null) setCapacity(String(cap)); } catch { /* ignore */ } }
       if (editing) {
         const pl = await fetchPlan(planId!);
-        if (pl) {
+        if (!pl) throw new Error('This meal plan is no longer available.');
+        {
           setName(pl.name); setDesc(pl.description ?? ''); setPrice(pl.priceCents ? String(pl.priceCents / 100) : '');
           setFulfillment(pl.fulfillment); setGoal(pl.goal ?? ''); setCover(pl.coverUrl ?? ''); setDays(pl.deliveryDays ?? []);
           setSelectionModel(pl.selectionModel === 'customer_choice' ? 'customer_choice' : 'fixed');
@@ -98,9 +102,13 @@ export default function CreatePlanFlow() {
           setExistingStatus(pl.status ?? 'active');
         }
       }
+    } catch (e: any) {
+      setLoadError(e?.message || 'Could not load this meal plan.');
+    } finally {
       setLoading(false);
-    })();
-  }, []);
+    }
+  };
+  useEffect(() => { void load(); }, []);
 
   const pickCover = () => {
     if (Platform.OS !== 'web' || typeof document === 'undefined') return;
@@ -204,6 +212,9 @@ export default function CreatePlanFlow() {
 
   if (loading) {
     return <Screen bg={c.surface}><TopBar title={editing ? 'Edit meal plan' : 'Create a meal plan'} onBack={() => router.back()} /><View style={{ flex: 1, alignItems: 'center', justifyContent: 'center' }}><ActivityIndicator color={c.primary} /></View></Screen>;
+  }
+  if (loadError) {
+    return <Screen bg={c.surface}><TopBar title={editing ? 'Edit meal plan' : 'Create a meal plan'} onBack={() => router.back()} /><View accessibilityRole="alert" style={{ flex: 1, alignItems: 'center', justifyContent: 'center', padding: 24 }}><Text style={[type(16, 900), { color: c.ink, textAlign: 'center' }]}>Meal plan couldn’t load</Text><Text style={[type(13.5, 600), { color: c.soft, textAlign: 'center', lineHeight: 20, marginTop: 6, marginBottom: 16 }]}>{loadError}</Text><KBtn label="Try again" variant="pri" onPress={load} /></View></Screen>;
   }
 
   if (!hasKitchen || meals.length === 0) {
