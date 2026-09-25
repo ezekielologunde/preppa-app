@@ -1,11 +1,11 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import { View, Text, ScrollView, TextInput, ActivityIndicator } from 'react-native';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { useC } from '../../src/theme/ThemeContext';
 import { type, radius } from '../../src/theme/theme';
 import { useStore } from '../../src/store/store';
 import { Icon, Press, Btn } from '../../src/ui';
-import { Screen, TopBar, Dock, Block } from '../../src/ui/layout';
+import { Screen, TopBar, Dock, Block, Empty } from '../../src/ui/layout';
 import { listMyBookings, type BookingView } from '../../src/lib/services';
 import { reviewExperience } from '../../src/lib/experiences';
 import { NotFound } from '../../src/components/NotFound';
@@ -22,6 +22,7 @@ export default function RateExperience() {
   const [stars, setStars] = useState(0);
   const [text, setText] = useState('');
   const [busy, setBusy] = useState(false);
+  const reviewInFlight = useRef(false);
 
   useEffect(() => {
     let alive = true;
@@ -29,17 +30,18 @@ export default function RateExperience() {
     setLoadError('');
     listMyBookings()
       .then((list) => { if (alive) setB(list.find((x) => x.id === bookingId) ?? null); })
-      .catch((e) => { if (alive) setLoadError(e?.message ?? 'Couldn’t load this booking.'); })
+      .catch(() => { if (alive) setLoadError('Couldn’t load this booking. Check your connection and try again.'); })
       .finally(() => { if (alive) setLoading(false); });
     return () => { alive = false; };
   }, [bookingId, retryNonce]);
 
   const submit = async () => {
-    if (stars === 0 || busy) return;
+    if (stars === 0 || reviewInFlight.current) return;
+    reviewInFlight.current = true;
     setBusy(true);
     try { await reviewExperience(bookingId!, stars, text); toast('Thanks for your review!', 'star', true); router.replace('/orders'); }
     catch (e: any) { toast(e?.message || 'Could not submit your review', 'info'); }
-    finally { setBusy(false); }
+    finally { reviewInFlight.current = false; setBusy(false); }
   };
 
   if (loading) return <Screen><TopBar title="Rate experience" onBack={() => router.back()} /><View style={{ flex: 1, alignItems: 'center', justifyContent: 'center' }}><ActivityIndicator color={c.primary} /></View></Screen>;
@@ -55,6 +57,18 @@ export default function RateExperience() {
     </Screen>
   );
   if (!b) return <NotFound title="Booking" />;
+  const reviewAvailable = b.status === 'confirmed' && b.eventDate < new Date().toISOString().slice(0, 10);
+  if (b.reviewed || !reviewAvailable) return (
+    <Screen>
+      <TopBar title="Rate experience" onBack={() => router.back()} />
+      <Empty
+        icon="star"
+        title={b.reviewed ? 'Review already submitted' : 'Review not available yet'}
+        body={b.reviewed ? 'You already reviewed this experience.' : 'You can leave a review after you attend the experience.'}
+        action={<Btn label="Your orders" onPress={() => router.replace('/orders')} />}
+      />
+    </Screen>
+  );
 
   return (
     <Screen>

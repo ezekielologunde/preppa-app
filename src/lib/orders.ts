@@ -130,6 +130,7 @@ export interface CustomerOrderRecord {
   createdAt: string;
   kitchenId: string;
   kitchenName: string;
+  reviewed: boolean;
   items: { mealId: string; name: string; unitPriceCents: number; qty: number }[];
 }
 
@@ -141,7 +142,15 @@ export async function fetchCustomerOrders(): Promise<CustomerOrderRecord[]> {
     .in('pay_status', ['paid', 'refunded'])
     .order('created_at', { ascending: false });
   if (error) throw error;
-  return ((data ?? []) as any[]).map((r) => ({
+  const rows = (data ?? []) as any[];
+  const orderIds = rows.map((r) => r.id as string);
+  let reviewed = new Set<string>();
+  if (orderIds.length) {
+    const { data: reviewRows, error: reviewError } = await supabase.from('reviews').select('order_id').in('order_id', orderIds);
+    if (reviewError) throw reviewError;
+    reviewed = new Set((reviewRows ?? []).map((r: any) => r.order_id).filter(Boolean));
+  }
+  return rows.map((r) => ({
     id: r.id,
     status: r.status,
     fulfillment: r.fulfillment,
@@ -154,6 +163,7 @@ export async function fetchCustomerOrders(): Promise<CustomerOrderRecord[]> {
     createdAt: r.created_at,
     kitchenId: r.kitchen_id,
     kitchenName: r.kitchens?.name ?? 'Kitchen',
+    reviewed: reviewed.has(r.id),
     items: (r.order_items ?? []).map((i: any) => ({
       mealId: i.meal_id,
       name: i.name_snapshot,

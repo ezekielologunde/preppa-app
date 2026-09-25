@@ -153,7 +153,7 @@ export default function OrderDetail() {
             setReordering(false);
             if (added) router.push('/cart');
           }} />
-          {o.status === 'completed' ? <Btn icon="star" label="Rate your cook" flex={1} onPress={() => router.push(`/review/${o.id}`)} /> : o.status === 'cancelled' ? null : <Btn label="Track order" flex={1} onPress={() => router.push(`/track?cook=${encodeURIComponent(o.cook)}${o.dbId ? `&orderId=${encodeURIComponent(o.dbId)}` : ''}`)} />}
+          {o.status === 'completed' ? (o.reviewed ? <Btn icon="star" label="Review submitted" variant="ghost" flex={1} disabled /> : <Btn icon="star" label="Rate your cook" flex={1} onPress={() => router.push(`/review/${o.id}`)} />) : o.status === 'cancelled' ? null : <Btn label="Track order" flex={1} onPress={() => router.push(`/track?cook=${encodeURIComponent(o.cook)}${o.dbId ? `&orderId=${encodeURIComponent(o.dbId)}` : ''}`)} />}
         </View>
 
         {o.dbId ? <ReportIssue orderId={o.dbId} /> : null}

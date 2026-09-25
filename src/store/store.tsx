@@ -58,6 +58,7 @@ export interface CustomerOrder {
   status: 'confirming' | 'confirmed' | 'preparing' | 'ready' | 'completed' | 'cancelled';
   when: string;
   ownerUid?: string; // session owner for a just-paid order awaiting server reconciliation
+  reviewed?: boolean;
 }
 export interface Address {
   id: string;
@@ -292,6 +293,7 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
         dbId: r.id,
         cook: r.kitchenId,
         kitchenName: r.kitchenName,
+        reviewed: r.reviewed,
         lines: r.items.map((i) => ({
           key: i.mealId, mealUuid: i.mealId, kitchenUuid: r.kitchenId, kitchenName: r.kitchenName,
           name: i.name, cook: r.kitchenId, price: i.unitPriceCents / 100, grad: 'g1', qty: i.qty,
