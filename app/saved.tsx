@@ -1,4 +1,4 @@
-import React, { useCallback, useState } from 'react';
+import React, { useCallback, useRef, useState } from 'react';
 import { ScrollView, View, Text, ActivityIndicator } from 'react-native';
 import { useRouter, useFocusEffect } from 'expo-router';
 import { useC } from '../src/theme/ThemeContext';
@@ -7,47 +7,60 @@ import { money } from '../src/data/data';
 import { Btn, Icon, Press, GradBox } from '../src/ui';
 import { Screen, TopBar, Empty } from '../src/ui/layout';
 import { fetchSavedPosts, togglePostSave, recordFeedEvent, FeedPost } from '../src/lib/feed';
+import { useStore } from '../src/store/store';
 
 /** Profile → Saved: the posts a customer bookmarked in the feed, newest-saved first.
  *  A re-order shortlist — each pinned dish that's still orderable gets a direct Order CTA. */
 export default function Saved() {
   const c = useC();
   const router = useRouter();
+  const { toast } = useStore();
   const [items, setItems] = useState<FeedPost[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
   const [retryNonce, setRetryNonce] = useState(0);
   const [removing, setRemoving] = useState<string | null>(null);
+  const loadSequence = useRef(0);
+  const removeInFlight = useRef(false);
 
   useFocusEffect(useCallback(() => {
-    let alive = true;
+    const sequence = ++loadSequence.current;
     setLoading(true);
     setError('');
     fetchSavedPosts()
-      .then((p) => { if (alive) { setItems(p); setLoading(false); } })
-      .catch((e) => { if (alive) { setError(e?.message ?? 'Couldn’t load your saved posts.'); setLoading(false); } });
-    return () => { alive = false; };
+      .then((posts) => { if (sequence === loadSequence.current) setItems(posts); })
+      .catch(() => { if (sequence === loadSequence.current) setError('Check your connection and try loading your saved posts again.'); })
+      .finally(() => { if (sequence === loadSequence.current) setLoading(false); });
+    return () => { loadSequence.current += 1; };
   }, [retryNonce]));
 
   const unsave = async (postId: string) => {
-    if (removing) return;
+    if (removeInFlight.current) return;
+    removeInFlight.current = true;
     setRemoving(postId);
     const prev = items;
     setItems((cur) => cur.filter((p) => p.id !== postId)); // optimistic
     try {
       const stillSaved = await togglePostSave(postId);
-      if (stillSaved) setItems(prev); // toggled the wrong way somehow — put it back
+      if (stillSaved) {
+        setItems(prev);
+        toast('Could not remove this post. Please try again.', 'info');
+      }
     } catch {
       setItems(prev); // restore on failure
-    } finally { setRemoving(null); }
+      toast('Could not remove this post. Please try again.', 'info');
+    } finally {
+      removeInFlight.current = false;
+      setRemoving(null);
+    }
   };
 
   return (
     <Screen>
       <TopBar title="Saved" sub={items.length ? `${items.length} saved` : undefined} />
-      {loading ? (
+      {loading && items.length === 0 ? (
         <View style={{ flex: 1, alignItems: 'center', justifyContent: 'center' }}><ActivityIndicator color={c.primary} /></View>
-      ) : error ? (
+      ) : error && items.length === 0 ? (
         <Empty
           icon="info"
           title="Couldn’t load saved posts"
@@ -63,12 +76,18 @@ export default function Saved() {
         />
       ) : (
         <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={{ padding: 16, paddingBottom: 40, gap: 12 }}>
+          {error ? (
+            <View accessibilityRole="alert" style={{ padding: 14, borderRadius: radius.card, backgroundColor: c.bg2, alignItems: 'center', gap: 8 }}>
+              <Text style={[type(13, 600), { color: c.soft, textAlign: 'center' }]}>Saved posts may be out of date.</Text>
+              <Btn label="Try again" icon="repeat" variant="ghost" height={38} onPress={() => setRetryNonce((n) => n + 1)} />
+            </View>
+          ) : null}
           {items.map((f) => (
             <View key={f.id} style={{ flexDirection: 'row', gap: 12, backgroundColor: c.surface, borderRadius: radius.card, borderWidth: 1, borderColor: c.border2, padding: 10, ...shadow.soft }}>
               <GradBox grad={f.grad} img={f.coverUrl} style={{ width: 76, height: 76, borderRadius: radius.md }} />
-              <Press scale={0.9} onPress={() => unsave(f.id)} label="Remove from saved" style={{ position: 'absolute', top: 10, right: 10 }}>
+              <Press scale={0.9} onPress={() => void unsave(f.id)} disabled={!!removing} label={removing === f.id ? `Removing ${f.kitchenName} post from saved` : `Remove ${f.kitchenName} post from saved`} style={{ position: 'absolute', top: 10, right: 10 }}>
                 <View style={{ width: 30, height: 30, borderRadius: 15, backgroundColor: c.bg2, alignItems: 'center', justifyContent: 'center' }}>
-                  <Icon name="bookmarkFill" size={15} color={c.primary} />
+                  {removing === f.id ? <ActivityIndicator size="small" color={c.primary} /> : <Icon name="bookmarkFill" size={15} color={c.primary} />}
                 </View>
               </Press>
               <View style={{ flex: 1, justifyContent: 'space-between', paddingRight: 34 }}>
