@@ -30,15 +30,25 @@ function StoreExperiences({ kitchenId }: { kitchenId?: string }) {
   const [items, setItems] = React.useState<Experience[]>([]);
   const [loading, setLoading] = React.useState(false);
   const [error, setError] = React.useState(false);
+  const loadSequence = React.useRef(0);
   const load = React.useCallback(async () => {
     if (!kitchenId) return;
+    const sequence = ++loadSequence.current;
     setLoading(true);
     setError(false);
-    try { setItems(await fetchExperiencesForKitchen(kitchenId)); }
-    catch { setError(true); }
-    finally { setLoading(false); }
+    try {
+      const nextItems = await fetchExperiencesForKitchen(kitchenId);
+      if (sequence === loadSequence.current) setItems(nextItems);
+    } catch {
+      if (sequence === loadSequence.current) setError(true);
+    } finally {
+      if (sequence === loadSequence.current) setLoading(false);
+    }
   }, [kitchenId]);
-  React.useEffect(() => { void load(); }, [load]);
+  React.useEffect(() => {
+    void load();
+    return () => { loadSequence.current += 1; };
+  }, [load]);
   if (loading && items.length === 0) return <View style={{ paddingVertical: 22, alignItems: 'center' }}><ActivityIndicator color={c.primary} /></View>;
   if (error && items.length === 0) return <DataNotice text="Experiences could not be loaded." onRetry={load} />;
   if (items.length === 0) return null;
@@ -74,7 +84,9 @@ function StoreLiveBanner({ kitchenId, cookParam }: { kitchenId?: string; cookPar
   const [live, setLive] = React.useState(false);
   React.useEffect(() => {
     if (!FLAGS.live || !kitchenId) return;
-    fetchKitchenLivestream(kitchenId).then((s) => setLive(s?.status === 'live')).catch(() => {});
+    let active = true;
+    fetchKitchenLivestream(kitchenId).then((s) => { if (active) setLive(s?.status === 'live'); }).catch(() => {});
+    return () => { active = false; };
   }, [kitchenId]);
   if (!FLAGS.live || !live) return null;
   return (
@@ -92,12 +104,12 @@ function StoreLiveBanner({ kitchenId, cookParam }: { kitchenId?: string; cookPar
 }
 
 /** Square "message" button — pre-sale DM to a kitchen from its storefront. */
-function MsgBtn({ onPress }: { onPress: () => void }) {
+function MsgBtn({ onPress, loading }: { onPress: () => void; loading: boolean }) {
   const c = useC();
   return (
-    <Press scale={0.94} onPress={onPress} label="Message kitchen">
+    <Press scale={0.94} onPress={onPress} disabled={loading} label={loading ? 'Opening messages' : 'Message kitchen'}>
       <View style={{ width: 46, height: 46, borderRadius: radius.md, backgroundColor: c.bg2, borderWidth: 1, borderColor: c.border2, alignItems: 'center', justifyContent: 'center' }}>
-        <Icon name="comment" size={20} color={c.ink2} />
+        {loading ? <ActivityIndicator size="small" color={c.primary} /> : <Icon name="comment" size={20} color={c.ink2} />}
       </View>
     </Press>
   );
@@ -131,6 +143,9 @@ function RealKitchenStore({ profile, meals, mealsLoading, mealsError, reviewsErr
   const [followMutating, setFollowMutating] = useState(false);
   const [followError, setFollowError] = useState(false);
   const [followNonce, setFollowNonce] = useState(0);
+  const followMutationInFlight = React.useRef(false);
+  const chatOpeningInFlight = React.useRef(false);
+  const [chatOpening, setChatOpening] = useState(false);
   React.useEffect(() => {
     let alive = true;
     setFollowLoading(true);
@@ -142,7 +157,8 @@ function RealKitchenStore({ profile, meals, mealsLoading, mealsError, reviewsErr
     return () => { alive = false; };
   }, [profile.id, followNonce]);
   const onFollow = async () => {
-    if (followLoading || followMutating) return;
+    if (followLoading || followMutationInFlight.current) return;
+    followMutationInFlight.current = true;
     const next = !following;
     setFollowMutating(true);
     setFollowing(next); // optimistic
@@ -154,7 +170,22 @@ function RealKitchenStore({ profile, meals, mealsLoading, mealsError, reviewsErr
       setFollowing(!next);
       toast(/auth|session|sign in/i.test(String(e?.message)) ? 'Sign in to follow kitchens' : 'Could not update your follow. Try again.', 'info');
     } finally {
+      followMutationInFlight.current = false;
       setFollowMutating(false);
+    }
+  };
+  const onMessage = async () => {
+    if (chatOpeningInFlight.current) return;
+    chatOpeningInFlight.current = true;
+    setChatOpening(true);
+    try {
+      const threadId = await openThread(profile.id, 'store');
+      router.push(`/messages/${threadId}`);
+    } catch {
+      toast('Could not open messages. Please try again.', 'info');
+    } finally {
+      chatOpeningInFlight.current = false;
+      setChatOpening(false);
     }
   };
   const initial = profile.name.trim()[0]?.toUpperCase() ?? 'K';
@@ -212,10 +243,7 @@ function RealKitchenStore({ profile, meals, mealsLoading, mealsError, reviewsErr
                 onPress={followError ? () => setFollowNonce((n) => n + 1) : onFollow} />
             </View>
             {FLAGS.chat ? (
-              <MsgBtn onPress={async () => {
-                try { const tid = await openThread(profile.id, 'store'); router.push(`/messages/${tid}`); }
-                catch (e: any) { toast(e?.message || 'Could not open chat', 'info'); }
-              }} />
+              <MsgBtn onPress={() => void onMessage()} loading={chatOpening} />
             ) : null}
           </View>
         </View>
@@ -279,7 +307,7 @@ function RealKitchenStore({ profile, meals, mealsLoading, mealsError, reviewsErr
 function DataNotice({ text, onRetry, compact = false }: { text: string; onRetry: () => void | Promise<void>; compact?: boolean }) {
   const c = useC();
   return (
-    <View style={{ marginHorizontal: 16, marginVertical: compact ? 6 : 18, padding: compact ? 12 : 18, borderRadius: radius.lg, backgroundColor: c.bg2, alignItems: 'center', gap: 10 }}>
+    <View accessibilityRole="alert" style={{ marginHorizontal: 16, marginVertical: compact ? 6 : 18, padding: compact ? 12 : 18, borderRadius: radius.lg, backgroundColor: c.bg2, alignItems: 'center', gap: 10 }}>
       <Text style={[type(13, 600), { color: c.soft, textAlign: 'center' }]}>{text}</Text>
       <Btn label="Try again" variant="ghost" height={38} onPress={() => void onRetry()} />
     </View>

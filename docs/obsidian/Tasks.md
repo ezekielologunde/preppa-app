@@ -8,6 +8,8 @@ tags: [project/preppa, type/tasks]
 
 # Tasks
 
+- [x] Harden the customer storefront: sequence experience loads, cancel live-status updates after unmount, synchronously lock follow and message actions, bound chat failures, and announce data recovery notices (2026-09-25)
+
 - [x] Harden PrepPlus membership handling: sequence and cancel stale loads, preserve the last confirmed membership through refresh failures, replace backend errors with stable recovery guidance, and distinguish successful writes from delayed refreshes (2026-09-25)
 
 - [x] Bound public meal catalog inputs in the form and database: enforce finite price, serving, name, description, ingredient, tag, and allergen limits, with regression coverage and visible character counts (2026-09-25)
