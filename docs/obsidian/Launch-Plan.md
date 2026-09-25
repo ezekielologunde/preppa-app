@@ -43,6 +43,7 @@ tags: [project/preppa, type/launch-plan]
 - Experience ratings, reviews, and waitlist lookups now propagate Supabase errors. The customer detail screen preserves stale reviews, reports unavailable review data, and provides retry instead of presenting a failed request as unrated.
 - Experience browse, detail, session, seat, private-link, and availability helpers now propagate backend failures to existing recovery UI instead of converting them to empty lists, missing records, or "no upcoming sessions."
 - Feed, saved-post, shared-post, follow-state, cook-menu, and pending-kitchen helpers now propagate authentication and query failures to their recovery UI instead of converting failures to empty content or missing records.
+- Seeded and live kitchen storefronts now show follow-state loading and retry controls, and distinguish authentication failures from network or backend failures when a follow update fails.
 
 ### Customer acceptance evidence still needed
 

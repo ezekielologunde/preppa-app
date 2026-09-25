@@ -110,6 +110,9 @@ export default function CookStoreScreen() {
   const { cook } = useLocalSearchParams<{ cook: string }>();
   const { toast, isMine } = useStore();
   const [following, setFollowing] = useState(false);
+  const [followLoading, setFollowLoading] = useState(true);
+  const [followError, setFollowError] = useState(false);
+  const [followNonce, setFollowNonce] = useState(0);
 
   const cd = COOKS[cook as CookId];
   const isSeed = !!cd; // one of the six seeded kitchens (rich seed presentation) vs a real kitchen UUID
@@ -121,9 +124,16 @@ export default function CookStoreScreen() {
   // Hydrate real follow-state for the seed kitchens (KITCHEN_ID maps a seed id → its real UUID).
   // Placed before the early return so hook order stays stable.
   React.useEffect(() => {
-    if (!isSeed) return;
-    fetchIsFollowing(KITCHEN_ID[cook as CookId]).then(setFollowing).catch(() => {});
-  }, [cook, isSeed]);
+    if (!isSeed) { setFollowLoading(false); return; }
+    let alive = true;
+    setFollowLoading(true);
+    setFollowError(false);
+    fetchIsFollowing(KITCHEN_ID[cook as CookId])
+      .then((value) => { if (alive) setFollowing(value); })
+      .catch(() => { if (alive) setFollowError(true); })
+      .finally(() => { if (alive) setFollowLoading(false); });
+    return () => { alive = false; };
+  }, [cook, isSeed, followNonce]);
 
   // Real (non-seed) verified kitchen — render from live data.
   if (!isSeed) {
@@ -147,7 +157,10 @@ export default function CookStoreScreen() {
       const real = await toggleFollow(KITCHEN_ID[id]);
       setFollowing(real);
       toast(real ? `Following ${cd.name} — you’ll see their posts first` : `Unfollowed ${cd.name}`, real ? 'check' : 'x', real);
-    } catch { setFollowing(!next); toast('Sign in to follow kitchens', 'info'); }
+    } catch (e: any) {
+      setFollowing(!next);
+      toast(/auth|session|sign in/i.test(String(e?.message)) ? 'Sign in to follow kitchens' : 'Could not update your follow. Try again.', 'info');
+    }
   };
   const openChat = async () => {
     try { const tid = await openThread(KITCHEN_ID[id], 'store'); router.push(`/messages/${tid}`); }
@@ -205,7 +218,7 @@ export default function CookStoreScreen() {
             ) : (
               <>
                 <View style={{ flex: 1 }}>
-                  <Btn label={following ? 'Following' : 'Follow'} icon={following ? 'check' : 'plus'} variant={following ? 'ghost' : 'pri'} block height={46} onPress={follow} />
+                  <Btn label={followLoading ? 'Checking…' : followError ? 'Retry follow status' : following ? 'Following' : 'Follow'} icon={followError ? 'repeat' : following ? 'check' : 'plus'} variant={following || followError ? 'ghost' : 'pri'} block height={46} disabled={followLoading} onPress={followError ? () => setFollowNonce((n) => n + 1) : follow} />
                 </View>
                 {FLAGS.chat ? <MsgBtn onPress={openChat} /> : null}
               </>
@@ -302,7 +315,19 @@ function RealKitchenStore({ profile, meals, mealsLoading, mealsError, reviewsErr
   const router = useRouter();
   const { toast } = useStore();
   const [following, setFollowing] = useState(false);
-  React.useEffect(() => { fetchIsFollowing(profile.id).then(setFollowing).catch(() => {}); }, [profile.id]);
+  const [followLoading, setFollowLoading] = useState(true);
+  const [followError, setFollowError] = useState(false);
+  const [followNonce, setFollowNonce] = useState(0);
+  React.useEffect(() => {
+    let alive = true;
+    setFollowLoading(true);
+    setFollowError(false);
+    fetchIsFollowing(profile.id)
+      .then((value) => { if (alive) setFollowing(value); })
+      .catch(() => { if (alive) setFollowError(true); })
+      .finally(() => { if (alive) setFollowLoading(false); });
+    return () => { alive = false; };
+  }, [profile.id, followNonce]);
   const onFollow = async () => {
     const next = !following;
     setFollowing(next); // optimistic
@@ -310,7 +335,10 @@ function RealKitchenStore({ profile, meals, mealsLoading, mealsError, reviewsErr
       const real = await toggleFollow(profile.id);
       setFollowing(real);
       toast(real ? `Following ${profile.name}` : `Unfollowed ${profile.name}`, real ? 'check' : 'x', real);
-    } catch { setFollowing(!next); toast('Sign in to follow kitchens', 'info'); }
+    } catch (e: any) {
+      setFollowing(!next);
+      toast(/auth|session|sign in/i.test(String(e?.message)) ? 'Sign in to follow kitchens' : 'Could not update your follow. Try again.', 'info');
+    }
   };
   const initial = profile.name.trim()[0]?.toUpperCase() ?? 'K';
   const sub = [profile.cuisine, profile.area].filter(Boolean).join(' · ');
@@ -363,8 +391,8 @@ function RealKitchenStore({ profile, meals, mealsLoading, mealsError, reviewsErr
 
           <View style={{ flexDirection: 'row', gap: 10, marginTop: 14 }}>
             <View style={{ flex: 1 }}>
-              <Btn label={following ? 'Following' : 'Follow'} icon={following ? 'check' : 'plus'} variant={following ? 'ghost' : 'pri'} block height={46}
-                onPress={onFollow} />
+              <Btn label={followLoading ? 'Checking…' : followError ? 'Retry follow status' : following ? 'Following' : 'Follow'} icon={followError ? 'repeat' : following ? 'check' : 'plus'} variant={following || followError ? 'ghost' : 'pri'} block height={46} disabled={followLoading}
+                onPress={followError ? () => setFollowNonce((n) => n + 1) : onFollow} />
             </View>
             {FLAGS.chat ? (
               <MsgBtn onPress={async () => {
