@@ -27,17 +27,16 @@ export interface Cook {
   dist: string;
   verified: boolean;
   prepscore: number;
-  acceptsCod: boolean; // cook bears the cash risk, so they decide whether to take cash on delivery
   isPro?: boolean; // Preppa Pro member — real (non-seed) kitchens only; seed cooks never carry this
 }
 
 export const COOKS: Record<CookId, Cook> = {
-  maria: { name: 'Chef Maria', kitchen: "Maria's Kitchen", initial: 'M', grad: 'g4', cuisine: 'Italian comfort', rating: 4.9, reviews: 312, dist: '1.2 km', verified: true, prepscore: 98, acceptsCod: true },
-  david: { name: 'Chef David', kitchen: "David's Table", initial: 'D', grad: 'g3', cuisine: 'Healthy & seafood', rating: 4.8, reviews: 204, dist: '0.8 km', verified: true, prepscore: 95, acceptsCod: true },
-  amara: { name: 'Amara O.', kitchen: "Amara's Kitchen", initial: 'A', grad: 'g1', cuisine: 'West African', rating: 4.9, reviews: 412, dist: '0.6 km', verified: true, prepscore: 97, acceptsCod: true },
-  denise: { name: 'Denise R.', kitchen: "Denise's Soul Food", initial: 'D', grad: 'g6', cuisine: 'Soul food', rating: 4.9, reviews: 540, dist: '1.6 km', verified: true, prepscore: 99, acceptsCod: true },
-  lucia: { name: 'Lucia R.', kitchen: 'Cocina de Lucia', initial: 'L', grad: 'g7', cuisine: 'Oaxacan', rating: 4.7, reviews: 198, dist: '2.1 km', verified: true, prepscore: 94, acceptsCod: true },
-  sana: { name: 'Sana K.', kitchen: "Sana's Halal Home", initial: 'S', grad: 'g8', cuisine: 'Halal & Desi', rating: 4.8, reviews: 276, dist: '1.4 km', verified: true, prepscore: 96, acceptsCod: false },
+  maria: { name: 'Chef Maria', kitchen: "Maria's Kitchen", initial: 'M', grad: 'g4', cuisine: 'Italian comfort', rating: 4.9, reviews: 312, dist: '1.2 km', verified: true, prepscore: 98 },
+  david: { name: 'Chef David', kitchen: "David's Table", initial: 'D', grad: 'g3', cuisine: 'Healthy & seafood', rating: 4.8, reviews: 204, dist: '0.8 km', verified: true, prepscore: 95 },
+  amara: { name: 'Amara O.', kitchen: "Amara's Kitchen", initial: 'A', grad: 'g1', cuisine: 'West African', rating: 4.9, reviews: 412, dist: '0.6 km', verified: true, prepscore: 97 },
+  denise: { name: 'Denise R.', kitchen: "Denise's Soul Food", initial: 'D', grad: 'g6', cuisine: 'Soul food', rating: 4.9, reviews: 540, dist: '1.6 km', verified: true, prepscore: 99 },
+  lucia: { name: 'Lucia R.', kitchen: 'Cocina de Lucia', initial: 'L', grad: 'g7', cuisine: 'Oaxacan', rating: 4.7, reviews: 198, dist: '2.1 km', verified: true, prepscore: 94 },
+  sana: { name: 'Sana K.', kitchen: "Sana's Halal Home", initial: 'S', grad: 'g8', cuisine: 'Halal & Desi', rating: 4.8, reviews: 276, dist: '1.4 km', verified: true, prepscore: 96 },
 };
 
 export interface Meal {
@@ -98,7 +97,6 @@ export function cookOf(m: Meal): Cook {
       dist: m.kitchenArea ?? m.dist,
       verified: true,
       prepscore: 0,
-      acceptsCod: false,
       isPro: !!m.kitchenIsPro,
     };
   }
@@ -107,8 +105,7 @@ export function cookOf(m: Meal): Cook {
 
 /** Same resolution as `cookOf`, for a cart/order line instead of a catalog `Meal` — checkout,
  *  cart, and order-tracking screens must attribute a real kitchen's line to its own identity
- *  too, not just the browse/detail screens. `acceptsCod` defaults false for real kitchens
- *  until per-kitchen COD preference is wired (safe default — never silently allow cash). */
+ *  too, not just the browse/detail screens. */
 export function cookOfLine(l: { cook: string; kitchenName?: string; grad: GradKey }): Cook {
   if (l.kitchenName) {
     return {
@@ -122,7 +119,6 @@ export function cookOfLine(l: { cook: string; kitchenName?: string; grad: GradKe
       dist: '',
       verified: true,
       prepscore: 0,
-      acceptsCod: false,
     };
   }
   return COOKS[l.cook as CookId] ?? COOKS.maria;

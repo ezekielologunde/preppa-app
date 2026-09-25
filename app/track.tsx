@@ -6,7 +6,7 @@ import { useC } from '../src/theme/ThemeContext';
 import { type, radius } from '../src/theme/theme';
 import { useStore } from '../src/store/store';
 import { Icon, Avatar, Btn } from '../src/ui';
-import { Screen, TopBar } from '../src/ui/layout';
+import { Screen, TopBar, Empty } from '../src/ui/layout';
 import { fetchOrderStatus } from '../src/lib/orders';
 
 type RealStatus = 'pending' | 'confirmed' | 'preparing' | 'ready' | 'completed' | 'cancelled';
@@ -29,9 +29,8 @@ function stepsFromStatus(status: RealStatus | null, pickup: boolean, theCookName
 export default function Track() {
   const c = useC();
   const router = useRouter();
-  const { flow, cook, orderId } = useLocalSearchParams<{ flow: string; cook?: string; orderId?: string }>();
+  const { cook, orderId } = useLocalSearchParams<{ cook?: string; orderId?: string }>();
   const { mode, orders } = useStore();
-  const cod = flow === 'cod';
   const ck = cook || 'maria';
   // The freshest source for this order's real kitchen identity is the just-created
   // CustomerOrder (matched by dbId/orderId, or by the same grouping key) — cookOfLine's
@@ -61,25 +60,19 @@ export default function Track() {
     return () => clearInterval(t);
   }, [poll, orderId]));
 
-  // Real order (has a real orderId, non-cod): reflect actual DB status. COD and any legacy
-  // link with no orderId fall back to the prior static presentation (COD's own mock status
-  // is a separate, already-tracked finding — not this screen's job to fix).
+  if (!orderId) {
+    return <Screen><TopBar title="Track order" /><Empty icon="ticket" title="Order unavailable" body="Open your orders and select a current order to see its verified kitchen updates." action={<Btn label="Your orders" onPress={() => router.replace('/orders')} />} /></Screen>;
+  }
+
   const pickup = live ? live.fulfillment === 'pickup' : mode === 'pickup';
   const paymentConfirmed = live?.payStatus === 'paid' || live?.payStatus === 'refunded';
   const confirmingPayment = !!live && !paymentConfirmed;
-  const STEPS = orderId && !cod
-    ? stepsFromStatus(paymentConfirmed ? (live?.status as RealStatus) ?? null : null, pickup, theCook.name, theCook.kitchen)
-    : [
-        { t: 'Order confirmed', p: `${theCook.name} accepted your order`, st: 'done' },
-        { t: 'Cooking now', p: 'Fresh on the stove', st: cod ? 'done' : 'active' },
-        { t: mode === 'pickup' ? 'Ready for pickup' : 'Out for delivery', p: mode === 'pickup' ? `Head to ${theCook.kitchen}` : 'On the way to you', st: cod ? 'done' : 'pending' },
-        { t: cod ? 'Handed off · paid in cash' : 'Delivered', p: cod ? 'Confirmed by QR + code' : 'Leave a review to earn points', st: cod ? 'done' : 'pending' },
-      ];
+  const STEPS = stepsFromStatus(paymentConfirmed ? (live?.status as RealStatus) ?? null : null, pickup, theCook.name, theCook.kitchen);
   const realStatusLabel = live && !paymentConfirmed ? 'Confirming payment' : live?.status === 'completed' ? 'Delivered' : live?.status === 'cancelled' ? 'Cancelled' : 'Live';
 
   return (
     <Screen>
-      <TopBar title={cod ? 'Order complete' : 'Track order'} sub={orderId ? `#${orderId.slice(0, 8)}` : undefined} onBack={() => router.replace('/home')} />
+      <TopBar title="Track order" sub={`#${orderId.slice(0, 8)}`} onBack={() => router.replace('/home')} />
       <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={{ paddingBottom: 40 }}>
         <View style={{ minHeight: 116, backgroundColor: c.bg2, paddingHorizontal: 20, paddingVertical: 22, flexDirection: 'row', alignItems: 'center', gap: 14 }}>
           <View style={{ width: 48, height: 48, borderRadius: 16, backgroundColor: c.primaryL, alignItems: 'center', justifyContent: 'center' }}>
@@ -96,13 +89,13 @@ export default function Track() {
             <View>
               <Text style={[type(12, 700), { color: c.muted, textTransform: 'uppercase' }]}>Status</Text>
               <Text style={[type(24, 900), { color: c.ink, letterSpacing: -0.6 }]}>
-                {cod ? 'Completed' : orderId ? (live ? realStatusLabel : loading ? 'Loading…' : 'Unavailable') : 'Live'}
+                {live ? realStatusLabel : loading ? 'Loading…' : 'Unavailable'}
               </Text>
             </View>
             <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6, height: 32, paddingHorizontal: 14, borderRadius: radius.pill, backgroundColor: orderId && loadError && !live ? c.redL : confirmingPayment ? c.bg2 : c.greenL }}>
               <View style={{ width: 7, height: 7, borderRadius: 4, backgroundColor: orderId && loadError && !live ? c.red : confirmingPayment ? c.muted : c.green }} />
               <Text style={[type(12.5, 900), { color: orderId && loadError && !live ? c.red : confirmingPayment ? c.soft : c.green }]}>
-                {cod ? 'Delivered' : orderId && loadError && !live ? 'Unavailable' : orderId ? realStatusLabel : 'Live'}
+                {loadError && !live ? 'Unavailable' : realStatusLabel}
               </Text>
             </View>
           </View>
@@ -139,24 +132,8 @@ export default function Track() {
             </View>
           </View>
 
-          {/* Handoff code is only for in-person pickup/meetup. Prepaid delivery
-              comes to your door — no code needed. */}
-          {!cod && pickup ? (
-            <View style={{ marginTop: 14, padding: 14, borderRadius: radius.lg, backgroundColor: c.purpleL, borderWidth: 1, borderColor: c.purple }}>
-              <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10 }}>
-                <Icon name="qr" size={20} color={c.purpleOn} />
-                <Text style={[type(12.5, 700), { color: c.purpleOn, flex: 1, lineHeight: 18 }]}>
-                  Show your code when you collect — your cook scans it to confirm the right order.
-                </Text>
-              </View>
-              <View style={{ marginTop: 12 }}>
-                <Btn icon="qr" label="Show pickup code" block onPress={() => router.push(`/handoff?mode=${mode}&cook=${ck}`)} />
-              </View>
-            </View>
-          ) : null}
-
           <View style={{ marginTop: 14 }}>
-            <Btn label={cod ? 'Back to home' : 'Done'} block onPress={() => router.replace('/home')} />
+            <Btn label="Done" block onPress={() => router.replace('/home')} />
           </View>
         </View>
       </ScrollView>

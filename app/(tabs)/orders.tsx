@@ -176,7 +176,7 @@ export default function Orders() {
                             </View>
                           </View>
                           <Text numberOfLines={1} style={[type(12.5, 500), { color: c.soft, marginTop: 3 }]}>{summary}</Text>
-                          <Text style={[type(11.5, 600), { color: c.muted, marginTop: 3 }]}>{o.id} · {o.when} · {o.flow === 'cod' ? 'Cash' : 'Card'}</Text>
+                          <Text style={[type(11.5, 600), { color: c.muted, marginTop: 3 }]}>{o.id} · {o.when} · Card</Text>
                         </View>
                         <View style={{ alignItems: 'flex-end', gap: 6 }}>
                           <Text style={[type(15, 900), { color: c.ink }]}>{money(o.total)}</Text>

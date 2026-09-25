@@ -143,7 +143,7 @@ export default function OrderDetail() {
             </GradBox>
             <View style={{ flex: 1, minWidth: 0 }}>
               <Text style={[type(15, 900), { color: c.ink, letterSpacing: -0.2 }]}>{o.buyer_name ?? 'Customer'}</Text>
-              <Text style={[type(12.5, 600), { color: c.soft, marginTop: 2 }]}>{isPickup ? 'Picking up' : 'Delivery'} · {o.method === 'cod' ? 'Cash on delivery' : 'Paid'}</Text>
+              <Text style={[type(12.5, 600), { color: c.soft, marginTop: 2 }]}>{isPickup ? 'Picking up' : 'Delivery'} · Paid</Text>
             </View>
             <Press scale={0.9} onPress={messageCustomer} disabled={openingChat} label={`Message ${o.buyer_name ?? 'customer'}`}>
               <View style={{ width: 38, height: 38, borderRadius: 12, backgroundColor: c.bg2, alignItems: 'center', justifyContent: 'center' }}>
@@ -197,7 +197,7 @@ export default function OrderDetail() {
           confirmCancel ? (
             <View style={{ marginHorizontal: 20, marginTop: 14, backgroundColor: c.redL, borderWidth: 1, borderColor: c.red, borderRadius: 16, padding: 14 }}>
               <Text style={[type(13, 800), { color: c.red }]}>Cancel this order?</Text>
-              <Text style={[type(12, 600), { color: c.red, marginTop: 3, lineHeight: 17 }]}>{o.method !== 'cod' ? 'The customer will be refunded automatically.' : 'This can’t be undone.'}</Text>
+              <Text style={[type(12, 600), { color: c.red, marginTop: 3, lineHeight: 17 }]}>The customer will be refunded automatically.</Text>
               <Text style={[type(12, 800), { color: c.ink, marginTop: 12, marginBottom: 6 }]}>Reason for the customer (optional)</Text>
               <TextInput
                 value={cancelReason}

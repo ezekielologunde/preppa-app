@@ -53,7 +53,7 @@ export default function OrderDetail() {
     catch (e: any) { toast(e?.message || 'Could not open chat', 'info'); }
   };
   const active = o.status === 'confirming' ? 0 : o.status === 'completed' ? 3 : o.status === 'ready' ? 2 : 1;
-  const headline = o.status === 'confirming' ? 'Confirming your payment' : o.status === 'cancelled' ? 'Order cancelled' : o.status === 'completed' ? (o.flow === 'cod' ? 'Completed · paid in cash' : 'Completed — enjoy!') : o.status === 'ready' ? (o.mode === 'pickup' ? 'Ready for pickup' : 'On its way') : 'Your cook is preparing';
+  const headline = o.status === 'confirming' ? 'Confirming your payment' : o.status === 'cancelled' ? 'Order cancelled' : o.status === 'completed' ? 'Completed — enjoy!' : o.status === 'ready' ? (o.mode === 'pickup' ? 'Ready for pickup' : 'On its way') : 'Your cook is preparing';
 
   return (
     <Screen>
@@ -137,7 +137,7 @@ export default function OrderDetail() {
           {o.tip > 0 ? <RRow label="Tip · 100% to cook" value={money(o.tip)} c={c} /> : null}
           <View style={{ flexDirection: 'row', justifyContent: 'space-between', marginTop: 4 }}>
             <Text style={[type(16, 900), { color: c.ink }]}>Total</Text>
-            <Text style={[type(16, 900), { color: c.ink }]}>{money(o.total)} <Text style={[type(12, 700), { color: c.muted }]}>· {o.flow === 'cod' ? 'Cash' : 'Card'}</Text></Text>
+            <Text style={[type(16, 900), { color: c.ink }]}>{money(o.total)} <Text style={[type(12, 700), { color: c.muted }]}>· Card</Text></Text>
           </View>
         </View>
 
@@ -151,7 +151,7 @@ export default function OrderDetail() {
             setReordering(false);
             if (added) router.push('/cart');
           }} />
-          {o.status === 'completed' ? <Btn icon="star" label="Rate your cook" flex={1} onPress={() => router.push(`/review/${o.id}`)} /> : o.status === 'cancelled' ? null : <Btn label="Track order" flex={1} onPress={() => router.push(`/track?flow=${o.flow}&cook=${encodeURIComponent(o.cook)}${o.dbId ? `&orderId=${encodeURIComponent(o.dbId)}` : ''}`)} />}
+          {o.status === 'completed' ? <Btn icon="star" label="Rate your cook" flex={1} onPress={() => router.push(`/review/${o.id}`)} /> : o.status === 'cancelled' ? null : <Btn label="Track order" flex={1} onPress={() => router.push(`/track?cook=${encodeURIComponent(o.cook)}${o.dbId ? `&orderId=${encodeURIComponent(o.dbId)}` : ''}`)} />}
         </View>
 
         {o.dbId ? <ReportIssue orderId={o.dbId} /> : null}

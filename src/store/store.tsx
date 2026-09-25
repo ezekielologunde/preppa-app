@@ -40,8 +40,6 @@ export interface CartLine {
    *  cook's name/avatar is shown, prefer this field over COOKS[cook] when it's present. */
   kitchenName?: string;
 }
-export type OrderFlow = 'paid' | 'cod';
-
 export interface CustomerOrder {
   id: string;
   dbId?: string; // real Supabase orders.id when the card charge succeeded (enables Report an issue)
@@ -57,7 +55,6 @@ export interface CustomerOrder {
   tip: number;
   total: number;
   mode: 'delivery' | 'pickup';
-  flow: OrderFlow;
   status: 'confirming' | 'preparing' | 'ready' | 'completed' | 'cancelled';
   when: string;
   ownerUid?: string; // session owner for a just-paid order awaiting server reconciliation
@@ -144,8 +141,7 @@ interface Store {
   fav: Set<string>;
   toggleFav: (id: string) => void;
 
-  lastOrder: OrderFlow | null;
-  placeOrder: (flow: OrderFlow, cook?: string, dbId?: string, taxCents?: number) => void;
+  placeOrder: (cook?: string, dbId?: string, taxCents?: number) => void;
   orders: CustomerOrder[];
   ordersLoading: boolean;
   ordersError: string;
@@ -229,7 +225,6 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
   const [addressId, setAddressId] = useState('');
   const [addressesLoading, setAddressesLoading] = useState(false);
   const [addressesError, setAddressesError] = useState('');
-  const [lastOrder, setLastOrder] = useState<OrderFlow | null>(null);
   const [orders, setOrders] = useState<CustomerOrder[]>([]);
   const [ordersLoading, setOrdersLoading] = useState(false);
   const [ordersError, setOrdersError] = useState('');
@@ -271,7 +266,6 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
           // prepperStatus is deliberately NOT hydrated from storage — it's an access
           // gate (My Hub) and must reflect the live session, not a stale cached role.
           // reconcileAccount() sets it authoritatively from the server (see below).
-          if (s.lastOrder) setLastOrder(s.lastOrder);
           if (Array.isArray(s.subs)) setSubs(s.subs);
           else if (s.subscription) setSubs([s.subscription]); // migrate old single-object shape
           if (typeof s.avail === 'boolean') setAvail(s.avail);
@@ -287,9 +281,9 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
     if (!hydrated.current) return;
     AsyncStorage.setItem(
       LS,
-      JSON.stringify({ onboarded, darkMode, cart, tip, mode, location, coords, country, name, firstName, fav: [...fav], lastOrder, subs, avail }),
+      JSON.stringify({ onboarded, darkMode, cart, tip, mode, location, coords, country, name, firstName, fav: [...fav], subs, avail }),
     ).catch(() => {});
-  }, [onboarded, darkMode, cart, tip, mode, location, coords, country, name, firstName, fav, lastOrder, subs, avail]);
+  }, [onboarded, darkMode, cart, tip, mode, location, coords, country, name, firstName, fav, subs, avail]);
 
   const toast = useCallback((msg: string, icon = 'check', green = false) => {
     const id = toastSeq++;
@@ -319,7 +313,6 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
         tip: r.tipCents / 100,
         total: r.totalCents / 100,
         mode: r.fulfillment === 'pickup' ? 'pickup' : 'delivery',
-        flow: r.method === 'cod' ? 'cod' : 'paid',
         status: r.status === 'ready' ? 'ready' : r.status === 'completed' ? 'completed' : r.status === 'cancelled' ? 'cancelled' : 'preparing',
         when: timeAgo(r.createdAt),
       }));
@@ -549,7 +542,7 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
   // Multi-cart: one order PER cook. `cook` scopes checkout to a single cook's lines
   // (and removes only those from the cart); without it, every cook in the cart becomes
   // its own order. Fixes the old bug where a mixed-cook cart collapsed into one order.
-  const placeOrder = useCallback((flow: OrderFlow, cook?: string, dbId?: string, taxCents?: number) => {
+  const placeOrder = useCallback((cook?: string, dbId?: string, taxCents?: number) => {
     const targetKeys = cook ? [cook] : Array.from(new Set(cart.map(lineKey)));
     const stamp = Date.now().toString(36) + Math.floor(Math.random() * 46656).toString(36);
     const newOrders = targetKeys
@@ -568,15 +561,14 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
           ownerUid: uid ?? undefined,
           cook: key, kitchenName: lines[0]?.kitchenName, lines,
           subtotal: t.subtotal, service: t.service, tax, delivery: t.delivery, tip: t.tip, total,
-          mode, flow,
-          status: flow === 'cod' ? 'completed' : 'confirming',
+          mode,
+          status: 'confirming',
           when: 'Just now',
         };
       })
       .filter((o): o is CustomerOrder => o !== null);
     if (newOrders.length) setOrders((os) => [...newOrders, ...os]);
     setCart((cs) => (cook ? cs.filter((l) => lineKey(l) !== cook) : []));
-    setLastOrder(flow);
     setTip(2);
   }, [cart, tip, mode, uid]);
   const reorder = useCallback(async (id: string): Promise<boolean> => {
@@ -652,7 +644,6 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
     setAddressId('');
     setSubs([]);
     setOrders([]);
-    setLastOrder(null);
     setTip(2);
     setMode('delivery');
     setLocation('Choose your area');
@@ -796,7 +787,6 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
     isMine,
     fav,
     toggleFav,
-    lastOrder,
     placeOrder,
     orders,
     ordersLoading,

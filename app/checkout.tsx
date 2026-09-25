@@ -140,8 +140,8 @@ export default function Checkout() {
         deliveryInstructions: mode === 'delivery' ? deliveryInstructions.trim() || undefined : undefined,
       });
       setBusy(false);
-      placeOrder('paid', ck, orderId, taxCents);
-      router.replace(`/track?flow=paid&cook=${ck ?? ''}&orderId=${orderId}`);
+      placeOrder(ck, orderId, taxCents);
+      router.replace(`/track?cook=${ck ?? ''}&orderId=${orderId}`);
     } catch (e) {
       onError(e);
     }
@@ -155,8 +155,8 @@ export default function Checkout() {
       await confirmSavedCardPayment(cardSecret, selectedCard.id);
       setSavedCardConfirmOpen(false);
       setBusy(false);
-      placeOrder('paid', ck, cardOrderId, cardTaxCents);
-      router.replace(`/track?flow=paid&cook=${ck ?? ''}&orderId=${cardOrderId}`);
+      placeOrder(ck, cardOrderId, cardTaxCents);
+      router.replace(`/track?cook=${ck ?? ''}&orderId=${cardOrderId}`);
     } catch (e) {
       setSavedCardConfirmOpen(false);
       const msg = (e as any)?.message ?? '';
@@ -170,8 +170,8 @@ export default function Checkout() {
   // After a real card charge succeeds, mirror into local history + go to tracking.
   const onCardPaid = () => {
     setCardPayOpen(false);
-    placeOrder('paid', ck, cardOrderId ?? undefined, cardTaxCents);
-    router.replace(`/track?flow=paid&cook=${ck ?? ''}${cardOrderId ? `&orderId=${cardOrderId}` : ''}`);
+    placeOrder(ck, cardOrderId ?? undefined, cardTaxCents);
+    router.replace(`/track?cook=${ck ?? ''}${cardOrderId ? `&orderId=${cardOrderId}` : ''}`);
   };
 
   return (

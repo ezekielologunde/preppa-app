@@ -73,6 +73,7 @@ tags: [project/preppa, type/launch-plan]
 - Order support now includes an explicit cancellation-request category. Ticket subjects, descriptions, and replies have matching client and database limits so oversized input cannot degrade the customer, cook, or admin workflow.
 - New order support requests alert admins, and non-internal replies alert the customer, shared cook, or admin queue as appropriate. The persisted support thread no longer depends on each participant manually reopening the queue to discover activity.
 - Customers receive an in-app and push notification when admins move an order support request to in progress, resolved, closed, or reopened, completing the support lifecycle feedback loop.
+- Removed the remaining cash-on-delivery presentation branches and cook preference field. Tracking now requires a real order ID instead of falling back to a static "live" timeline. The decorative pickup QR and random backup code were also removed because no server verification or cook scanner existed, so old or malformed links cannot present fabricated fulfillment or handoff controls.
 
 ### Customer acceptance evidence still needed
 
