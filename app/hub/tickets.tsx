@@ -27,7 +27,7 @@ function Thread({ ticketId, status, myUid, onReplied }: { ticketId: string; stat
   useEffect(() => { load(); /* eslint-disable-next-line react-hooks/exhaustive-deps */ }, [ticketId]);
 
   const send = async () => {
-    if (reply.trim().length < 1) return;
+    if (busy || reply.trim().length < 1) return;
     setBusy(true);
     try { await tickets.replyToSharedTicket(ticketId, reply.trim()); setReply(''); await load(); onReplied(); }
     catch (e: any) { toast(e?.message ?? 'Could not send', 'info'); }
@@ -66,7 +66,7 @@ function Thread({ ticketId, status, myUid, onReplied }: { ticketId: string; stat
       /> : null}
       {!loadError && status !== 'closed' ? <Text style={[type(11.5, 600), { color: c.muted, textAlign: 'right' }]}>{reply.length}/2000</Text> : null}
       {!loadError && status !== 'closed' ? <View style={{ flexDirection: 'row', justifyContent: 'flex-end' }}>
-        <Btn label="Send" icon="arrow" loading={busy} disabled={!reply.trim()} onPress={send} height={44} />
+        <Btn label="Send" icon="arrow" loading={busy} disabled={busy || !reply.trim()} onPress={send} height={44} />
       </View> : null}
       {!loadError && status === 'closed' ? <Text style={[type(12.5, 700), { color: c.soft }]}>This request is closed. Contact support through the related order if a new issue needs attention.</Text> : null}
     </View>

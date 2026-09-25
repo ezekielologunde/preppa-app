@@ -60,13 +60,14 @@ function Detail({ ticketId, onChanged }: { ticketId: string; onChanged: () => vo
     );
   };
   const send = async () => {
-    if (reply.trim().length < 1) return;
+    if (busy || reply.trim().length < 1) return;
     setBusy(true);
     try { await admin.replyToTicket(ticketId, reply.trim(), internal); setReply(''); setInternal(false); await load(); onChanged(); }
     catch (e: any) { toast(e?.message ?? 'Reply failed', 'info'); }
     finally { setBusy(false); }
   };
   const shareCook = async () => {
+    if (busy) return;
     setBusy(true);
     try { await admin.shareTicketWithCook(ticketId); toast('Shared with the cook', 'check', true); await load(); onChanged(); }
     catch (e: any) { toast(e?.message ?? 'Share failed', 'info'); }
