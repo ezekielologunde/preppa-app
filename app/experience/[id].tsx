@@ -50,6 +50,8 @@ export default function ExperienceDetail() {
   const [waitlisted, setWaitlisted] = useState<Set<string>>(new Set());
   const [rating, setRating] = useState({ avg: 0, count: 0 });
   const [reviews, setReviews] = useState<ExperienceReview[]>([]);
+  const [reviewsError, setReviewsError] = useState(false);
+  const [reviewsNonce, setReviewsNonce] = useState(0);
   const [viewer, setViewer] = useState(false);
   const [viewerIdx, setViewerIdx] = useState(0);
 
@@ -69,8 +71,6 @@ export default function ExperienceDetail() {
         if (!alive) return;
         if (!e) { setNotFound(true); return; }
         setExp(e); setGuests(e.minGuests);
-        fetchExperienceRating(e.id).then((r) => alive && setRating(r)).catch(() => {});
-        fetchExperienceReviews(e.id).then((r) => alive && setReviews(r)).catch(() => {});
         await loadAvail(e.id);
       } catch (err: any) {
         if (alive) setLoadError(err?.message ?? 'Couldn’t load this experience. Check your connection and try again.');
@@ -80,6 +80,20 @@ export default function ExperienceDetail() {
     })();
     return () => { alive = false; };
   }, [id, retryNonce]);
+
+  useEffect(() => {
+    if (!exp) return;
+    let alive = true;
+    setReviewsError(false);
+    Promise.allSettled([fetchExperienceRating(exp.id), fetchExperienceReviews(exp.id)])
+      .then(([ratingResult, reviewsResult]) => {
+        if (!alive) return;
+        if (ratingResult.status === 'fulfilled') setRating(ratingResult.value);
+        if (reviewsResult.status === 'fulfilled') setReviews(reviewsResult.value);
+        setReviewsError(ratingResult.status === 'rejected' || reviewsResult.status === 'rejected');
+      });
+    return () => { alive = false; };
+  }, [exp, reviewsNonce]);
 
   // bookable sessions = open, in the future, seats left
   const sessions = useMemo(() => avail.filter((s) => s.status === 'open' && new Date(s.startsAt).getTime() > Date.now()), [avail]);
@@ -242,6 +256,12 @@ export default function ExperienceDetail() {
           <SectionLabel>Cancellation</SectionLabel>
           <Text style={[type(13.5, 600), { color: c.soft, lineHeight: 20 }]}>{POLICY_LABEL[exp.cancellationPolicy] ?? POLICY_LABEL.strict}</Text>
 
+          {reviewsError ? (
+            <View accessibilityRole="alert" style={{ marginTop: 18, padding: 14, borderRadius: radius.lg, backgroundColor: c.bg2, alignItems: 'center', gap: 10 }}>
+              <Text style={[type(13, 600), { color: c.soft, textAlign: 'center' }]}>{reviews.length > 0 ? 'Reviews may be out of date.' : 'Reviews could not be loaded.'}</Text>
+              <Btn label="Try reviews again" icon="repeat" variant="ghost" height={38} onPress={() => setReviewsNonce((n) => n + 1)} />
+            </View>
+          ) : null}
           {reviews.length > 0 ? (
             <>
               <SectionLabel>Reviews {rating.count > 0 ? `· ${rating.avg.toFixed(1)} ★` : ''}</SectionLabel>

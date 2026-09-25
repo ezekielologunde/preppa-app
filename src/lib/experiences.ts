@@ -187,13 +187,15 @@ export interface ExperienceRating { avg: number; count: number }
 export interface ExperienceReview { rating: number; body: string | null; author: string; createdAt: string }
 /** An experience's aggregate rating (public). */
 export async function fetchExperienceRating(experienceId: string): Promise<ExperienceRating> {
-  const { data } = await supabase.rpc('experience_rating', { p_experience: experienceId });
+  const { data, error } = await supabase.rpc('experience_rating', { p_experience: experienceId });
+  if (error) throw error;
   const r = (data as any[])?.[0];
   return { avg: Number(r?.rating_avg) || 0, count: Number(r?.rating_count) || 0 };
 }
 /** An experience's reviews (public). */
 export async function fetchExperienceReviews(experienceId: string): Promise<ExperienceReview[]> {
-  const { data } = await supabase.rpc('experience_reviews', { p_experience: experienceId, p_limit: 20 });
+  const { data, error } = await supabase.rpc('experience_reviews', { p_experience: experienceId, p_limit: 20 });
+  if (error) throw error;
   return (data as any[] ?? []).map((r) => ({ rating: r.rating, body: r.body ?? null, author: r.author, createdAt: r.created_at }));
 }
 
@@ -201,7 +203,8 @@ export async function fetchExperienceReviews(experienceId: string): Promise<Expe
 /** Which of the given sessions the signed-in customer is already waitlisted for (RLS-scoped to self). */
 export async function fetchMyWaitlistSessions(sessionIds: string[]): Promise<string[]> {
   if (!sessionIds.length) return [];
-  const { data } = await supabase.from('experience_waitlist').select('session_id').in('session_id', sessionIds);
+  const { data, error } = await supabase.from('experience_waitlist').select('session_id').in('session_id', sessionIds);
+  if (error) throw error;
   return (data as any[] ?? []).map((r) => r.session_id);
 }
 export async function joinWaitlist(sessionId: string, guests: number): Promise<void> {

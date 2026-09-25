@@ -40,6 +40,7 @@ tags: [project/preppa, type/launch-plan]
 - Cook post creation now reports menu-loading failures, explains that posting can continue without a featured dish, and provides a menu retry action instead of silently hiding the selector.
 - Pending cook applications now show payout-setup loading, lookup failures, missing kitchen records, and retry actions instead of silently removing the Stripe onboarding path.
 - Admin application review now checks Supabase errors when loading Stripe identity and payout status, labels unavailable data clearly, and offers retry instead of misreporting a failed lookup as onboarding not started.
+- Experience ratings, reviews, and waitlist lookups now propagate Supabase errors. The customer detail screen preserves stale reviews, reports unavailable review data, and provides retry instead of presenting a failed request as unrated.
 
 ### Customer acceptance evidence still needed
 
