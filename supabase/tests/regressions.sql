@@ -54,6 +54,18 @@ begin
   end if;
 end $$;
 
+-- A taxable create-order insert must satisfy the same total formula used by Stripe.
+do $$
+declare v_def text;
+begin
+  select pg_get_constraintdef(oid) into v_def
+  from pg_constraint
+  where conrelid = 'public.orders'::regclass and conname = 'orders_total_matches';
+  if v_def is null or v_def !~ 'tax_cents' then
+    raise exception 'REGRESSION: orders_total_matches excludes tax_cents -- taxable checkout inserts will fail';
+  end if;
+end $$;
+
 -- Food-safety disclosure: new meal publishing must keep ingredients mandatory and require
 -- an explicit allergen review; catalog columns must remain public-readable through meals RLS.
 do $$

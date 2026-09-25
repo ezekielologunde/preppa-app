@@ -114,6 +114,52 @@ export async function fetchOrderStatus(orderId: string): Promise<{ status: strin
   return data ?? null;
 }
 
+export interface CustomerOrderRecord {
+  id: string;
+  status: string;
+  fulfillment: string;
+  method: string;
+  subtotalCents: number;
+  serviceFeeCents: number;
+  taxCents: number;
+  tipCents: number;
+  totalCents: number;
+  createdAt: string;
+  kitchenId: string;
+  kitchenName: string;
+  items: { mealId: string; name: string; unitPriceCents: number; qty: number }[];
+}
+
+/** RLS-scoped paid/refunded order history for the signed-in customer. */
+export async function fetchCustomerOrders(): Promise<CustomerOrderRecord[]> {
+  const { data, error } = await supabase
+    .from('orders')
+    .select('id,status,fulfillment,method,subtotal_cents,service_fee_cents,tax_cents,tip_cents,total_cents,created_at,kitchen_id,kitchens(name),order_items(meal_id,name_snapshot,unit_price_cents,qty)')
+    .in('pay_status', ['paid', 'refunded'])
+    .order('created_at', { ascending: false });
+  if (error) throw error;
+  return ((data ?? []) as any[]).map((r) => ({
+    id: r.id,
+    status: r.status,
+    fulfillment: r.fulfillment,
+    method: r.method,
+    subtotalCents: Number(r.subtotal_cents ?? 0),
+    serviceFeeCents: Number(r.service_fee_cents ?? 0),
+    taxCents: Number(r.tax_cents ?? 0),
+    tipCents: Number(r.tip_cents ?? 0),
+    totalCents: Number(r.total_cents ?? 0),
+    createdAt: r.created_at,
+    kitchenId: r.kitchen_id,
+    kitchenName: r.kitchens?.name ?? 'Kitchen',
+    items: (r.order_items ?? []).map((i: any) => ({
+      mealId: i.meal_id,
+      name: i.name_snapshot,
+      unitPriceCents: Number(i.unit_price_cents ?? 0),
+      qty: Number(i.qty ?? 0),
+    })),
+  }));
+}
+
 /** Customer-side: leave a review on a completed order. RLS (reviews_insert_own_completed_order)
  * independently re-checks the order is the caller's own and status='completed' — the `reviews`
  * table also has a UNIQUE(order_id) constraint, so this can never double-insert for one order.

@@ -14,7 +14,7 @@ import {
 } from '../lib/supabase';
 import { supabase } from '../lib/supabase';
 import { threadUnreadCount, subscribeMyNotifications } from '../lib/messages';
-import { fetchOrderStatus } from '../lib/orders';
+import { fetchCustomerOrders, fetchOrderStatus, timeAgo } from '../lib/orders';
 import { getMyKitchen, getKitchenAvailability, setKitchenAvailability } from '../lib/connect';
 import { registerForPushNotifications } from '../lib/push';
 import { setViewerCoords } from '../data/supabaseRepository';
@@ -60,12 +60,8 @@ export interface CustomerOrder {
   flow: OrderFlow;
   status: 'preparing' | 'ready' | 'completed' | 'cancelled';
   when: string;
+  ownerUid?: string; // session owner for a just-paid order awaiting server reconciliation
 }
-const SEED_ORDERS: CustomerOrder[] = [
-  { id: 'PR-2045', cook: 'denise', lines: [{ key: 'shortrib', name: 'Slow-Braised Short Rib', cook: 'denise', price: 16.5, grad: 'g6', qty: 1 }], subtotal: 16.5, service: 1.65, tax: 1.47, delivery: 0, tip: 3, total: 22.62, mode: 'delivery', flow: 'paid', status: 'completed', when: 'Yesterday' },
-  { id: 'PR-2041', cook: 'amara', lines: [{ key: 'jollof', name: 'Smoky Jollof & Chicken', cook: 'amara', price: 12, grad: 'g1', qty: 2 }], subtotal: 24, service: 0, tax: 2.14, delivery: 0, tip: 2, total: 28.14, mode: 'pickup', flow: 'cod', status: 'completed', when: 'Mon' },
-];
-
 export interface Address {
   id: string;
   label: string;
@@ -149,6 +145,9 @@ interface Store {
   lastOrder: OrderFlow | null;
   placeOrder: (flow: OrderFlow, cook?: string, dbId?: string, taxCents?: number) => void;
   orders: CustomerOrder[];
+  ordersLoading: boolean;
+  ordersError: string;
+  refreshOrders: (userId?: string) => Promise<void>;
   reorder: (id: string) => void;
   refreshOrderStatus: (id: string) => Promise<boolean>;
 
@@ -226,7 +225,9 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
   const [addresses, setAddresses] = useState<Address[]>(SEED_ADDRESSES);
   const [addressId, setAddressId] = useState('home');
   const [lastOrder, setLastOrder] = useState<OrderFlow | null>(null);
-  const [orders, setOrders] = useState<CustomerOrder[]>(SEED_ORDERS);
+  const [orders, setOrders] = useState<CustomerOrder[]>([]);
+  const [ordersLoading, setOrdersLoading] = useState(false);
+  const [ordersError, setOrdersError] = useState('');
   // Stored as a list constrained to length 1 for MVP (one active plan). Modeling it
   // as an array means "add a second plan" later is a config flip, not a rewrite.
   const [subs, setSubs] = useState<Subscription[]>([]);
@@ -268,7 +269,6 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
           if (Array.isArray(s.addresses)) setAddresses(s.addresses);
           if (typeof s.addressId === 'string') setAddressId(s.addressId);
           if (s.lastOrder) setLastOrder(s.lastOrder);
-          if (Array.isArray(s.orders)) setOrders(s.orders);
           if (Array.isArray(s.subs)) setSubs(s.subs);
           else if (s.subscription) setSubs([s.subscription]); // migrate old single-object shape
           if (typeof s.avail === 'boolean') setAvail(s.avail);
@@ -284,15 +284,53 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
     if (!hydrated.current) return;
     AsyncStorage.setItem(
       LS,
-      JSON.stringify({ onboarded, darkMode, cart, tip, mode, location, coords, country, name, firstName, fav: [...fav], addresses, addressId, lastOrder, orders, subs, avail }),
+      JSON.stringify({ onboarded, darkMode, cart, tip, mode, location, coords, country, name, firstName, fav: [...fav], addresses, addressId, lastOrder, subs, avail }),
     ).catch(() => {});
-  }, [onboarded, darkMode, cart, tip, mode, location, coords, country, name, firstName, fav, addresses, addressId, lastOrder, orders, subs, avail]);
+  }, [onboarded, darkMode, cart, tip, mode, location, coords, country, name, firstName, fav, addresses, addressId, lastOrder, subs, avail]);
 
   const toast = useCallback((msg: string, icon = 'check', green = false) => {
     const id = toastSeq++;
     setToasts((t) => [...t, { id, msg, icon, green }]);
     setTimeout(() => setToasts((t) => t.filter((x) => x.id !== id)), 2600);
   }, []);
+
+  const refreshOrders = useCallback(async (userId?: string) => {
+    const owner = userId ?? uid;
+    setOrdersLoading(true);
+    setOrdersError('');
+    try {
+      const rows = await fetchCustomerOrders();
+      const mapped: CustomerOrder[] = rows.map((r) => ({
+        id: `PR-${r.id.slice(0, 6).toUpperCase()}`,
+        dbId: r.id,
+        cook: r.kitchenId,
+        kitchenName: r.kitchenName,
+        lines: r.items.map((i) => ({
+          key: i.mealId, mealUuid: i.mealId, kitchenUuid: r.kitchenId, kitchenName: r.kitchenName,
+          name: i.name, cook: 'maria', price: i.unitPriceCents / 100, grad: 'g1', qty: i.qty,
+        })),
+        subtotal: r.subtotalCents / 100,
+        service: r.serviceFeeCents / 100,
+        tax: r.taxCents / 100,
+        delivery: 0,
+        tip: r.tipCents / 100,
+        total: r.totalCents / 100,
+        mode: r.fulfillment === 'pickup' ? 'pickup' : 'delivery',
+        flow: r.method === 'cod' ? 'cod' : 'paid',
+        status: r.status === 'ready' ? 'ready' : r.status === 'completed' ? 'completed' : r.status === 'cancelled' ? 'cancelled' : 'preparing',
+        when: timeAgo(r.createdAt),
+      }));
+      setOrders((current) => {
+        // Keep a just-confirmed local order while its payment webhook is still reconciling.
+        const pending = current.filter((o) => o.dbId && o.ownerUid === owner && !mapped.some((m) => m.dbId === o.dbId));
+        return [...pending, ...mapped];
+      });
+    } catch (e: any) {
+      setOrdersError(e?.message || 'Could not load your meal orders.');
+    } finally {
+      setOrdersLoading(false);
+    }
+  }, [uid]);
 
   // --- role / prepper lifecycle -------------------------------------------
   // Reconcile the user's real role/status from the backend so admin gating and
@@ -323,6 +361,7 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
         catch (e: any) { setNotificationsError(e?.message || 'Could not load notifications.'); }
         finally { setNotificationsLoading(false); }
         try { setThreadUnread(await threadUnreadCount()); } catch { /* keep last */ }
+        await refreshOrders(sess.session?.user?.id);
         // Fire-and-forget: no-ops on web / before an EAS project is linked, and never
         // throws (see src/lib/push.ts) — safe to leave unawaited here.
         registerForPushNotifications();
@@ -332,11 +371,14 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
         setNotificationsLoading(false);
         setNotificationsError('');
         setThreadUnread(0);
+        setOrders([]);
+        setOrdersError('');
+        setOrdersLoading(false);
       }
     } catch {
       // transient network/permission issue — keep the last known state
     }
-  }, []);
+  }, [refreshOrders]);
 
   // Refresh just the messaging unread count (called after opening/reading a thread).
   const refreshMessaging = useCallback(async () => {
@@ -496,6 +538,7 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
           id: 'PR-' + (stamp + idx).slice(-6).toUpperCase(),
           // dbId only applies to the single-cook card path (checkout passes one key).
           dbId: targetKeys.length === 1 ? dbId : undefined,
+          ownerUid: uid ?? undefined,
           cook: key, kitchenName: lines[0]?.kitchenName, lines,
           subtotal: t.subtotal, service: t.service, tax, delivery: t.delivery, tip: t.tip, total,
           mode, flow,
@@ -508,7 +551,7 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
     setCart((cs) => (cook ? cs.filter((l) => lineKey(l) !== cook) : []));
     setLastOrder(flow);
     setTip(2);
-  }, [cart, tip, mode]);
+  }, [cart, tip, mode, uid]);
   const reorder = useCallback((id: string) => {
     const o = orders.find((x) => x.id === id);
     if (!o) return;
@@ -536,7 +579,7 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
   }, [orders]);
 
   const resetOnboarding = useCallback(() => setOnboardedState(false), []);
-  const logout = useCallback(() => { signOutUser(); setPrepperStatus('none'); setIsAdmin(false); setIsPrepPlus(false); setPrepplusUntil(null); setOnboardedState(false); }, []);
+  const logout = useCallback(() => { signOutUser(); setPrepperStatus('none'); setIsAdmin(false); setIsPrepPlus(false); setPrepplusUntil(null); setOrders([]); setOrdersError(''); setOnboardedState(false); }, []);
   const deleteAccount = useCallback(async () => {
     // Apple 5.1.1(v) / Google Play: account-deletion path. Calls the real delete-account edge
     // function FIRST (anonymizes the profile, soft-deletes the auth user so sign-in is
@@ -551,7 +594,7 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
     setAddresses(SEED_ADDRESSES);
     setAddressId('home');
     setSubs([]);
-    setOrders(SEED_ORDERS);
+    setOrders([]);
     setLastOrder(null);
     setTip(2);
     setMode('delivery');
@@ -695,6 +738,9 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
     lastOrder,
     placeOrder,
     orders,
+    ordersLoading,
+    ordersError,
+    refreshOrders,
     reorder,
     refreshOrderStatus,
     subscription,

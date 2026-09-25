@@ -53,6 +53,7 @@ tags: [project/preppa, type/launch-plan]
 - Kitchen directory and profile ratings now surface query failures instead of showing verified cooks as unrated.
 - Checkout now clears stale saved-card selections when payment methods cannot be refreshed, and the web card sheet reports Stripe or mount failures instead of remaining indefinitely disabled.
 - Order tracking no longer presents a decorative route as live location data. It identifies the screen as kitchen status updates, discloses that location tracking is unavailable, and provides recovery when an order cannot be read.
+- Customer meal-order history now hydrates from RLS-scoped paid/refunded server orders. Demo orders and device-persisted order history were removed, and sign-out clears in-memory order data to prevent cross-account leakage.
 
 ### Customer acceptance evidence still needed
 
