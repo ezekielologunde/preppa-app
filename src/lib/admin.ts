@@ -311,7 +311,6 @@ export interface AdminOrderDetail {
   created_at: string;
   pi_status: string | null;
   pi_stripe_id: string | null;
-  handoff_status: string | null;
   items: AdminOrderItem[];
 }
 

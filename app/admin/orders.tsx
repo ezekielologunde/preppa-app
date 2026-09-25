@@ -109,7 +109,6 @@ function OrderDetailBody({ d }: { d: admin.AdminOrderDetail }) {
         <StatusTag label={humanize(d.status)} tone={orderStatusTone(d.status)} />
         <StatusTag label={humanize(d.pi_status ?? d.pay_status)} tone={d.pi_status ? piTone(d.pi_status) : payTone(d.pay_status)} />
         <StatusTag label={d.method} tone="neutral" />
-        {d.handoff_status ? <StatusTag label={`handoff ${humanize(d.handoff_status)}`} tone="neutral" /> : null}
       </View>
 
       <Row c={c} k="Buyer" v={d.buyer_name ?? 'Unknown'} />

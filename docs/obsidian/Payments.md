@@ -79,7 +79,7 @@ $9.99/mo or $89/yr, 7-day trial (once per user). Lazily creates Product/Prices b
 
 | Item | Status |
 |---|---|
-| Cash on delivery | **Placeholder.** Server hard-rejects (`400`); client still has full COD UI that never reaches payment, only local store state. |
+| Cash on delivery | **Not offered.** The server hard-rejects it (`400`) and the stale client presentation and fake handoff controls were removed 2026-09-25. |
 | Escrow | Not implemented — see model above. |
 | Connect webhooks | Not used — status is polled (`connect-status`), now also opportunistically refreshed by `reconcile-payouts` whenever it touches a kitchen. |
 | Payout reconciliation job | **Implemented 2026-09-07** — see above. |
