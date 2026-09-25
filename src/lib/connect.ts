@@ -16,15 +16,17 @@ export interface ConnectStatus {
 
 /** The signed-in cook's most recent kitchen (for onboarding / status / payout). */
 export async function getMyKitchen(): Promise<{ id: string; verification_status: string; supports_delivery: boolean; supports_pickup: boolean } | null> {
-  const { data: sess } = await supabase.auth.getSession();
+  const { data: sess, error: sessionError } = await supabase.auth.getSession();
+  if (sessionError) throw sessionError;
   const uid = sess.session?.user?.id;
   if (!uid) return null;
-  const { data } = await supabase
+  const { data, error } = await supabase
     .from('kitchens')
     .select('id, verification_status, supports_delivery, supports_pickup')
     .eq('owner_id', uid)
     .order('created_at', { ascending: false })
     .limit(1);
+  if (error) throw error;
   return (data?.[0] as any) ?? null;
 }
 

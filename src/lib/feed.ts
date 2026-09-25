@@ -73,10 +73,12 @@ function mapRow(r: any): FeedPost {
 
 /** The kitchen ids the current user follows (empty for anonymous). */
 async function fetchFollowedKitchenIds(): Promise<string[]> {
-  const { data: sess } = await supabase.auth.getSession();
+  const { data: sess, error: sessionError } = await supabase.auth.getSession();
+  if (sessionError) throw sessionError;
   const uid = sess.session?.user?.id;
   if (!uid) return [];
-  const { data } = await supabase.from('follows').select('kitchen_id').eq('follower_id', uid);
+  const { data, error } = await supabase.from('follows').select('kitchen_id').eq('follower_id', uid);
+  if (error) throw error;
   return (data ?? []).map((r: any) => r.kitchen_id);
 }
 
@@ -147,7 +149,8 @@ async function queryPosts(kitchenId: string | undefined, cursor: string | undefi
   else if (followedIds) q = q.in('kitchen_id', followedIds);
   if (cursor) q = q.lt('created_at', cursor);
   const { data, error } = await q;
-  if (error || !data) return [];
+  if (error) throw error;
+  if (!data) return [];
   const mapped = (data as any[]).map(mapRow);
   return overlayFollows(await overlaySaves(await overlayLikes(mapped)), followedIds);
 }
@@ -172,7 +175,8 @@ export async function fetchKitchenFeed(kitchenId: string, opts?: { cursor?: stri
 /** A single post, for the post-detail screen / shared links. */
 export async function fetchPost(postId: string): Promise<FeedPost | null> {
   const { data, error } = await supabase.from('posts').select(POST_SELECT).eq('id', postId).maybeSingle();
-  if (error || !data) return null;
+  if (error) throw error;
+  if (!data) return null;
   const [post] = await overlayFollows(await overlaySaves(await overlayLikes([mapRow(data)])));
   return post;
 }
@@ -214,31 +218,36 @@ export async function toggleFollow(kitchenId: string): Promise<boolean> {
 
 /** Whether the current viewer follows a given kitchen (false for anonymous). */
 export async function fetchIsFollowing(kitchenId: string): Promise<boolean> {
-  const { data: sess } = await supabase.auth.getSession();
+  const { data: sess, error: sessionError } = await supabase.auth.getSession();
+  if (sessionError) throw sessionError;
   const uid = sess.session?.user?.id;
   if (!uid) return false;
-  const { data } = await supabase.from('follows').select('kitchen_id')
+  const { data, error } = await supabase.from('follows').select('kitchen_id')
     .eq('follower_id', uid).eq('kitchen_id', kitchenId).maybeSingle();
+  if (error) throw error;
   return !!data;
 }
 
 /** The caller's saved posts, newest-saved first (a re-order shortlist). */
 export async function fetchSavedPosts(limit = 50): Promise<FeedPost[]> {
   await ensureAuth();
-  const { data: sess } = await supabase.auth.getSession();
+  const { data: sess, error: sessionError } = await supabase.auth.getSession();
+  if (sessionError) throw sessionError;
   const uid = sess.session?.user?.id;
   if (!uid) return [];
-  const { data: saves } = await supabase
+  const { data: saves, error: savesError } = await supabase
     .from('post_saves')
     .select('post_id, created_at')
     .eq('user_id', uid)
     .order('created_at', { ascending: false })
     .limit(limit);
+  if (savesError) throw savesError;
   const ids = (saves ?? []).map((s: any) => s.post_id);
   if (!ids.length) return [];
   // Fetch the (still-public) posts, then re-order to match save recency.
   const { data, error } = await supabase.from('posts').select(POST_SELECT).in('id', ids);
-  if (error || !data) return [];
+  if (error) throw error;
+  if (!data) return [];
   const byId = new Map((data as any[]).map((r) => [r.id, r]));
   const ordered = ids.map((id) => byId.get(id)).filter(Boolean).map(mapRow);
   return overlaySaves(await overlayLikes(ordered));
@@ -254,15 +263,18 @@ export function recordFeedEvent(postId: string, kind: FeedEventKind): void {
 /** The caller's own live dishes (for optionally featuring one on a post). */
 export async function fetchMyMenuMeals(): Promise<{ id: string; name: string }[]> {
   await ensureAuth();
-  const { data: sess } = await supabase.auth.getSession();
+  const { data: sess, error: sessionError } = await supabase.auth.getSession();
+  if (sessionError) throw sessionError;
   const uid = sess.session?.user?.id;
   if (!uid) return [];
-  const { data: k } = await supabase.from('kitchens').select('id')
+  const { data: k, error: kitchenError } = await supabase.from('kitchens').select('id')
     .eq('owner_id', uid).eq('verification_status', 'verified')
     .order('created_at', { ascending: false }).limit(1);
+  if (kitchenError) throw kitchenError;
   const kid = k?.[0]?.id;
   if (!kid) return [];
-  const { data } = await supabase.from('meals').select('id, name')
+  const { data, error } = await supabase.from('meals').select('id, name')
     .eq('kitchen_id', kid).eq('status', 'live').order('created_at', { ascending: false });
+  if (error) throw error;
   return (data ?? []).map((m: any) => ({ id: m.id as string, name: m.name as string }));
 }
