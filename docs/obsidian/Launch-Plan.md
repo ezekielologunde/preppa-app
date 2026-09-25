@@ -45,6 +45,7 @@ tags: [project/preppa, type/launch-plan]
 - Feed, saved-post, shared-post, follow-state, cook-menu, and pending-kitchen helpers now propagate authentication and query failures to their recovery UI instead of converting failures to empty content or missing records.
 - Seeded and live kitchen storefronts now show follow-state loading and retry controls, and distinguish authentication failures from network or backend failures when a follow update fails.
 - Cook availability and payout-preference reads now reject backend failures. The hub availability control shows checking and retry states instead of displaying or toggling a stale cached open state.
+- Customer and cook membership, meal-plan, subscription, cycle, capacity, prep, and subscriber reads now propagate backend failures. Real plan detail distinguishes load failure from a missing plan and provides retry.
 
 ### Customer acceptance evidence still needed
 

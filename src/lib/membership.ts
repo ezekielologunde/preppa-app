@@ -58,9 +58,10 @@ export async function manageMembership(action: 'cancel' | 'resume' | 'switch', i
 /** The caller's current membership row (RLS select-own), or null if never subscribed. */
 export async function fetchMembership(): Promise<Membership | null> {
   await ensureAuth();
-  const { data } = await supabase.from('memberships')
+  const { data, error } = await supabase.from('memberships')
     .select('status, plan_interval, current_period_end, cancel_at_period_end, trial_consumed')
     .maybeSingle();
+  if (error) throw error;
   if (!data) return null;
   return {
     status: data.status as string,

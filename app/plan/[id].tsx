@@ -38,13 +38,18 @@ function candidateStartDates(leadHours: number, deliveryDays: string[] | undefin
 }
 
 export default function PlanDetailScreen() {
+  const c = useC();
   const { id } = useLocalSearchParams<{ id: string }>();
   const [plan, setPlan] = useState<Plan | null | undefined>(undefined); // undefined = still loading
+  const [loadError, setLoadError] = useState('');
+  const [retryNonce, setRetryNonce] = useState(0);
   useEffect(() => {
     let alive = true;
-    fetchPlan(id!).then((p) => { if (alive) setPlan(p); }).catch(() => { if (alive) setPlan(null); });
+    setPlan(undefined);
+    setLoadError('');
+    fetchPlan(id!).then((p) => { if (alive) setPlan(p); }).catch((e) => { if (alive) { setPlan(null); setLoadError(e?.message || 'Couldn’t load this meal plan.'); } });
     return () => { alive = false; };
-  }, [id]);
+  }, [id, retryNonce]);
 
   // Seed (demo) plans use short string ids; render them synchronously while the real
   // lookup resolves so there's no flash. Real plans use uuids.
@@ -52,6 +57,7 @@ export default function PlanDetailScreen() {
   if (plan) return <RealPlanDetail plan={plan} />;
   if (seed) return <SeedPlanDetail p={seed} />;
   if (plan === undefined) return <Screen><View style={{ flex: 1, alignItems: 'center', justifyContent: 'center' }}><ActivityIndicator /></View></Screen>;
+  if (loadError) return <Screen><View accessibilityRole="alert" style={{ flex: 1, alignItems: 'center', justifyContent: 'center', padding: 28 }}><Icon name="info" size={36} color={c.red} /><Text style={[type(18, 900), { color: c.ink, marginTop: 12 }]}>Meal plan didn’t load</Text><Text style={[type(13.5, 600), { color: c.soft, textAlign: 'center', marginTop: 6, marginBottom: 16 }]}>{loadError}</Text><Btn label="Try again" icon="repeat" onPress={() => setRetryNonce((n) => n + 1)} /></View></Screen>;
   return <NotFound title="Meal plan" />;
 }
 

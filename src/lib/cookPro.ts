@@ -58,10 +58,11 @@ export async function manageCookPro(kitchenId: string, action: 'cancel' | 'resum
 /** The kitchen's current membership row (RLS select-own via is_kitchen_owner), or null. */
 export async function fetchCookMembership(kitchenId: string): Promise<CookMembership | null> {
   await ensureAuth();
-  const { data } = await supabase.from('cook_memberships')
+  const { data, error } = await supabase.from('cook_memberships')
     .select('status, plan_interval, current_period_end, cancel_at_period_end, trial_consumed')
     .eq('kitchen_id', kitchenId)
     .maybeSingle();
+  if (error) throw error;
   if (!data) return null;
   return {
     status: data.status as string,

@@ -171,7 +171,8 @@ function rowToPlan(p: any): Plan {
 export async function fetchActivePlans(): Promise<Plan[]> {
   const { data, error } = await supabase
     .from('plans').select(PLAN_SELECT).eq('status', 'active').order('created_at', { ascending: false });
-  if (error || !data) return [];
+  if (error) throw error;
+  if (!data) return [];
   return (data as any[]).map(rowToPlan);
 }
 
@@ -181,7 +182,8 @@ const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/
 export async function fetchPlan(id: string): Promise<Plan | null> {
   if (!UUID_RE.test(id)) return null;
   const { data, error } = await supabase.from('plans').select(PLAN_SELECT).eq('id', id).maybeSingle();
-  if (error || !data) return null;
+  if (error) throw error;
+  if (!data) return null;
   return rowToPlan(data);
 }
 
@@ -221,13 +223,15 @@ export interface BoxKitchen { kitchenId: string; name: string }
 /** The distinct kitchens in a customer's cross-kitchen box — for the messaging cook-picker. */
 export async function fetchBoxKitchens(subscriptionId: string): Promise<BoxKitchen[]> {
   const { data, error } = await supabase.rpc('box_kitchens', { p_subscription: subscriptionId });
-  if (error || !data) return [];
+  if (error) throw error;
+  if (!data) return [];
   return (data as any[]).map((r) => ({ kitchenId: r.kitchen_id, name: r.name }));
 }
 
 /** The signed-in customer's subscriptions (excludes cancelled/completed), each with its current cycle. */
 export async function listMySubscriptions(): Promise<MySubscription[]> {
-  const { data: sess } = await supabase.auth.getSession();
+  const { data: sess, error: sessionError } = await supabase.auth.getSession();
+  if (sessionError) throw sessionError;
   const uid = sess.session?.user?.id;
   if (!uid) return [];
   const { data, error } = await supabase
@@ -236,19 +240,21 @@ export async function listMySubscriptions(): Promise<MySubscription[]> {
     .eq('customer_id', uid)
     .not('lifecycle', 'in', '(cancelled,completed)')
     .order('created_at', { ascending: false });
-  if (error || !data) return [];
+  if (error) throw error;
+  if (!data) return [];
   const subs = data as any[];
 
   // one query for the current cycle of each sub
   const ids = subs.map((s) => s.id);
   const cyclesBySub = new Map<string, any>();
   if (ids.length) {
-    const { data: cy } = await supabase
+    const { data: cy, error: cycleError } = await supabase
       .from('subscription_cycles')
       .select('id, subscription_id, status, payment_status, delivery_date, billing_date, selection_deadline, skipped, total_cents, cycle_start, subscription_cycle_items(qty, meal_id, meals(name, price_cents))')
       .in('subscription_id', ids)
       .in('status', ['scheduled', 'selection_open', 'selection_closed', 'charged', 'order_created'])
       .order('cycle_start', { ascending: true });
+    if (cycleError) throw cycleError;
     for (const row of (cy as any[] ?? [])) {
       if (!cyclesBySub.has(row.subscription_id)) cyclesBySub.set(row.subscription_id, row); // earliest wins
     }
@@ -281,11 +287,12 @@ export async function listMySubscriptions(): Promise<MySubscription[]> {
 
 /** A subscription's cycle history (billing history), newest first. */
 export async function fetchCycleHistory(subscriptionId: string): Promise<CycleSummary[]> {
-  const { data } = await supabase
+  const { data, error } = await supabase
     .from('subscription_cycles')
     .select('id, status, payment_status, delivery_date, billing_date, selection_deadline, skipped, total_cents, subscription_cycle_items(qty, meal_id, meals(name, price_cents))')
     .eq('subscription_id', subscriptionId)
     .order('cycle_start', { ascending: false });
+  if (error) throw error;
   return (data as any[] ?? []).map(cycleRowToSummary);
 }
 
@@ -400,12 +407,15 @@ export async function updatePreferences(subscriptionId: string, p: SubscribePref
 
 export interface CookMeal { id: string; name: string; priceCents: number }
 export async function fetchMyKitchenMeals(): Promise<{ kitchenId: string | null; meals: CookMeal[] }> {
-  const { data: sess } = await supabase.auth.getSession();
+  const { data: sess, error: sessionError } = await supabase.auth.getSession();
+  if (sessionError) throw sessionError;
   const uid = sess.session?.user?.id;
   if (!uid) return { kitchenId: null, meals: [] };
-  const { data: k } = await supabase.from('kitchens').select('id').eq('owner_id', uid).order('created_at', { ascending: false }).limit(1).maybeSingle();
+  const { data: k, error: kitchenError } = await supabase.from('kitchens').select('id').eq('owner_id', uid).order('created_at', { ascending: false }).limit(1).maybeSingle();
+  if (kitchenError) throw kitchenError;
   if (!k) return { kitchenId: null, meals: [] };
-  const { data } = await supabase.from('meals').select('id, name, price_cents').eq('kitchen_id', (k as any).id).order('created_at', { ascending: false });
+  const { data, error } = await supabase.from('meals').select('id, name, price_cents').eq('kitchen_id', (k as any).id).order('created_at', { ascending: false });
+  if (error) throw error;
   const meals = (data as any[] ?? []).map((m) => ({ id: m.id, name: m.name, priceCents: Number(m.price_cents) || 0 }));
   return { kitchenId: (k as any).id, meals };
 }
@@ -421,6 +431,8 @@ export async function fetchPrepRollup(): Promise<PrepDay[]> {
     supabase.rpc('cook_prep_rollup'),
     supabase.rpc('cook_prep_allergens'),
   ]);
+  if (rollup.error) throw rollup.error;
+  if (allergens.error) throw allergens.error;
   const algByDay = new Map<string, string[]>();
   for (const a of (allergens.data as any[] ?? [])) algByDay.set(a.delivery_date, a.allergens ?? []);
   const byDay = new Map<string, PrepDay>();
@@ -436,7 +448,8 @@ export interface CookSubscriber { subscriptionId: string; customerId: string; cu
 
 /** The signed-in cook's plan subscribers (roster). */
 export async function fetchCookSubscribers(): Promise<CookSubscriber[]> {
-  const { data } = await supabase.rpc('cook_subscribers');
+  const { data, error } = await supabase.rpc('cook_subscribers');
+  if (error) throw error;
   return (data as any[] ?? []).map((s) => ({
     subscriptionId: s.subscription_id, customerId: s.customer_id, customerName: s.customer_name, planName: s.plan_name,
     lifecycle: s.lifecycle, priceCents: Number(s.price_cents) || 0, preferredDay: s.preferred_day, createdAt: s.created_at,
@@ -444,12 +457,15 @@ export async function fetchCookSubscribers(): Promise<CookSubscriber[]> {
 }
 
 export async function fetchMyPlans(): Promise<Plan[]> {
-  const { data: sess } = await supabase.auth.getSession();
+  const { data: sess, error: sessionError } = await supabase.auth.getSession();
+  if (sessionError) throw sessionError;
   const uid = sess.session?.user?.id;
   if (!uid) return [];
-  const { data: k } = await supabase.from('kitchens').select('id').eq('owner_id', uid).limit(1).maybeSingle();
+  const { data: k, error: kitchenError } = await supabase.from('kitchens').select('id').eq('owner_id', uid).limit(1).maybeSingle();
+  if (kitchenError) throw kitchenError;
   if (!k) return [];
-  const { data } = await supabase.from('plans').select(PLAN_SELECT).eq('kitchen_id', (k as any).id).order('created_at', { ascending: false });
+  const { data, error } = await supabase.from('plans').select(PLAN_SELECT).eq('kitchen_id', (k as any).id).order('created_at', { ascending: false });
+  if (error) throw error;
   return (data as any[] ?? []).map(rowToPlan);
 }
 
@@ -477,6 +493,7 @@ export async function setKitchenCapacity(maxPortions: number | null): Promise<vo
 
 /** The signed-in cook's current all-days capacity cap (null = unlimited). */
 export async function fetchKitchenCapacity(kitchenId: string): Promise<number | null> {
-  const { data } = await supabase.from('kitchen_capacity').select('max_portions_per_day').eq('kitchen_id', kitchenId).eq('delivery_day', '').maybeSingle();
+  const { data, error } = await supabase.from('kitchen_capacity').select('max_portions_per_day').eq('kitchen_id', kitchenId).eq('delivery_day', '').maybeSingle();
+  if (error) throw error;
   return data ? (Number((data as any).max_portions_per_day) ?? null) : null;
 }
