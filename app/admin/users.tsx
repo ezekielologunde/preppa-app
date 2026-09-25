@@ -29,7 +29,7 @@ export default function AdminUsers() {
 
   // Audit High finding: role changes previously happened out-of-band with no audit trail.
   const doSetRole = async (role: 'customer' | 'prepper' | 'admin') => {
-    if (!roleTarget) return;
+    if (busy || !roleTarget) return;
     const sensitive = role === 'admin' || roleTarget.role === 'admin';
     if (sensitive && roleConfirm.trim().toUpperCase() !== 'CHANGE') {
       toast('Type CHANGE to confirm an admin role change', 'info');
@@ -49,7 +49,7 @@ export default function AdminUsers() {
   // already-verified kitchen, despite the Cook Agreement promising Preppa can do exactly
   // that. This is the admin surface for it.
   const doSuspend = async () => {
-    if (!target?.kitchen_id) return;
+    if (busy || !target?.kitchen_id) return;
     if (reason.trim().length < 3) { toast('Add a short reason to suspend', 'info'); return; }
     setBusy(true);
     try {
@@ -61,7 +61,7 @@ export default function AdminUsers() {
     } finally { setBusy(false); }
   };
   const doReinstate = async (u: admin.AdminUser) => {
-    if (!u.kitchen_id) return;
+    if (busy || !u.kitchen_id) return;
     setBusy(true);
     try {
       await admin.reinstateKitchen(u.kitchen_id);
@@ -72,6 +72,7 @@ export default function AdminUsers() {
     } finally { setBusy(false); }
   };
   const requestReinstate = (u: admin.AdminUser) => {
+    if (busy) return;
     confirmAction(
       `Reinstate ${u.kitchen_name ?? 'this kitchen'}?`,
       'Reinstatement restores the kitchen’s verified status and can make its live listings available to customers again.',
@@ -102,11 +103,11 @@ export default function AdminUsers() {
       key: 'action', header: '', width: 170, render: (u) => (
         <View style={{ flexDirection: 'row', alignItems: 'center', gap: 14 }}>
           {u.kitchen_id && u.verification_status === 'verified' ? (
-            <Press scale={0.95} onPress={() => { setTarget(u); setReason(''); }}><Text style={[type(12.5, 800), { color: c.red }]}>Suspend</Text></Press>
+            <Press scale={0.95} disabled={busy} onPress={() => { setTarget(u); setReason(''); }}><Text style={[type(12.5, 800), { color: c.red }]}>Suspend</Text></Press>
           ) : u.kitchen_id && u.verification_status === 'suspended' ? (
-            <Press scale={0.95} onPress={() => requestReinstate(u)}><Text style={[type(12.5, 800), { color: c.green }]}>Reinstate</Text></Press>
+            <Press scale={0.95} disabled={busy} onPress={() => requestReinstate(u)}><Text style={[type(12.5, 800), { color: c.green }]}>Reinstate</Text></Press>
           ) : null}
-          <Press scale={0.95} onPress={() => { setRoleTarget(u); setRoleChoice(null); setRoleConfirm(''); }}><Text style={[type(12.5, 800), { color: c.accentText }]}>Role</Text></Press>
+          <Press scale={0.95} disabled={busy} onPress={() => { setRoleTarget(u); setRoleChoice(null); setRoleConfirm(''); }}><Text style={[type(12.5, 800), { color: c.accentText }]}>Role</Text></Press>
         </View>
       ),
     },
