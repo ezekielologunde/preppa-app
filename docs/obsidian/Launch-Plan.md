@@ -283,6 +283,10 @@ The two auth-hardening gaps found in that pass were closed 2026-09-17: native se
 
 ## P1 — native app launch
 
+### Admin decision safety — hardened locally 2026-09-25
+- [x] Experience review now requires an explicit confirmation before publishing customer-visible sessions or rejecting a cook submission. Buttons lock while a decision is running and server errors remain retryable.
+- [x] In-home cooking vetting now requires an explicit confirmation before granting or denying access. Approval copy tells reviewers to confirm current background-check and insurance evidence; rejection shows the recorded reason before submission.
+
 ### 16. Apple App Store
 An `ascAppId` is already configured (`6802527112`) — **verify what that actually points to** before assuming setup starts from zero. Then: distribution cert, push entitlement, associated domains/deep links, production EAS build, TestFlight, screenshots/description/privacy disclosures, support/privacy URLs, account deletion, review notes.
 

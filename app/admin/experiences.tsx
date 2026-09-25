@@ -9,6 +9,7 @@ import { useStore } from '../../src/store/store';
 import { AdminHeader } from '../../src/components/admin/AdminHeader';
 import { fetchPendingExperiences, adminSetExperienceStatus, type Experience } from '../../src/lib/experiences';
 import { ErrorRetry } from '../../src/components/admin/states';
+import { confirmAction } from '../../src/lib/confirm';
 
 const WD = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
 const MO = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
@@ -36,6 +37,19 @@ export default function AdminExperiences() {
     try { await adminSetExperienceStatus(e.id, status); toast(status === 'published' ? 'Published' : 'Rejected', status === 'published' ? 'check' : 'x', status === 'published'); await load(); }
     catch (err: any) { toast(err?.message || 'Could not update', 'info'); }
     finally { setBusy(null); }
+  };
+
+  const requestAction = (e: Experience, status: 'published' | 'archived') => {
+    if (busy) return;
+    const publishing = status === 'published';
+    confirmAction(
+      publishing ? `Publish ${e.title}?` : `Reject ${e.title}?`,
+      publishing
+        ? 'This makes the experience and its available sessions visible to customers immediately.'
+        : 'This archives the submission and removes it from the review queue. The cook must revise it before it can be published.',
+      () => void act(e, status),
+      publishing ? 'Publish experience' : 'Reject experience',
+    );
   };
 
   return (
@@ -71,12 +85,12 @@ export default function AdminExperiences() {
                 {e.allergens.length ? <Text style={[type(12, 700), { color: c.red, marginTop: 4 }]}>Allergens: {e.allergens.join(', ')}</Text> : null}
 
                 <View style={{ flexDirection: 'row', gap: 10, marginTop: 14 }}>
-                  <Press scale={0.97} onPress={() => act(e, 'archived')} style={{ flex: 1 }}>
+                  <Press scale={0.97} onPress={() => requestAction(e, 'archived')} disabled={busy !== null} style={{ flex: 1 }}>
                     <View style={{ height: 44, borderRadius: radius.md, backgroundColor: c.bg2, borderWidth: 1, borderColor: c.border, alignItems: 'center', justifyContent: 'center' }}>
                       {busy === e.id ? <ActivityIndicator size="small" color={c.red} /> : <Text style={[type(13.5, 800), { color: c.red }]}>Reject</Text>}
                     </View>
                   </Press>
-                  <Press scale={0.97} onPress={() => act(e, 'published')} style={{ flex: 1 }}>
+                  <Press scale={0.97} onPress={() => requestAction(e, 'published')} disabled={busy !== null} style={{ flex: 1 }}>
                     <View style={{ height: 44, borderRadius: radius.md, backgroundColor: c.primaryD, alignItems: 'center', justifyContent: 'center' }}>
                       {busy === e.id ? <ActivityIndicator size="small" color="#fff" /> : <Text style={[type(13.5, 800), { color: '#fff' }]}>Approve & publish</Text>}
                     </View>

@@ -10,6 +10,7 @@ import { ImageViewer } from '../../src/components/ImageViewer';
 import * as admin from '../../src/lib/admin';
 import { AdminHeader } from '../../src/components/admin/AdminHeader';
 import { ErrorRetry } from '../../src/components/admin/states';
+import { confirmAction } from '../../src/lib/confirm';
 
 function when(iso: string): string {
   try { return new Date(iso).toLocaleDateString(); } catch { return ''; }
@@ -36,6 +37,7 @@ export default function AdminInHomeVetting() {
   const close = () => { setOpenId(null); setReason(''); setBusy(null); };
 
   const approve = async (kitchenId: string, name: string) => {
+    if (busy) return;
     setBusy('approve');
     try {
       await admin.approveInHomeVetting(kitchenId);
@@ -47,6 +49,7 @@ export default function AdminInHomeVetting() {
     }
   };
   const reject = async (kitchenId: string, name: string) => {
+    if (busy) return;
     if (reason.trim().length < 3) { toast('Add a short reason to reject', 'info'); return; }
     setBusy('reject');
     try {
@@ -57,6 +60,28 @@ export default function AdminInHomeVetting() {
       toast(e?.message ?? 'Reject failed', 'info');
       setBusy(null);
     }
+  };
+
+  const requestApprove = (kitchenId: string, name: string) => {
+    if (busy) return;
+    confirmAction(
+      `Approve ${name} for in-home cooking?`,
+      'Approval allows this kitchen to accept in-home cooking work. Confirm the background-check and insurance documents are current and valid.',
+      () => void approve(kitchenId, name),
+      'Approve in-home cooking',
+    );
+  };
+
+  const requestReject = (kitchenId: string, name: string) => {
+    if (busy) return;
+    const trimmed = reason.trim();
+    if (trimmed.length < 3) { toast('Add a short reason to reject', 'info'); return; }
+    confirmAction(
+      `Reject ${name} for in-home cooking?`,
+      `This keeps the kitchen from accepting in-home work. Rejection reason: ${trimmed}`,
+      () => void reject(kitchenId, name),
+      'Reject application',
+    );
   };
 
   return (
@@ -102,7 +127,7 @@ export default function AdminInHomeVetting() {
                       <Btn
                         label="Approve" icon="check" flex={1}
                         loading={busy === 'approve'} disabled={busy !== null}
-                        onPress={() => approve(v.kitchen_id, v.kitchen_name)}
+                        onPress={() => requestApprove(v.kitchen_id, v.kitchen_name)}
                       />
                     </View>
                     <View>
@@ -123,7 +148,7 @@ export default function AdminInHomeVetting() {
                         <Btn
                           label="Reject" variant="ghost" icon="x"
                           loading={busy === 'reject'} disabled={busy !== null}
-                          onPress={() => reject(v.kitchen_id, v.kitchen_name)}
+                          onPress={() => requestReject(v.kitchen_id, v.kitchen_name)}
                         />
                       </View>
                     </View>
