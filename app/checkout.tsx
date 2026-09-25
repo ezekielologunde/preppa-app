@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useState } from 'react';
+import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { View, Text, ScrollView, Platform, ActivityIndicator, TextInput } from 'react-native';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { createRealOrder, confirmSavedCardPayment, payWithCard } from '../src/lib/payments';
@@ -31,6 +31,7 @@ export default function Checkout() {
   const t = useTotals(lines, tip, mode);
   const { methods, defaultId, loading: cardsLoading, error: cardsError, refetch: refetchCards } = useSavedCards();
   const [busy, setBusy] = useState(false);
+  const paymentInFlight = useRef(false);
   const [addrSheet, setAddrSheet] = useState(false);
   const [cardSheet, setCardSheet] = useState(false);
   const [cardPayOpen, setCardPayOpen] = useState(false);
@@ -93,7 +94,7 @@ export default function Checkout() {
   }
 
   const place = async () => {
-    if (busy) return; // guard against double-fire / double-order
+    if (paymentInFlight.current) return;
     if (fulfillmentUnavailable) {
       setPaymentError(`This kitchen does not currently offer ${mode}. Choose an available option before payment.`);
       return;
@@ -105,9 +106,14 @@ export default function Checkout() {
     }
     const cookId = checkoutCook!;
     setPaymentError(null);
+    paymentInFlight.current = true;
     setBusy(true);
-    const onError = (e: unknown) => {
+    const finishPaymentAction = () => {
+      paymentInFlight.current = false;
       setBusy(false);
+    };
+    const onError = (e: unknown) => {
+      finishPaymentAction();
       const msg = (e as any)?.message ?? '';
       let customerMessage: string;
       if (msg === 'AUTH_REQUIRED') {
@@ -141,7 +147,7 @@ export default function Checkout() {
           deliveryInstructions: mode === 'delivery' ? deliveryInstructions.trim() || undefined : undefined,
         });
         if (alreadyPaid) {
-          setBusy(false);
+          finishPaymentAction();
           placeOrder(checkoutCook, orderId, taxCents);
           toast('Payment confirmed. Opening your order.', 'check', true);
           router.replace(`/track?cook=${checkoutCook}&orderId=${orderId}`);
@@ -154,7 +160,7 @@ export default function Checkout() {
           setCardOrderId(orderId);
           setCardTaxCents(taxCents);
           setCardSecret(clientSecret);
-          setBusy(false);
+          finishPaymentAction();
           setSavedCardConfirmOpen(true);
           return;
         }
@@ -163,7 +169,7 @@ export default function Checkout() {
         setCardTaxCents(taxCents);
         setCardSecret(clientSecret);
         setCardPayOpen(true);
-        setBusy(false);
+        finishPaymentAction();
         return;
       } catch (e) {
         onError(e);
@@ -177,7 +183,7 @@ export default function Checkout() {
         addressId: mode === 'delivery' ? address?.id : undefined,
         deliveryInstructions: mode === 'delivery' ? deliveryInstructions.trim() || undefined : undefined,
       });
-      setBusy(false);
+      finishPaymentAction();
       placeOrder(checkoutCook, orderId, taxCents);
       router.replace(`/track?cook=${checkoutCook}&orderId=${orderId}`);
     } catch (e) {
@@ -186,12 +192,14 @@ export default function Checkout() {
   };
 
   const confirmSavedCard = async () => {
-    if (busy || !selectedCard || !cardSecret || !cardOrderId) return;
+    if (paymentInFlight.current || !selectedCard || !cardSecret || !cardOrderId) return;
+    paymentInFlight.current = true;
     setBusy(true);
     setPaymentError(null);
     try {
       await confirmSavedCardPayment(cardSecret, selectedCard.id);
       setSavedCardConfirmOpen(false);
+      paymentInFlight.current = false;
       setBusy(false);
       placeOrder(checkoutCook, cardOrderId, cardTaxCents);
       router.replace(`/track?cook=${checkoutCook}&orderId=${cardOrderId}`);
@@ -201,6 +209,7 @@ export default function Checkout() {
       const customerMessage = msg.includes('card') ? 'Your card couldn’t be charged. Try another card or check with your bank.' : 'Couldn’t complete your payment. Please try again.';
       setPaymentError(customerMessage);
       toast(customerMessage, 'info');
+      paymentInFlight.current = false;
       setBusy(false);
     }
   };
@@ -331,7 +340,7 @@ export default function Checkout() {
           label={cardsLoading && Platform.OS === 'web' ? 'Loading payment methods…' : deliveryAddressMissing ? 'Add delivery address' : selectedCard ? 'Review and pay' : 'Continue to secure payment'}
           flex={1}
           loading={busy}
-          disabled={(cardsLoading && Platform.OS === 'web') || fulfillmentUnavailable}
+          disabled={busy || (cardsLoading && Platform.OS === 'web') || fulfillmentUnavailable}
           onPress={place}
         />
       </Dock>
