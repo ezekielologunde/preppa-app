@@ -1,7 +1,7 @@
 import { Platform } from 'react-native';
 import type { Stripe } from '@stripe/stripe-js';
 import { confirmPayment, initPaymentSheet, presentPaymentSheet } from './nativeStripe';
-import { supabase, ensureAuth, KITCHEN_ID, MEAL_ID, STRIPE_PK, APPLE_PAY_MERCHANT_ID } from './supabase';
+import { supabase, ensureAuth, KITCHEN_ID, MEAL_ID, STRIPE_PK, APPLE_PAY_MERCHANT_ID, assertLiveMoneyAllowed } from './supabase';
 import type { CartLine } from '../store/store';
 
 export interface OrderOpts {
@@ -39,6 +39,7 @@ export function getStripe(): Promise<Stripe | null> {
  * return its client secret for confirmation with a real card.
  */
 export async function createRealOrder(opts: OrderOpts): Promise<{ orderId: string; clientSecret: string; taxCents: number }> {
+  assertLiveMoneyAllowed();
   // Prefer the real DB UUIDs carried on the cart (Supabase catalog); fall back to
   // the static key->UUID map only for items without them (add-ons, reordered lines).
   const kitchenId = opts.lines.find((l) => l.kitchenUuid)?.kitchenUuid ?? KITCHEN_ID[opts.cook];
@@ -71,6 +72,7 @@ export async function createRealOrder(opts: OrderOpts): Promise<{ orderId: strin
 // edge function scopes every action to that user's own Stripe Customer. ----
 
 async function pmAction<T>(action: string, extra: Record<string, unknown> = {}): Promise<T> {
+  assertLiveMoneyAllowed();
   await ensureAuth();
   const { data, error } = await supabase.functions.invoke('payment-methods', { body: { action, ...extra } });
   if (error) throw error;

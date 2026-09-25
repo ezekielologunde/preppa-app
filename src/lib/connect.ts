@@ -1,5 +1,5 @@
 import { Platform } from 'react-native';
-import { supabase } from './supabase';
+import { supabase, assertLiveMoneyAllowed } from './supabase';
 
 /**
  * Stripe Connect (Express) — Preppa is the payment hub. Cooks don't set up their own
@@ -73,6 +73,7 @@ export interface CashOutResult {
 
 /** Cash out the kitchen's available ledger balance to the cook's account. */
 export async function cashOut(kitchenId: string): Promise<CashOutResult> {
+  assertLiveMoneyAllowed();
   const { data, error } = await supabase.functions.invoke('connect-payout', { body: { kitchenId } });
   if (data?.pending) return { amountCents: 0, pending: true };
   if (error || data?.error) throw new Error(data?.error || error?.message || 'Payout failed.');
@@ -148,6 +149,7 @@ export async function setPayoutPreferences(kitchenId: string, autoEnabled: boole
 
 /** How often Stripe deposits this kitchen's connected-account balance to their bank. */
 export async function setStripePayoutSchedule(kitchenId: string, interval: 'daily' | 'weekly' | 'manual'): Promise<void> {
+  assertLiveMoneyAllowed();
   const { data, error } = await supabase.functions.invoke('connect-payout-settings', { body: { kitchenId, interval } });
   if (error || data?.error) throw new Error(data?.error || error?.message || 'Could not update payout schedule.');
 }

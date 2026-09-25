@@ -1,4 +1,4 @@
-import { supabase } from './supabase';
+import { supabase, assertLiveMoneyAllowed } from './supabase';
 
 /**
  * Food-Services marketplace client: request → quote → book → deposit. Preppa is the hub —
@@ -151,17 +151,20 @@ export async function submitQuote(body: { requestId: string; amountCents: number
 }
 
 export async function acceptQuoteAndDeposit(quoteId: string): Promise<{ bookingId: string; clientSecret: string | null; depositCents?: number }> {
+  assertLiveMoneyAllowed();
   const { data, error } = await supabase.functions.invoke('accept-quote-and-deposit', { body: { quoteId } });
   if (error || data?.error) throw new Error(data?.error || error?.message || 'Could not start your booking.');
   return { bookingId: data.bookingId, clientSecret: data.clientSecret, depositCents: data.depositCents };
 }
 
 export async function completeBooking(bookingId: string): Promise<{ balanceCharged: boolean; balanceChargeError: string | null }> {
+  assertLiveMoneyAllowed();
   const { data, error } = await supabase.functions.invoke('complete-booking', { body: { bookingId } });
   if (error || data?.error) throw new Error(data?.error || error?.message || 'Could not update the booking.');
   return { balanceCharged: !!data?.balanceCharged, balanceChargeError: data?.balanceChargeError ?? null };
 }
 export async function cancelBooking(bookingId: string): Promise<{ refunded: boolean }> {
+  assertLiveMoneyAllowed();
   const { data, error } = await supabase.functions.invoke('cancel-booking', { body: { bookingId } });
   if (error || data?.error) throw new Error(data?.error || error?.message || 'Could not cancel the booking.');
   return { refunded: !!data?.refunded };

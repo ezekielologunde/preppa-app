@@ -1,4 +1,4 @@
-import { supabase, ensureAuth } from './supabase';
+import { supabase, ensureAuth, assertLiveMoneyAllowed } from './supabase';
 
 // Preppa Pro (cook membership) client. Mirrors src/lib/membership.ts (customer PrepPlus)
 // exactly, kitchen-scoped instead of user-scoped — see cook_memberships / is_cook_pro_member
@@ -25,6 +25,7 @@ export const COOK_PRO_MONTHLY_CENTS = 999;
 export const COOK_PRO_ANNUAL_CENTS = 8900;
 
 async function invokeCookPro(fn: string, body: Record<string, unknown>): Promise<any> {
+  assertLiveMoneyAllowed();
   await ensureAuth();
   const { data, error } = await supabase.functions.invoke(fn, { body });
   if (!error && !data?.error) return data;

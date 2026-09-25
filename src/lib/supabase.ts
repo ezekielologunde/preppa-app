@@ -1,6 +1,6 @@
 import { createClient } from '@supabase/supabase-js';
-import AsyncStorage from '@react-native-async-storage/async-storage';
 import { geocodeAddress } from './geo';
+import { authStorage } from './authStorage';
 
 /**
  * Supabase + Stripe connection for real card payments (LIVE mode).
@@ -24,6 +24,17 @@ const LIVE_STRIPE_PK =
 export const SUPABASE_URL = process.env.EXPO_PUBLIC_SUPABASE_URL || LIVE_SUPABASE_URL;
 const SUPABASE_ANON = process.env.EXPO_PUBLIC_SUPABASE_ANON_KEY || LIVE_SUPABASE_ANON;
 export const STRIPE_PK = process.env.EXPO_PUBLIC_STRIPE_PUBLISHABLE_KEY || LIVE_STRIPE_PK;
+export const APP_ENV = process.env.EXPO_PUBLIC_APP_ENV || 'development';
+
+/** Prevent local, development and preview clients from accidentally mutating live money.
+ * Production web is identified at runtime because Vercel does not consume EAS profile env. */
+export function assertLiveMoneyAllowed(): void {
+  if (!STRIPE_PK.startsWith('pk_live_')) return;
+  const productionWeb = typeof window !== 'undefined' && window.location.hostname === 'app.preppa.live';
+  if (APP_ENV !== 'production' && !productionWeb) {
+    throw new Error('Live payments are disabled in development and preview builds. Use the isolated test environment.');
+  }
+}
 
 // Apple Pay requires a merchant ID registered in the Apple Developer Portal AND added to the
 // Stripe Dashboard's Apple Pay settings — neither exists yet (no literal fallback on purpose,
@@ -37,7 +48,7 @@ export const supabase = createClient(SUPABASE_URL, SUPABASE_ANON, {
   // detectSessionInUrl is OFF: login is email-OTP only, which never uses URL tokens.
   // (It was briefly enabled for Google OAuth, but that flow broke on the Expo-web SPA
   // — "OAuth state parameter missing" — so it's disabled until OAuth is done correctly.)
-  auth: { storage: AsyncStorage as any, autoRefreshToken: true, persistSession: true, detectSessionInUrl: false },
+  auth: { storage: authStorage as any, autoRefreshToken: true, persistSession: true, detectSessionInUrl: false },
 });
 
 /**
@@ -117,6 +128,20 @@ export async function signInWithPassword(email: string, password: string) {
   );
   if (error) throw error;
   return data.session;
+}
+
+/** Start password recovery without creating a new account for an unknown address. */
+export async function sendPasswordResetOtp(email: string) {
+  const { error } = await withTimeout(
+    supabase.auth.signInWithOtp({ email, options: { shouldCreateUser: false } }),
+  );
+  if (error) throw error;
+}
+
+/** Replace the password only after the emailed OTP has established a real session. */
+export async function updatePassword(password: string) {
+  const { error } = await withTimeout(supabase.auth.updateUser({ password }));
+  if (error) throw error;
 }
 
 /** Sign the current user out of Supabase (clears the persisted session). */
@@ -428,6 +453,9 @@ export interface NewMeal {
   serves: number;
   tags?: string[];
   grad?: string;
+  ingredients: string;
+  allergens: string[];
+  allergenReviewed: boolean;
 }
 /**
  * Publish a real meal to the caller's own verified kitchen. The `create_meal` RPC
@@ -443,6 +471,9 @@ export async function createMeal(m: NewMeal): Promise<string> {
     p_serves: m.serves,
     p_tags: m.tags && m.tags.length ? m.tags : null,
     p_grad: m.grad ?? 'g1',
+    p_ingredients: m.ingredients,
+    p_allergens: m.allergens,
+    p_allergen_reviewed: m.allergenReviewed,
   });
   if (error) throw error;
   return data as string;

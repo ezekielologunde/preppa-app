@@ -1,4 +1,4 @@
-import { supabase } from './supabase';
+import { supabase, assertLiveMoneyAllowed } from './supabase';
 
 /**
  * Prepper-published Experience listings (cooking classes / supper clubs / private dinners) with
@@ -170,6 +170,7 @@ export async function fetchAvailability(experienceId: string): Promise<Availabil
 }
 /** Instant-book a session: atomic seat claim + full-payment PaymentIntent. Confirm the clientSecret in CardPaymentSheet. */
 export async function bookExperience(experienceId: string, sessionId: string, guests: number): Promise<{ bookingId: string; clientSecret: string | null; amountCents: number }> {
+  assertLiveMoneyAllowed();
   const { data, error } = await supabase.functions.invoke('book-experience', { body: { experienceId, sessionId, guests } });
   if (error || data?.error) throw new Error(data?.error || error?.message || 'Could not start your booking.');
   return { bookingId: data.bookingId, clientSecret: data.clientSecret, amountCents: data.amountCents };
@@ -215,12 +216,14 @@ export async function leaveWaitlist(sessionId: string): Promise<void> {
 // ---- Cancellation (E3) -----------------------------------------------------------------
 /** Customer cancels their experience booking. Refund per the experience's cancellation policy. */
 export async function cancelExperienceBooking(bookingId: string): Promise<{ refundedCents: number; status: string }> {
+  assertLiveMoneyAllowed();
   const { data, error } = await supabase.functions.invoke('cancel-experience-booking', { body: { bookingId } });
   if (error || data?.error) throw new Error(data?.error || error?.message || 'Could not cancel this booking.');
   return { refundedCents: data.refundedCents ?? 0, status: data.status };
 }
 /** Cook cancels one of their sessions — every live booking is fully refunded + customers notified. */
 export async function cancelExperienceSession(sessionId: string): Promise<{ cancelledBookings: number; refunded: number }> {
+  assertLiveMoneyAllowed();
   const { data, error } = await supabase.functions.invoke('cancel-experience-session', { body: { sessionId } });
   if (error || data?.error) throw new Error(data?.error || error?.message || 'Could not cancel the session.');
   return { cancelledBookings: data.cancelledBookings ?? 0, refunded: data.refunded ?? 0 };

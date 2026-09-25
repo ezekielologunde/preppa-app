@@ -1,4 +1,4 @@
-import { supabase } from './supabase';
+import { supabase, assertLiveMoneyAllowed } from './supabase';
 
 /**
  * Meal-plan subscriptions — the recurring relationship layer.
@@ -313,6 +313,7 @@ export interface SubscribeResult {
 
 /** Subscribe to a plan (app-controlled; no charge now — each cycle bills at its billing date). */
 export async function subscribeToPlan(opts: SubscribeOptions): Promise<SubscribeResult> {
+  assertLiveMoneyAllowed();
   const { data, error } = await supabase.functions.invoke('subscribe-plan', { body: opts });
   if (error || data?.error) {
     const e: any = new Error(data?.error || error?.message || 'Could not start your plan.');
@@ -348,6 +349,7 @@ export function estimateBox(items: { qty: number; priceCents: number }[]): {
 
 /** Build a cross-kitchen box and subscribe (one charge per cycle, split across cooks). */
 export async function buildBox(opts: BuildBoxOptions): Promise<SubscribeResult> {
+  assertLiveMoneyAllowed();
   const { data, error } = await supabase.functions.invoke('subscribe-box', { body: opts });
   if (error || data?.error) {
     const e: any = new Error(data?.error || error?.message || 'Could not create your box.');

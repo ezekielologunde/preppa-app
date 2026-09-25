@@ -1,4 +1,4 @@
-import { supabase, ensureAuth } from './supabase';
+import { supabase, ensureAuth, assertLiveMoneyAllowed } from './supabase';
 
 // PrepPlus membership client. Purchase/manage go through edge functions (Stripe-native
 // recurring on Preppa); entitlement + fee waivers are enforced SERVER-SIDE — nothing here
@@ -25,6 +25,7 @@ export const PREPPLUS_ANNUAL_CENTS = 8900;
 
 /** Invoke a PrepPlus edge fn and surface its `{ error, code }` body reliably (even on non-2xx). */
 async function invokePrepplus(fn: string, body: Record<string, unknown>): Promise<any> {
+  assertLiveMoneyAllowed();
   await ensureAuth();
   const { data, error } = await supabase.functions.invoke(fn, { body });
   if (!error && !data?.error) return data;

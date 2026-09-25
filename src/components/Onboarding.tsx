@@ -2,7 +2,7 @@ import React, { useEffect, useRef, useState } from 'react';
 import { Animated, Easing, Pressable, StyleSheet, Text, TextInput, View, ScrollView } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useStore } from '../store/store';
-import { sendEmailOtp, verifyEmailOtp, signUpWithPassword, signInWithPassword, AUTH_TIMEOUT_MESSAGE } from '../lib/supabase';
+import { sendEmailOtp, verifyEmailOtp, signUpWithPassword, signInWithPassword, sendPasswordResetOtp, updatePassword, AUTH_TIMEOUT_MESSAGE } from '../lib/supabase';
 import { captureCurrentLocation } from '../lib/geo';
 import { Icon } from '../ui/Icon';
 import { Press, GradBox, Btn } from '../ui/primitives';
@@ -131,7 +131,7 @@ function Welcome({ go }: { go: (s: string, m: 'signin' | 'signup') => void }) {
   );
 }
 
-function Auth({ mode, onNext }: { mode: 'signin' | 'signup'; onNext: (email: string, authed: boolean) => void }) {
+function Auth({ mode, onNext, onRecovery }: { mode: 'signin' | 'signup'; onNext: (email: string, authed: boolean) => void; onRecovery: (email: string, newPassword: string) => void }) {
   const c = useC();
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
@@ -140,6 +140,7 @@ function Auth({ mode, onNext }: { mode: 'signin' | 'signup'; onNext: (email: str
   const [info, setInfo] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
   const [codeBusy, setCodeBusy] = useState(false);
+  const [recovering, setRecovering] = useState(false);
   const shake = useShake();
 
   const validEmail = /^\S+@\S+\.\S+$/.test(email.trim());
@@ -150,11 +151,17 @@ function Auth({ mode, onNext }: { mode: 'signin' | 'signup'; onNext: (email: str
     if (busy || codeBusy) return;
     const addr = email.trim();
     const nm = fullName.trim();
-    if (mode === 'signup' && nm.length < 2) { setErr('Please enter your name.'); shake.fire(); return; }
+    if (!recovering && mode === 'signup' && nm.length < 2) { setErr('Please enter your name.'); shake.fire(); return; }
     if (!validEmail) { setErr('That doesn’t look like an email — check for typos.'); shake.fire(); return; }
     if (password.length < 8) { setErr('Use a password of at least 8 characters.'); shake.fire(); return; }
     setErr(null); setInfo(null); setBusy(true);
     try {
+      if (recovering) {
+        await sendPasswordResetOtp(addr);
+        setBusy(false);
+        onRecovery(addr, password);
+        return;
+      }
       if (mode === 'signup') {
         const session = await signUpWithPassword(addr, password, { display_name: nm, first_name: nm.split(/\s+/)[0] });
         setBusy(false);
@@ -169,6 +176,8 @@ function Auth({ mode, onNext }: { mode: 'signin' | 'signup'; onNext: (email: str
       setBusy(false);
       const msg = e?.message === AUTH_TIMEOUT_MESSAGE
         ? e.message
+        : recovering
+          ? 'Couldn’t send a recovery code. Check the email and try again.'
         : mode === 'signin'
           ? 'Wrong email or password. Try again, or email yourself a code.'
           : (typeof e?.message === 'string' && e.message.toLowerCase().includes('already'))
@@ -201,10 +210,10 @@ function Auth({ mode, onNext }: { mode: 'signin' | 'signup'; onNext: (email: str
 
   return (
     <>
-      <Title parts={[mode === 'signin' ? 'Welcome back.' : 'Create your account.']} />
-      <Lead>{mode === 'signin' ? 'Sign in with your email and password.' : 'A couple details and you’re in — your password lets you skip codes next time.'}</Lead>
+      <Title parts={[recovering ? 'Reset your password.' : mode === 'signin' ? 'Welcome back.' : 'Create your account.']} />
+      <Lead>{recovering ? 'Choose a new password. We’ll email a code to confirm it’s you.' : mode === 'signin' ? 'Sign in with your email and password.' : 'A couple details and you’re in — your password lets you skip codes next time.'}</Lead>
       <Animated.View style={{ marginTop: 24, transform: [{ translateX: shake.x }] }}>
-        {mode === 'signup' ? (
+        {mode === 'signup' && !recovering ? (
           <View style={{ marginBottom: 14 }}>
             <Text style={[type(12.5, 800), { color: c.soft, marginBottom: 8 }]}>Full name</Text>
             <TextInput value={fullName} onChangeText={(t) => { setFullName(t); clearMsgs(); }} autoCapitalize="words" autoComplete="name" textContentType="name" placeholder="Your name" placeholderTextColor={c.muted} style={inputStyle(false)} />
@@ -213,24 +222,25 @@ function Auth({ mode, onNext }: { mode: 'signin' | 'signup'; onNext: (email: str
         <Text style={[type(12.5, 800), { color: c.soft, marginBottom: 8 }]}>Email address</Text>
         <TextInput value={email} onChangeText={(t) => { setEmail(t); clearMsgs(); }} keyboardType="email-address" autoCapitalize="none" autoComplete="email" textContentType="emailAddress" placeholder="you@example.com" placeholderTextColor={c.muted} style={inputStyle(!!err)} />
         <View style={{ height: 14 }} />
-        <Text style={[type(12.5, 800), { color: c.soft, marginBottom: 8 }]}>Password</Text>
-        <TextInput value={password} onChangeText={(t) => { setPassword(t); clearMsgs(); }} onSubmitEditing={submit} secureTextEntry autoCapitalize="none" autoComplete={mode === 'signup' ? 'password-new' : 'password'} textContentType={mode === 'signup' ? 'newPassword' : 'password'} placeholder={mode === 'signup' ? 'At least 8 characters' : 'Your password'} placeholderTextColor={c.muted} style={inputStyle(!!err)} />
+        <Text style={[type(12.5, 800), { color: c.soft, marginBottom: 8 }]}>{recovering ? 'New password' : 'Password'}</Text>
+        <TextInput value={password} onChangeText={(t) => { setPassword(t); clearMsgs(); }} onSubmitEditing={submit} secureTextEntry autoCapitalize="none" autoComplete={mode === 'signup' || recovering ? 'password-new' : 'password'} textContentType={mode === 'signup' || recovering ? 'newPassword' : 'password'} placeholder={mode === 'signup' || recovering ? 'At least 8 characters' : 'Your password'} placeholderTextColor={c.muted} style={inputStyle(!!err)} />
+        {mode === 'signin' ? <Pressable onPress={() => { setRecovering((v) => !v); setErr(null); setInfo(null); setPassword(''); }} style={{ marginTop: 11, alignSelf: 'flex-end' }}><Text style={[type(13, 700), { color: c.primary }]}>{recovering ? 'Back to sign in' : 'Forgot password?'}</Text></Pressable> : null}
         {err ? <View style={{ flexDirection: 'row', alignItems: 'center', gap: 7, marginTop: 9 }}><Icon name="info" size={15} color={c.red} /><Text style={[type(13, 700), { color: c.red, flex: 1 }]}>{err}</Text></View> : null}
         {info ? <View style={{ flexDirection: 'row', alignItems: 'center', gap: 7, marginTop: 9 }}><Icon name="check" size={15} color={c.green} /><Text style={[type(13, 700), { color: c.green, flex: 1 }]}>{info}</Text></View> : null}
       </Animated.View>
       <View style={{ flex: 1, minHeight: 24 }} />
       <Btn
-        label={busy ? (mode === 'signin' ? 'Signing in…' : 'Creating…') : (mode === 'signin' ? 'Sign in' : 'Create account')}
+        label={busy ? (recovering ? 'Sending code…' : mode === 'signin' ? 'Signing in…' : 'Creating…') : (recovering ? 'Send recovery code' : mode === 'signin' ? 'Sign in' : 'Create account')}
         iconRight={busy ? undefined : 'arrow'} loading={busy} onPress={submit} block lg
       />
-      <Pressable onPress={emailCode} style={{ marginTop: 16, alignSelf: 'center' }}>
+      {!recovering ? <Pressable onPress={emailCode} style={{ marginTop: 16, alignSelf: 'center' }}>
         <Text style={[type(13.5, 700), { color: c.soft }]}>{codeBusy ? 'Sending code…' : 'Email me a sign-in code instead'}</Text>
-      </Pressable>
+      </Pressable> : null}
     </>
   );
 }
 
-function Code({ email, onNext }: { email: string; onNext: () => void }) {
+function Code({ email, onNext, newPassword }: { email: string; onNext: () => void; newPassword?: string }) {
   const c = useC();
   const [code, setCode] = useState('');
   const [busy, setBusy] = useState(false);
@@ -248,6 +258,7 @@ function Code({ email, onNext }: { email: string; onNext: () => void }) {
     setBusy(true);
     let cancelled = false;
     verifyEmailOtp(email, code)
+      .then(async () => { if (newPassword) await updatePassword(newPassword); })
       .then(() => { if (!cancelled) onNext(); })
       .catch((e: any) => {
         if (cancelled) return;
@@ -260,7 +271,7 @@ function Code({ email, onNext }: { email: string; onNext: () => void }) {
     return () => { cancelled = true; };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [code]);
-  const resend = () => { setCool(24); setResent(true); setErr(null); sendEmailOtp(email).catch(() => {}); setTimeout(() => setResent(false), 2400); };
+  const resend = () => { setCool(24); setResent(true); setErr(null); (newPassword ? sendPasswordResetOtp(email) : sendEmailOtp(email)).catch(() => {}); setTimeout(() => setResent(false), 2400); };
   return (
     <>
       <Title parts={['Check your inbox.']} />
@@ -429,6 +440,7 @@ export function OnboardingFlow() {
   const [step, setStep] = useState('welcome');
   const [mode, setMode] = useState<'signin' | 'signup'>('signup');
   const [email, setEmail] = useState('');
+  const [recoveryPassword, setRecoveryPassword] = useState('');
   const STEPS = ['auth', 'code', 'goal', 'cuisine'];
   const at = STEPS.indexOf(step);
   const back = ({ auth: 'welcome', code: 'auth', goal: 'code', cuisine: 'goal' } as Record<string, string>)[step];
@@ -451,8 +463,8 @@ export function OnboardingFlow() {
         ) : null}
         <Animated.View style={{ flex: 1, opacity: fade, transform: [{ translateY: slide }] }}>
           {step === 'welcome' && <Welcome go={(s, m) => { setMode(m); setStep(s); prefetchContext(); }} />}
-          {step === 'auth' && <Auth mode={mode} onNext={(e, authed) => { setEmail(e); setStep(authed ? (mode === 'signin' ? 'finish' : 'goal') : 'code'); }} />}
-          {step === 'code' && <Code email={email} onNext={() => setStep(mode === 'signin' ? 'finish' : 'goal')} />}
+          {step === 'auth' && <Auth mode={mode} onNext={(e, authed) => { setRecoveryPassword(''); setEmail(e); setStep(authed ? (mode === 'signin' ? 'finish' : 'goal') : 'code'); }} onRecovery={(e, p) => { setEmail(e); setRecoveryPassword(p); setStep('code'); }} />}
+          {step === 'code' && <Code email={email} newPassword={recoveryPassword || undefined} onNext={() => setStep(mode === 'signin' ? 'finish' : 'goal')} />}
           {step === 'goal' && <Goal onNext={() => setStep('cuisine')} />}
           {step === 'cuisine' && <Cuisine onNext={() => setStep('finish')} />}
           {step === 'finish' && <Finish onDone={() => setOnboarded(true)} />}
