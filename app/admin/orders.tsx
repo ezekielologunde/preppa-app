@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useRef, useState } from 'react';
 import { View, Text, ScrollView } from 'react-native';
 import { useC } from '../../src/theme/ThemeContext';
 import { type, radius, tnum } from '../../src/theme/theme';
@@ -24,8 +24,10 @@ export default function AdminOrders() {
   const [selectedOrder, setSelectedOrder] = useState<admin.AdminOrder | null>(null);
   const [open, setOpen] = useState(false);
   const [busy, setBusy] = useState(false);
+  const detailRequest = useRef(0);
 
   const openOrder = async (row: admin.AdminOrder) => {
+    const request = ++detailRequest.current;
     setSelectedOrder(row);
     setOpen(true);
     setBusy(true);
@@ -34,12 +36,17 @@ export default function AdminOrders() {
     try {
       const result = await admin.orderDetail(row.order_id);
       if (!result) throw new Error('This order could not be found. It may have been removed or you may no longer have access.');
-      setDetail(result);
+      if (request === detailRequest.current) setDetail(result);
     } catch {
-      setDetailError('Check your connection and try loading this order again.');
+      if (request === detailRequest.current) setDetailError('Check your connection and try loading this order again.');
     } finally {
-      setBusy(false);
+      if (request === detailRequest.current) setBusy(false);
     }
+  };
+  const closeOrder = () => {
+    detailRequest.current += 1;
+    setOpen(false);
+    setBusy(false);
   };
 
   const columns: Column<admin.AdminOrder>[] = [
@@ -83,7 +90,7 @@ export default function AdminOrders() {
         )}
       </ScrollView>
 
-      <Sheet visible={open} onClose={() => setOpen(false)} title="Order detail" scroll>
+      <Sheet visible={open} onClose={closeOrder} title="Order detail" scroll>
         {busy ? (
           <Text style={[type(14, 600), { color: c.muted, paddingVertical: 20, textAlign: 'center' }]}>Loading…</Text>
         ) : detailError || !detail ? (
