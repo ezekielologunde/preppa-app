@@ -291,6 +291,10 @@ The two auth-hardening gaps found in that pass were closed 2026-09-17: native se
 ### Storefront interaction safety — hardened locally 2026-09-25
 - [x] Kitchen follow and unfollow writes are serialized. The button shows a saving state, blocks rapid duplicate taps, and restores the prior state when the server rejects the change.
 
+### Subscription charge ambiguity — duplicate-charge risk closed locally 2026-09-25
+- [x] Ambiguous Stripe responses now mark the cycle while preserving `payment_status='charging'`. `advance_cycles()` only releases a stale claim when Stripe was never contacted, so the cycle cannot be charged again under a fresh attempt key.
+- [ ] Automated reconciliation of frozen ambiguous cycles remains a repository-scoped follow-up. Until its worker and production schedule are deployed, operations must resolve any `ambiguous_stripe_outcome` against Stripe before changing the cycle.
+
 ### 16. Apple App Store
 An `ascAppId` is already configured (`6802527112`) — **verify what that actually points to** before assuming setup starts from zero. Then: distribution cert, push entitlement, associated domains/deep links, production EAS build, TestFlight, screenshots/description/privacy disclosures, support/privacy URLs, account deletion, review notes.
 

@@ -126,6 +126,28 @@ begin
   end if;
 end $$;
 
+-- Ambiguous off-session charges must stay frozen. Resetting one to pending allows the
+-- next charge worker run to use a fresh attempt key and can double-charge the customer.
+do $$
+declare v_advance text; v_mark text;
+begin
+  select prosrc into v_advance from pg_proc where oid = 'public.advance_cycles()'::regprocedure;
+  if v_advance !~ 'ambiguous_stripe_outcome' then
+    raise exception 'REGRESSION: advance_cycles() can release ambiguous subscription charges for retry';
+  end if;
+  if to_regprocedure('public.mark_cycle_charge_ambiguous(uuid)') is null then
+    raise exception 'REGRESSION: mark_cycle_charge_ambiguous() is missing';
+  end if;
+  select prosrc into v_mark from pg_proc where oid = 'public.mark_cycle_charge_ambiguous(uuid)'::regprocedure;
+  if v_mark !~ 'payment_status = ''charging''' or v_mark !~ 'stripe_payment_intent_id is null' then
+    raise exception 'REGRESSION: ambiguous cycle marker no longer preserves the charging invariant';
+  end if;
+  if has_function_privilege('authenticated', 'public.mark_cycle_charge_ambiguous(uuid)', 'execute')
+     or has_function_privilege('anon', 'public.mark_cycle_charge_ambiguous(uuid)', 'execute') then
+    raise exception 'REGRESSION: ambiguous cycle marker is exposed outside service_role';
+  end if;
+end $$;
+
 -- Order support input remains bounded at the trusted database boundary and cancellation
 -- requests retain a dedicated operational category.
 do $$

@@ -117,10 +117,10 @@ Deno.serve(async (req) => {
       const code = e?.code ?? e?.raw?.code ?? '';
       const piId = e?.raw?.payment_intent?.id ?? null;
       if (isAmbiguousStripeError(e)) {
-        // Unknown outcome even after same-key retries — do NOT mark failed (would reset
-        // payment_status to something claim_cycles_for_charge could pick up again with a fresh,
-        // different idempotency key). Leaving it 'charging' needs manual reconciliation against
-        // Stripe (search PaymentIntents for idempotency key `cyc_${cycleId}_a${attempt}`).
+        // Unknown outcome even after same-key retries. Mark the reason while leaving the cycle
+        // in `charging`; advance_cycles only reaps pre-Stripe crashes and must never release an
+        // ambiguous charge for a fresh idempotency key.
+        await db.rpc('mark_cycle_charge_ambiguous', { p_cycle: cycleId });
         results.push({ cycleId, status: 'ambiguous', reason: e?.type ?? 'connection_error' });
       } else if (code === 'authentication_required') {
         await db.rpc('mark_cycle_action_required', { p_cycle: cycleId, p_pi: piId, p_err: code });
