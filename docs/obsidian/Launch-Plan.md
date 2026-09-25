@@ -44,6 +44,7 @@ tags: [project/preppa, type/launch-plan]
 - Experience browse, detail, session, seat, private-link, and availability helpers now propagate backend failures to existing recovery UI instead of converting them to empty lists, missing records, or "no upcoming sessions."
 - Feed, saved-post, shared-post, follow-state, cook-menu, and pending-kitchen helpers now propagate authentication and query failures to their recovery UI instead of converting failures to empty content or missing records.
 - Seeded and live kitchen storefronts now show follow-state loading and retry controls, and distinguish authentication failures from network or backend failures when a follow update fails.
+- Cook availability and payout-preference reads now reject backend failures. The hub availability control shows checking and retry states instead of displaying or toggling a stale cached open state.
 
 ### Customer acceptance evidence still needed
 

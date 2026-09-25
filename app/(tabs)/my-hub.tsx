@@ -24,17 +24,18 @@ export function well(c: Palette, t: Tone): [string, string] {
 }
 
 /* ---------- availability pill toggle ---------- */
-export function AvailToggle({ on, onToggle }: { on: boolean; onToggle: () => void }) {
+export function AvailToggle({ on, loading, error, onToggle, onRetry }: { on: boolean; loading: boolean; error: boolean; onToggle: () => void; onRetry: () => void }) {
   const c = useC();
+  const label = loading ? 'Checking' : error ? 'Retry' : on ? 'Open' : 'Paused';
   return (
-    <Press scale={0.94} onPress={onToggle}>
-      <View style={{ flexDirection: 'row', alignItems: 'center', gap: 9, height: 38, paddingLeft: 14, paddingRight: 6, borderRadius: radius.pill, backgroundColor: on ? c.greenL : c.bg2 }}>
+    <Press scale={0.94} onPress={error ? onRetry : onToggle} disabled={loading} label={error ? 'Retry kitchen availability' : 'Toggle kitchen availability'}>
+      <View style={{ flexDirection: 'row', alignItems: 'center', gap: 9, height: 38, paddingLeft: 14, paddingRight: 6, borderRadius: radius.pill, backgroundColor: !error && on ? c.greenL : c.bg2, opacity: loading ? 0.65 : 1 }}>
         <View style={{ flexDirection: 'row', alignItems: 'center', gap: 7 }}>
-          <View style={{ width: 9, height: 9, borderRadius: 5, backgroundColor: on ? c.green2 : c.muted }} />
-          <Text style={[type(13.5, 800), { color: on ? c.green : c.soft, letterSpacing: -0.1 }]}>{on ? 'Open' : 'Paused'}</Text>
+          <View style={{ width: 9, height: 9, borderRadius: 5, backgroundColor: error ? c.red : on ? c.green2 : c.muted }} />
+          <Text style={[type(13.5, 800), { color: error ? c.red : on ? c.green : c.soft, letterSpacing: -0.1 }]}>{label}</Text>
         </View>
         <View style={[{ width: 30, height: 30, borderRadius: 15, backgroundColor: c.surface, alignItems: 'center', justifyContent: 'center' }, shadow.soft]}>
-          <Icon name={on ? 'power' : 'pause'} size={15} color={on ? c.green : c.muted} />
+          <Icon name={error ? 'repeat' : on ? 'power' : 'pause'} size={15} color={error ? c.red : on ? c.green : c.muted} />
         </View>
       </View>
     </Press>
@@ -45,7 +46,7 @@ export function AvailToggle({ on, onToggle }: { on: boolean; onToggle: () => voi
 export function HubHeader({ eyebrow = 'My Hub', name, showBell, right, onBack, below, noAvail }: { eyebrow?: string; name: string; showBell?: boolean; right?: React.ReactNode; onBack?: () => void; below?: React.ReactNode; noAvail?: boolean }) {
   const c = useC();
   const insets = useSafeAreaInsets();
-  const { avail, toggleAvail, toast } = useStore();
+  const { avail, availLoading, availError, refreshAvail, toggleAvail, toast } = useStore();
   return (
     <View style={{ backgroundColor: c.surface, paddingTop: insets.top + 10, paddingBottom: 16, paddingHorizontal: 20, borderBottomWidth: 1, borderBottomColor: c.border2 }}>
       <View style={{ flexDirection: 'row', alignItems: 'center', gap: 12 }}>
@@ -68,7 +69,7 @@ export function HubHeader({ eyebrow = 'My Hub', name, showBell, right, onBack, b
           </View>
         </View>
         <View style={{ flexDirection: 'row', alignItems: 'center', gap: 9 }}>
-          {noAvail ? null : <AvailToggle on={avail} onToggle={toggleAvail} />}
+          {noAvail ? null : <AvailToggle on={avail} loading={availLoading} error={!!availError} onToggle={toggleAvail} onRetry={() => void refreshAvail()} />}
           {right}
           {showBell ? (
             <Press scale={0.9} onPress={() => toast('No new alerts', 'bell')}>

@@ -159,6 +159,9 @@ interface Store {
 
   // prepper "My Hub"
   avail: boolean;
+  availLoading: boolean;
+  availError: string;
+  refreshAvail: () => Promise<void>;
   toggleAvail: () => void;
   acted: string[];
   acceptOrder: (id: string) => void;
@@ -228,6 +231,8 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
   // as an array means "add a second plan" later is a config flip, not a rewrite.
   const [subs, setSubs] = useState<Subscription[]>([]);
   const [avail, setAvail] = useState(true);
+  const [availLoading, setAvailLoading] = useState(true);
+  const [availError, setAvailError] = useState('');
   const [acted, setActed] = useState<string[]>([]);
   const [notifs, setNotifs] = useState<AppNotification[]>([]); // real notifications from the DB
   const [notificationsLoading, setNotificationsLoading] = useState(false);
@@ -558,6 +563,8 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
     setAvatarUrl(null);
     setDarkModeState(false);
     setAvail(true);
+    setAvailLoading(false);
+    setAvailError('');
     setActed([]);
     setPrepperStatus('none');
     setIsAdmin(false);
@@ -584,9 +591,11 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
           const kitchen = await getMyKitchen();
           if (!kitchen) throw new Error('No kitchen found for this account.');
           await setKitchenAvailability(kitchen.id, next);
+          setAvailError('');
           toast(next ? 'You’re open for orders' : 'Kitchen paused', next ? 'check' : 'pause', next);
         } catch (e: any) {
           setAvail(prevAvail); // rollback — the DB write failed, don't show a state that isn't real
+          setAvailError(e?.message || 'Could not update availability.');
           toast(e?.message || 'Could not update availability. Please try again.', 'info');
         }
       })();
@@ -596,14 +605,20 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
 
   // Sync `avail` from the real DB column on load — the AsyncStorage-persisted value above
   // is only a display cache now, never the source of truth for whether orders are blocked.
-  useEffect(() => {
-    let alive = true;
-    getMyKitchen().then((k) => {
-      if (!alive || !k) return;
-      getKitchenAvailability(k.id).then((open) => { if (alive) setAvail(open); });
-    });
-    return () => { alive = false; };
+  const refreshAvail = useCallback(async () => {
+    setAvailLoading(true);
+    setAvailError('');
+    try {
+      const kitchen = await getMyKitchen();
+      if (kitchen) setAvail(await getKitchenAvailability(kitchen.id));
+    } catch (e: any) {
+      setAvailError(e?.message || 'Could not load kitchen availability.');
+    } finally { setAvailLoading(false); }
   }, []);
+  useEffect(() => {
+    if (prepperStatus === 'approved') void refreshAvail();
+    else { setAvailLoading(false); setAvailError(''); }
+  }, [prepperStatus, refreshAvail]);
   const acceptOrder = useCallback((id: string) => setActed((a) => [...a, id]), []);
 
   const showFlash = useCallback((item: { name: string; grad: GradKey }) => {
@@ -687,6 +702,9 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
     updateSub,
     cancelSub,
     avail,
+    availLoading,
+    availError,
+    refreshAvail,
     toggleAvail,
     acted,
     acceptOrder,

@@ -135,11 +135,12 @@ export async function getPayoutHistory(kitchenId: string, limit = 50): Promise<P
 
 /** The cook's current automatic-payout preferences. */
 export async function getPayoutPreferences(kitchenId: string): Promise<{ autoEnabled: boolean; minCents: number }> {
-  const { data } = await supabase
+  const { data, error } = await supabase
     .from('stripe_accounts')
     .select('auto_payout_enabled, auto_payout_min_cents')
     .eq('kitchen_id', kitchenId)
     .maybeSingle();
+  if (error) throw new Error(error.message || 'Could not load payout preferences.');
   return { autoEnabled: data?.auto_payout_enabled ?? true, minCents: data?.auto_payout_min_cents ?? 2000 };
 }
 
@@ -177,7 +178,8 @@ export async function openPayoutDashboard(kitchenId: string): Promise<boolean> {
 /** The kitchen's real, server-side availability ('open' means orderable). */
 export async function getKitchenAvailability(kitchenId: string): Promise<boolean> {
   const { data, error } = await supabase.from('kitchens').select('availability').eq('id', kitchenId).maybeSingle();
-  if (error || !data) return false;
+  if (error) throw new Error(error.message || 'Could not load kitchen availability.');
+  if (!data) throw new Error('Could not find this kitchen.');
   return data.availability === 'open';
 }
 
