@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useRef, useState } from 'react';
 import { View, Text, ScrollView, TextInput, ActivityIndicator } from 'react-native';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { cookOfLine } from '../../src/data/data';
@@ -21,6 +21,7 @@ export default function Review() {
   const [tags, setTags] = useState<string[]>([]);
   const [text, setText] = useState('');
   const [busy, setBusy] = useState(false);
+  const reviewInFlight = useRef(false);
   const toggle = (t: string) => setTags((p) => (p.includes(t) ? p.filter((x) => x !== t) : [...p, t]));
 
   if (!o && ordersLoading) {
@@ -46,12 +47,13 @@ export default function Review() {
   // `o.dbId` is the real Supabase orders.id — a review is only ever left against that, never
   // against the local mock order id, since reviews.order_id is a real FK.
   const submit = async () => {
-    if (busy) return;
+    if (reviewInFlight.current) return;
     const orderDbId = o?.dbId;
     if (!orderDbId) {
       toast('This order can’t be reviewed yet.', 'info');
       return;
     }
+    reviewInFlight.current = true;
     setBusy(true);
     try {
       const note = [text.trim(), tags.length ? tags.join(', ') : null].filter(Boolean).join(' — ');
@@ -61,6 +63,7 @@ export default function Review() {
     } catch (e: any) {
       toast(e?.message || 'Could not submit your review.', 'info');
     } finally {
+      reviewInFlight.current = false;
       setBusy(false);
     }
   };

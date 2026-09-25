@@ -95,6 +95,7 @@ tags: [project/preppa, type/launch-plan]
 - Admin ticket status, replies, cook sharing, urgent support status changes, and payout reconciliation now use synchronous shared mutation locks. Conflicting rapid operator actions cannot race before the disabled state renders.
 - Admin kitchen applications, in-home vetting, experience review, user-role changes, suspension, and reinstatement now use the same synchronous review lock, preventing duplicate or conflicting approval and access decisions.
 - Customer booking completion and cancellation, service-request creation or editing, and address save or removal now use synchronous shared action locks. Refund, balance-collection, request, and address mutations cannot be duplicated before loading state renders.
+- Cook booking completion, cancellation, quotes, shared support replies, customer reviews, and text or image messages now lock synchronously before optimistic or server writes. Their controls expose the active disabled state where applicable.
 
 ### Customer acceptance evidence still needed
 

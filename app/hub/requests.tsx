@@ -1,4 +1,4 @@
-import React, { useCallback, useState } from 'react';
+import React, { useCallback, useRef, useState } from 'react';
 import { View, Text, ScrollView, TextInput, ActivityIndicator } from 'react-native';
 import { useRouter, useFocusEffect } from 'expo-router';
 import { useC } from '../../src/theme/ThemeContext';
@@ -69,9 +69,11 @@ export default function HubRequests() {
 function BookingCard({ b, onChanged, toast }: { b: KitchenBookingView; onChanged: () => void; toast: (m: string, i?: string, ok?: boolean) => void }) {
   const c = useC();
   const [busy, setBusy] = useState<'complete' | 'cancel' | null>(null);
+  const bookingActionInFlight = useRef(false);
 
   const complete = async () => {
-    if (busy) return;
+    if (bookingActionInFlight.current) return;
+    bookingActionInFlight.current = true;
     setBusy('complete');
     try {
       const res = await completeBooking(b.id);
@@ -83,25 +85,28 @@ function BookingCard({ b, onChanged, toast }: { b: KitchenBookingView; onChanged
       toast(message, res.balanceChargePending || res.balanceChargeError ? 'info' : 'check', !res.balanceChargePending && !res.balanceChargeError);
       onChanged();
     } catch (e: any) { toast(e?.message || 'Could not complete the booking', 'info'); }
-    finally { setBusy(null); }
+    finally { bookingActionInFlight.current = false; setBusy(null); }
   };
   const requestComplete = () => {
+    if (bookingActionInFlight.current) return;
     const chargeCopy = b.balanceCents > 0
       ? `This marks the booking complete and charges the customer’s remaining ${money(b.balanceCents / 100)} balance.`
       : 'This marks the booking complete. The customer has already paid in full.';
     confirmAction('Complete this booking?', chargeCopy, () => void complete(), 'Mark complete');
   };
   const cancel = async () => {
-    if (busy) return;
+    if (bookingActionInFlight.current) return;
+    bookingActionInFlight.current = true;
     setBusy('cancel');
     try {
       const res = await cancelBooking(b.id);
       toast(res.refunded ? 'Booking cancelled and refunded' : 'Booking cancelled', res.refunded ? 'check' : 'x', res.refunded);
       onChanged();
     } catch (e: any) { toast(e?.message || 'Could not cancel the booking', 'info'); }
-    finally { setBusy(null); }
+    finally { bookingActionInFlight.current = false; setBusy(null); }
   };
   const requestCancel = () => {
+    if (bookingActionInFlight.current) return;
     confirmAction(
       'Cancel this booking?',
       `This cancels the booking with ${b.customerName} and refunds the customer’s deposit when one was charged.`,
@@ -120,8 +125,8 @@ function BookingCard({ b, onChanged, toast }: { b: KitchenBookingView; onChanged
         {money(b.amountCents / 100)} total{b.balanceCents > 0 ? ` · ${money(b.balanceCents / 100)} due on completion` : ' · paid in full'}
       </Text>
       <View style={{ flexDirection: 'row', gap: 10, marginTop: 12 }}>
-        <KBtn label={busy === 'cancel' ? '…' : 'Cancel'} variant="ghost" flex={1} onPress={requestCancel} />
-        <KBtn label={busy === 'complete' ? '…' : 'Mark complete'} variant="pri" icon="check" flex={2} onPress={requestComplete} />
+        <KBtn label={busy === 'cancel' ? '…' : 'Cancel'} variant="ghost" flex={1} onPress={requestCancel} disabled={busy !== null} />
+        <KBtn label={busy === 'complete' ? '…' : 'Mark complete'} variant="pri" icon="check" flex={2} onPress={requestComplete} disabled={busy !== null} />
       </View>
     </View>
   );
@@ -136,18 +141,20 @@ function RequestCard({ r, onQuoted, toast }: { r: IncomingRequest; onQuoted: () 
   const [note, setNote] = useState('');
   const [open, setOpen] = useState(false);
   const [busy, setBusy] = useState(false);
+  const quoteInFlight = useRef(false);
   const quoted = !!r.myQuoteId;
 
   const send = async () => {
-    if (busy) return;
+    if (quoteInFlight.current) return;
     const amt = Math.round(Number(amount) * 100);
     const dep = deposit ? Math.round(Number(deposit) * 100) : Math.round(amt * 0.25);
     if (!(amt > 0)) { toast('Enter your price', 'info'); return; }
     if (dep > amt) { toast('Deposit can’t exceed the total', 'info'); return; }
+    quoteInFlight.current = true;
     setBusy(true);
     try { await submitQuote({ requestId: r.requestId, amountCents: amt, depositCents: dep, note: note.trim() || undefined }); toast('Quote sent', 'check', true); setOpen(false); onQuoted(); }
     catch (e: any) { toast(e?.message || 'Could not send quote', 'info'); }
-    finally { setBusy(false); }
+    finally { quoteInFlight.current = false; setBusy(false); }
   };
 
   return (
@@ -171,7 +178,7 @@ function RequestCard({ r, onQuoted, toast }: { r: IncomingRequest; onQuoted: () 
               <QInput c={c} value={deposit} onChange={setDeposit} placeholder="Deposit $ (opt)" />
             </View>
             <QInput c={c} value={note} onChange={setNote} placeholder="Note to the customer (optional)" multiline />
-            <KBtn label={busy ? 'Sending…' : 'Send quote'} variant="pri" onPress={send} />
+            <KBtn label={busy ? 'Sending…' : 'Send quote'} variant="pri" onPress={send} disabled={busy} />
           </View>
         )
       ) : null}

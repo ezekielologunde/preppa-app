@@ -51,6 +51,7 @@ export default function ThreadView() {
   const [notFound, setNotFound] = useState(false);
   const [text, setText] = useState('');
   const [sending, setSending] = useState(false);
+  const sendInFlight = useRef(false);
   const [menu, setMenu] = useState(false);
   const [myId, setMyId] = useState<string | null>(null);
   const [typing, setTyping] = useState(false);
@@ -146,7 +147,7 @@ export default function ThreadView() {
 
   const send = async () => {
     const body = text.trim();
-    if (!body || sending) return;
+    if (!body || sendInFlight.current) return;
     setText('');
     const tempId = `temp-${Date.now()}`;
     const optimistic: Message = {
@@ -155,6 +156,7 @@ export default function ThreadView() {
     };
     setMsgs((m) => [...m, optimistic]);
     scrollDown();
+    sendInFlight.current = true;
     setSending(true);
     try {
       const saved = await sendMessage(threadId, body);
@@ -166,13 +168,14 @@ export default function ThreadView() {
       setMsgs((m) => m.filter((x) => x.id !== tempId)); // roll back the optimistic bubble
       setText(body);
       toast(e?.message?.includes('policy') || e?.code === '42501' ? 'You can’t message this conversation' : (e?.message || 'Couldn’t send'), 'info');
-    } finally { setSending(false); }
+    } finally { sendInFlight.current = false; setSending(false); }
   };
 
   const sendAttachment = async (file: Blob) => {
-    if (sending) return;
+    if (sendInFlight.current) return;
     const tempId = `temp-${Date.now()}`;
     const tempUrl = URL.createObjectURL(file);
+    sendInFlight.current = true;
     const optimistic: Message = {
       id: tempId, threadId, senderId: meIdRef.current ?? 'me', senderRole: header?.iAmCook ? 'kitchen' : 'customer',
       kind: 'image', body: tempUrl, createdAt: new Date().toISOString(), mine: true,
@@ -189,7 +192,7 @@ export default function ThreadView() {
     } catch (e: any) {
       setMsgs((m) => m.filter((x) => x.id !== tempId));
       toast(e?.message || 'Could not send the photo', 'info');
-    } finally { setSending(false); URL.revokeObjectURL(tempUrl); }
+    } finally { sendInFlight.current = false; setSending(false); URL.revokeObjectURL(tempUrl); }
   };
 
   // Web-only picker (matches the pattern used for plan/meal cover uploads elsewhere).

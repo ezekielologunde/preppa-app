@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import { View, Text, ScrollView, TextInput } from 'react-native';
 import { useRouter } from 'expo-router';
 import { useC } from '../../src/theme/ThemeContext';
@@ -17,6 +17,7 @@ function Thread({ ticketId, status, myUid, onReplied }: { ticketId: string; stat
   const [loadError, setLoadError] = useState('');
   const [reply, setReply] = useState('');
   const [busy, setBusy] = useState(false);
+  const replyInFlight = useRef(false);
 
   const load = async () => {
     setMsgs(null);
@@ -27,11 +28,12 @@ function Thread({ ticketId, status, myUid, onReplied }: { ticketId: string; stat
   useEffect(() => { load(); /* eslint-disable-next-line react-hooks/exhaustive-deps */ }, [ticketId]);
 
   const send = async () => {
-    if (busy || reply.trim().length < 1) return;
+    if (replyInFlight.current || reply.trim().length < 1) return;
+    replyInFlight.current = true;
     setBusy(true);
     try { await tickets.replyToSharedTicket(ticketId, reply.trim()); setReply(''); await load(); onReplied(); }
     catch (e: any) { toast(e?.message ?? 'Could not send', 'info'); }
-    finally { setBusy(false); }
+    finally { replyInFlight.current = false; setBusy(false); }
   };
 
   return (
