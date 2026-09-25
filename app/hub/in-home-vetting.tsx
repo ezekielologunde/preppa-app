@@ -22,6 +22,7 @@ export default function InHomeVetting() {
   const c = useC();
   const { toast } = useStore();
   const [loading, setLoading] = useState(true);
+  const [loadError, setLoadError] = useState('');
   const [kitchenId, setKitchenId] = useState<string | null>(null);
   const [status, setStatus] = useState<VettingStatus>('unverified');
   const [reason, setReason] = useState<string | null>(null);
@@ -30,10 +31,12 @@ export default function InHomeVetting() {
   const [expires, setExpires] = useState('');
   const [busy, setBusy] = useState(false);
 
-  useEffect(() => {
-    (async () => {
+  const load = async () => {
+    setLoading(true);
+    setLoadError('');
+    try {
       const k = await getMyKitchen();
-      if (!k) { setLoading(false); return; }
+      if (!k) { setKitchenId(null); return; }
       setKitchenId(k.id);
       const v = await getMyInHomeVetting(k.id);
       setStatus(v.status);
@@ -50,9 +53,13 @@ export default function InHomeVetting() {
       };
       setBg(await toRefs(v.docs.backgroundCheck));
       setInsurance(await toRefs(v.docs.insurance));
+    } catch (e: any) {
+      setLoadError(e?.message || 'Could not load your in-home safety application.');
+    } finally {
       setLoading(false);
-    })();
-  }, []);
+    }
+  };
+  useEffect(() => { void load(); }, []);
 
   const submit = async () => {
     if (busy || !kitchenId) return;
@@ -75,6 +82,18 @@ export default function InHomeVetting() {
       <Screen>
         <TopBar title="In-home safety" />
         <View style={{ flex: 1, alignItems: 'center', justifyContent: 'center' }}><ActivityIndicator color={c.primary} /></View>
+      </Screen>
+    );
+  }
+  if (loadError) {
+    return (
+      <Screen>
+        <TopBar title="In-home safety" />
+        <View accessibilityRole="alert" style={{ flex: 1, alignItems: 'center', justifyContent: 'center', padding: 24 }}>
+          <Text style={[type(16, 900), { color: c.ink, textAlign: 'center' }]}>Application couldn’t load</Text>
+          <Text style={[type(13.5, 600), { color: c.soft, textAlign: 'center', lineHeight: 20, marginTop: 6, marginBottom: 16 }]}>{loadError}</Text>
+          <Btn label="Try again" icon="repeat" onPress={load} />
+        </View>
       </Screen>
     );
   }

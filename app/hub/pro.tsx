@@ -32,6 +32,7 @@ export default function CookPro() {
   const { toast, reconcileAccount } = useStore();
 
   const [loading, setLoading] = useState(true);
+  const [loadError, setLoadError] = useState('');
   const [kitchenId, setKitchenId] = useState<string | null>(null);
   const [mem, setMem] = useState<CookMembership | null>(null);
   const [summary, setSummary] = useState<CookProSalesSummary | null>(null);
@@ -40,16 +41,30 @@ export default function CookPro() {
   const [addCard, setAddCard] = useState<string | null>(null);
 
   const refresh = async (kid: string) => {
-    try { setMem(await fetchCookMembership(kid)); } catch { /* keep */ }
+    setLoadError('');
+    try {
+      setMem(await fetchCookMembership(kid));
+      return true;
+    } catch (e: any) {
+      setLoadError(e?.message || 'Could not load your Preppa Pro membership.');
+      return false;
+    }
   };
 
-  useEffect(() => {
-    (async () => {
+  const load = async () => {
+    setLoading(true);
+    setLoadError('');
+    try {
       const k = await getMyKitchen();
-      if (k) { setKitchenId(k.id); await refresh(k.id); }
+      setKitchenId(k?.id ?? null);
+      if (k) await refresh(k.id);
+    } catch (e: any) {
+      setLoadError(e?.message || 'Could not load your kitchen membership.');
+    } finally {
       setLoading(false);
-    })();
-  }, []);
+    }
+  };
+  useEffect(() => { void load(); }, []);
 
   const isMember = cookMembershipActive(mem);
   const trialAvailable = !mem?.trialConsumed;
@@ -98,6 +113,19 @@ export default function CookPro() {
       <Screen>
         <TopBar title="Preppa Pro" />
         <View style={{ flex: 1, alignItems: 'center', justifyContent: 'center' }}><ActivityIndicator color={c.primary} /></View>
+      </Screen>
+    );
+  }
+
+  if (loadError) {
+    return (
+      <Screen>
+        <TopBar title="Preppa Pro" />
+        <View accessibilityRole="alert" style={{ flex: 1, alignItems: 'center', justifyContent: 'center', padding: 24 }}>
+          <Text style={[type(17, 900), { color: c.ink, textAlign: 'center' }]}>Membership couldn’t load</Text>
+          <Text style={[type(13.5, 600), { color: c.soft, textAlign: 'center', lineHeight: 20, marginTop: 6, marginBottom: 16 }]}>{loadError}</Text>
+          <Btn label="Try again" icon="repeat" onPress={load} />
+        </View>
       </Screen>
     );
   }
