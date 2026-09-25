@@ -10,7 +10,7 @@ import * as tickets from '../../src/lib/tickets';
 
 function when(iso: string): string { try { return new Date(iso).toLocaleString(); } catch { return ''; } }
 
-function Thread({ ticketId, myUid, onReplied }: { ticketId: string; myUid: string | null; onReplied: () => void }) {
+function Thread({ ticketId, status, myUid, onReplied }: { ticketId: string; status: string; myUid: string | null; onReplied: () => void }) {
   const c = useC();
   const { toast } = useStore();
   const [msgs, setMsgs] = useState<tickets.ThreadMessage[] | null>(null);
@@ -54,7 +54,7 @@ function Thread({ ticketId, myUid, onReplied }: { ticketId: string; myUid: strin
           );
         })
       )}
-      {!loadError ? <TextInput
+      {!loadError && status !== 'closed' ? <TextInput
         value={reply}
         onChangeText={setReply}
         maxLength={2000}
@@ -64,10 +64,11 @@ function Thread({ ticketId, myUid, onReplied }: { ticketId: string; myUid: strin
         accessibilityLabel="Reply to support, 2,000 characters maximum"
         style={{ minHeight: 52, borderWidth: 1, borderColor: c.border, borderRadius: radius.md, padding: 12, color: c.ink, backgroundColor: c.surface, textAlignVertical: 'top', ...(type(14, 600) as object) }}
       /> : null}
-      {!loadError ? <Text style={[type(11.5, 600), { color: c.muted, textAlign: 'right' }]}>{reply.length}/2000</Text> : null}
-      {!loadError ? <View style={{ flexDirection: 'row', justifyContent: 'flex-end' }}>
-        <Btn label="Send" icon="arrow" loading={busy} onPress={send} height={44} />
+      {!loadError && status !== 'closed' ? <Text style={[type(11.5, 600), { color: c.muted, textAlign: 'right' }]}>{reply.length}/2000</Text> : null}
+      {!loadError && status !== 'closed' ? <View style={{ flexDirection: 'row', justifyContent: 'flex-end' }}>
+        <Btn label="Send" icon="arrow" loading={busy} disabled={!reply.trim()} onPress={send} height={44} />
       </View> : null}
+      {!loadError && status === 'closed' ? <Text style={[type(12.5, 700), { color: c.soft }]}>This request is closed. Contact support through the related order if a new issue needs attention.</Text> : null}
     </View>
   );
 }
@@ -127,7 +128,7 @@ export default function HubTickets() {
                 {open ? (
                   <>
                     <Text style={[type(14, 600), { color: c.ink, lineHeight: 21, marginTop: 10 }]}>{t.body}</Text>
-                    <Thread ticketId={t.id} myUid={myUid} onReplied={() => setNonce((n) => n + 1)} />
+                    <Thread ticketId={t.id} status={t.status} myUid={myUid} onReplied={() => setNonce((n) => n + 1)} />
                   </>
                 ) : null}
               </Block>

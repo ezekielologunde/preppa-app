@@ -101,6 +101,7 @@ Went end-to-end through Shef's actual ordering flow (add to cart → cross-sell 
 - [x] ~~Remove the obsolete local-only cook order acceptance API~~ — done 2026-09-25. The live cook order hub already advances fulfillment through the server-authorized `update_order_status` RPC. Deleted the unused `acted`/`acceptOrder` store state so future screens cannot accidentally present a device-local acceptance as a real kitchen update.
 - [x] ~~Harden order and review deep links during account hydration~~ — done 2026-09-25. Direct entry now waits for the signed-in user's order load, distinguishes backend failure from a missing order, and offers retry. Review no longer renders a Maria fallback while loading and refuses reviews until the real order is completed.
 - [x] ~~Bound customer review text~~ — done 2026-09-25. Meal and experience review forms now show character counts and enforce client limits, both write helpers reject oversized text, and `reviews_body_length` enforces a 2,000-character ceiling for new database rows.
+- [x] ~~Align the cook support composer with closed-ticket rules~~ — done 2026-09-25. Closed shared tickets now explain that no further reply is allowed instead of showing a composer the server would reject; empty replies are disabled on open threads.
 - [ ] In-app camera broadcast for Go Live (currently external RTMP only — no official Mux RN SDK).
 - Cash on delivery is not offered. Any future version requires a separately approved held-card, deposit, and identity design before client work begins.
 
