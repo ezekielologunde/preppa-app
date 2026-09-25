@@ -77,6 +77,27 @@ async function getOrCreateCustomer(db: any, uid: string, email: string | null): 
   return customer.id;
 }
 
+async function recordPaymentIntent(db: any, orderId: string, pi: Stripe.PaymentIntent, amountCents: number): Promise<void> {
+  const { error } = await db.from('payment_intents').insert({
+    order_id: orderId,
+    stripe_payment_intent_id: pi.id,
+    amount_cents: amountCents,
+    status: pi.status,
+  });
+  if (!error) return;
+  if (error.code !== '23505') throw error;
+
+  // A concurrent retry may have recorded the same Stripe object first. Only accept the
+  // conflict when it points at this order; never attach one payment to two orders.
+  const { data: recorded, error: recordedError } = await db
+    .from('payment_intents')
+    .select('order_id')
+    .eq('stripe_payment_intent_id', pi.id)
+    .maybeSingle();
+  if (recordedError) throw recordedError;
+  if (recorded?.order_id !== orderId) throw error;
+}
+
 Deno.serve(async (req) => {
   if (req.method === 'OPTIONS') return new Response('ok', { headers: corsHeaders });
   if (req.method !== 'POST') return json(405, { error: 'method not allowed' });
@@ -102,15 +123,68 @@ Deno.serve(async (req) => {
     if (input.method === 'cod') return json(400, { error: 'Cash on delivery isn\'t available yet.' });
     if (input.fulfillment === 'pickup' && !input.country) return json(400, { error: 'Choose a valid area before checkout so tax can be calculated.' });
 
-    const { data: existing } = await db
-      .from('orders').select('id, tax_cents').eq('customer_id', customerId).eq('idempotency_key', input.idempotencyKey).maybeSingle();
+    const { data: existing, error: existingError } = await db
+      .from('orders')
+      .select('id, kitchen_id, pay_status, subtotal_cents, tax_cents, tip_cents, total_cents')
+      .eq('customer_id', customerId)
+      .eq('idempotency_key', input.idempotencyKey)
+      .maybeSingle();
+    if (existingError) throw existingError;
     if (existing) {
-      const { data: piRow } = await db
+      if (existing.kitchen_id !== input.kitchenId) {
+        return json(409, { error: 'This checkout key belongs to a different kitchen. Return to your cart and start checkout again.' });
+      }
+      if (existing.pay_status !== 'unpaid') {
+        return json(409, { error: existing.pay_status === 'paid' ? 'This order has already been paid.' : 'This order is no longer payable.' });
+      }
+
+      const { data: piRow, error: piRowError } = await db
         .from('payment_intents').select('stripe_payment_intent_id').eq('order_id', existing.id)
         .order('created_at', { ascending: false }).limit(1).maybeSingle();
-      let clientSecret: string | null = null;
-      if (piRow) clientSecret = (await stripe.paymentIntents.retrieve(piRow.stripe_payment_intent_id)).client_secret;
-      return json(200, { orderId: existing.id, clientSecret, taxCents: existing.tax_cents ?? 0, reused: true });
+      if (piRowError) throw piRowError;
+      if (piRow) {
+        const pi = await stripe.paymentIntents.retrieve(piRow.stripe_payment_intent_id);
+        if (pi.status === 'succeeded') return json(409, { error: 'This order has already been paid.' });
+        if (!pi.client_secret) return json(409, { error: 'This payment could not be resumed. Return to your cart and start checkout again.' });
+        return json(200, { orderId: existing.id, clientSecret: pi.client_secret, taxCents: existing.tax_cents ?? 0, reused: true });
+      }
+
+      // The order and its items may have committed before Stripe or the local payment row
+      // failed. Recover only when the persisted cart exactly matches this retry.
+      const { data: persistedItems, error: persistedItemsError } = await db
+        .from('order_items')
+        .select('meal_id, qty')
+        .eq('order_id', existing.id);
+      if (persistedItemsError) throw persistedItemsError;
+      const requestedQty = new Map<string, number>();
+      for (const item of input.items) requestedQty.set(item.mealId, (requestedQty.get(item.mealId) ?? 0) + item.qty);
+      const persistedQty = new Map<string, number>();
+      for (const item of persistedItems ?? []) persistedQty.set(item.meal_id, (persistedQty.get(item.meal_id) ?? 0) + item.qty);
+      const itemsMatch = requestedQty.size === persistedQty.size
+        && [...requestedQty].every(([mealId, qty]) => persistedQty.get(mealId) === qty);
+      if (!itemsMatch || existing.total_cents <= 0) {
+        return json(409, { error: 'This order could not be recovered. Return to your cart and start checkout again.' });
+      }
+
+      const stripeCustomerId = await getOrCreateCustomer(db, customerId, email);
+      const recoveredPi = await stripe.paymentIntents.create({
+        amount: existing.total_cents,
+        currency: 'usd',
+        customer: stripeCustomerId,
+        automatic_payment_methods: { enabled: true },
+        ...(input.savePaymentMethod ? { setup_future_usage: 'off_session' as const } : {}),
+        metadata: {
+          order_id: existing.id,
+          customer_id: customerId,
+          kitchen_id: existing.kitchen_id,
+          tip_cents: String(existing.tip_cents),
+          subtotal_cents: String(existing.subtotal_cents),
+          tax_cents: String(existing.tax_cents ?? 0),
+        },
+      }, { idempotencyKey: input.idempotencyKey });
+      if (!recoveredPi.client_secret) return json(409, { error: 'This payment could not be resumed. Return to your cart and start checkout again.' });
+      await recordPaymentIntent(db, existing.id, recoveredPi, existing.total_cents);
+      return json(200, { orderId: existing.id, clientSecret: recoveredPi.client_secret, taxCents: existing.tax_cents ?? 0, reused: true });
     }
 
     let deliveryAddressText: string | null = null;
@@ -202,7 +276,8 @@ Deno.serve(async (req) => {
       ...(input.savePaymentMethod ? { setup_future_usage: 'off_session' as const } : {}),
       metadata: { order_id: order.id, customer_id: customerId, kitchen_id: input.kitchenId, tip_cents: String(tip), subtotal_cents: String(subtotal), tax_cents: String(tax) },
     }, { idempotencyKey: input.idempotencyKey });
-    await db.from('payment_intents').insert({ order_id: order.id, stripe_payment_intent_id: pi.id, amount_cents: total, status: pi.status });
+    if (!pi.client_secret) throw new Error('Stripe did not return a client secret');
+    await recordPaymentIntent(db, order.id, pi, total);
 
     return json(200, {
       orderId: order.id, clientSecret: pi.client_secret,

@@ -13,9 +13,9 @@ tags: [project/preppa, type/launch-plan]
 
 **Not signed off for public launch.** Core implementation exists, but the customer-to-cook money journey and operational gates remain open. Older completed items below are historical evidence, not a fresh production verification.
 
-- Local `npm run typecheck`, web export, targeted bundle-secret scan, full local migration replay, and SQL regressions passed on 2026-09-25. GitHub CI run `36149741597` at `36456ef` passed `typecheck`, `web-build-security`, and `db-regression-tests`.
+- Local `npm run typecheck`, web export, targeted bundle-secret scan, full local migration replay, and SQL regressions passed on 2026-09-25. GitHub CI run `36157212001` at `234c3f1` passed `typecheck`, `web-build-security`, and `db-regression-tests`.
 - Local `npx expo export --platform web` passed. Built output scan found no Stripe secret-key prefixes, PEM private-key headers or `SUPABASE_SERVICE_ROLE_KEY` identifiers; this is a targeted scan, not a comprehensive secret audit.
-- Expo SDK 57 patch alignment removed the 4 high findings and the Hermes regression. Current `npm audit`: 14 moderate, 0 high, 0 critical. `expo-doctor` passes 21/21. Remaining advisories are transitive in the Expo toolchain/router graph; no incompatible forced downgrade applied.
+- Expo SDK 57 patch alignment removed the high findings and Hermes regression. Current `npm audit` reports zero known vulnerabilities, and `expo-doctor` passes 21/21.
 - Fixed build-upload exclusions by removing the two-line `.easignore` overriding `.gitignore`; added general `.env.*` protection with example-file exceptions. A local `.p8` file exists and is Git-ignored; its contents were not read. Prior build archives were not inspected, so no credential leak is confirmed. See [[Security]].
 - Native session persistence now uses SecureStore and sign-in includes OTP-verified password recovery. Production fallback configuration and the absence of a full UI customer-flow suite remain.
 - Development and preview profiles are now explicitly labeled and refuse every client-side live-money entry point when a live Stripe publishable key is present. Production native builds and `app.preppa.live` remain enabled. This prevents accidental charges/refunds/payouts from ordinary non-production clients; it is an accident guard, not a server authorization boundary, and a separate test backend is still required for realistic acceptance testing.
@@ -64,6 +64,7 @@ tags: [project/preppa, type/launch-plan]
 - Pickup checkout now requires a geocoded country before order creation, and failed area geocoding clears any stale prior country instead of silently reusing the wrong tax jurisdiction.
 - Payment and service clients now extract the JSON reason from failed Edge Function responses, preserving actionable checkout, saved-card, request, quote, booking, and refund messages instead of replacing them with a generic SDK failure.
 - The same Edge Function error handling now covers cook onboarding, payouts, order refunds, experiences, subscriptions, plan publishing, and livestream controls. Admin experience review and live-feed reads no longer convert backend failures into false empty states.
+- Checkout retries now recover an order that was saved before its Stripe PaymentIntent row, but only after matching the customer, kitchen, unpaid state, total, and exact persisted cart. Concurrent retries cannot attach one Stripe intent to another order, finalized orders are not charged again, and unrecoverable states give the customer a clear path back to a fresh checkout.
 
 ### Customer acceptance evidence still needed
 
