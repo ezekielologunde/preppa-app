@@ -24,9 +24,10 @@ export default function Checkout() {
   const c = useC();
   const router = useRouter();
   const { cook } = useLocalSearchParams<{ cook?: string }>();
-  const ck = cook || undefined;
   const { cart, tip, setTip, mode, setMode, placeOrder, address, orders, toast, resetOnboarding } = useStore();
-  const lines = ck ? cart.filter((l) => lineKey(l) === ck) : cart;
+  const checkoutCook = cook || (cart[0] ? lineKey(cart[0]) : undefined);
+  const lines = checkoutCook ? cart.filter((line) => lineKey(line) === checkoutCook) : [];
+  const remainingKitchenCount = new Set(cart.filter((line) => lineKey(line) !== checkoutCook).map(lineKey)).size;
   const t = useTotals(lines, tip, mode);
   const { methods, defaultId, loading: cardsLoading, error: cardsError, refetch: refetchCards } = useSavedCards();
   const [busy, setBusy] = useState(false);
@@ -66,7 +67,7 @@ export default function Checkout() {
     }
   }, [mode, setMode, supportsDelivery, supportsPickup, toast]);
   const checkoutSignature = JSON.stringify({
-    kitchen: ck ?? lineKey(lines[0] ?? { cook: '' }),
+    kitchen: checkoutCook ?? '',
     items: lines.map((line) => [line.mealUuid, line.qty]),
     mode,
     tip,
@@ -75,8 +76,8 @@ export default function Checkout() {
     payment: selectedCard?.id ?? `new:${saveNewCard}`,
   });
   const idemKey = useMemo(
-    () => `${ck ?? 'cart'}-${checkoutNonce}-${hashCheckoutSignature(checkoutSignature)}`,
-    [ck, checkoutNonce, checkoutSignature],
+    () => `${checkoutCook ?? 'cart'}-${checkoutNonce}-${hashCheckoutSignature(checkoutSignature)}`,
+    [checkoutCook, checkoutNonce, checkoutSignature],
   );
   const theCook = cookOfLine(lines[0] ?? { cook: '', grad: 'g1' });
   const deliveryAddressMissing = mode === 'delivery' && !isCompleteDeliveryAddress(address);
@@ -102,7 +103,7 @@ export default function Checkout() {
       setAddrSheet(true);
       return;
     }
-    const cookId = ck ?? lineKey(lines[0]);
+    const cookId = checkoutCook!;
     setPaymentError(null);
     setBusy(true);
     const onError = (e: unknown) => {
@@ -141,9 +142,9 @@ export default function Checkout() {
         });
         if (alreadyPaid) {
           setBusy(false);
-          placeOrder(ck, orderId, taxCents);
+          placeOrder(checkoutCook, orderId, taxCents);
           toast('Payment confirmed. Opening your order.', 'check', true);
-          router.replace(`/track?cook=${ck ?? ''}&orderId=${orderId}`);
+          router.replace(`/track?cook=${checkoutCook}&orderId=${orderId}`);
           return;
         }
         if (!clientSecret) throw new Error('Could not resume this payment.');
@@ -177,8 +178,8 @@ export default function Checkout() {
         deliveryInstructions: mode === 'delivery' ? deliveryInstructions.trim() || undefined : undefined,
       });
       setBusy(false);
-      placeOrder(ck, orderId, taxCents);
-      router.replace(`/track?cook=${ck ?? ''}&orderId=${orderId}`);
+      placeOrder(checkoutCook, orderId, taxCents);
+      router.replace(`/track?cook=${checkoutCook}&orderId=${orderId}`);
     } catch (e) {
       onError(e);
     }
@@ -192,8 +193,8 @@ export default function Checkout() {
       await confirmSavedCardPayment(cardSecret, selectedCard.id);
       setSavedCardConfirmOpen(false);
       setBusy(false);
-      placeOrder(ck, cardOrderId, cardTaxCents);
-      router.replace(`/track?cook=${ck ?? ''}&orderId=${cardOrderId}`);
+      placeOrder(checkoutCook, cardOrderId, cardTaxCents);
+      router.replace(`/track?cook=${checkoutCook}&orderId=${cardOrderId}`);
     } catch (e) {
       setSavedCardConfirmOpen(false);
       const msg = (e as any)?.message ?? '';
@@ -207,14 +208,21 @@ export default function Checkout() {
   // After a real card charge succeeds, mirror into local history + go to tracking.
   const onCardPaid = () => {
     setCardPayOpen(false);
-    placeOrder(ck, cardOrderId ?? undefined, cardTaxCents);
-    router.replace(`/track?cook=${ck ?? ''}${cardOrderId ? `&orderId=${cardOrderId}` : ''}`);
+    placeOrder(checkoutCook, cardOrderId ?? undefined, cardTaxCents);
+    router.replace(`/track?cook=${checkoutCook ?? ''}${cardOrderId ? `&orderId=${cardOrderId}` : ''}`);
   };
 
   return (
     <Screen>
       <TopBar title="Checkout" sub={`From ${theCook.name}`} />
       <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={{ paddingBottom: 120 }}>
+        {remainingKitchenCount > 0 ? (
+          <View style={{ marginHorizontal: 16, marginTop: 14, padding: 12, borderRadius: radius.md, backgroundColor: c.blueL, borderWidth: 1, borderColor: c.blue }}>
+            <Text style={[type(12.5, 700), { color: c.blue, lineHeight: 18 }]}>
+              This checkout is for {theCook.name}. Items from {remainingKitchenCount} other kitchen{remainingKitchenCount === 1 ? '' : 's'} will stay in your cart.
+            </Text>
+          </View>
+        ) : null}
         <Block title="Your order">
           {lines.map((l, i) => <OrderLineRow key={l.key} line={l} first={i === 0} />)}
         </Block>
