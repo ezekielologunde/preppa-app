@@ -37,7 +37,7 @@ export default function MealDetail() {
   const isFav = fav.has(m.id);
 
   const add = () => {
-    addToCart({ key: m.id, name: m.name, cook: m.cook, price: m.price, grad: m.grad, img: m.img, mealUuid: m.mealUuid, kitchenUuid: m.kitchenUuid, kitchenName: m.kitchenName }, qty);
+    addToCart({ key: m.id, name: m.name, cook: m.cook, price: m.price, grad: m.grad, img: m.img, mealUuid: m.mealUuid, kitchenUuid: m.kitchenUuid, kitchenName: m.kitchenName, supportsDelivery: m.supportsDelivery, supportsPickup: m.supportsPickup }, qty);
     showFlash({ name: m.name, grad: m.grad });
     router.back();
   };

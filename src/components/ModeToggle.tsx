@@ -12,7 +12,7 @@ const MODES = [
 
 /** Shared Delivery/Pickup segmented control bound to the global `mode`.
  *  Lives on Home (browse bias) and in cart/checkout (authoritative, where it sets the fee). */
-export function ModeToggle({ sm }: { sm?: boolean }) {
+export function ModeToggle({ sm, deliveryDisabled = false, pickupDisabled = false }: { sm?: boolean; deliveryDisabled?: boolean; pickupDisabled?: boolean }) {
   const c = useC();
   const { mode, setMode } = useStore();
   const h = sm ? 34 : 36;
@@ -20,9 +20,10 @@ export function ModeToggle({ sm }: { sm?: boolean }) {
     <View style={{ flexDirection: 'row', alignSelf: 'flex-start', backgroundColor: c.bg2, padding: 4, borderRadius: 13, gap: 4 }}>
       {MODES.map((m) => {
         const on = mode === m.id;
+        const disabled = m.id === 'delivery' ? deliveryDisabled : pickupDisabled;
         return (
-          <Press key={m.id} scale={0.97} onPress={() => setMode(m.id)} label={m.t}>
-            <View style={[{ height: h, paddingHorizontal: sm ? 15 : 18, borderRadius: 10, flexDirection: 'row', alignItems: 'center', gap: 6 }, on ? { backgroundColor: c.surface, ...shadow.soft } : null]}>
+          <Press key={m.id} scale={0.97} onPress={() => setMode(m.id)} label={`${m.t}${disabled ? ', unavailable' : ''}`} disabled={disabled}>
+            <View style={[{ height: h, paddingHorizontal: sm ? 15 : 18, borderRadius: 10, flexDirection: 'row', alignItems: 'center', gap: 6, opacity: disabled ? 0.42 : 1 }, on ? { backgroundColor: c.surface, ...shadow.soft } : null]}>
               <Icon name={m.ico} size={15} color={on ? c.ink : c.soft} />
               <Text style={[type(13.5, 700), { color: on ? c.ink : c.soft }]}>{m.t}</Text>
             </View>

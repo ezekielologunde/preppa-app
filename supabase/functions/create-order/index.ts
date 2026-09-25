@@ -123,13 +123,19 @@ Deno.serve(async (req) => {
     // Re-check the kitchen before both new orders and idempotent payment recovery. An
     // interrupted checkout must not resume after suspension, pause, or payout loss.
     const { data: kitchen, error: kitchenError } = await db
-      .from('kitchens').select('id, owner_id, verification_status, availability').eq('id', input.kitchenId).single();
+      .from('kitchens').select('id, owner_id, verification_status, availability, supports_delivery, supports_pickup').eq('id', input.kitchenId).single();
     if (kitchenError) throw kitchenError;
     if (!kitchen || kitchen.verification_status !== 'verified' || kitchen.availability !== 'open') {
       return json(409, { error: 'This kitchen isn\'t taking orders right now.' });
     }
     if (kitchen.owner_id === customerId) {
       return json(409, { error: 'You can\'t place an order from your own kitchen.' });
+    }
+    if (input.fulfillment === 'delivery' && kitchen.supports_delivery === false) {
+      return json(409, { error: 'This kitchen does not currently offer delivery.' });
+    }
+    if (input.fulfillment === 'pickup' && kitchen.supports_pickup === false) {
+      return json(409, { error: 'This kitchen does not currently offer pickup.' });
     }
     const { data: acct, error: acctError } = await db
       .from('stripe_accounts').select('payouts_enabled').eq('kitchen_id', input.kitchenId).maybeSingle();

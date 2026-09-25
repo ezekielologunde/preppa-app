@@ -25,7 +25,7 @@ export default function Checkout() {
   const router = useRouter();
   const { cook } = useLocalSearchParams<{ cook?: string }>();
   const ck = cook || undefined;
-  const { cart, tip, setTip, mode, placeOrder, address, orders, toast, resetOnboarding } = useStore();
+  const { cart, tip, setTip, mode, setMode, placeOrder, address, orders, toast, resetOnboarding } = useStore();
   const lines = ck ? cart.filter((l) => lineKey(l) === ck) : cart;
   const t = useTotals(lines, tip, mode);
   const { methods, defaultId, loading: cardsLoading, error: cardsError, refetch: refetchCards } = useSavedCards();
@@ -53,6 +53,18 @@ export default function Checkout() {
     else setSelectedCardId(null);
   }, [methods, defaultId, pickedCard]);
   const selectedCard = methods.find((mm) => mm.id === selectedCardId) ?? null;
+  const supportsDelivery = lines.every((line) => line.supportsDelivery !== false);
+  const supportsPickup = lines.every((line) => line.supportsPickup !== false);
+  const fulfillmentUnavailable = mode === 'delivery' ? !supportsDelivery : !supportsPickup;
+  useEffect(() => {
+    if (mode === 'delivery' && !supportsDelivery && supportsPickup) {
+      setMode('pickup');
+      toast('This kitchen only offers pickup.', 'info');
+    } else if (mode === 'pickup' && !supportsPickup && supportsDelivery) {
+      setMode('delivery');
+      toast('This kitchen only offers delivery.', 'info');
+    }
+  }, [mode, setMode, supportsDelivery, supportsPickup, toast]);
   const checkoutSignature = JSON.stringify({
     kitchen: ck ?? lineKey(lines[0] ?? { cook: '' }),
     items: lines.map((line) => [line.mealUuid, line.qty]),
@@ -81,6 +93,10 @@ export default function Checkout() {
 
   const place = async () => {
     if (busy) return; // guard against double-fire / double-order
+    if (fulfillmentUnavailable) {
+      setPaymentError(`This kitchen does not currently offer ${mode}. Choose an available option before payment.`);
+      return;
+    }
     if (deliveryAddressMissing) {
       setPaymentError(address ? 'Update your delivery address with city, state, postal code, and country before payment.' : 'Add a delivery address before continuing to payment.');
       setAddrSheet(true);
@@ -196,7 +212,7 @@ export default function Checkout() {
         </Block>
 
         <Block title={mode === 'pickup' ? 'Pick up from' : 'Deliver to'}>
-          <View style={{ marginBottom: 14 }}><ModeToggle sm /></View>
+          <View style={{ marginBottom: 14 }}><ModeToggle sm deliveryDisabled={!supportsDelivery} pickupDisabled={!supportsPickup} /></View>
           <View style={{ flexDirection: 'row', gap: 12, alignItems: 'flex-start' }}>
             <View style={{ width: 40, height: 40, borderRadius: 12, backgroundColor: c.primaryL, alignItems: 'center', justifyContent: 'center' }}><Icon name="pin" size={20} color={c.primary} /></View>
             <View style={{ flex: 1 }}>
@@ -299,7 +315,7 @@ export default function Checkout() {
           label={cardsLoading && Platform.OS === 'web' ? 'Loading payment methods…' : deliveryAddressMissing ? 'Add delivery address' : selectedCard ? 'Review and pay' : 'Continue to secure payment'}
           flex={1}
           loading={busy}
-          disabled={cardsLoading && Platform.OS === 'web'}
+          disabled={(cardsLoading && Platform.OS === 'web') || fulfillmentUnavailable}
           onPress={place}
         />
       </Dock>

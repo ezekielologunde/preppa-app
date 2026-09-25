@@ -38,6 +38,8 @@ export interface CartLine {
   kitchenUuid?: string; // real DB kitchens.id
   /** Real kitchen display name, set for non-seed kitchens (see rowToMeal). */
   kitchenName?: string;
+  supportsDelivery?: boolean;
+  supportsPickup?: boolean;
 }
 export interface CustomerOrder {
   id: string;
@@ -598,6 +600,8 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
           mealUuid: meal.id,
           kitchenUuid: meal.kitchenId,
           kitchenName: meal.kitchenName,
+          supportsDelivery: meal.supportsDelivery,
+          supportsPickup: meal.supportsPickup,
         }, qtyByMeal.get(meal.id) ?? 1);
       }
       setMode(o.mode);
