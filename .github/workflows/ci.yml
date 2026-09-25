@@ -27,6 +27,7 @@ jobs:
         with:
           node-version: 22
       - run: npm ci
+      - run: npm run security:env
       - run: npm run build:web
       - run: npm run security:bundle
 

@@ -7,13 +7,9 @@ import { authStorage } from './authStorage';
  * URL + anon key + Stripe publishable key are all PUBLIC by design.
  * The Stripe SECRET key lives only as a Supabase Edge Function secret — never here.
  *
- * Read from EXPO_PUBLIC_* env vars (set per EAS build profile in eas.json), falling back
- * to today's live values so nothing breaks where those vars aren't set (e.g. plain
- * `npx expo start` without a root .env). There is currently only one Supabase
- * project/Stripe key — every profile points at the same live backend — see
- * docs/obsidian/Launch-Plan.md item 5. This wiring is in place so that the moment a
- * separate dev/preview project exists, only eas.json (and an optional root .env for local
- * dev) need to change; no app code should need to move again.
+ * Production retains explicit public fallbacks for the deployed app. Development and
+ * preview must provide isolated EXPO_PUBLIC_* values and fail clearly when they do not,
+ * so a missing build variable can never point a test client at production data.
  */
 const LIVE_SUPABASE_URL = 'https://fwidhpzwldneeaphrxgg.supabase.co';
 const LIVE_SUPABASE_ANON =
@@ -21,16 +17,24 @@ const LIVE_SUPABASE_ANON =
 const LIVE_STRIPE_PK =
   'pk_live_51TbwCHJP8OvIS2L35vHSgDpR4OmVA4SzZflR0Mf3j6NBZDDlylNpLGVHrGeHdZhuowi0LFGg17KFKWWnrvqa1Hwg00Mu4qxbQ0';
 
-export const SUPABASE_URL = process.env.EXPO_PUBLIC_SUPABASE_URL || LIVE_SUPABASE_URL;
-const SUPABASE_ANON = process.env.EXPO_PUBLIC_SUPABASE_ANON_KEY || LIVE_SUPABASE_ANON;
-export const STRIPE_PK = process.env.EXPO_PUBLIC_STRIPE_PUBLISHABLE_KEY || LIVE_STRIPE_PK;
 export const APP_ENV = process.env.EXPO_PUBLIC_APP_ENV || 'development';
+const productionWeb = typeof window !== 'undefined' && window.location.hostname === 'app.preppa.live';
+const productionTarget = APP_ENV === 'production' || productionWeb || process.env.VERCEL_ENV === 'production';
+export const SUPABASE_URL = process.env.EXPO_PUBLIC_SUPABASE_URL || (productionTarget ? LIVE_SUPABASE_URL : '');
+const SUPABASE_ANON = process.env.EXPO_PUBLIC_SUPABASE_ANON_KEY || (productionTarget ? LIVE_SUPABASE_ANON : '');
+export const STRIPE_PK = process.env.EXPO_PUBLIC_STRIPE_PUBLISHABLE_KEY || (productionTarget ? LIVE_STRIPE_PK : '');
+
+if (!SUPABASE_URL || !SUPABASE_ANON || !STRIPE_PK) {
+  throw new Error('Preppa environment is not configured. Set isolated EXPO_PUBLIC_SUPABASE_URL, EXPO_PUBLIC_SUPABASE_ANON_KEY, and EXPO_PUBLIC_STRIPE_PUBLISHABLE_KEY values.');
+}
+if (!productionTarget && (SUPABASE_URL === LIVE_SUPABASE_URL || STRIPE_PK.startsWith('pk_live_'))) {
+  throw new Error('Development and preview builds cannot use Preppa production services. Configure the isolated test environment.');
+}
 
 /** Prevent local, development and preview clients from accidentally mutating live money.
  * Production web is identified at runtime because Vercel does not consume EAS profile env. */
 export function assertLiveMoneyAllowed(): void {
   if (!STRIPE_PK.startsWith('pk_live_')) return;
-  const productionWeb = typeof window !== 'undefined' && window.location.hostname === 'app.preppa.live';
   if (APP_ENV !== 'production' && !productionWeb) {
     throw new Error('Live payments are disabled in development and preview builds. Use the isolated test environment.');
   }

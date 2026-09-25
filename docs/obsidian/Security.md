@@ -16,7 +16,7 @@ Native Supabase sessions now use Expo SecureStore (`WHEN_UNLOCKED_THIS_DEVICE_ON
 
 CI now creates the production web bundle and scans it for Stripe secret/restricted key prefixes, private-key headers, the Supabase service-role environment name, and service-role JWT claims. Database regressions now assert that customer order, payment, ticket, ticket-message and message tables keep RLS and that order/ticket policies retain their ownership checks.
 
-Development and preview EAS profiles now set `EXPO_PUBLIC_APP_ENV`; shared payment helpers reject live-money operations outside the production native profile or the exact `app.preppa.live` hostname. The guard covers orders, saved-card actions, subscriptions, memberships, experiences, service deposits/balances/refunds, order refunds and cook cash-outs. This reduces accidental production mutations while environments still share a backend. It is intentionally treated as a client safety interlock, not authorization: server-side auth, ownership checks, idempotency and Stripe webhook verification remain the actual trust boundaries.
+Development and preview EAS profiles now contain no production Supabase or Stripe values. The app requires isolated `EXPO_PUBLIC_*` configuration outside production and rejects production service values if supplied; CI checks the same invariant. Shared payment helpers still reject live-money operations outside the production native profile or exact `app.preppa.live` hostname. The external test project and Stripe test credentials remain to be provisioned.
 
 Part of [[Project]]. Backed by the living `AUDIT.md`/`AUDIT_FULL.md` in the repo (23-agent fleet audit, last full pass 2026-07-14, verdict NO GO at the time; most Criticals since fixed). See also [[Database]], [[Backend]], [[Payments]].
 
@@ -37,7 +37,7 @@ Part of [[Project]]. Backed by the living `AUDIT.md`/`AUDIT_FULL.md` in the repo
 ## Secrets
 
 - **No secret key committed** — repo-wide grep for Stripe/AWS/PEM patterns returned nothing; `git log --all` scan for the same (plus Resend/Mux/Google patterns) across full history also came back clean, 2026-09-08.
-- `src/lib/supabase.ts` reads `EXPO_PUBLIC_*` env vars (Supabase URL/anon key, Stripe publishable key) with a same-value fallback to the live literals; `eas.json` has a per-profile `env` block. **Mechanism only** — all three profiles (`development`/`preview`/`production`) still point at the same live project/key as of 2026-09-07. See [[Payments]] and [[Launch-Plan]] item 5.
+- `src/lib/supabase.ts` reads `EXPO_PUBLIC_*` values and permits production fallbacks only for the production build or `app.preppa.live`. Development and preview fail closed without isolated values, and `security:env` prevents their EAS profiles from containing the production Supabase project or a live Stripe key. See [[Payments]] and [[Launch-Plan]] item 5.
 - **Credential rotation — done 2026-09-08** (Launch-Plan item 4, previously open):
   - **Resend**: both Full-access API keys on the account revoked; replaced with a `Sending access`-only, `preppa.live`-domain-restricted key for Auth SMTP, verified with a real OTP send.
   - **Google OAuth**: added a new client secret (dual-secret zero-downtime rotation), updated Supabase's Google provider, disabled the old (Aug 8, 2026) secret.

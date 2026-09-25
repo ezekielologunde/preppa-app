@@ -48,7 +48,8 @@
     "web": "expo start --web",
     "typecheck": "tsc --noEmit",
     "build:web": "expo export --platform web",
-    "security:bundle": "node scripts/scan-build-secrets.mjs"
+    "security:bundle": "node scripts/scan-build-secrets.mjs",
+    "security:env": "node scripts/check-env-separation.mjs"
   },
   "private": true,
   "overrides": {
