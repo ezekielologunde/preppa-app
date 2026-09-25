@@ -63,8 +63,10 @@ export async function ticketThread(ticketId: string): Promise<ThreadMessage[]> {
   return (data as ThreadMessage[]) ?? [];
 }
 
-/** Cook replies on a shared ticket (always non-internal). */
-export async function replyToSharedTicket(ticketId: string, body: string): Promise<void> {
+/** Reporter or an authorized cook replies to a visible ticket. The RPC enforces membership. */
+export async function replyToTicket(ticketId: string, body: string): Promise<void> {
   const { error } = await supabase.rpc('add_ticket_message', { p_ticket: ticketId, p_body: body, p_internal: false });
   if (error) throw error;
 }
+
+export const replyToSharedTicket = replyToTicket;

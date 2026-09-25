@@ -58,6 +58,7 @@ tags: [project/preppa, type/launch-plan]
 - Checkout now stops when Stripe Tax fails instead of silently turning a provider or configuration error into a zero-tax order. A successful Stripe calculation may still return zero where applicable.
 - Legacy catering, quote, and request deep links no longer show static customer data or local-only success screens. They redirect to the live server-backed service request hub.
 - Service completion no longer promises an automatic balance retry that does not exist. Both customer and cook views state that a failed remaining balance is still due, and meal-plan request fulfillment no longer claims customer notification when request linking fails.
+- Customers can now open their support requests, read the non-internal support thread, retry failed loads, reply securely, and reopen resolved tickets through the existing server authorization path. Closed tickets clearly direct customers to report a new issue from the related order.
 
 ### Customer acceptance evidence still needed
 
