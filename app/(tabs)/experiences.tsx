@@ -219,7 +219,7 @@ export default function ExperiencesScreen() {
       <View style={{ backgroundColor: c.surface, paddingTop: insets.top + 10, paddingBottom: 14, paddingHorizontal: 20, borderBottomWidth: 1, borderBottomColor: c.border2 }}>
         <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }}>
           <Text style={[type(28, 900), { color: c.ink, letterSpacing: -1 }]}>Experiences</Text>
-          <Press scale={0.9} onPress={() => router.push('/notifications')}>
+          <Press scale={0.9} onPress={() => router.push('/notifications')} label={notifCount > 0 ? `Notifications, ${notifCount} unread` : 'Notifications'}>
             <View style={{ width: 44, height: 44, borderRadius: 14, backgroundColor: c.bg2, alignItems: 'center', justifyContent: 'center' }}>
               <Icon name="bell" size={19} color={c.ink2} />
               {notifCount > 0 ? <View style={{ position: 'absolute', top: 9, right: 10, width: 9, height: 9, borderRadius: 5, backgroundColor: c.primary, borderWidth: 2, borderColor: c.bg2 }} /> : null}

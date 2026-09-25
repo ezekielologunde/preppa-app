@@ -335,12 +335,12 @@ export default function CreatePlanFlow() {
               })}
             </View>
             {rotationWeeks < 4 ? (
-              <Press onPress={() => { setRotationWeeks((n) => n + 1); }}>
+              <Press onPress={() => { setRotationWeeks((n) => n + 1); }} label="Add rotation week">
                 <View style={{ width: 30, height: 30, borderRadius: 15, backgroundColor: c.bg2, alignItems: 'center', justifyContent: 'center' }}><Icon name="plus" size={15} color={c.ink} /></View>
               </Press>
             ) : null}
             {rotationWeeks > 2 ? (
-              <Press onPress={() => { setRotationWeeks((n) => n - 1); if (activeWeek >= rotationWeeks - 1) setActiveWeek(0); }}>
+              <Press onPress={() => { setRotationWeeks((n) => n - 1); if (activeWeek >= rotationWeeks - 1) setActiveWeek(0); }} label="Remove rotation week">
                 <View style={{ width: 30, height: 30, borderRadius: 15, backgroundColor: c.bg2, alignItems: 'center', justifyContent: 'center' }}><Icon name="minus" size={15} color={c.ink} /></View>
               </Press>
             ) : null}
@@ -354,7 +354,7 @@ export default function CreatePlanFlow() {
             const q = qty[m.id] || 0;
             return (
               <View key={m.id} style={{ flexDirection: 'row', alignItems: 'center', gap: 12, padding: 13, backgroundColor: q > 0 ? c.primaryL : c.surface, borderBottomWidth: i === meals.length - 1 ? 0 : 1, borderBottomColor: c.border2 }}>
-                <Press scale={0.95} onPress={() => setQty((s) => ({ ...s, [m.id]: q > 0 ? 0 : 1 }))}>
+                <Press scale={0.95} onPress={() => setQty((s) => ({ ...s, [m.id]: q > 0 ? 0 : 1 }))} label={q > 0 ? `Remove ${m.name} from this plan` : `Add ${m.name} to this plan`} selected={q > 0}>
                   <View style={{ width: 24, height: 24, borderRadius: 8, borderWidth: 2, borderColor: q > 0 ? c.primary : c.border, backgroundColor: q > 0 ? c.primary : 'transparent', alignItems: 'center', justifyContent: 'center' }}>
                     {q > 0 ? <Icon name="check" size={14} color="#fff" /> : null}
                   </View>

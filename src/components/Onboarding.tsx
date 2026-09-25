@@ -474,7 +474,7 @@ export function OnboardingFlow() {
       >
         {showTop ? (
           <View style={{ flexDirection: 'row', alignItems: 'center', gap: 14, minHeight: 42 }}>
-            <Press scale={0.9} onPress={() => setStep(back)}><View style={{ width: 42, height: 42, borderRadius: 21, backgroundColor: c.surface, borderWidth: 1, borderColor: c.border, alignItems: 'center', justifyContent: 'center', ...shadow.soft }}><Icon name="chevLeft" size={20} color={c.ink} /></View></Press>
+            <Press scale={0.9} onPress={() => setStep(back)} label="Back"><View style={{ width: 42, height: 42, borderRadius: 21, backgroundColor: c.surface, borderWidth: 1, borderColor: c.border, alignItems: 'center', justifyContent: 'center', ...shadow.soft }}><Icon name="chevLeft" size={20} color={c.ink} /></View></Press>
             <View style={{ flex: 1, flexDirection: 'row', gap: 6 }}>{STEPS.map((s, i) => <View key={s} style={{ flex: 1, height: 4, borderRadius: 2, backgroundColor: i <= at ? c.primary : c.border2 }} />)}</View>
             {canSkip ? <Pressable onPress={() => setStep('finish')}><Text style={[type(14, 700), { color: c.soft }]}>Skip</Text></Pressable> : <View style={{ width: 30 }} />}
           </View>

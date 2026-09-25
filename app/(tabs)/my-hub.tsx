@@ -51,7 +51,7 @@ export function HubHeader({ eyebrow = 'My Hub', name, showBell, right, onBack, b
     <View style={{ backgroundColor: c.surface, paddingTop: insets.top + 10, paddingBottom: 16, paddingHorizontal: 20, borderBottomWidth: 1, borderBottomColor: c.border2 }}>
       <View style={{ flexDirection: 'row', alignItems: 'center', gap: 12 }}>
         {onBack ? (
-          <Press scale={0.9} onPress={onBack}>
+          <Press scale={0.9} onPress={onBack} label="Back">
             <View style={{ width: 42, height: 42, borderRadius: 13, backgroundColor: c.bg2, alignItems: 'center', justifyContent: 'center' }}>
               <Icon name="chevLeft" size={20} color={c.ink2} />
             </View>
@@ -301,7 +301,7 @@ export function PhotoPick({ grad, setGrad }: { grad: GradKey | null; setGrad: (g
   const c = useC();
   if (grad) {
     return (
-      <Press scale={0.98} onPress={() => setGrad(PHOTO_GRADS[(PHOTO_GRADS.indexOf(grad) + 1) % PHOTO_GRADS.length])}>
+      <Press scale={0.98} onPress={() => setGrad(PHOTO_GRADS[(PHOTO_GRADS.indexOf(grad) + 1) % PHOTO_GRADS.length])} label="Change photo placeholder color">
         <GradBox grad={grad} style={{ height: 150, borderRadius: 16, justifyContent: 'flex-end', alignItems: 'flex-end', padding: 12 }}>
           <View style={{ width: 38, height: 38, borderRadius: 12, backgroundColor: 'rgba(0,0,0,.45)', alignItems: 'center', justifyContent: 'center' }}>
             <Icon name="camera" size={18} color="#fff" />
