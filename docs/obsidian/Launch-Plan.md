@@ -59,6 +59,7 @@ tags: [project/preppa, type/launch-plan]
 - Legacy catering, quote, and request deep links no longer show static customer data or local-only success screens. They redirect to the live server-backed service request hub.
 - Service completion no longer promises an automatic balance retry that does not exist. Both customer and cook views state that a failed remaining balance is still due, and meal-plan request fulfillment no longer claims customer notification when request linking fails.
 - Customers can now open their support requests, read the non-internal support thread, retry failed loads, reply securely, and reopen resolved tickets through the existing server authorization path. Closed tickets clearly direct customers to report a new issue from the related order.
+- Expo SDK 57 patch dependencies are aligned, vulnerable transitive URI-decoding and UUID packages are pinned to patched releases, Expo Doctor passes all 21 checks, and `npm audit` reports zero known vulnerabilities.
 
 ### Customer acceptance evidence still needed
 
