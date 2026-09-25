@@ -8,6 +8,8 @@ tags: [project/preppa, type/tasks]
 
 # Tasks
 
+- [x] Harden cook analytics recovery: sequence loads, preserve the last verified totals through refresh failures, replace raw backend errors with stable guidance, and provide an accessible inline retry state (2026-09-25)
+
 - [x] Harden cook fulfillment settings: sequence kitchen loads, ignore updates after unmount, use stable recovery guidance, and synchronously lock delivery and pickup mutations (2026-09-25)
 
 - [x] Harden shared cook support handling: decouple identity lookup from ticket loading, preserve current requests and thread messages through refresh failures, sequence thread loads, and expose accessible retry alerts (2026-09-25)

@@ -1,8 +1,8 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import { View, Text, ScrollView, ActivityIndicator } from 'react-native';
 import { useRouter } from 'expo-router';
 import { useC } from '../../src/theme/ThemeContext';
-import { type } from '../../src/theme/theme';
+import { type, radius } from '../../src/theme/theme';
 import { Btn, Icon, GradBox } from '../../src/ui';
 import { Screen, TopBar } from '../../src/ui/layout';
 import { money } from '../../src/data/data';
@@ -48,28 +48,34 @@ export default function AnalyticsScreen() {
   const [data, setData] = useState<CookAnalyticsSummary | null>(null);
   const [error, setError] = useState('');
   const [retryNonce, setRetryNonce] = useState(0);
+  const loadSequence = useRef(0);
   const weeks = ['8w', '7w', '6w', '5w', '4w', '3w', '2w', 'now'];
 
   useEffect(() => {
-    let alive = true;
+    const sequence = ++loadSequence.current;
     setLoading(true);
     setError('');
     (async () => {
       try {
         const k = await getMyKitchen();
-        if (!k) throw new Error('No kitchen is connected to this account.');
+        if (!k) throw new Error('Finish setting up your kitchen before viewing analytics.');
         const next = await fetchCookAnalyticsSummary(k.id);
-        if (alive) setData(next);
+        if (sequence === loadSequence.current) setData(next);
       } catch (e: any) {
-        if (alive) setError(e?.message ?? 'Couldn’t load analytics.');
+        if (sequence === loadSequence.current) {
+          const message = e?.message === 'Finish setting up your kitchen before viewing analytics.'
+            ? e.message
+            : 'Check your connection and try loading analytics again.';
+          setError(message);
+        }
       } finally {
-        if (alive) setLoading(false);
+        if (sequence === loadSequence.current) setLoading(false);
       }
     })();
-    return () => { alive = false; };
+    return () => { loadSequence.current += 1; };
   }, [retryNonce]);
 
-  if (loading) {
+  if (loading && !data) {
     return (
       <Screen>
         <TopBar title="Analytics" onBack={() => router.back()} />
@@ -78,7 +84,7 @@ export default function AnalyticsScreen() {
     );
   }
 
-  if (error || !data) {
+  if (error && !data) {
     return (
       <Screen>
         <TopBar title="Analytics" onBack={() => router.back()} />
@@ -102,6 +108,13 @@ export default function AnalyticsScreen() {
     <Screen>
       <TopBar title="Analytics" sub="Last 8 weeks" onBack={() => router.back()} />
       <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={{ paddingTop: 16, paddingBottom: 40 }}>
+        {error ? (
+          <View accessibilityRole="alert" style={{ marginHorizontal: 20, marginBottom: 14, borderWidth: 1, borderColor: c.red, backgroundColor: c.redL, borderRadius: radius.lg, padding: 14 }}>
+            <Text style={[type(13.5, 900), { color: c.ink }]}>Couldn’t refresh analytics</Text>
+            <Text style={[type(12.5, 600), { color: c.soft, marginTop: 4, marginBottom: 10, lineHeight: 18 }]}>{error} Your last loaded totals are still shown.</Text>
+            <View style={{ alignSelf: 'flex-start' }}><Btn label="Try again" icon="repeat" variant="ghost" disabled={loading} onPress={() => setRetryNonce((n) => n + 1)} /></View>
+          </View>
+        ) : null}
         <View style={{ marginHorizontal: 20, backgroundColor: c.surface, borderWidth: 1, borderColor: c.border2, borderRadius: 20, padding: 18 }}>
           <View style={{ flexDirection: 'row', alignItems: 'baseline', justifyContent: 'space-between' }}>
             <View>
