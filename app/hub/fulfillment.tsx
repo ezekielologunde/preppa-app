@@ -42,7 +42,7 @@ export default function HubFulfillment() {
   }, []);
 
   const update = async (nextDelivery: boolean, nextPickup: boolean, which: 'delivery' | 'pickup') => {
-    if (!kitchenId) return;
+    if (!kitchenId || saving) return;
     if (!nextDelivery && !nextPickup) {
       toast('You need at least one fulfillment method on.', 'info');
       return;
@@ -82,12 +82,14 @@ export default function HubFulfillment() {
             <Row
               icon="truck" label="Delivery" body="Customers can have orders brought to them."
               on={delivery} busy={saving === 'delivery'}
+              disabled={saving !== null}
               onToggle={() => update(!delivery, pickup, 'delivery')}
             />
             <View style={{ height: 1, backgroundColor: c.border2, marginVertical: 14 }} />
             <Row
               icon="bag" label="Pickup" body="Customers can pick up their order from you."
               on={pickup} busy={saving === 'pickup'}
+              disabled={saving !== null}
               onToggle={() => update(delivery, !pickup, 'pickup')}
             />
             <Text style={[type(12, 600), { color: c.muted, marginTop: 16, lineHeight: 18 }]}>
@@ -100,11 +102,11 @@ export default function HubFulfillment() {
   );
 }
 
-function Row({ icon, label, body, on, busy, onToggle }: { icon: string; label: string; body: string; on: boolean; busy: boolean; onToggle: () => void }) {
+function Row({ icon, label, body, on, busy, disabled, onToggle }: { icon: string; label: string; body: string; on: boolean; busy: boolean; disabled: boolean; onToggle: () => void }) {
   const c = useC();
   return (
-    <Press scale={0.99} onPress={busy ? undefined : onToggle}>
-      <View style={{ flexDirection: 'row', alignItems: 'center', gap: 13 }}>
+    <Press scale={0.99} onPress={disabled ? undefined : onToggle} disabled={disabled}>
+      <View style={{ flexDirection: 'row', alignItems: 'center', gap: 13, opacity: disabled && !busy ? 0.65 : 1 }}>
         <View style={{ width: 40, height: 40, borderRadius: radius.md, backgroundColor: c.bg2, alignItems: 'center', justifyContent: 'center' }}>
           <Icon name={icon} size={19} color={c.ink2} />
         </View>
