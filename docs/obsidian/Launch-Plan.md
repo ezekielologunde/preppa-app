@@ -39,6 +39,7 @@ tags: [project/preppa, type/launch-plan]
 - Public kitchen storefronts now distinguish failed profile, meal, review, and experience requests from missing or empty content, preserve stale meal and experience data when available, and provide retry actions.
 - Cook post creation now reports menu-loading failures, explains that posting can continue without a featured dish, and provides a menu retry action instead of silently hiding the selector.
 - Pending cook applications now show payout-setup loading, lookup failures, missing kitchen records, and retry actions instead of silently removing the Stripe onboarding path.
+- Admin application review now checks Supabase errors when loading Stripe identity and payout status, labels unavailable data clearly, and offers retry instead of misreporting a failed lookup as onboarding not started.
 
 ### Customer acceptance evidence still needed
 

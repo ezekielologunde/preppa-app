@@ -265,21 +265,36 @@ function AddressVerificationRow({ c, lat, lng }: { c: any; lat: number | null; l
 /** Cook's Stripe Connect (identity + payout) status — the KYC replaces raw Gov-ID photos. */
 function ConnectStatusRow({ c, kitchenId }: { c: any; kitchenId: string }) {
   const [label, setLabel] = useState('Checking…');
+  const [failed, setFailed] = useState(false);
+  const [nonce, setNonce] = useState(0);
   useEffect(() => {
     let alive = true;
+    setLabel('Checking…');
+    setFailed(false);
     (async () => {
       try {
-        const { data } = await supabase.from('stripe_accounts').select('details_submitted, charges_enabled, payouts_enabled').eq('kitchen_id', kitchenId).maybeSingle();
+        const { data, error } = await supabase.from('stripe_accounts').select('details_submitted, charges_enabled, payouts_enabled').eq('kitchen_id', kitchenId).maybeSingle();
+        if (error) throw error;
         if (!alive) return;
         if (!data) setLabel('Not started');
         else if (data.charges_enabled && data.payouts_enabled) setLabel('Verified via Stripe · payouts enabled ✓');
         else if (data.details_submitted) setLabel('Submitted · Stripe reviewing');
         else setLabel('Onboarding started (incomplete)');
-      } catch { if (alive) setLabel('—'); }
+      } catch {
+        if (alive) { setLabel('Status unavailable'); setFailed(true); }
+      }
     })();
     return () => { alive = false; };
-  }, [kitchenId]);
-  return <DRow c={c} k="Identity / payouts" v={label} />;
+  }, [kitchenId, nonce]);
+  return (
+    <View style={{ flexDirection: 'row', gap: 10, alignItems: 'center' }}>
+      <Text style={[type(12, 700), { color: c.muted, width: 130 }]}>Identity / payouts</Text>
+      <View style={{ flex: 1, flexDirection: 'row', alignItems: 'center', flexWrap: 'wrap', gap: 8 }}>
+        <Text accessibilityRole={failed ? 'alert' : undefined} style={[type(12.5, 700), { color: failed ? c.red : c.ink }]}>{label}</Text>
+        {failed ? <Btn label="Retry" icon="repeat" variant="ghost" height={36} onPress={() => setNonce((n) => n + 1)} /> : null}
+      </View>
+    </View>
+  );
 }
 
 const CERT_STATUSES: { value: 'unverified' | 'reviewed' | 'expired'; label: string; tone: 'neutral' | 'success' | 'danger' }[] = [
