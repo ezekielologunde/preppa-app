@@ -22,7 +22,7 @@ export function LocationPicker({ visible, onClose }: { visible: boolean; onClose
       const hit = await geocodeAddressDetailed(q);
       setLocation(q);
       setCoords(hit ? { lat: hit.lat, lng: hit.lng } : null);
-      if (hit?.countryCode) setCountry(hit.countryCode);
+      setCountry(hit?.countryCode ?? null);
       toast(hit ? `Location set to ${q}` : `Location set to ${q} (distance unavailable)`, 'pin', true);
       onClose();
     } finally {
@@ -36,7 +36,7 @@ export function LocationPicker({ visible, onClose }: { visible: boolean; onClose
       const loc = await captureCurrentLocation();
       setLocation(loc.label);
       setCoords({ lat: loc.lat, lng: loc.lng });
-      if (loc.countryCode) setCountry(loc.countryCode);
+      setCountry(loc.countryCode ?? null);
       toast(`Location set to ${loc.label}`, 'pin', true);
       onClose();
     } catch (e: any) {

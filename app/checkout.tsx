@@ -15,6 +15,7 @@ import { AddressPickerSheet, CardPickerSheet } from '../src/components/PickerShe
 import { CardPaymentSheet } from '../src/components/CardPaymentSheet';
 import { Dialog } from '../src/ui/overlay';
 import { addressLocality, isCompleteDeliveryAddress } from '../src/lib/addresses';
+import { LocationPicker } from '../src/components/LocationPicker';
 
 const brandName = (b: string) => (b ? b.charAt(0).toUpperCase() + b.slice(1) : 'Card');
 
@@ -31,6 +32,7 @@ export default function Checkout() {
   const { methods, defaultId, loading: cardsLoading, error: cardsError, refetch: refetchCards } = useSavedCards();
   const [busy, setBusy] = useState(false);
   const [addrSheet, setAddrSheet] = useState(false);
+  const [locSheet, setLocSheet] = useState(false);
   const [cardSheet, setCardSheet] = useState(false);
   const [cardPayOpen, setCardPayOpen] = useState(false);
   const [cardSecret, setCardSecret] = useState<string | null>(null);
@@ -70,6 +72,11 @@ export default function Checkout() {
     if (deliveryAddressMissing) {
       setPaymentError(address ? 'Update your delivery address with city, state, postal code, and country before payment.' : 'Add a delivery address before continuing to payment.');
       setAddrSheet(true);
+      return;
+    }
+    if (mode === 'pickup' && !country) {
+      setPaymentError('Choose a valid area before payment so tax can be calculated.');
+      setLocSheet(true);
       return;
     }
     const cookId = ck ?? lineKey(lines[0]);
@@ -274,6 +281,7 @@ export default function Checkout() {
       </Dock>
 
       <AddressPickerSheet visible={addrSheet} onClose={() => setAddrSheet(false)} />
+      <LocationPicker visible={locSheet} onClose={() => setLocSheet(false)} />
       <CardPickerSheet
         visible={cardSheet}
         onClose={() => setCardSheet(false)}

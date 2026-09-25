@@ -100,6 +100,7 @@ Deno.serve(async (req) => {
     const input = parsed.data;
 
     if (input.method === 'cod') return json(400, { error: 'Cash on delivery isn\'t available yet.' });
+    if (input.fulfillment === 'pickup' && !input.country) return json(400, { error: 'Choose a valid area before checkout so tax can be calculated.' });
 
     const { data: existing } = await db
       .from('orders').select('id, tax_cents').eq('customer_id', customerId).eq('idempotency_key', input.idempotencyKey).maybeSingle();
@@ -164,7 +165,7 @@ Deno.serve(async (req) => {
     const tip = clampTipCents(input.tipCents);
     const taxAddress = input.fulfillment === 'delivery'
       ? deliveryTaxAddress
-      : (input.country ? { country: input.country.toUpperCase() } : null);
+      : { country: input.country!.toUpperCase() };
     const { cents: tax, calculationId: taxCalculationId } = await calculateTaxCents(subtotal, taxAddress);
     const total = subtotal + serviceFee + tax + tip;
 
