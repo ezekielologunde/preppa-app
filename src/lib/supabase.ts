@@ -590,26 +590,3 @@ export async function markAllNotificationsRead(): Promise<void> {
   if (!uid) return;
   await supabase.from('notifications').update({ read_at: new Date().toISOString() }).eq('user_id', uid).is('read_at', null);
 }
-
-/** mock cook id -> seeded kitchen UUID */
-export const KITCHEN_ID: Record<string, string> = {
-  maria: 'bbbbbbbb-0000-4000-8000-000000000001',
-  david: 'bbbbbbbb-0000-4000-8000-000000000002',
-  amara: 'bbbbbbbb-0000-4000-8000-000000000003',
-  denise: 'bbbbbbbb-0000-4000-8000-000000000004',
-  lucia: 'bbbbbbbb-0000-4000-8000-000000000005',
-  sana: 'bbbbbbbb-0000-4000-8000-000000000006',
-};
-
-/** mock meal / add-on key -> seeded meal UUID */
-export const MEAL_ID: Record<string, string> = {
-  lasagna: 'cccccccc-0000-4000-8000-000000000001',
-  salmon: 'cccccccc-0000-4000-8000-000000000002',
-  jollof: 'cccccccc-0000-4000-8000-000000000003',
-  shortrib: 'cccccccc-0000-4000-8000-000000000004',
-  tacos: 'cccccccc-0000-4000-8000-000000000005',
-  biryani: 'cccccccc-0000-4000-8000-000000000006',
-  poke: 'cccccccc-0000-4000-8000-000000000007',
-  cornbread: 'cccccccc-0000-4000-8000-000000000008',
-  lemonade: 'cccccccc-0000-4000-8000-000000000009',
-};

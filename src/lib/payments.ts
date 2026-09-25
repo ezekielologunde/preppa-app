@@ -1,7 +1,7 @@
 import { Platform } from 'react-native';
 import type { Stripe } from '@stripe/stripe-js';
 import { confirmPayment, initPaymentSheet, presentPaymentSheet } from './nativeStripe';
-import { supabase, ensureAuth, KITCHEN_ID, MEAL_ID, STRIPE_PK, APPLE_PAY_MERCHANT_ID, assertLiveMoneyAllowed, assertFunctionSuccess } from './supabase';
+import { supabase, ensureAuth, STRIPE_PK, APPLE_PAY_MERCHANT_ID, assertLiveMoneyAllowed, assertFunctionSuccess } from './supabase';
 import type { CartLine } from '../store/store';
 
 export interface OrderOpts {
@@ -41,14 +41,13 @@ export function getStripe(): Promise<Stripe | null> {
  */
 export async function createRealOrder(opts: OrderOpts): Promise<{ orderId: string; clientSecret: string; taxCents: number }> {
   assertLiveMoneyAllowed();
-  // Prefer the real DB UUIDs carried on the cart (Supabase catalog); fall back to
-  // the static key->UUID map only for items without them (add-ons, reordered lines).
-  const kitchenId = opts.lines.find((l) => l.kitchenUuid)?.kitchenUuid ?? KITCHEN_ID[opts.cook];
-  if (!kitchenId) throw new Error(`no kitchen for ${opts.cook}`);
+  const kitchenId = opts.lines.find((l) => l.kitchenUuid)?.kitchenUuid;
+  if (!kitchenId) throw new Error('This cart is out of date. Remove these items and add them again.');
   const items = opts.lines.map((l) => {
-    const mealId = l.mealUuid ?? MEAL_ID[l.key];
-    if (!mealId) throw new Error(`no meal mapping for ${l.key}`);
-    return { mealId, qty: l.qty };
+    if (!l.mealUuid || l.kitchenUuid !== kitchenId) {
+      throw new Error('This cart is out of date. Remove these items and add them again.');
+    }
+    return { mealId: l.mealUuid, qty: l.qty };
   });
   await ensureAuth();
   const { data, error } = await supabase.functions.invoke('create-order', {

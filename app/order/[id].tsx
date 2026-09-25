@@ -1,7 +1,7 @@
 import React, { useCallback, useState } from 'react';
 import { View, Text, ScrollView, TextInput, ActivityIndicator } from 'react-native';
 import { useLocalSearchParams, useRouter, useFocusEffect } from 'expo-router';
-import { cookOfLine, money, CookId } from '../../src/data/data';
+import { cookOfLine, money } from '../../src/data/data';
 import { useC } from '../../src/theme/ThemeContext';
 import { type, radius, shadow } from '../../src/theme/theme';
 import { useStore } from '../../src/store/store';
@@ -10,7 +10,6 @@ import { Screen, TopBar, Empty } from '../../src/ui/layout';
 import { OrderLineRow } from '../../src/components/shared';
 import { createOrderTicket, TICKET_CATEGORIES, TicketCategory } from '../../src/lib/tickets';
 import { FLAGS } from '../../src/config/flags';
-import { KITCHEN_ID } from '../../src/lib/supabase';
 import { openThread } from '../../src/lib/messages';
 
 const STEPS = ['Order confirmed', 'Cook is preparing', 'Ready for handoff', 'Completed'];
@@ -50,8 +49,7 @@ export default function OrderDetail() {
   }
 
   const cook = cookOfLine({ cook: o.cook, kitchenName: o.kitchenName, grad: o.lines[0]?.grad ?? 'g1' });
-  // A real kitchen's grouping key IS its kitchenUuid already; only seed CookIds need the map.
-  const kitchenId = KITCHEN_ID[o.cook as CookId] ?? o.cook;
+  const kitchenId = o.cook;
   const openChat = async () => {
     try { const tid = await openThread(kitchenId, 'order', o.dbId); router.push(`/messages/${tid}`); }
     catch (e: any) { toast(e?.message || 'Could not open chat', 'info'); }

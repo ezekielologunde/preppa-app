@@ -2,13 +2,13 @@ import React, { createContext, useContext, useState, useEffect, useCallback, use
 import { AppState } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import {
-  GradKey, CookId, Subscription, lineKey,
+  GradKey, Subscription, lineKey,
 } from '../data/data';
 import { computeTotals } from '../data/totals';
 import {
   signOutUser, fetchAccountState, submitPrepperApplication, updateDisplayName,
   fetchNotifications, markNotificationRead, markAllNotificationsRead, setKitchenGeo,
-  ackApprovalNotice as ackApprovalNoticeApi, deleteAccountServerSide, KITCHEN_ID,
+  ackApprovalNotice as ackApprovalNoticeApi, deleteAccountServerSide,
   type ApplicationFields, type AppNotification,
 } from '../lib/supabase';
 import { supabase } from '../lib/supabase';
@@ -28,7 +28,7 @@ const LS = 'preppa.v1';
 export interface CartLine {
   key: string;
   name: string;
-  /** Seed CookId for fixtures, or the real kitchen UUID for live catalog items. */
+  /** Real kitchen UUID for server-backed catalog items. */
   cook: string;
   price: number;
   grad: GradKey;
@@ -42,7 +42,7 @@ export interface CartLine {
 export interface CustomerOrder {
   id: string;
   dbId?: string; // real Supabase orders.id when the card charge succeeded (enables Report an issue)
-  /** The grouping key (see `lineKey`) — a real kitchen's UUID, or a seed CookId. */
+  /** The grouping key (see `lineKey`), which is the real kitchen UUID. */
   cook: string;
   /** Real kitchen display name, carried through for non-seed kitchens (see CartLine). */
   kitchenName?: string;
@@ -249,7 +249,9 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
           const s = JSON.parse(raw);
           if (s.onboarded) setOnboardedState(true);
           if (s.darkMode) setDarkModeState(true);
-          if (Array.isArray(s.cart)) setCart(s.cart);
+          if (Array.isArray(s.cart)) {
+            setCart(s.cart.filter((line: CartLine) => !!line?.mealUuid && !!line?.kitchenUuid));
+          }
           if (typeof s.tip === 'number') setTip(s.tip);
           if (s.mode) setMode(s.mode);
           if (typeof s.location === 'string') setLocation(s.location);
@@ -459,7 +461,7 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
   const role: 'customer' | 'prepper' = prepperStatus === 'approved' ? 'prepper' : 'customer';
   const isMine = useCallback((cook: string, kitchenUuid?: string) => {
     if (prepperStatus !== 'approved' || !ownKitchenId) return false;
-    return (kitchenUuid ?? KITCHEN_ID[cook as CookId] ?? cook) === ownKitchenId;
+    return (kitchenUuid ?? cook) === ownKitchenId;
   }, [prepperStatus, ownKitchenId]);
   // Full cook application (identity + kitchen + food-safety + agreement). Admin-driven
   // approval — no client-side auto-approve. Throws on failure so the form can show it.
