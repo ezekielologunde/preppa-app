@@ -247,6 +247,7 @@ function Code({ email, onNext, newPassword }: { email: string; onNext: () => voi
   const [err, setErr] = useState<string | null>(null);
   const [cool, setCool] = useState(0);
   const [resent, setResent] = useState(false);
+  const [resending, setResending] = useState(false);
   const ref = useRef<TextInput>(null);
   const shake = useShake();
   useEffect(() => { const t = setTimeout(() => ref.current?.focus(), 300); return () => clearTimeout(t); }, []);
@@ -271,7 +272,21 @@ function Code({ email, onNext, newPassword }: { email: string; onNext: () => voi
     return () => { cancelled = true; };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [code]);
-  const resend = () => { setCool(24); setResent(true); setErr(null); (newPassword ? sendPasswordResetOtp(email) : sendEmailOtp(email)).catch(() => {}); setTimeout(() => setResent(false), 2400); };
+  const resend = async () => {
+    if (resending || cool > 0) return;
+    setResending(true);
+    setErr(null);
+    try {
+      await (newPassword ? sendPasswordResetOtp(email) : sendEmailOtp(email));
+      setCool(24);
+      setResent(true);
+      setTimeout(() => setResent(false), 2400);
+    } catch (e: any) {
+      setErr(e?.message === AUTH_TIMEOUT_MESSAGE ? e.message : 'Couldn’t resend the code. Check your connection and try again.');
+    } finally {
+      setResending(false);
+    }
+  };
   return (
     <>
       <Title parts={['Check your inbox.']} />
@@ -301,8 +316,8 @@ function Code({ email, onNext, newPassword }: { email: string; onNext: () => voi
       {busy ? <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8, marginTop: 12 }}><Spinner size={15} color={c.primaryD} track={c.border} /><Text style={[type(13, 700), { color: c.soft }]}>Verifying…</Text></View> : null}
       <View style={{ flex: 1, minHeight: 24 }} />
       <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 6, paddingBottom: 4 }}>
-        <Text style={[type(14, 600), { color: c.muted }]}>{resent ? 'Code re-sent ✓' : 'Didn’t get it?'}</Text>
-        {!resent ? <Pressable disabled={cool > 0} onPress={resend}><Text style={[type(14, 800), { color: cool > 0 ? c.muted : c.primary, textDecorationLine: cool > 0 ? 'none' : 'underline' }]}>{cool > 0 ? `Resend in ${cool}s` : 'Resend code'}</Text></Pressable> : null}
+        <Text style={[type(14, 600), { color: c.muted }]}>{resent ? 'Code re-sent ✓' : resending ? 'Sending another code…' : 'Didn’t get it?'}</Text>
+        {!resent && !resending ? <Pressable disabled={cool > 0} onPress={resend}><Text style={[type(14, 800), { color: cool > 0 ? c.muted : c.primary, textDecorationLine: cool > 0 ? 'none' : 'underline' }]}>{cool > 0 ? `Resend in ${cool}s` : 'Resend code'}</Text></Pressable> : null}
       </View>
     </>
   );

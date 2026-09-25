@@ -24,6 +24,7 @@ tags: [project/preppa, type/launch-plan]
 - Cook order and earnings surfaces now distinguish backend failures from legitimate empty or zero states. Order detail opens the real customer conversation, and cancellation can include a customer-facing reason in the refund notification. The supporting migrations replayed locally and passed SQL regressions; target-project migration and Edge Function deployment evidence is still required.
 - Admin order, service-request, booking, plan, and subscription detail sheets now show load failures and a retry action instead of remaining on a false loading state. The public safety/support queue can open a pre-addressed email draft to the reporter while retaining audited status tracking.
 - Customer feed, saved-post, experience-detail, and live order-tracking screens now distinguish request failures from empty or loading states and provide recovery. Cook dashboard totals and the needs-prep queue no longer fall back to misleading zero or "all caught up" states when their requests fail; analytics and shared support threads now expose errors and retry actions.
+- OTP resend now shows success and starts its cooldown only after the resend request succeeds; failures remain retryable and visible instead of being reported as a sent code.
 
 ### Customer acceptance evidence still needed
 
