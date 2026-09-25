@@ -74,7 +74,7 @@ function BookingCard({ b, onChanged, toast }: { b: KitchenBookingView; onChanged
     setBusy('complete');
     try {
       const res = await completeBooking(b.id);
-      toast(res.balanceChargeError ? 'Marked complete — balance charge failed, will retry' : 'Booking marked complete', res.balanceChargeError ? 'info' : 'check', !res.balanceChargeError);
+      toast(res.balanceChargeError ? 'Booking completed. The remaining balance is still due.' : 'Booking marked complete', res.balanceChargeError ? 'info' : 'check', !res.balanceChargeError);
       onChanged();
     } catch (e: any) { toast(e?.message || 'Could not complete the booking', 'info'); }
     finally { setBusy(null); }

@@ -60,7 +60,7 @@ export default function Orders() {
     setBusy(b.id);
     try {
       const res = await completeBooking(b.id);
-      toast(res.balanceChargeError ? 'Marked complete — balance charge failed, we’ll retry' : 'Booking marked complete', res.balanceChargeError ? 'info' : 'check', !res.balanceChargeError);
+      toast(res.balanceChargeError ? 'Booking completed. The remaining balance is still due.' : 'Booking marked complete', res.balanceChargeError ? 'info' : 'check', !res.balanceChargeError);
       load();
     } catch (e: any) { toast(e?.message || 'Could not complete the booking', 'info'); }
     finally { setBusy(null); }

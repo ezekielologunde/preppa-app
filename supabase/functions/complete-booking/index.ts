@@ -4,8 +4,8 @@
 // collected at accept_quote time), attempts to charge it off-session on the customer's saved
 // card before marking complete. A declined/failed charge never blocks completion -- the job
 // already happened -- it's surfaced back to the caller so the UI can prompt the customer to
-// retry or pay another way; balance_pi_id stays null so a later completion-triggered call (or a
-// future manual retry endpoint) can attempt it again. JWT-scoped.
+// arrange payment another way; balance_pi_id stays null so a future recovery workflow can
+// identify the unpaid balance. JWT-scoped.
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.45.4';
 import Stripe from 'https://esm.sh/stripe@16.12.0?target=deno';
 import { z } from 'https://esm.sh/zod@3.23.8';

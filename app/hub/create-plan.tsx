@@ -193,7 +193,13 @@ export default function CreatePlanFlow() {
         throw new Error('The plan was saved, but weekly capacity could not update. Try saving again.');
       }
       // If this plan answers a customer's meal-plan brief, link it + notify them.
-      if (!asDraft && forRequest && pid) { try { await fulfillPlanRequest(forRequest, pid); } catch (_e) { /* non-fatal */ } }
+      if (!asDraft && forRequest && pid) {
+        try {
+          await fulfillPlanRequest(forRequest, pid);
+        } catch {
+          throw new Error('The plan was published, but it could not be linked to the customer request. Try again from the request.');
+        }
+      }
       if (asDraft) { toast('Draft saved', 'check', true); router.replace('/hub/plans'); return; }
       setDone(true);
     } catch (e: any) {
