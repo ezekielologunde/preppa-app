@@ -1,40 +1,33 @@
-# Preppa — Launch accounts tracker (Track 0)
+# Preppa launch accounts and external services
 
-The founder-blocked prerequisites for shipping. These gate the native builds + store submission
-and have real lead times, so they run **in parallel** with the build work. Store submission itself
-happens later (after the first real transaction), but the accounts should be started now.
+This tracker separates repository configuration from provider and account verification. A value
+in `app.json` or `eas.json` proves that the app is configured to reference an account. It does not
+prove that the account is active, approved, funded, or ready for store submission.
 
-**Status legend:** ☐ Not started · ◐ In progress / pending review · ☑ Done
+**Status legend:** Configured = repository evidence exists; Verify = current provider evidence is
+still required; Blocked = required evidence is absent.
 
-| # | Account | Status | Cost | Unblocks | Where |
-|---|---------|:------:|------|----------|-------|
-| 1 | **Stripe** live activation | ☐ | Free (business verification) | Real charges + **payouts to cooks** | Stripe Dashboard → *Activate account* |
-| 2 | **Apple** Developer Program | ☐ | $99 / yr | iOS build + App Store Connect | developer.apple.com/programs/enroll |
-| 3 | **Google Play** Console | ☐ | $25 one-time | Android submission | play.google.com/console/signup |
-| 4 | **Expo** account | ☐ | Free | `eas init` + native EAS builds | expo.dev/signup |
-| 5 | **Legal pages** on preppa.live | ☐ | Free (landing project) | Store compliance: privacy, terms, **account-deletion URL** | Vercel landing project |
+| Service | Repository evidence | Current status | Evidence required before launch |
+|---|---|---|---|
+| Stripe | A live publishable key is configured and Stripe Connect flows exist. | **Verify** | Confirm business activation in Stripe, deploy the current payment functions, then record controlled charge, refund, failed-payment, webhook, and cook-payout acceptance. |
+| Apple Developer and App Store Connect | Bundle ID `live.preppa.app`, Apple Pay merchant ID `merchant.live.preppa.app`, and App Store Connect app ID `6802527112` are configured. | **Verify** | Confirm membership, team and certificate ownership, merchant entitlement, privacy disclosures, production EAS build, TestFlight install, native Stripe return, and App Review readiness. |
+| Google Play Console | Android package `live.preppa.app` and production EAS profile are configured. | **Blocked** | Confirm the developer account and app record, complete Play declarations, produce an Android build, and pass internal-device testing. |
+| Expo and EAS | Owner `tolaologunde`, project ID `a585c8a7-673b-4707-b132-d8c347c0f862`, update URL, and build channels are configured. | **Configured** | Record successful production iOS and Android builds. Verify channel, signing credentials, runtime updates, and store submission output. |
+| Supabase | Client configuration and backend source are present. | **Verify** | Apply the intended migrations and Edge Functions to the target project, verify secrets and cron jobs, and capture production smoke-test evidence. |
+| Legal and policy pages | Privacy, terms, and account-deletion content exist as drafts in the project documentation. | **Blocked** | Obtain legal approval for the launch jurisdiction and verify public privacy, terms, support, and account-deletion URLs used by both stores. |
 
-## Recommended order & why
-1. **Stripe first** — business verification has the **longest lead time**, and without it the cook
-   can't receive a real payout (the whole point of the first transaction). Start today even though
-   we stay in test mode for weeks.
-2. **Apple** next — enrollment approval can take 24–48h.
-3. **Google Play** — quick, but do it early so it's not a last-minute blocker.
-4. **Expo** — 2 minutes; I need it to run `eas init` and kick off the first native build.
-5. **Legal pages** — I'll draft the three pages (privacy, terms, deletion); you host them on the
-   landing project. Needed before either store will accept the app.
+## Account details to verify
 
-## Reference (already done, no action needed)
-- App bundle identifier (iOS + Android): **`live.preppa.app`** — permanent once submitted; flag now if you want it changed.
-- `eas.json` build/submit profiles: scaffolded.
+- Apple Team ID: pending verification
+- App Store Connect app record for `6802527112`: pending verification
+- Google Play app record for `live.preppa.app`: pending verification
+- Expo organization and signing credentials: project linked; ownership and credential review pending
+- Stripe account activation and payout capability: pending provider evidence
+- Public legal and account-deletion URLs: pending verification
 
-## Notes / IDs (fill in as you go)
-- Apple Team ID: _____
-- App Store Connect app created: ☐
-- Google Play app created: ☐
-- Expo account / org: _____
-- Stripe activation status: _____
+## Release rule
 
----
-*Tell me when any of these move and I'll update the status here. "Starting" ≠ "submitting" — we
-don't submit to the stores until the first real transaction is proven.*
+Do not infer launch readiness from a checked-in identifier, a live client key, or a successful
+local build. Public launch requires the acceptance evidence in
+`docs/obsidian/Launch-Plan.md`, including controlled money movement, real-device testing, legal
+approval, verified cooks and menus, monitoring, and a closed beta.

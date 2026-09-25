@@ -6,7 +6,7 @@
 > This is the current production source of truth for the Preppa customer/prepper
 > application and its Supabase backend.
 >
-> - Production application: https://app.preppa.live
+> - Configured application URL: https://app.preppa.live
 > - Default branch: `main`
 >
 > Two other same-account repositories exist and are **not** this app:
@@ -18,24 +18,35 @@
 >   help-site implementation whose README claims the same two domains, but **has no
 >   corresponding Vercel project** — confirmed not live. Treat its domain claim as stale.
 
-Preppa is a real, live two-sided marketplace: home cooks ("preppers") sell homemade meals, cook
-in customers' homes, run subscription meal plans, or host bookable food experiences; customers
-browse, order, subscribe, and pay through the app. It is wired to a live Supabase project
-(Postgres + Auth + Edge Functions + Storage + Realtime) and Stripe (Connect Express for cook
-payouts). **This is not a demo** — orders, payments, and payouts move through real backend
-services. See `docs/obsidian/PM-Onboarding.md` for a plain-language tour, or `docs/obsidian/Project.md`
-for the full technical index (Architecture, Database, Backend, Payments, Features, Security,
-Decisions, Bugs, Tasks, Changelog — kept in sync with the codebase per this repo's `CLAUDE.md`).
+Preppa is the production-configured source for a two-sided marketplace where home cooks
+("preppers") can sell meals, cook in customers' homes, run subscription meal plans, and host
+bookable food experiences. Customers can browse, order, subscribe, and pay through the app.
+The code targets a live Supabase project and Stripe Connect, so production builds can create
+real financial activity.
+
+**Public launch is not signed off.** Deployment of the current migrations and Edge Functions,
+controlled payment/refund/payout acceptance, native-device testing, legal approval, verified
+cook supply, monitoring, and closed-beta evidence are still required. See
+`docs/obsidian/Launch-Plan.md` for the evidence and remaining gates. See
+`docs/obsidian/PM-Onboarding.md` for a plain-language tour, or `docs/obsidian/Project.md` for the
+technical index.
 
 ## Run
 
 ```bash
-npm install --legacy-peer-deps
+npm ci
 npx expo start            # press i / a, or scan the QR in Expo Go
 npx expo start --web      # browser
 ```
 
-Type-check: `npm run typecheck`. Bundle check: `npx expo export -p ios`.
+Local release checks:
+
+```bash
+npm run typecheck
+npm run build:web
+npm run security:bundle
+npm audit --audit-level=high
+```
 
 ## Structure
 
@@ -58,6 +69,13 @@ current screens; this README doesn't attempt to enumerate them.
 
 ## CI
 
-`.github/workflows/ci.yml` runs `typecheck` (`tsc --noEmit`) and `db-regression-tests` (replays
-every migration in `supabase/migrations/` from scratch against a fresh local Postgres, then runs
-`supabase/tests/regressions.sql`) on every push/PR to `main`.
+`.github/workflows/ci.yml` runs three jobs on every push or pull request to `main`:
+
+- `typecheck` runs TypeScript validation.
+- `web-build-security` exports the web app and scans the bundle for protected secret patterns.
+- `db-regression-tests` replays every migration against a fresh local Supabase stack and runs
+  `supabase/tests/regressions.sql`.
+
+A green CI run validates this repository revision. It does not prove that the same migrations
+and functions are deployed to the production project or that external provider acceptance has
+passed.

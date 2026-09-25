@@ -13,7 +13,7 @@ tags: [project/preppa, type/launch-plan]
 
 **Not signed off for public launch.** Core implementation exists, but the customer-to-cook money journey and operational gates remain open. Older completed items below are historical evidence, not a fresh production verification.
 
-- Local `npm run typecheck`, web export, targeted bundle-secret scan, full local migration replay, and SQL regressions passed on 2026-09-25. GitHub CI run `36157212001` at `234c3f1` passed `typecheck`, `web-build-security`, and `db-regression-tests`.
+- Local `npm run typecheck`, web export, targeted bundle-secret scan, full local migration replay, and SQL regressions passed on 2026-09-25. GitHub CI run `36165757460` at `7d8af50` passed `typecheck`, `web-build-security`, and `db-regression-tests`.
 - Local `npx expo export --platform web` passed. Built output scan found no Stripe secret-key prefixes, PEM private-key headers or `SUPABASE_SERVICE_ROLE_KEY` identifiers; this is a targeted scan, not a comprehensive secret audit.
 - Expo SDK 57 patch alignment removed the high findings and Hermes regression. Current `npm audit` reports zero known vulnerabilities, and `expo-doctor` passes 21/21.
 - Fixed build-upload exclusions by removing the two-line `.easignore` overriding `.gitignore`; added general `.env.*` protection with example-file exceptions. A local `.p8` file exists and is Git-ignored; its contents were not read. Prior build archives were not inspected, so no credential leak is confirmed. See [[Security]].
@@ -74,6 +74,7 @@ tags: [project/preppa, type/launch-plan]
 - New order support requests alert admins, and non-internal replies alert the customer, shared cook, or admin queue as appropriate. The persisted support thread no longer depends on each participant manually reopening the queue to discover activity.
 - Customers receive an in-app and push notification when admins move an order support request to in progress, resolved, closed, or reopened, completing the support lifecycle feedback loop.
 - Removed the remaining cash-on-delivery presentation branches and cook preference field. Tracking now requires a real order ID instead of falling back to a static "live" timeline. The decorative pickup QR and random backup code were also removed because no server verification or cook scanner existed, so old or malformed links cannot present fabricated fulfillment or handoff controls.
+- The latest UI and workflow hardening removed obsolete seeded-kitchen deep links, requires live catalog IDs at checkout, adds recovery for empty or failed custom-box and subscription-plan loads, confirms customer booking financial actions, protects cook menu mutations, and confirms high-impact admin payout, kitchen-application, support-ticket, and safety-request decisions. These safeguards have local typecheck, web-build, bundle-security, and audit evidence; provider and real-device acceptance remain separate launch gates.
 
 ### Customer acceptance evidence still needed
 

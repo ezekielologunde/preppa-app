@@ -140,7 +140,7 @@ Went end-to-end through Shef's actual ordering flow (add to cart → cross-sell 
 
 ## Cleanup
 
-- [ ] Update `README.md` (stale demo-mode description) and `LAUNCH-ACCOUNTS.md` (stale unchecked boxes).
+- [x] ~~Update `README.md` and `LAUNCH-ACCOUNTS.md`~~ — done 2026-09-25. The README now distinguishes production configuration from launch approval and documents the current CI gates. The account tracker now separates checked-in identifiers from provider verification and lists the external evidence still required.
 - [ ] Resolve the two divergent `GRAD` palette exports (`src/theme/theme.ts` vs `src/data/data.ts`).
 - [ ] Reduce the 39-route reliance on `src/data/data.ts` mock data; audit which persisted-store seed data is still reachable.
 
