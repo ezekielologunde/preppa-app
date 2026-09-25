@@ -49,6 +49,7 @@ tags: [project/preppa, type/launch-plan]
 - Cook plan editing now blocks on an unknown kitchen capacity instead of treating it as unlimited, and publishing reports a partial save if the capacity limit could not be updated.
 - Stripe Connect status errors now propagate from the Edge Function and the onboarding return flow distinguishes a verification failure from incomplete setup.
 - Service requests, bookings, experience review status, message threads, unread counts, and broadcast audience counts now propagate backend failures instead of appearing empty or complete.
+- Editing a customer service request now waits for saved data and provides a retry state instead of exposing a blank form during a failed prefill.
 
 ### Customer acceptance evidence still needed
 

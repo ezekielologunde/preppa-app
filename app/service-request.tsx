@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { View, Text, ScrollView, TextInput } from 'react-native';
+import { View, Text, ScrollView, TextInput, ActivityIndicator } from 'react-native';
 import { useRouter, useLocalSearchParams } from 'expo-router';
 import { useC } from '../src/theme/ThemeContext';
 import { type, radius } from '../src/theme/theme';
@@ -102,13 +102,20 @@ export default function ServiceRequestScreen() {
   const [timeSheet, setTimeSheet] = useState(false);
   const [busy, setBusy] = useState(false);
   const [done, setDone] = useState<{ targets: number; edited: boolean } | null>(null);
+  const [editLoading, setEditLoading] = useState(editing);
+  const [editLoadError, setEditLoadError] = useState('');
+  const [retryNonce, setRetryNonce] = useState(0);
 
   // edit mode: prefill from the existing request
   useEffect(() => {
     if (!editing) return;
+    let alive = true;
+    setEditLoading(true);
+    setEditLoadError('');
     fetchServiceRequest(edit!).then((r) => {
-      if (!r) { toast('Request not found', 'info'); return; }
-      if (r.status !== 'open') { toast('This request already has quotes — it can no longer be edited.', 'info'); router.replace(`/request/${edit}`); return; }
+      if (!alive) return;
+      if (!r) { setEditLoadError('This request could not be found.'); return; }
+      if (r.status !== 'open') { toast('This request already has quotes and can no longer be edited.', 'info'); router.replace(`/request/${edit}`); return; }
       setCategory(r.category);
       setAnswers((r.answers as Answers) ?? {});
       setEventDate(r.eventDate ?? '');
@@ -116,8 +123,13 @@ export default function ServiceRequestScreen() {
       setGuests(r.guests ? String(r.guests) : '');
       setAddress(r.addressText ?? '');
       setBudget(r.budgetCents ? String(r.budgetCents / 100) : '');
+    }).catch((e: any) => {
+      if (alive) setEditLoadError(e?.message || 'Could not load your request.');
+    }).finally(() => {
+      if (alive) setEditLoading(false);
     });
-  }, [editing]);
+    return () => { alive = false; };
+  }, [editing, edit, retryNonce]);
 
   const dateValid = /^\d{4}-\d{2}-\d{2}$/.test(eventDate.trim());
   const isPlan = category === 'meal_plan';
@@ -155,6 +167,14 @@ export default function ServiceRequestScreen() {
       toast(e?.message || 'Could not post your request', 'info');
     } finally { setBusy(false); }
   };
+
+  if (editLoading) {
+    return <Screen><TopBar title="Edit request" onBack={() => router.back()} /><View style={{ flex: 1, alignItems: 'center', justifyContent: 'center' }}><ActivityIndicator color={c.primary} /></View></Screen>;
+  }
+
+  if (editLoadError) {
+    return <Screen><TopBar title="Edit request" onBack={() => router.back()} /><View accessibilityRole="alert" style={{ flex: 1, alignItems: 'center', justifyContent: 'center', padding: 28 }}><Icon name="info" size={38} color={c.red} /><Text style={[type(16, 900), { color: c.ink, marginTop: 12 }]}>Couldn’t load request</Text><Text style={[type(13, 600), { color: c.soft, textAlign: 'center', marginTop: 6, marginBottom: 14 }]}>{editLoadError}</Text><Btn label="Try again" icon="repeat" onPress={() => setRetryNonce((n) => n + 1)} /></View></Screen>;
+  }
 
   if (done) {
     return (
