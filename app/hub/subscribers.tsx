@@ -33,37 +33,52 @@ export default function SubscribersScreen() {
   const [error, setError] = useState('');
   const [broadcastOpen, setBroadcastOpen] = useState(false);
   const [messaging, setMessaging] = useState<string | null>(null);
+  const loadSequence = useRef(0);
+  const messageInFlight = useRef(false);
 
   const message = async (s: CookSubscriber) => {
-    if (messaging) return;
+    if (messageInFlight.current) return;
+    messageInFlight.current = true;
     setMessaging(s.subscriptionId);
     try {
       const tid = await openThreadAsKitchen(s.customerId, 'subscription', s.subscriptionId);
       router.push(`/messages/${tid}`);
     } catch (e: any) {
       toast(e?.message || 'Could not open the conversation', 'info');
-    } finally { setMessaging(null); }
+    } finally { messageInFlight.current = false; setMessaging(null); }
   };
 
   const load = useCallback(async () => {
+    const sequence = ++loadSequence.current;
     setLoading(true);
     setError('');
-    try { const [p, s] = await Promise.all([fetchPrepRollup(), fetchCookSubscribers()]); setPrep(p); setSubs(s); }
-    catch (e: any) { setError(e?.message ?? 'Couldn’t load subscribers and prep.'); }
-    finally { setLoading(false); }
+    try {
+      const [p, s] = await Promise.all([fetchPrepRollup(), fetchCookSubscribers()]);
+      if (sequence !== loadSequence.current) return;
+      setPrep(p);
+      setSubs(s);
+    } catch {
+      if (sequence === loadSequence.current) setError('Check your connection and try loading subscribers and prep again.');
+    } finally {
+      if (sequence === loadSequence.current) setLoading(false);
+    }
   }, []);
-  useFocusEffect(useCallback(() => { load(); }, [load]));
+  useFocusEffect(useCallback(() => {
+    void load();
+    return () => { loadSequence.current += 1; };
+  }, [load]));
 
   const active = subs.filter((s) => s.lifecycle === 'active');
   const mrrCents = active.reduce((n, s) => n + s.priceCents, 0);
   const totalPortions = prep.reduce((n, d) => n + d.meals.reduce((m, x) => m + x.portions, 0), 0);
+  const hasContent = subs.length > 0 || prep.length > 0;
 
   return (
     <Screen>
       <TopBar title="Subscribers" sub={loading ? '' : `${active.length} active`} onBack={() => router.back()} />
-      {loading ? (
+      {loading && !hasContent ? (
         <View style={{ flex: 1, alignItems: 'center', justifyContent: 'center' }}><ActivityIndicator color={c.primary} /></View>
-      ) : error ? (
+      ) : error && !hasContent ? (
         <View style={{ flex: 1, alignItems: 'center', justifyContent: 'center', padding: 28 }}>
           <Icon name="info" size={38} color={c.red} />
           <Text style={[type(16, 900), { color: c.ink, marginTop: 12 }]}>Couldn’t load subscribers</Text>
@@ -79,6 +94,13 @@ export default function SubscribersScreen() {
         </View>
       ) : (
         <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={{ paddingTop: 16, paddingBottom: 40 }}>
+          {error ? (
+            <View accessibilityRole="alert" style={{ marginHorizontal: 20, marginBottom: 14, borderWidth: 1, borderColor: c.red, backgroundColor: c.redL, borderRadius: radius.lg, padding: 14 }}>
+              <Text style={[type(13.5, 900), { color: c.ink }]}>Couldn’t refresh prep</Text>
+              <Text style={[type(12.5, 600), { color: c.soft, marginTop: 4, lineHeight: 18 }]}>{error} Your current prep and subscriber list is still shown.</Text>
+              <View style={{ marginTop: 10, alignSelf: 'flex-start' }}><KBtn label="Try again" variant="ghost" icon="repeat" onPress={load} disabled={loading} /></View>
+            </View>
+          ) : null}
           {/* MRR + portions summary */}
           <View style={{ flexDirection: 'row', gap: 12, marginHorizontal: 20 }}>
             <Stat c={c} ico="wallet" label="Weekly recurring" value={money(mrrCents / 100)} tint={c.green} />
@@ -153,6 +175,7 @@ function BroadcastComposer({ open, onClose }: { open: boolean; onClose: () => vo
   const [countError, setCountError] = useState(false);
   const [sending, setSending] = useState(false);
   const idemKey = useRef('');
+  const sendInFlight = useRef(false);
 
   useEffect(() => {
     if (!open) return;
@@ -161,12 +184,15 @@ function BroadcastComposer({ open, onClose }: { open: boolean; onClose: () => vo
     setCountError(false);
     // one idempotency key per compose session — a double-tap Send can't send twice
     idemKey.current = `bc-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
-    broadcastAudienceCount().then(setCount).catch(() => setCountError(true));
+    let active = true;
+    broadcastAudienceCount().then((nextCount) => { if (active) setCount(nextCount); }).catch(() => { if (active) setCountError(true); });
+    return () => { active = false; };
   }, [open]);
 
   const send = async () => {
     const text = body.trim();
-    if (text.length < 1 || sending) return;
+    if (text.length < 1 || sendInFlight.current) return;
+    sendInFlight.current = true;
     setSending(true);
     try {
       const res = await sendBroadcast(text, idemKey.current);
@@ -175,7 +201,7 @@ function BroadcastComposer({ open, onClose }: { open: boolean; onClose: () => vo
     } catch (e: any) {
       const msg = String(e?.message || '');
       toast(msg.includes('rate_limit') ? 'You can send up to 3 broadcasts per day' : (msg || 'Couldn’t send'), 'info');
-    } finally { setSending(false); }
+    } finally { sendInFlight.current = false; setSending(false); }
   };
 
   return (
