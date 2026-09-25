@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useRef, useState } from 'react';
 import { View, Text, ScrollView } from 'react-native';
 import { useC } from '../../src/theme/ThemeContext';
 import { type, radius, tnum } from '../../src/theme/theme';
@@ -18,7 +18,7 @@ const m = (cents: number) => money(cents / 100);
 function Tabs({ tab, setTab }: { tab: 'requests' | 'bookings'; setTab: (t: 'requests' | 'bookings') => void }) {
   const c = useC();
   const opt = (key: 'requests' | 'bookings', label: string) => (
-    <Press scale={0.98} onPress={() => setTab(key)} label={label}>
+    <Press scale={0.98} onPress={() => setTab(key)} label={label} selected={tab === key}>
       <View
         style={{
           paddingVertical: 8,
@@ -70,8 +70,10 @@ function RequestsTab() {
   const [selected, setSelected] = useState<admin.AdminServiceRequest | null>(null);
   const [open, setOpen] = useState(false);
   const [busy, setBusy] = useState(false);
+  const detailRequest = useRef(0);
 
   const openReq = async (row: admin.AdminServiceRequest) => {
+    const request = ++detailRequest.current;
     setSelected(row);
     setOpen(true);
     setBusy(true);
@@ -80,13 +82,14 @@ function RequestsTab() {
     try {
       const result = await admin.serviceRequestDetail(row.request_id);
       if (!result) throw new Error('This service request is no longer available.');
-      setDetail(result);
-    } catch (e: any) {
-      setDetailError(e?.message ?? 'Could not load this service request.');
+      if (request === detailRequest.current) setDetail(result);
+    } catch {
+      if (request === detailRequest.current) setDetailError('Check your connection and try loading this service request again.');
     } finally {
-      setBusy(false);
+      if (request === detailRequest.current) setBusy(false);
     }
   };
+  const closeReq = () => { detailRequest.current += 1; setOpen(false); setBusy(false); };
 
   const columns: Column<admin.AdminServiceRequest>[] = [
     {
@@ -110,7 +113,7 @@ function RequestsTab() {
     <>
       <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={{ paddingBottom: 44 }}>
         {error ? (
-          <ErrorRetry message={error.message} onRetry={() => setNonce((n) => n + 1)} />
+          <ErrorRetry message="Check your connection and try loading service requests again." onRetry={() => setNonce((n) => n + 1)} />
         ) : (
           <DataTable
             columns={columns}
@@ -126,7 +129,7 @@ function RequestsTab() {
         )}
       </ScrollView>
 
-      <Sheet visible={open} onClose={() => setOpen(false)} title="Request detail" scroll>
+      <Sheet visible={open} onClose={closeReq} title="Request detail" scroll>
         {busy ? (
           <Text style={[type(14, 600), { color: c.muted, paddingVertical: 20, textAlign: 'center' }]}>Loading…</Text>
         ) : detailError || !detail ? (
@@ -195,8 +198,10 @@ function BookingsTab() {
   const [selected, setSelected] = useState<admin.AdminBooking | null>(null);
   const [open, setOpen] = useState(false);
   const [busy, setBusy] = useState(false);
+  const detailRequest = useRef(0);
 
   const openBooking = async (row: admin.AdminBooking) => {
+    const request = ++detailRequest.current;
     setSelected(row);
     setOpen(true);
     setBusy(true);
@@ -205,13 +210,14 @@ function BookingsTab() {
     try {
       const result = await admin.bookingDetail(row.booking_id);
       if (!result) throw new Error('This booking is no longer available.');
-      setDetail(result);
-    } catch (e: any) {
-      setDetailError(e?.message ?? 'Could not load this booking.');
+      if (request === detailRequest.current) setDetail(result);
+    } catch {
+      if (request === detailRequest.current) setDetailError('Check your connection and try loading this booking again.');
     } finally {
-      setBusy(false);
+      if (request === detailRequest.current) setBusy(false);
     }
   };
+  const closeBooking = () => { detailRequest.current += 1; setOpen(false); setBusy(false); };
 
   const columns: Column<admin.AdminBooking>[] = [
     {
@@ -235,7 +241,7 @@ function BookingsTab() {
     <>
       <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={{ paddingBottom: 44 }}>
         {error ? (
-          <ErrorRetry message={error.message} onRetry={() => setNonce((n) => n + 1)} />
+          <ErrorRetry message="Check your connection and try loading bookings again." onRetry={() => setNonce((n) => n + 1)} />
         ) : (
           <DataTable
             columns={columns}
@@ -251,7 +257,7 @@ function BookingsTab() {
         )}
       </ScrollView>
 
-      <Sheet visible={open} onClose={() => setOpen(false)} title="Booking detail" scroll>
+      <Sheet visible={open} onClose={closeBooking} title="Booking detail" scroll>
         {busy ? (
           <Text style={[type(14, 600), { color: c.muted, paddingVertical: 20, textAlign: 'center' }]}>Loading…</Text>
         ) : detailError || !detail ? (

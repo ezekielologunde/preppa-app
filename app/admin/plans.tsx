@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useRef, useState } from 'react';
 import { View, Text, ScrollView } from 'react-native';
 import { useC } from '../../src/theme/ThemeContext';
 import { type, radius, tnum } from '../../src/theme/theme';
@@ -18,7 +18,7 @@ const m = (cents: number) => money(cents / 100);
 function Tabs({ tab, setTab }: { tab: 'plans' | 'subs'; setTab: (t: 'plans' | 'subs') => void }) {
   const c = useC();
   const opt = (key: 'plans' | 'subs', label: string) => (
-    <Press scale={0.98} onPress={() => setTab(key)} label={label}>
+    <Press scale={0.98} onPress={() => setTab(key)} label={label} selected={tab === key}>
       <View
         style={{
           paddingVertical: 8,
@@ -71,8 +71,10 @@ function PlansTab() {
   const [selected, setSelected] = useState<admin.AdminPlan | null>(null);
   const [open, setOpen] = useState(false);
   const [busy, setBusy] = useState(false);
+  const detailRequest = useRef(0);
 
   const openPlan = async (row: admin.AdminPlan) => {
+    const request = ++detailRequest.current;
     setSelected(row);
     setOpen(true);
     setBusy(true);
@@ -81,13 +83,14 @@ function PlansTab() {
     try {
       const result = await admin.planDetail(row.plan_id);
       if (!result) throw new Error('This plan is no longer available.');
-      setDetail(result);
-    } catch (e: any) {
-      setDetailError(e?.message ?? 'Could not load this plan.');
+      if (request === detailRequest.current) setDetail(result);
+    } catch {
+      if (request === detailRequest.current) setDetailError('Check your connection and try loading this plan again.');
     } finally {
-      setBusy(false);
+      if (request === detailRequest.current) setBusy(false);
     }
   };
+  const closePlan = () => { detailRequest.current += 1; setOpen(false); setBusy(false); };
 
   const columns: Column<admin.AdminPlan>[] = [
     {
@@ -112,7 +115,7 @@ function PlansTab() {
     <>
       <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={{ paddingBottom: 44 }}>
         {error ? (
-          <ErrorRetry message={error.message} onRetry={() => setNonce((n) => n + 1)} />
+          <ErrorRetry message="Check your connection and try loading plans again." onRetry={() => setNonce((n) => n + 1)} />
         ) : (
           <DataTable
             columns={columns}
@@ -128,7 +131,7 @@ function PlansTab() {
         )}
       </ScrollView>
 
-      <Sheet visible={open} onClose={() => setOpen(false)} title="Plan detail" scroll>
+      <Sheet visible={open} onClose={closePlan} title="Plan detail" scroll>
         {busy ? (
           <Text style={[type(14, 600), { color: c.muted, paddingVertical: 20, textAlign: 'center' }]}>Loading…</Text>
         ) : detailError || !detail ? (
@@ -196,8 +199,10 @@ function SubscriptionsTab() {
   const [selected, setSelected] = useState<admin.AdminSubscription | null>(null);
   const [open, setOpen] = useState(false);
   const [busy, setBusy] = useState(false);
+  const detailRequest = useRef(0);
 
   const openSub = async (row: admin.AdminSubscription) => {
+    const request = ++detailRequest.current;
     setSelected(row);
     setOpen(true);
     setBusy(true);
@@ -206,13 +211,14 @@ function SubscriptionsTab() {
     try {
       const result = await admin.subscriptionDetail(row.subscription_id);
       if (!result) throw new Error('This subscription is no longer available.');
-      setDetail(result);
-    } catch (e: any) {
-      setDetailError(e?.message ?? 'Could not load this subscription.');
+      if (request === detailRequest.current) setDetail(result);
+    } catch {
+      if (request === detailRequest.current) setDetailError('Check your connection and try loading this subscription again.');
     } finally {
-      setBusy(false);
+      if (request === detailRequest.current) setBusy(false);
     }
   };
+  const closeSub = () => { detailRequest.current += 1; setOpen(false); setBusy(false); };
 
   const columns: Column<admin.AdminSubscription>[] = [
     {
@@ -237,7 +243,7 @@ function SubscriptionsTab() {
     <>
       <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={{ paddingBottom: 44 }}>
         {error ? (
-          <ErrorRetry message={error.message} onRetry={() => setNonce((n) => n + 1)} />
+          <ErrorRetry message="Check your connection and try loading subscriptions again." onRetry={() => setNonce((n) => n + 1)} />
         ) : (
           <DataTable
             columns={columns}
@@ -253,7 +259,7 @@ function SubscriptionsTab() {
         )}
       </ScrollView>
 
-      <Sheet visible={open} onClose={() => setOpen(false)} title="Subscription detail" scroll>
+      <Sheet visible={open} onClose={closeSub} title="Subscription detail" scroll>
         {busy ? (
           <Text style={[type(14, 600), { color: c.muted, paddingVertical: 20, textAlign: 'center' }]}>Loading…</Text>
         ) : detailError || !detail ? (
