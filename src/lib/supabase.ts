@@ -511,7 +511,8 @@ export async function getMyKitchenId(): Promise<string | null> {
   const { data: sess } = await supabase.auth.getSession();
   const uid = sess.session?.user?.id;
   if (!uid) return null;
-  const { data } = await supabase.from('kitchens').select('id').eq('owner_id', uid).order('created_at', { ascending: false }).limit(1);
+  const { data, error } = await supabase.from('kitchens').select('id').eq('owner_id', uid).order('created_at', { ascending: false }).limit(1);
+  if (error) throw error;
   return (data?.[0]?.id as string) ?? null;
 }
 

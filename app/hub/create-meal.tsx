@@ -46,7 +46,6 @@ export default function CreateMealFlow() {
   const [ingredients, setIngredients] = useState('');
   const [allergens, setAllergens] = useState<string[]>([]);
   const [allergenReviewed, setAllergenReviewed] = useState(false);
-  const [qty, setQty] = useState('');
   const [done, setDone] = useState(false);
   const [photoUploadFailed, setPhotoUploadFailed] = useState(false);
   const [busy, setBusy] = useState(false);
@@ -74,11 +73,10 @@ export default function CreateMealFlow() {
       if (photoFile && Platform.OS === 'web') {
         try {
           const kid = await getMyKitchenId();
-          if (kid) {
-            const ext = ((photoFile as File).name?.split('.').pop() || (photoFile.type || '').split('/')[1] || 'jpg').toLowerCase();
-            const url = await uploadMealPhoto(photoFile, ext, kid);
-            await setMealPhoto(mealId, url);
-          }
+          if (!kid) throw new Error('Kitchen not found for photo upload.');
+          const ext = ((photoFile as File).name?.split('.').pop() || (photoFile.type || '').split('/')[1] || 'jpg').toLowerCase();
+          const url = await uploadMealPhoto(photoFile, ext, kid);
+          await setMealPhoto(mealId, url);
         } catch {
           setPhotoUploadFailed(true);
           toast('Meal published, but the photo couldn’t be added', 'info');
@@ -189,7 +187,6 @@ export default function CreateMealFlow() {
             <Text style={[type(12.5, 700), { color: c.soft, lineHeight: 18, flex: 1 }]}>I reviewed the full recipe and disclosed every applicable major allergen.</Text>
           </View>
         </Press>
-        <KField label="Daily quantity" hint="how many you can make"><KInput value={qty} onChange={setQty} placeholder="e.g. 12 trays per day" /></KField>
       </ScrollView>
       <Dock>
         <KBtn label={busy ? 'Publishing…' : 'Publish meal'} variant="pri" block onPress={submit} style={{ opacity: valid && !busy ? 1 : 0.5 }} />
