@@ -69,7 +69,7 @@ export function MealsBrowser({ initialCat, initialGoal }: { initialCat?: string;
         <View style={{ flexDirection: 'row', gap: 10 }}>
           <View style={{ flex: 1, height: 50, borderRadius: radius.lg, backgroundColor: c.bg2, flexDirection: 'row', alignItems: 'center', gap: 10, paddingHorizontal: 15 }}>
             <Icon name="search" size={18} color={c.muted} />
-            <TextInput value={q} onChangeText={setQ} placeholder="Search meals, preppers, cuisines…" placeholderTextColor={c.muted} style={[type(15, 600), { color: c.ink, flex: 1, padding: 0 }]} />
+        <TextInput value={q} onChangeText={setQ} placeholder="Search meals, preppers, cuisines…" placeholderTextColor={c.muted} accessibilityLabel="Search meals, preppers, and cuisines" style={[type(15, 600), { color: c.ink, flex: 1, padding: 0 }]} />
           </View>
           <Press scale={0.9} onPress={() => setFilterOpen(true)} label="Filters">
             <View style={{ width: 50, height: 50, borderRadius: 14, backgroundColor: activeCount ? c.primary : c.bg2, alignItems: 'center', justifyContent: 'center' }}>

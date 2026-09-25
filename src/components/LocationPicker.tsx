@@ -60,6 +60,7 @@ export function LocationPicker({ visible, onClose }: { visible: boolean; onClose
           onChangeText={setQuery}
           placeholder="Search for a city or area…"
           placeholderTextColor={c.soft}
+          accessibilityLabel="Search for a city or area"
           style={[type(15, 600), { color: c.ink, flex: 1, paddingVertical: 10 }]}
           onSubmitEditing={() => pick(query)}
           returnKeyType="search"

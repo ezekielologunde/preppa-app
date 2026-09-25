@@ -218,7 +218,7 @@ function PreppersMode() {
       <View style={{ paddingHorizontal: 16, paddingTop: 12 }}>
         <View style={{ height: 50, borderRadius: radius.lg, backgroundColor: c.bg2, flexDirection: 'row', alignItems: 'center', gap: 10, paddingHorizontal: 15 }}>
           <Icon name="search" size={18} color={c.muted} />
-          <TextInput value={q} onChangeText={setQ} placeholder="Search preppers, cuisines…" placeholderTextColor={c.muted} style={[type(15, 600), { color: c.ink, flex: 1, padding: 0 }]} />
+          <TextInput value={q} onChangeText={setQ} placeholder="Search preppers, cuisines…" placeholderTextColor={c.muted} accessibilityLabel="Search preppers and cuisines" style={[type(15, 600), { color: c.ink, flex: 1, padding: 0 }]} />
         </View>
       </View>
       {list.length === 0 ? (

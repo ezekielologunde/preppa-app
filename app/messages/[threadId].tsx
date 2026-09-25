@@ -325,6 +325,7 @@ export default function ThreadView() {
                   onChangeText={onChangeText}
                   placeholder={`Message ${header?.name?.split(' ')[0] ?? ''}…`}
                   placeholderTextColor={c.muted}
+                  accessibilityLabel={`Message ${header?.name ?? 'conversation'}`}
                   multiline
                   style={[type(14, 500), { color: c.ink, maxHeight: 108 }]}
                   onSubmitEditing={send}

@@ -216,14 +216,14 @@ function Auth({ mode, onNext, onRecovery }: { mode: 'signin' | 'signup'; onNext:
         {mode === 'signup' && !recovering ? (
           <View style={{ marginBottom: 14 }}>
             <Text style={[type(12.5, 800), { color: c.soft, marginBottom: 8 }]}>Full name</Text>
-            <TextInput value={fullName} onChangeText={(t) => { setFullName(t); clearMsgs(); }} autoCapitalize="words" autoComplete="name" textContentType="name" placeholder="Your name" placeholderTextColor={c.muted} style={inputStyle(false)} />
+      <TextInput value={fullName} onChangeText={(t) => { setFullName(t); clearMsgs(); }} autoCapitalize="words" autoComplete="name" textContentType="name" placeholder="Your name" placeholderTextColor={c.muted} accessibilityLabel="Your name" style={inputStyle(false)} />
           </View>
         ) : null}
         <Text style={[type(12.5, 800), { color: c.soft, marginBottom: 8 }]}>Email address</Text>
-        <TextInput value={email} onChangeText={(t) => { setEmail(t); clearMsgs(); }} keyboardType="email-address" autoCapitalize="none" autoComplete="email" textContentType="emailAddress" placeholder="you@example.com" placeholderTextColor={c.muted} style={inputStyle(!!err)} />
+      <TextInput value={email} onChangeText={(t) => { setEmail(t); clearMsgs(); }} keyboardType="email-address" autoCapitalize="none" autoComplete="email" textContentType="emailAddress" placeholder="you@example.com" placeholderTextColor={c.muted} accessibilityLabel="Email address" style={inputStyle(!!err)} />
         <View style={{ height: 14 }} />
         <Text style={[type(12.5, 800), { color: c.soft, marginBottom: 8 }]}>{recovering ? 'New password' : 'Password'}</Text>
-        <TextInput value={password} onChangeText={(t) => { setPassword(t); clearMsgs(); }} onSubmitEditing={submit} secureTextEntry autoCapitalize="none" autoComplete={mode === 'signup' || recovering ? 'password-new' : 'password'} textContentType={mode === 'signup' || recovering ? 'newPassword' : 'password'} placeholder={mode === 'signup' || recovering ? 'At least 8 characters' : 'Your password'} placeholderTextColor={c.muted} style={inputStyle(!!err)} />
+      <TextInput value={password} onChangeText={(t) => { setPassword(t); clearMsgs(); }} onSubmitEditing={submit} secureTextEntry autoCapitalize="none" autoComplete={mode === 'signup' || recovering ? 'password-new' : 'password'} textContentType={mode === 'signup' || recovering ? 'newPassword' : 'password'} placeholder={mode === 'signup' || recovering ? 'At least 8 characters' : 'Your password'} placeholderTextColor={c.muted} accessibilityLabel={recovering ? 'New password' : 'Password'} style={inputStyle(!!err)} />
       {mode === 'signin' ? <Pressable onPress={() => { setRecovering((v) => !v); setErr(null); setInfo(null); setPassword(''); }} accessibilityRole="button" style={{ marginTop: 11, alignSelf: 'flex-end' }}><Text style={[type(13, 700), { color: c.primary }]}>{recovering ? 'Back to sign in' : 'Forgot password?'}</Text></Pressable> : null}
         {err ? <View style={{ flexDirection: 'row', alignItems: 'center', gap: 7, marginTop: 9 }}><Icon name="info" size={15} color={c.red} /><Text style={[type(13, 700), { color: c.red, flex: 1 }]}>{err}</Text></View> : null}
         {info ? <View style={{ flexDirection: 'row', alignItems: 'center', gap: 7, marginTop: 9 }}><Icon name="check" size={15} color={c.green} /><Text style={[type(13, 700), { color: c.green, flex: 1 }]}>{info}</Text></View> : null}
@@ -307,6 +307,7 @@ function Code({ email, onNext, newPassword }: { email: string; onNext: () => voi
           keyboardType="number-pad"
           maxLength={6}
           autoFocus
+          accessibilityLabel="Six digit verification code"
           caretHidden
           selectionColor="transparent"
           style={[FILL, { color: 'transparent', fontSize: 24, textAlign: 'center' }] as any}
