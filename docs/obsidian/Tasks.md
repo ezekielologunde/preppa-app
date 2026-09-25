@@ -8,6 +8,8 @@ tags: [project/preppa, type/tasks]
 
 # Tasks
 
+- [x] Keep cook meal plans usable through refresh failures: sequence focus loads, retain the current plan list with accessible recovery, and add complete spoken labels to plan rows (2026-09-25)
+
 - [x] Preserve cook prep and allergy information through subscriber refresh failures: sequence loads, retain current prep with accessible recovery, and synchronously lock direct and broadcast message actions (2026-09-25)
 
 - [x] Harden cook menu operations: sequence focus refreshes, preserve visible dishes through refresh failures, provide inline accessible recovery, and synchronously lock meal status and archive actions (2026-09-25)

@@ -1,4 +1,4 @@
-import React, { useCallback, useState } from 'react';
+import React, { useCallback, useRef, useState } from 'react';
 import { View, Text, ScrollView, ActivityIndicator } from 'react-native';
 import { useRouter, useFocusEffect } from 'expo-router';
 import { useC } from '../../src/theme/ThemeContext';
@@ -19,15 +19,25 @@ export default function PlansScreen() {
   const [plans, setPlans] = useState<Plan[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
+  const loadSequence = useRef(0);
 
   const load = useCallback(async () => {
+    const sequence = ++loadSequence.current;
     setLoading(true);
     setError('');
-    try { setPlans(await fetchMyPlans()); }
-    catch (e: any) { setError(e?.message ?? 'Couldn’t load your meal plans.'); }
-    finally { setLoading(false); }
+    try {
+      const nextPlans = await fetchMyPlans();
+      if (sequence === loadSequence.current) setPlans(nextPlans);
+    } catch {
+      if (sequence === loadSequence.current) setError('Check your connection and try loading your meal plans again.');
+    } finally {
+      if (sequence === loadSequence.current) setLoading(false);
+    }
   }, []);
-  useFocusEffect(useCallback(() => { load(); }, [load]));
+  useFocusEffect(useCallback(() => {
+    void load();
+    return () => { loadSequence.current += 1; };
+  }, [load]));
 
   return (
     <Screen>
@@ -39,10 +49,10 @@ export default function PlansScreen() {
         </View>
 
         <KSec title="Your plans" />
-        {loading ? (
+        {loading && plans.length === 0 ? (
           <View style={{ paddingVertical: 40, alignItems: 'center' }}><ActivityIndicator color={c.primary} /></View>
-        ) : error ? (
-          <View style={{ marginHorizontal: 20, alignItems: 'center', padding: 22, borderRadius: radius.card, backgroundColor: c.surface, borderWidth: 1, borderColor: c.border2 }}>
+        ) : error && plans.length === 0 ? (
+          <View accessibilityRole="alert" style={{ marginHorizontal: 20, alignItems: 'center', padding: 22, borderRadius: radius.card, backgroundColor: c.surface, borderWidth: 1, borderColor: c.border2 }}>
             <Text style={[type(13.5, 700), { color: c.red, textAlign: 'center', marginBottom: 12 }]}>{error}</Text>
             <KBtn label="Try again" variant="ghost" icon="repeat" onPress={load} />
           </View>
@@ -53,10 +63,18 @@ export default function PlansScreen() {
             <Text style={[type(13, 600), { color: c.soft, textAlign: 'center', marginTop: 6, maxWidth: 280, lineHeight: 19 }]}>Bundle a few of your meals into a weekly box customers can subscribe to.</Text>
           </View>
         ) : (
-          plans.map((p) => {
+          <>
+          {error ? (
+            <View accessibilityRole="alert" style={{ marginHorizontal: 20, marginBottom: 14, borderWidth: 1, borderColor: c.red, backgroundColor: c.redL, borderRadius: radius.lg, padding: 14 }}>
+              <Text style={[type(13.5, 900), { color: c.ink }]}>Couldn’t refresh meal plans</Text>
+              <Text style={[type(12.5, 600), { color: c.soft, marginTop: 4, lineHeight: 18 }]}>{error} Your current plans are still shown.</Text>
+              <View style={{ marginTop: 10, alignSelf: 'flex-start' }}><KBtn label="Try again" variant="ghost" icon="repeat" onPress={load} disabled={loading} /></View>
+            </View>
+          ) : null}
+          {plans.map((p) => {
             const totalMeals = p.items.reduce((n, i) => n + i.qty, 0);
             return (
-              <Press key={p.id} scale={0.99} onPress={() => router.push(`/hub/create-plan?planId=${p.id}`)} style={{ marginHorizontal: 20, marginBottom: 14 }}>
+              <Press key={p.id} scale={0.99} onPress={() => router.push(`/hub/create-plan?planId=${p.id}`)} label={`${p.name}, ${totalMeals} meals per week, ${weekly(p.priceCents)} per week, ${p.status}, edit plan`} style={{ marginHorizontal: 20, marginBottom: 14 }}>
                 <View style={{ backgroundColor: c.surface, borderWidth: 1, borderColor: c.border2, borderRadius: 20, padding: 16, ...shadow.card }}>
                   <View style={{ flexDirection: 'row', alignItems: 'center', gap: 13 }}>
                     <GradBox grad={['#A855F7', c.purple]} style={{ width: 48, height: 48, borderRadius: 14, alignItems: 'center', justifyContent: 'center' }}>
@@ -85,7 +103,8 @@ export default function PlansScreen() {
                 </View>
               </Press>
             );
-          })
+          })}
+          </>
         )}
         <View style={{ paddingHorizontal: 20, paddingTop: 2 }}>
           <KBtn label="New meal plan" variant="pri" block icon="plus" onPress={() => router.push('/hub/create-plan')} />
