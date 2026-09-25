@@ -69,6 +69,7 @@ tags: [project/preppa, type/launch-plan]
 - Reorder now checks current meal availability, kitchen status, fulfillment support, prices, and images before adding historical items to the cart. Cook ownership UI now compares the authenticated cook's real kitchen UUID instead of a legacy presentation persona. Checkout rejects self-orders server-side and revalidates kitchen, payout, and meal eligibility before resuming an interrupted payment.
 - Newly confirmed Stripe payments now remain in an explicit "Confirming payment" state until the protected order row reports `pay_status = paid`. Customer order detail and tracking no longer present webhook-pending orders as if the kitchen were already preparing them.
 - Delivery checkout now accepts a 500-character order-specific handoff note with a visible counter. The note is snapshotted on the order and exposed to the assigned active kitchen only through the protected order-detail RPC.
+- Cook cancellation now refunds a split-cart order's full customer-facing kitchen allocation, including tax and service fee. Paid orders remain active when Stripe cannot confirm the refund, with an actionable retry/support error instead of silently requiring manual reconciliation.
 
 ### Customer acceptance evidence still needed
 

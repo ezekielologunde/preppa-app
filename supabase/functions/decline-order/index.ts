@@ -47,7 +47,7 @@ Deno.serve(async (req) => {
     const { orderId, reason } = parsed.data;
 
     const { data: order } = await db.from('orders')
-      .select('id, status, pay_status, kitchen_id, box_order_id, subtotal_cents, tip_cents, kitchens!inner(owner_id)')
+      .select('id, status, pay_status, kitchen_id, box_order_id, subtotal_cents, tip_cents, total_cents, kitchens!inner(owner_id)')
       .eq('id', orderId).maybeSingle();
     if (!order) return json(404, { error: 'Order not found.' });
     const ownerId = (order as any).kitchens.owner_id;
@@ -64,22 +64,30 @@ Deno.serve(async (req) => {
         // their part. Look up the shared PI via box_orders and refund only this kitchen's slice.
         const { data: box } = await db.from('box_orders').select('stripe_payment_intent_id').eq('id', (order as any).box_order_id).maybeSingle();
         piId = box?.stripe_payment_intent_id ?? null;
-        refundAmount = (Number((order as any).subtotal_cents) || 0) + (Number((order as any).tip_cents) || 0);
+        // Each child order snapshots its complete share of the combined charge. Refund the
+        // customer-facing total, including this kitchen's allocated service fee and tax.
+        refundAmount = Number((order as any).total_cents) || 0;
       } else {
         const { data: pi } = await db.from('payment_intents')
           .select('stripe_payment_intent_id').eq('order_id', orderId).eq('status', 'succeeded')
           .order('created_at', { ascending: false }).limit(1).maybeSingle();
         piId = pi?.stripe_payment_intent_id ?? null;
       }
-      if (piId) {
-        try {
-          // Idempotency key: dedupes a double-submit/retry on Stripe's side.
-          await stripe.refunds.create(
-            { payment_intent: piId, ...(refundAmount != null ? { amount: refundAmount } : {}) },
-            { idempotencyKey: `refund_order_${orderId}` },
-          );
-          refunded = true;
-        } catch (_e) { /* refund failed -- still cancel; reconcile of a failed refund is manual */ }
+      if (!piId) return json(409, { error: 'The payment record could not be found. Contact support before cancelling this order.' });
+      if (refundAmount !== undefined && refundAmount <= 0) {
+        return json(409, { error: 'The refund amount is invalid. Contact support before cancelling this order.' });
+      }
+      try {
+        // Idempotency key: dedupes a double-submit/retry on Stripe's side.
+        await stripe.refunds.create(
+          { payment_intent: piId, ...(refundAmount != null ? { amount: refundAmount } : {}) },
+          { idempotencyKey: `refund_order_${orderId}` },
+        );
+        refunded = true;
+      } catch (_e) {
+        // Do not tell either party that a paid order is cancelled while the customer's money
+        // is still captured. A retry is safe because the Stripe request is idempotent.
+        return json(502, { error: 'The refund could not be processed. The order remains active. Try again or contact support.' });
       }
     }
 
