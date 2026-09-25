@@ -23,6 +23,7 @@ import { invalidate } from '../../src/data/cache';
 
 const _WD = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
 const _MO = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+const isRejectedSeedRoute = (value: string) => Object.prototype.hasOwnProperty.call(COOKS, value);
 /** A kitchen's real published experiences on its storefront (replaces the retired seed rail). */
 function StoreExperiences({ kitchenId }: { kitchenId?: string }) {
   const c = useC();
@@ -134,6 +135,10 @@ export default function CookStoreScreen() {
       .finally(() => { if (alive) setFollowLoading(false); });
     return () => { alive = false; };
   }, [cook, isSeed, followNonce]);
+
+  // The six named seed kitchens are permanently rejected in production. Keep their
+  // historical data out of customer traffic even when someone opens an old direct URL.
+  if (isRejectedSeedRoute(cook)) return <NotFound title="Kitchen" />;
 
   // Real (non-seed) verified kitchen — render from live data.
   if (!isSeed) {

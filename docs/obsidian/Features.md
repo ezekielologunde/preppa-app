@@ -33,7 +33,7 @@ Part of [[Project]]. Status inferred from code (flag guards, real API calls vs. 
 - **Go live** — provisions a real Mux RTMP stream/key for external broadcast software (OBS/ffmpeg); no in-app camera broadcast (no official Mux RN SDK).
 - ~~**Quotes payment** — UI still says "in-app payments are coming soon"~~ — **confirmed stale 2026-09-08**, no such copy exists anywhere in the current codebase. Both `app/discover.tsx` (Services tab) and `app/request/[id].tsx` already call the real `acceptQuoteAndDeposit()` → `CardPaymentSheet` deposit charge.
 - **Private-chef / home bookings** — fallback toast when `FLAGS.services` is off.
-- **Mock data still reaches 39 route files** via `src/data/data.ts`, including some persisted into the real store (`SEED_ORDERS`, `SEED_ADDRESSES`, `SEED_REQUESTS`, `CONVERSATIONS`). Real/mock boundary needs per-screen verification.
+- **Legacy prototype data remains in the bundle** for explicitly unfinished surfaces, but it is no longer seeded into customer orders, addresses, requests, or conversations. Rejected named-kitchen storefronts and short prototype plan routes return not found. Remaining direct `src/data/data.ts` imports are being reduced and audited per [[Tasks]].
 
 ## Placeholder / disabled
 

@@ -51,11 +51,10 @@ export default function PlanDetailScreen() {
     return () => { alive = false; };
   }, [id, retryNonce]);
 
-  // Seed (demo) plans use short string ids; render them synchronously while the real
-  // lookup resolves so there's no flash. Real plans use uuids.
+  // Short seed-plan IDs are historical prototype routes and are not marketplace supply.
   const seed = marketPlanById(id!);
   if (plan) return <RealPlanDetail plan={plan} />;
-  if (seed) return <SeedPlanDetail p={seed} />;
+  if (seed) return <NotFound title="Meal plan" />;
   if (plan === undefined) return <Screen><View style={{ flex: 1, alignItems: 'center', justifyContent: 'center' }}><ActivityIndicator /></View></Screen>;
   if (loadError) return <Screen><View accessibilityRole="alert" style={{ flex: 1, alignItems: 'center', justifyContent: 'center', padding: 28 }}><Icon name="info" size={36} color={c.red} /><Text style={[type(18, 900), { color: c.ink, marginTop: 12 }]}>Meal plan didn’t load</Text><Text style={[type(13.5, 600), { color: c.soft, textAlign: 'center', marginTop: 6, marginBottom: 16 }]}>{loadError}</Text><Btn label="Try again" icon="repeat" onPress={() => setRetryNonce((n) => n + 1)} /></View></Screen>;
   return <NotFound title="Meal plan" />;
