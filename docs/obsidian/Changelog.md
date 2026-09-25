@@ -2,11 +2,19 @@
 project: Preppa
 type: changelog
 status: active
-last_updated: 2026-09-18
+last_updated: 2026-09-25
 tags: [project/preppa, type/changelog]
 ---
 
 # Changelog
+
+## Customer checkout and wide-screen onboarding (2026-09-25)
+
+Restored quantity increase controls for cart lines with a quantity of one. Delivery checkout now requires an address and opens the address picker as the recovery action. Checkout no longer presents a pre-tax amount as the charge total: new-card flows show the tax-inclusive amount in Stripe, while saved-card flows require a final total confirmation before charging. Payment failures remain visible in checkout, and onboarding content is bounded on wide screens so its primary action keeps an intentional desktop width. See [[Launch-Plan]].
+
+## Cook operations and customer communication (2026-09-25)
+
+Order and earnings API failures now show recoverable error states instead of empty queues or false zero balances. A cook can open the relationship-gated customer conversation directly from an order. Order cancellation accepts an optional customer-facing reason and carries it through the service-only locked cancellation transaction into the refund notification. Fulfillment settings also distinguish load failure from a missing kitchen. Added migration and regression coverage for the order-detail customer identifier, messaging access boundary, and reason-aware cancellation function. See [[Launch-Plan]] and [[Security]].
 
 ## Launch review and build-upload security (2026-09-17)
 
@@ -15,6 +23,8 @@ Removed incomplete `.easignore` so EAS uses the private-key and local-file prote
 Moved native Supabase session persistence to Expo SecureStore and added an OTP-verified forgot-password flow. Aligned Expo SDK 57 packages, clearing the known Hermes regression and all high-severity npm audit findings; Expo Doctor now passes 21/21. Added CI production-web export and secret scanning, plus database regression assertions for cross-customer isolation. Removed duplicate Android camera/audio permission declarations. The production web export and bundle scan pass locally; Docker was unavailable for a local DB replay, so the new SQL assertions await CI execution.
 
 Added launch food-safety disclosure: new meal publishing requires ingredients and an explicit major-allergen review; meal detail shows both disclosures and a home-kitchen cross-contact warning, while legacy rows without data show a warning. Added DB regression assertions for the new schema/RPC requirements. Development and preview builds now fail closed before live charges, refunds, subscriptions or payouts; only production native builds and the exact production web hostname can use a live Stripe publishable key.
+
+Shipped 2026-09-25: commits 4342596, d8cb33f, b652fc0, dc899b1 pushed; CI run 36142193982 green (typecheck, web-build-security, db-regression-tests). The `meal_ingredient_allergen_disclosure` migration was then applied to production (`create_meal` now takes ingredients/allergens/review; anon execute revoked). All 10 existing meals have no disclosure yet and show the "not provided" warning until their cooks update them.
 
 Part of [[Project]]. Reconstructed from 137 commits on `main`, 2026-07-06 → 2026-08-08, plus the 2026-09-07 session below.
 

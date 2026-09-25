@@ -48,9 +48,15 @@ export default function OrdersScreen() {
   const [seg, setSeg] = useState('active');
   const [orders, setOrders] = useState<KitchenOrderRow[]>([]);
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
 
   const load = useCallback(() => {
-    fetchKitchenOrders().then(setOrders).catch(() => {}).finally(() => setLoading(false));
+    setLoading(true);
+    setError(null);
+    fetchKitchenOrders()
+      .then(setOrders)
+      .catch(() => setError('Couldn’t load orders. Check your connection and try again.'))
+      .finally(() => setLoading(false));
   }, []);
   useFocusEffect(useCallback(() => { load(); }, [load]));
 
@@ -69,6 +75,17 @@ export default function OrdersScreen() {
       <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={{ paddingTop: 14, paddingBottom: 40, maxWidth: 1040, alignSelf: 'center', width: '100%' }}>
         {loading ? (
           <ActivityIndicator style={{ marginTop: 60 }} color={c.primary} />
+        ) : error ? (
+          <View accessibilityRole="alert" style={{ alignItems: 'center', paddingHorizontal: 24, paddingTop: 60 }}>
+            <View style={{ width: 64, height: 64, borderRadius: 20, backgroundColor: c.redL, alignItems: 'center', justifyContent: 'center', marginBottom: 14 }}>
+              <Icon name="info" size={28} color={c.red} />
+            </View>
+            <Text style={[type(16, 900), { color: c.ink }]}>Orders didn’t load</Text>
+            <Text style={[type(13.5, 500), { color: c.soft, marginTop: 5, textAlign: 'center', lineHeight: 20 }]}>{error}</Text>
+            <Press scale={0.97} onPress={load} label="Try loading orders again" style={{ marginTop: 18 }}>
+              <View style={{ minHeight: 48, paddingHorizontal: 20, borderRadius: radius.md, backgroundColor: c.primaryD, alignItems: 'center', justifyContent: 'center' }}><Text style={[type(14, 800), { color: '#fff' }]}>Try again</Text></View>
+            </Press>
+          </View>
         ) : list.length === 0 ? (
           <View style={{ alignItems: 'center', paddingHorizontal: 24, paddingTop: 60 }}>
             <View style={{ width: 64, height: 64, borderRadius: 20, backgroundColor: c.bg2, alignItems: 'center', justifyContent: 'center', marginBottom: 14 }}>

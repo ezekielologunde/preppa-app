@@ -380,10 +380,6 @@ begin
   end if;
 end $$;
 
-rollback;
-
-select 'all regression checks passed' as result;
-
 -- Disclosure editing: cooks must be able to backfill ingredients/allergens on existing meals,
 -- the gate must stay (ingredients + explicit review), anon must never call it, and
 -- update_meal() must not wipe the description when the caller omits it.
@@ -408,3 +404,7 @@ begin
     raise exception 'REGRESSION: my_meals() no longer returns disclosure status';
   end if;
 end $$;
+
+rollback;
+
+select 'all regression checks passed' as result;

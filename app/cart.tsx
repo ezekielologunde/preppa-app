@@ -5,14 +5,14 @@ import { cookOfLine, lineKey, money, thumb } from '../src/data/data';
 import { useC } from '../src/theme/ThemeContext';
 import { type, radius, shadow } from '../src/theme/theme';
 import { useStore } from '../src/store/store';
-import { Icon, Press, GradBox, Avatar, Stepper, Btn } from '../src/ui';
+import { Press, GradBox, Avatar, Stepper, Btn } from '../src/ui';
 import { Screen, TopBar, Empty, Dock, DockTotal } from '../src/ui/layout';
 import { ModeToggle } from '../src/components/ModeToggle';
 
 export default function Cart() {
   const c = useC();
   const router = useRouter();
-  const { cart, cartCount, setQty, removeLine } = useStore();
+  const { cart, cartCount, setQty } = useStore();
 
   if (cart.length === 0) {
     return (
@@ -56,15 +56,7 @@ export default function Cart() {
                     <Text numberOfLines={1} style={[type(14, 800), { color: c.ink }]}>{l.name}</Text>
                     <Text style={[type(14, 900), { color: c.accentText, marginTop: 4 }]}>{money(l.price * l.qty)}</Text>
                   </View>
-                  {l.qty <= 1 ? (
-                    <Press scale={0.9} onPress={() => removeLine(l.key)} label="Remove item" hitSlop={8}>
-                      <View style={{ width: 34, height: 34, borderRadius: 17, alignItems: 'center', justifyContent: 'center' }}>
-                        <Icon name="x" size={16} color={c.muted} />
-                      </View>
-                    </Press>
-                  ) : (
-                    <Stepper sm value={l.qty} onDec={() => setQty(l.key, l.qty - 1)} onInc={() => setQty(l.key, l.qty + 1)} />
-                  )}
+                  <Stepper sm value={l.qty} onDec={() => setQty(l.key, l.qty - 1)} onInc={() => setQty(l.key, l.qty + 1)} />
                 </View>
               ))}
               <View style={{ flexDirection: 'row', alignItems: 'center', gap: 12, padding: 14 }}>

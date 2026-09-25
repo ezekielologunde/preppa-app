@@ -19,16 +19,26 @@ export default function HubFulfillment() {
   const [pickup, setPickup] = useState(true);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState<'delivery' | 'pickup' | null>(null);
+  const [loadError, setLoadError] = useState<string | null>(null);
 
-  useEffect(() => {
+  const load = () => {
     let alive = true;
+    setLoading(true);
+    setLoadError(null);
     getMyKitchen().then((k) => {
       if (!alive || !k) return;
       setKitchenId(k.id);
       setDelivery(k.supports_delivery);
       setPickup(k.supports_pickup);
+    }).catch((e: any) => {
+      if (alive) setLoadError(e?.message || 'Couldn’t load fulfillment settings.');
     }).finally(() => { if (alive) setLoading(false); });
     return () => { alive = false; };
+  };
+  useEffect(() => {
+    return load();
+    // load is intentionally mount-only; toggles update local state directly.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   const update = async (nextDelivery: boolean, nextPickup: boolean, which: 'delivery' | 'pickup') => {
@@ -55,6 +65,16 @@ export default function HubFulfillment() {
       <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={{ paddingBottom: 60 }}>
         {loading ? (
           <View style={{ paddingVertical: 60, alignItems: 'center' }}><ActivityIndicator color={c.primary} /></View>
+        ) : loadError ? (
+          <Block>
+            <View accessibilityRole="alert" style={{ alignItems: 'center', paddingVertical: 12 }}>
+              <Icon name="info" size={24} color={c.red} />
+              <Text style={[type(14, 700), { color: c.soft, textAlign: 'center', marginTop: 8, lineHeight: 20 }]}>{loadError}</Text>
+              <Press scale={0.97} onPress={load} label="Try loading fulfillment settings again" style={{ marginTop: 14 }}>
+                <View style={{ minHeight: 48, paddingHorizontal: 20, borderRadius: radius.md, backgroundColor: c.primaryD, alignItems: 'center', justifyContent: 'center' }}><Text style={[type(14, 800), { color: '#fff' }]}>Try again</Text></View>
+              </Press>
+            </View>
+          </Block>
         ) : !kitchenId ? (
           <Block><Text style={[type(14, 600), { color: c.soft }]}>We couldn’t find your kitchen.</Text></Block>
         ) : (

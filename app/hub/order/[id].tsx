@@ -1,5 +1,5 @@
 import React, { useCallback, useState } from 'react';
-import { View, Text, ScrollView, ActivityIndicator } from 'react-native';
+import { View, Text, ScrollView, ActivityIndicator, TextInput } from 'react-native';
 import { useLocalSearchParams, useRouter, useFocusEffect } from 'expo-router';
 import { useC } from '../../../src/theme/ThemeContext';
 import { type } from '../../../src/theme/theme';
@@ -9,6 +9,7 @@ import { Screen, TopBar, Dock, Empty } from '../../../src/ui/layout';
 import { money } from '../../../src/data/data';
 import { fetchKitchenOrderDetail, updateOrderStatus, declineOrder, timeAgo, type KitchenOrderDetail, type KitchenOrderStatus } from '../../../src/lib/orders';
 import { KBtn } from '../../(tabs)/my-hub';
+import { openThreadAsKitchen } from '../../../src/lib/messages';
 
 const FLOW: KitchenOrderStatus[] = ['confirmed', 'preparing', 'ready', 'completed'];
 const LABELS: Record<KitchenOrderStatus, string> = { confirmed: 'New', preparing: 'Preparing', ready: 'Ready', completed: 'Completed' };
@@ -23,6 +24,8 @@ export default function OrderDetail() {
   const [busy, setBusy] = useState(false);
   const [confirmCancel, setConfirmCancel] = useState(false);
   const [cancelling, setCancelling] = useState(false);
+  const [cancelReason, setCancelReason] = useState('');
+  const [openingChat, setOpeningChat] = useState(false);
 
   const load = useCallback(() => {
     if (!id) return;
@@ -71,7 +74,7 @@ export default function OrderDetail() {
     if (cancelling) return;
     setCancelling(true);
     try {
-      const { refunded } = await declineOrder(o.order_id);
+       const { refunded } = await declineOrder(o.order_id, cancelReason.trim() || undefined);
       toast(refunded ? 'Order cancelled — customer refunded' : 'Order cancelled', 'check', true);
       setConfirmCancel(false);
       load();
@@ -82,6 +85,18 @@ export default function OrderDetail() {
     }
   };
   const canCancel = status !== 'completed';
+  const messageCustomer = async () => {
+    if (openingChat) return;
+    setOpeningChat(true);
+    try {
+      const threadId = await openThreadAsKitchen(o.buyer_id, 'order', o.order_id);
+      router.push(`/messages/${threadId}`);
+    } catch (e: any) {
+      toast(e?.message || 'Could not open this conversation. Please try again.', 'info');
+    } finally {
+      setOpeningChat(false);
+    }
+  };
 
   return (
     <Screen>
@@ -114,9 +129,9 @@ export default function OrderDetail() {
               <Text style={[type(15, 900), { color: c.ink, letterSpacing: -0.2 }]}>{o.buyer_name ?? 'Customer'}</Text>
               <Text style={[type(12.5, 600), { color: c.soft, marginTop: 2 }]}>{isPickup ? 'Picking up' : 'Delivery'} · {o.method === 'cod' ? 'Cash on delivery' : 'Paid'}</Text>
             </View>
-            <Press scale={0.9} onPress={() => toast('Open Messages to reply', 'chat')}>
+            <Press scale={0.9} onPress={messageCustomer} disabled={openingChat} label={`Message ${o.buyer_name ?? 'customer'}`}>
               <View style={{ width: 38, height: 38, borderRadius: 12, backgroundColor: c.bg2, alignItems: 'center', justifyContent: 'center' }}>
-                <Icon name="chat" size={16} color={c.ink2} />
+                {openingChat ? <ActivityIndicator size="small" color={c.primary} /> : <Icon name="chat" size={16} color={c.ink2} />}
               </View>
             </Press>
           </View>
@@ -143,6 +158,16 @@ export default function OrderDetail() {
             <View style={{ marginHorizontal: 20, marginTop: 14, backgroundColor: c.redL, borderWidth: 1, borderColor: c.red, borderRadius: 16, padding: 14 }}>
               <Text style={[type(13, 800), { color: c.red }]}>Cancel this order?</Text>
               <Text style={[type(12, 600), { color: c.red, marginTop: 3, lineHeight: 17 }]}>{o.method !== 'cod' ? 'The customer will be refunded automatically.' : 'This can’t be undone.'}</Text>
+              <Text style={[type(12, 800), { color: c.ink, marginTop: 12, marginBottom: 6 }]}>Reason for the customer (optional)</Text>
+              <TextInput
+                value={cancelReason}
+                onChangeText={setCancelReason}
+                placeholder="For example: ingredient unavailable"
+                placeholderTextColor={c.muted}
+                maxLength={240}
+                multiline
+                style={[type(14, 500), { color: c.ink, minHeight: 52, borderWidth: 1, borderColor: c.border, borderRadius: 12, backgroundColor: c.surface, paddingHorizontal: 12, paddingVertical: 10 }]}
+              />
               <View style={{ flexDirection: 'row', gap: 10, marginTop: 12 }}>
                 <KBtn label="Never mind" variant="ghost" flex={1} onPress={() => setConfirmCancel(false)} />
                 <KBtn label={cancelling ? 'Cancelling…' : 'Yes, cancel'} flex={1} onPress={cancelOrder} style={{ backgroundColor: c.red }} />

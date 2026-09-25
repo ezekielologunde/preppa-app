@@ -2,7 +2,7 @@
 project: Preppa
 type: launch-plan
 status: active
-last_updated: 2026-09-18
+last_updated: 2026-09-25
 tags: [project/preppa, type/launch-plan]
 
 ---
@@ -20,6 +20,8 @@ tags: [project/preppa, type/launch-plan]
 - Native session persistence now uses SecureStore and sign-in includes OTP-verified password recovery. Production fallback configuration and the absence of a full UI customer-flow suite remain.
 - Development and preview profiles are now explicitly labeled and refuse every client-side live-money entry point when a live Stripe publishable key is present. Production native builds and `app.preppa.live` remain enabled. This prevents accidental charges/refunds/payouts from ordinary non-production clients; it is an accident guard, not a server authorization boundary, and a separate test backend is still required for realistic acceptance testing.
 - New meals now require a full ingredient list and explicit allergen review, store major allergens, and show the disclosure plus a cross-contact warning on meal detail. Historical meals without disclosure show a visible warning until updated.
+- Customer checkout now requires a delivery address, keeps payment failures visible, preserves quantity controls at one item, and discloses the server-calculated tax-inclusive total before charging a saved card. New-card Stripe sheets also receive the tax-inclusive amount.
+- Cook order and earnings surfaces now distinguish backend failures from legitimate empty or zero states. Order detail opens the real customer conversation, and cancellation can include a customer-facing reason in the refund notification. The supporting migrations and updated Edge Function still require replay and deployment evidence.
 
 ### Customer acceptance evidence still needed
 
@@ -93,7 +95,7 @@ The native `?connect=return`/`?connect=refresh` deep-link path is proven on web 
 Confirmed real gap: there is one Supabase project and one live Stripe key for every environment (dev, preview, production all point at the same live backend). No `.env`/staging split existed.
 
 - [x] ~~Wire the app to read config from `EXPO_PUBLIC_*` env vars instead of hardcoded literals~~ — **done 2026-09-07**. `src/lib/supabase.ts` now reads `EXPO_PUBLIC_SUPABASE_URL`/`EXPO_PUBLIC_SUPABASE_ANON_KEY`/`EXPO_PUBLIC_STRIPE_PUBLISHABLE_KEY`, falling back to today's live values so behavior is unchanged. `eas.json` now has an explicit `env` block per build profile (`development`/`preview`/`production`) instead of one hardcoded source of truth.
-- [ ] **Dev Supabase project — blocked on cost.** Creating a second project on this org (already Pro plan) costs $10/mo recurring; declined for now. All three `eas.json` profiles currently point at the **same live project/keys** — the plumbing is ready, but there is *no actual separation yet*. A preview build today can still create a real order.
+- [ ] **Dev Supabase project — blocked on cost.** Creating a second project on this org (already Pro plan) costs $10/mo recurring; declined for now. All three `eas.json` profiles currently point at the **same live project/keys** — the plumbing is ready, but there is *no actual separation yet*. The client now blocks live-money actions in preview, but the shared backend still prevents realistic isolated acceptance testing.
 - [ ] Stripe test keys for dev/preview builds — blocked on the item above (needs a project to attach them to, or at minimum a Stripe test secret key to configure).
 - [ ] Live Stripe keys reserved for production only — not yet true; see above.
 - [ ] Separate Resend config per environment — out of scope this round.

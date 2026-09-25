@@ -30,24 +30,28 @@ export default function MoneyScreen() {
   const [autoEnabled, setAutoEnabled] = useState(true);
   const [loading, setLoading] = useState(true);
   const [busy, setBusy] = useState(false);
+  const [loadError, setLoadError] = useState<string | null>(null);
 
   const load = useCallback(async () => {
     setLoading(true);
+    setLoadError(null);
     try {
       const k = await getMyKitchen();
-      if (!k) { setLoading(false); return; }
+      if (!k) throw new Error('We couldn’t find your kitchen.');
       setKitchenId(k.id);
       const [sum, hist, st, prefs] = await Promise.all([
-        getPayoutSummary(k.id).catch(() => ({ availableCents: 0, pendingCents: 0, paidTotalCents: 0 })),
-        getPayoutHistory(k.id, 20).catch(() => []),
-        refreshConnectStatus(k.id).catch(() => null),
-        getPayoutPreferences(k.id).catch(() => ({ autoEnabled: true, minCents: 2000 })),
+        getPayoutSummary(k.id),
+        getPayoutHistory(k.id, 20),
+        refreshConnectStatus(k.id),
+        getPayoutPreferences(k.id),
       ]);
       setSummary(sum);
       setHistory(hist);
-      if (st) setStatus(st);
+      setStatus(st);
       setAutoEnabled(prefs.autoEnabled);
-    } catch { /* keep defaults */ }
+    } catch (e: any) {
+      setLoadError(e?.message || 'Couldn’t load your earnings. Check your connection and try again.');
+    }
     setLoading(false);
   }, []);
   useEffect(() => { load(); }, [load]);
@@ -100,6 +104,13 @@ export default function MoneyScreen() {
       <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={{ paddingTop: 8, paddingBottom: 40, maxWidth: 720, alignSelf: 'center', width: '100%' }}>
         {loading ? (
           <View style={{ paddingVertical: 48, alignItems: 'center' }}><ActivityIndicator color={c.primary} /></View>
+        ) : loadError ? (
+          <View accessibilityRole="alert" style={{ marginHorizontal: 20, marginTop: 20, backgroundColor: c.surface, borderWidth: 1, borderColor: c.red, borderRadius: 18, padding: 18, alignItems: 'center' }}>
+            <Icon name="info" size={26} color={c.red} />
+            <Text style={[type(16, 900), { color: c.ink, marginTop: 10 }]}>Earnings didn’t load</Text>
+            <Text style={[type(13.5, 600), { color: c.soft, textAlign: 'center', lineHeight: 20, marginTop: 5 }]}>{loadError}</Text>
+            <KBtn label="Try again" variant="pri" onPress={load} style={{ marginTop: 14 }} />
+          </View>
         ) : (
           <>
             <View style={{ marginHorizontal: 20, marginTop: 6, backgroundColor: c.surface, borderWidth: 1, borderColor: c.border2, borderRadius: 20, padding: 20 }}>

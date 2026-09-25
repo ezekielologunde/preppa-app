@@ -453,7 +453,10 @@ export function OnboardingFlow() {
   const canSkip = step === 'goal' || step === 'cuisine';
   return (
     <View style={[FILL, { zIndex: 300, backgroundColor: c.bg }]}>
-      <ScrollView contentContainerStyle={{ flexGrow: 1, paddingTop: insets.top + 10, paddingBottom: insets.bottom + 26, paddingHorizontal: 24 }} keyboardShouldPersistTaps="handled">
+      <ScrollView
+        contentContainerStyle={{ flexGrow: 1, width: '100%', maxWidth: 520, alignSelf: 'center', paddingTop: insets.top + 10, paddingBottom: insets.bottom + 26, paddingHorizontal: 24 }}
+        keyboardShouldPersistTaps="handled"
+      >
         {showTop ? (
           <View style={{ flexDirection: 'row', alignItems: 'center', gap: 14, minHeight: 42 }}>
             <Press scale={0.9} onPress={() => setStep(back)}><View style={{ width: 42, height: 42, borderRadius: 21, backgroundColor: c.surface, borderWidth: 1, borderColor: c.border, alignItems: 'center', justifyContent: 'center', ...shadow.soft }}><Icon name="chevLeft" size={20} color={c.ink} /></View></Press>

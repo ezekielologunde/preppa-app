@@ -73,6 +73,7 @@ export interface KitchenOrderItem { name: string; qty: number; unit_price_cents:
 
 export interface KitchenOrderDetail {
   order_id: string;
+  buyer_id: string;
   buyer_name: string | null;
   status: string;
   fulfillment: string;

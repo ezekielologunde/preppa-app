@@ -13,6 +13,7 @@ import { useTotals, Summary, OrderLineRow } from '../src/components/shared';
 import { ModeToggle } from '../src/components/ModeToggle';
 import { AddressPickerSheet, CardPickerSheet } from '../src/components/PickerSheets';
 import { CardPaymentSheet } from '../src/components/CardPaymentSheet';
+import { Dialog } from '../src/ui/overlay';
 
 const brandName = (b: string) => (b ? b.charAt(0).toUpperCase() + b.slice(1) : 'Card');
 
@@ -34,6 +35,8 @@ export default function Checkout() {
   const [cardSecret, setCardSecret] = useState<string | null>(null);
   const [cardOrderId, setCardOrderId] = useState<string | null>(null);
   const [cardTaxCents, setCardTaxCents] = useState(0);
+  const [paymentError, setPaymentError] = useState<string | null>(null);
+  const [savedCardConfirmOpen, setSavedCardConfirmOpen] = useState(false);
   // Which saved card to charge; `null` = enter a new card. Initialized to the default.
   const [selectedCardId, setSelectedCardId] = useState<string | null>(null);
   const [saveNewCard, setSaveNewCard] = useState(true);
@@ -49,6 +52,8 @@ export default function Checkout() {
   }, [methods, defaultId, pickedCard]);
   const selectedCard = methods.find((mm) => mm.id === selectedCardId) ?? null;
   const theCook = cookOfLine(lines[0] ?? { cook: 'maria', grad: 'g1' });
+  const deliveryAddressMissing = mode === 'delivery' && !address;
+  const finalTotal = t.total + cardTaxCents / 100;
 
   if (lines.length === 0) {
     return (
@@ -61,24 +66,36 @@ export default function Checkout() {
 
   const place = async () => {
     if (busy) return; // guard against double-fire / double-order
+    if (deliveryAddressMissing) {
+      setPaymentError('Add a delivery address before continuing to payment.');
+      setAddrSheet(true);
+      return;
+    }
     const cookId = ck ?? lineKey(lines[0]);
+    setPaymentError(null);
     setBusy(true);
     const onError = (e: unknown) => {
       setBusy(false);
       const msg = (e as any)?.message ?? '';
+      let customerMessage: string;
       if (msg === 'AUTH_REQUIRED') {
+        customerMessage = 'Please sign in again to place your order.';
         toast('Please sign in again to place your order.', 'info');
         resetOnboarding(); // re-show the sign-in gate
       } else if (/no longer available|are unavailable|taking orders|payouts are set up/i.test(msg)) {
         // Server rejected on live availability (item sold out / kitchen paused / not payout-ready).
         // These messages are already customer-friendly — surface them instead of a generic error
         // so a paused kitchen or sold-out item doesn't read as a payment bug.
+        customerMessage = msg;
         toast(msg, 'info');
       } else if (msg === 'Payment canceled') {
         // user backed out of the native sheet — no error toast needed
+        customerMessage = '';
       } else {
-        toast(msg.includes('card') ? 'Your card couldn’t be charged. Check the details or try another card.' : 'Couldn’t start your payment. Please try again.', 'info');
+        customerMessage = msg.includes('card') ? 'Your card couldn’t be charged. Check the details or try another card.' : 'Couldn’t start your payment. Please try again.';
+        toast(customerMessage, 'info');
       }
+      setPaymentError(customerMessage || null);
     };
     // Web: real order + Stripe.js charge (saved card direct, or a new card via the sheet).
     if (Platform.OS === 'web') {
@@ -91,11 +108,13 @@ export default function Checkout() {
           taxCountry: country,
         });
         if (useSaved) {
-          // Charge the saved card directly — no retype.
-          await confirmSavedCardPayment(clientSecret, selectedCard!.id);
+          // Show the server-calculated tax and final total before directly charging a saved
+          // card. New-card and native flows disclose this amount inside Stripe's own sheet.
+          setCardOrderId(orderId);
+          setCardTaxCents(taxCents);
+          setCardSecret(clientSecret);
           setBusy(false);
-          placeOrder('paid', ck, orderId, taxCents);
-          router.replace(`/track?flow=paid&cook=${ck ?? ''}&orderId=${orderId}`);
+          setSavedCardConfirmOpen(true);
           return;
         }
         // New card → collect it in the sheet and confirm there.
@@ -120,6 +139,26 @@ export default function Checkout() {
       router.replace(`/track?flow=paid&cook=${ck ?? ''}&orderId=${orderId}`);
     } catch (e) {
       onError(e);
+    }
+  };
+
+  const confirmSavedCard = async () => {
+    if (busy || !selectedCard || !cardSecret || !cardOrderId) return;
+    setBusy(true);
+    setPaymentError(null);
+    try {
+      await confirmSavedCardPayment(cardSecret, selectedCard.id);
+      setSavedCardConfirmOpen(false);
+      setBusy(false);
+      placeOrder('paid', ck, cardOrderId, cardTaxCents);
+      router.replace(`/track?flow=paid&cook=${ck ?? ''}&orderId=${cardOrderId}`);
+    } catch (e) {
+      setSavedCardConfirmOpen(false);
+      const msg = (e as any)?.message ?? '';
+      const customerMessage = msg.includes('card') ? 'Your card couldn’t be charged. Try another card or check with your bank.' : 'Couldn’t complete your payment. Please try again.';
+      setPaymentError(customerMessage);
+      toast(customerMessage, 'info');
+      setBusy(false);
     }
   };
 
@@ -148,7 +187,7 @@ export default function Checkout() {
               ) : address ? (
                 <><Text numberOfLines={1} style={[type(14.5, 800), { color: c.ink }]}>{address.label} · {address.line1}</Text>{address.line2 ? <Text numberOfLines={1} style={[type(13, 500), { color: c.soft, marginTop: 2 }]}>{address.line2}</Text> : null}</>
               ) : (
-                <Text style={[type(14, 700), { color: c.accentText }]}>Add a delivery address</Text>
+                <Text accessibilityRole="alert" style={[type(14, 700), { color: c.red }]}>Delivery address required</Text>
               )}
             </View>
             {mode === 'pickup' ? null : (
@@ -192,7 +231,7 @@ export default function Checkout() {
             {TIPS.map((v) => {
               const on = tip === v;
               return (
-                <Press key={v} scale={0.95} onPress={() => setTip(v)} style={{ flex: 1 }}>
+                <Press key={v} scale={0.95} onPress={() => setTip(v)} style={{ flex: 1 }} label={`${v === 0 ? 'No tip' : `${money(v)} tip`}${on ? ', selected' : ''}`} selected={on}>
                   <View style={{ height: 44, borderRadius: radius.sm, borderWidth: 1.5, borderColor: on ? c.primary : c.border, backgroundColor: on ? c.primaryL : c.surface, alignItems: 'center', justifyContent: 'center' }}>
                     <Text style={[type(14, 800), { color: on ? c.primaryD : c.soft }]}>{v === 0 ? 'None' : money(v)}</Text>
                   </View>
@@ -203,12 +242,17 @@ export default function Checkout() {
         </Block>
 
         <Summary t={t} mode={mode} />
+        {paymentError ? (
+          <View accessibilityRole="alert" style={{ marginHorizontal: 16, marginTop: 2, padding: 14, borderRadius: radius.md, backgroundColor: c.redL, borderWidth: 1, borderColor: c.red }}>
+            <Text style={[type(13.5, 700), { color: c.redD, lineHeight: 20 }]}>{paymentError}</Text>
+          </View>
+        ) : null}
       </ScrollView>
 
       <Dock>
-        <DockTotal label="Total" value={money(t.total)} />
+        <DockTotal label="Before tax" value={money(t.total)} />
         <Btn
-          label={`Pay ${money(t.total)}`}
+          label={deliveryAddressMissing ? 'Add delivery address' : selectedCard ? 'Review and pay' : 'Continue to secure payment'}
           flex={1}
           loading={busy}
           onPress={place}
@@ -223,7 +267,17 @@ export default function Checkout() {
         selectedId={selectedCardId}
         onSelect={(id) => { setSelectedCardId(id); setPickedCard(true); }}
       />
-      <CardPaymentSheet visible={cardPayOpen} clientSecret={cardSecret} amountLabel={money(t.total)} onPaid={onCardPaid} onClose={() => setCardPayOpen(false)} />
+      <CardPaymentSheet visible={cardPayOpen} clientSecret={cardSecret} amountLabel={money(finalTotal)} onPaid={onCardPaid} onClose={() => setCardPayOpen(false)} />
+      <Dialog visible={savedCardConfirmOpen} onClose={busy ? () => {} : () => setSavedCardConfirmOpen(false)} title="Confirm your total">
+        <Text style={[type(14, 600), { color: c.soft, lineHeight: 21 }]}>Sales tax is calculated for your location before payment. Review the final amount before we charge your saved card.</Text>
+        <View style={{ gap: 8, paddingVertical: 4 }}>
+          <View style={{ flexDirection: 'row', justifyContent: 'space-between' }}><Text style={[type(14, 600), { color: c.soft }]}>Sales tax</Text><Text style={[type(14, 800), { color: c.ink }]}>{money(cardTaxCents / 100)}</Text></View>
+          <View style={{ height: 1, backgroundColor: c.border }} />
+          <View style={{ flexDirection: 'row', justifyContent: 'space-between' }}><Text style={[type(16, 800), { color: c.ink }]}>Final total</Text><Text style={[type(18, 900), { color: c.ink }]}>{money(finalTotal)}</Text></View>
+        </View>
+        <Btn label={`Pay ${money(finalTotal)}`} icon="lock" block loading={busy} onPress={confirmSavedCard} />
+        <Btn label="Choose another card" variant="ghost" block disabled={busy} onPress={() => { setSavedCardConfirmOpen(false); setCardSheet(true); }} />
+      </Dialog>
     </Screen>
   );
 }
