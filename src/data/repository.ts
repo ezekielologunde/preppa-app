@@ -1,12 +1,9 @@
 /**
  * Repository seam (council #7a). Screens should read catalog data through these
- * interfaces instead of importing the mock arrays directly. Today they're backed by
- * the in-memory mocks; swapping to Supabase is a single new implementation file plus
- * flipping `getRepositories()` — no consumer changes.
+ * interfaces instead of importing catalog arrays directly. The customer meal catalog
+ * is Supabase-backed; no fixture fallback is allowed on request failure.
  */
-import {
-  Meal, MEALS, mealById, Cook, COOKS, CookId,
-} from './data';
+import type { Meal } from './data';
 import { makeSupabaseRepositories } from './supabaseRepository';
 
 export interface MealQuery {
@@ -23,48 +20,13 @@ export interface MealRepository {
   list(query?: MealQuery): Promise<Meal[]>;
   byId(id: string): Promise<Meal | null>;
 }
-export interface CookRepository {
-  list(): Promise<Cook[]>;
-  byId(id: CookId): Promise<Cook | null>;
-}
 export interface Repositories {
   meals: MealRepository;
-  cooks: CookRepository;
-}
-
-/** Mock-backed implementation (current default). */
-function makeMockRepositories(): Repositories {
-  return {
-    meals: {
-      async list(query) {
-        let out = MEALS;
-        if (query?.cook) out = out.filter((m) => m.cook === query.cook);
-        if (query?.cat && query.cat !== 'All') out = out.filter((m) => m.tags.some((t) => t.toLowerCase().includes(query.cat!.toLowerCase())));
-        if (query?.q) {
-          const q = query.q.toLowerCase();
-          out = out.filter((m) => m.name.toLowerCase().includes(q) || (COOKS[m.cook as CookId]?.name ?? '').toLowerCase().includes(q));
-        }
-        return out;
-      },
-      async byId(id) {
-        return mealById(id) ?? null;
-      },
-    },
-    cooks: {
-      async list() {
-        return Object.values(COOKS);
-      },
-      async byId(id) {
-        return COOKS[id] ?? null;
-      },
-    },
-  };
 }
 
 let _repos: Repositories | null = null;
 /**
- * Composition root. Now Supabase-backed for the catalog (meals from the DB);
- * `makeMockRepositories` is retained for reference/tests but no longer the default.
+ * Composition root for the live customer catalog.
  */
 export function getRepositories(): Repositories {
   if (!_repos) _repos = makeSupabaseRepositories();

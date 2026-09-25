@@ -2,12 +2,11 @@
  * Supabase-backed repository (R1). Reads the buyer catalog from the real `meals`
  * table instead of the in-memory mock. Meals map to the app `Meal` shape with
  * `id = slug` (cart/route-compatible) and the real kitchen UUID as its stable identity.
- * Cooks/experiences/plans still delegate to the seed
- * for this slice (migrated next). No mock fallback — a DB error surfaces to the
+ * Experiences and plans use their dedicated live service modules. No mock fallback: a DB error surfaces to the
  * screen's error state rather than silently showing fixtures.
  */
 import { supabase } from '../lib/supabase';
-import { Meal, Cook, CookId, COOKS } from './data';
+import { Meal, COOKS, CookId } from './data';
 import { distanceKm, distanceLabel, type LatLng } from '../lib/geo';
 import type { GradKey } from '../theme/theme';
 import type { Repositories, MealQuery } from './repository';
@@ -144,11 +143,6 @@ export function makeSupabaseRepositories(): Repositories {
         if (!data) return null;
         return applyProximity([rowToMeal(data)])[0];
       },
-    },
-    // Delegated to the seed for this slice; migrated in the next R1 pass.
-    cooks: {
-      async list(): Promise<Cook[]> { return Object.values(COOKS); },
-      async byId(id: CookId) { return COOKS[id] ?? null; },
     },
   };
 }

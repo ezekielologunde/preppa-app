@@ -5,7 +5,7 @@
 import { useEffect, useState, useMemo } from 'react';
 import { getRepositories, MealQuery } from './repository';
 import { filterMeals, sortByProximity } from './supabaseRepository';
-import { Meal, Cook, CookId } from './data';
+import { Meal } from './data';
 import * as admin from '../lib/admin';
 import { supabase } from '../lib/supabase';
 import { useStore } from '../store/store';
@@ -52,10 +52,6 @@ export function useMeals(query?: MealQuery): AsyncState<Meal[]> {
 export function useMeal(id: string): AsyncState<Meal | null> {
   return useCachedAsync<Meal | null>('meal:' + id, () => getRepositories().meals.byId(id));
 }
-export function useCook(id: CookId): AsyncState<Cook | null> {
-  return useAsync(() => getRepositories().cooks.byId(id), [id]);
-}
-
 // --- Real reviews from the DB (empty until buyers review a completed order) ---
 export interface KitchenReview { id: string; rating: number; body: string | null; created_at: string }
 export interface KitchenReviewSummary { reviews: KitchenReview[]; count: number; avg: number }
