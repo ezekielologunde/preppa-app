@@ -72,6 +72,7 @@ Went end-to-end through Shef's actual ordering flow (add to cart → cross-sell 
 - [ ] Recruit real cooks — the app is technically launch-ready end-to-end (onboarding, payments, payouts, reconciliation all proven), but zero real cooks means an empty marketplace on day one. This is manual business work, not an engineering task.
 - [ ] Revisit instant payouts (debit card, ~1.5% Stripe fee) once the auto-sweep + reconciliation have run in production for a while — deliberately deferred, see [[Payments]] and [[Decisions]].
 - [x] ~~Add a reconciliation worker for `charge-due-cycles`~~ — completed locally 2026-09-25. `reconcile-cycle-charges` searches the customer's original PaymentIntents by cycle metadata, applies the authoritative status, rejects amount/currency mismatches into admin review, and releases a no-match only after 24 hours. Production migration and function deployment remain launch gates.
+- [x] ~~Protect booking balance collection from ambiguous Stripe responses~~ — completed locally 2026-09-25. The booking records a durable charge claim before contacting Stripe, pending confirmation is shown truthfully to both parties, and `reconcile-booking-balances` resolves the original PaymentIntent without creating another charge. Production migration, worker deployment, and controlled Stripe acceptance remain launch gates.
 
 ## Security / ops hardening (from AUDIT.md's own recommended next steps)
 

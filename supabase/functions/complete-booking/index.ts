@@ -59,6 +59,7 @@ Deno.serve(async (req) => {
 
     let balanceCharged = false;
     let balanceChargeError: string | null = null;
+    let balanceChargePending = false;
 
     if ((bk as any).booking_kind === 'rfq') {
       const { data: reserved, error: reserveErr } = await db.rpc('reserve_balance_charge', { p_booking_id: bookingId }).maybeSingle();
@@ -66,18 +67,22 @@ Deno.serve(async (req) => {
         // "No balance owed" / "already charged" are expected, non-error outcomes for most
         // bookings (fully-prepaid quotes, or a completion retry after a prior success) --
         // only surface a message for anything else.
-        if (!/no balance owed|already charged/i.test(reserveErr.message ?? '')) {
+        if (/confirmation is already pending/i.test(reserveErr.message ?? '')) {
+          balanceChargePending = true;
+        } else if (!/no balance owed|already charged/i.test(reserveErr.message ?? '')) {
           balanceChargeError = 'balance_reserve_failed';
         }
       } else if (reserved && (reserved as any).balance_cents > 0) {
         const balanceCents = (reserved as any).balance_cents as number;
         const customerId = (reserved as any).stripe_customer_id as string | null;
+        let stripeCreateStarted = false;
         try {
           if (!customerId) throw Object.assign(new Error('no_payment_method'), { code: 'no_payment_method' });
           const pmList = await stripe.paymentMethods.list({ customer: customerId, type: 'card', limit: 1 });
           const pm = pmList.data[0]?.id;
           if (!pm) throw Object.assign(new Error('no_payment_method'), { code: 'no_payment_method' });
 
+          stripeCreateStarted = true;
           const pi = await stripe.paymentIntents.create(
             {
               amount: balanceCents,
@@ -99,8 +104,15 @@ Deno.serve(async (req) => {
             await db.rpc('finalize_balance_charge', { p_booking_id: bookingId, p_stripe_pi_id: null, p_success: false });
           }
         } catch (e: any) {
-          balanceChargeError = e?.code ?? e?.raw?.code ?? 'charge_failed';
-          await db.rpc('finalize_balance_charge', { p_booking_id: bookingId, p_stripe_pi_id: null, p_success: false });
+          const stripeType = e?.type ?? e?.rawType ?? '';
+          const ambiguous = stripeCreateStarted && ['StripeConnectionError', 'StripeAPIError', 'StripeTimeoutError'].includes(stripeType);
+          if (ambiguous) {
+            balanceChargePending = true;
+            await db.rpc('mark_balance_charge_ambiguous', { p_booking_id: bookingId });
+          } else {
+            balanceChargeError = e?.code ?? e?.raw?.code ?? 'charge_failed';
+            await db.rpc('finalize_balance_charge', { p_booking_id: bookingId, p_stripe_pi_id: null, p_success: false });
+          }
         }
       }
     }
@@ -115,11 +127,15 @@ Deno.serve(async (req) => {
     try {
       await db.rpc('notify', {
         p_user: other, p_kind: 'booking', p_title: 'Booking completed',
-        p_body: balanceChargeError ? 'A booking was marked complete. The remaining balance could not be charged yet.' : 'A booking was marked complete.',
+        p_body: balanceChargePending
+          ? 'A booking was marked complete. The remaining payment is still being confirmed.'
+          : balanceChargeError
+          ? 'A booking was marked complete. The remaining balance could not be charged.'
+          : 'A booking was marked complete.',
       });
     } catch (_e) { /* best-effort */ }
 
-    return json(200, { status: 'completed', balanceCharged, balanceChargeError });
+    return json(200, { status: 'completed', balanceCharged, balanceChargeError, balanceChargePending });
   } catch (_e) {
     return json(500, { error: 'Could not complete the booking.' });
   }

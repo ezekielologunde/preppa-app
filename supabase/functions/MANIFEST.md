@@ -32,6 +32,7 @@ was simply missing from this table and is added too.
 | connect-status | true | 6 | ACTIVE | yes |
 | reconcile-payouts | **false** | 1 | ACTIVE | yes (added 2026-09-07, payout reconciliation) |
 | reconcile-cycle-charges | **false** | pending deployment | LOCAL | yes (added 2026-09-25, subscription charge reconciliation) |
+| reconcile-booking-balances | **false** | pending deployment | LOCAL | yes (added 2026-09-25, RFQ balance reconciliation) |
 | auto-payouts | **false** | 1 | ACTIVE | yes (added 2026-09-07, payout reconciliation) |
 | connect-dashboard-link | true | 1 | ACTIVE | yes (added 2026-09-07, payout reconciliation) |
 | connect-payout-settings | true | 1 | ACTIVE | yes (added 2026-09-07, payout reconciliation) |

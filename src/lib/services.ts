@@ -165,11 +165,15 @@ export async function acceptQuoteAndDeposit(quoteId: string): Promise<{ bookingI
   return { bookingId: data.bookingId, clientSecret: data.clientSecret, depositCents: data.depositCents };
 }
 
-export async function completeBooking(bookingId: string): Promise<{ balanceCharged: boolean; balanceChargeError: string | null }> {
+export async function completeBooking(bookingId: string): Promise<{ balanceCharged: boolean; balanceChargeError: string | null; balanceChargePending: boolean }> {
   assertLiveMoneyAllowed();
   const { data, error } = await supabase.functions.invoke('complete-booking', { body: { bookingId } });
   await assertFunctionSuccess(data, error, 'Could not update the booking.');
-  return { balanceCharged: !!data?.balanceCharged, balanceChargeError: data?.balanceChargeError ?? null };
+  return {
+    balanceCharged: !!data?.balanceCharged,
+    balanceChargeError: data?.balanceChargeError ?? null,
+    balanceChargePending: !!data?.balanceChargePending,
+  };
 }
 export async function cancelBooking(bookingId: string): Promise<{ refunded: boolean }> {
   assertLiveMoneyAllowed();

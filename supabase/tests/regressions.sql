@@ -615,6 +615,36 @@ begin
   end if;
 end $$;
 
+-- RFQ balance collection must retain an ambiguous Stripe outcome and serialize claims.
+do $$
+declare v_reserve text; v_finalize text; v_claim text;
+begin
+  select prosrc into v_reserve from pg_proc where oid = 'public.reserve_balance_charge(uuid)'::regprocedure;
+  select prosrc into v_finalize from pg_proc where oid = 'public.finalize_balance_charge(uuid,text,boolean)'::regprocedure;
+  select prosrc into v_claim from pg_proc where oid = 'public.claim_ambiguous_balance_charges(interval,integer)'::regprocedure;
+  if v_reserve !~ 'balance_charge_status = ''charging''' or v_reserve !~ '''charging'', ''ambiguous''' then
+    raise exception 'REGRESSION: booking balance reservation no longer persists or respects an active charge claim';
+  end if;
+  if v_finalize !~ 'balance_charge_status = ''paid''' or v_finalize !~ 'balance_charge_status = ''failed''' then
+    raise exception 'REGRESSION: booking balance finalization no longer records the authoritative outcome';
+  end if;
+  if v_claim !~ 'for update skip locked' or v_claim !~ 'balance_charge_reconcile_attempts' then
+    raise exception 'REGRESSION: ambiguous booking balance reconciliation is no longer concurrency-safe';
+  end if;
+  if has_function_privilege('authenticated', 'public.reserve_balance_charge(uuid)', 'execute')
+     or has_function_privilege('authenticated', 'public.mark_balance_charge_ambiguous(uuid)', 'execute')
+     or has_function_privilege('authenticated', 'public.claim_ambiguous_balance_charges(interval,integer)', 'execute') then
+    raise exception 'REGRESSION: booking balance service RPCs are exposed to authenticated users';
+  end if;
+  if not exists (
+    select 1 from pg_constraint where conrelid = 'public.bookings'::regclass
+      and conname = 'bookings_balance_charge_status_check'
+      and pg_get_constraintdef(oid) ~ 'ambiguous'
+  ) then
+    raise exception 'REGRESSION: booking balance charge states are no longer constrained';
+  end if;
+end $$;
+
 rollback;
 
 select 'all regression checks passed' as result;

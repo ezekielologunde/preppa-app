@@ -57,7 +57,7 @@ tags: [project/preppa, type/launch-plan]
 - Customer delivery addresses now load and mutate through owner-scoped database rows rather than shared device fixtures. Delivery checkout requires a server-verified address, snapshots it on the order, and exposes that immutable fulfillment address only through the assigned kitchen’s protected order detail.
 - Checkout now stops when Stripe Tax fails instead of silently turning a provider or configuration error into a zero-tax order. A successful Stripe calculation may still return zero where applicable.
 - Legacy catering, quote, and request deep links no longer show static customer data or local-only success screens. They redirect to the live server-backed service request hub.
-- Service completion no longer promises an automatic balance retry that does not exist. Both customer and cook views state that a failed remaining balance is still due, and meal-plan request fulfillment no longer claims customer notification when request linking fails.
+- Service completion distinguishes a confirmed balance failure from an ambiguous Stripe response. Confirmed failures remain due; ambiguous charges stay locked, tell both parties not to collect again, and are reconciled without creating a second charge. Meal-plan request fulfillment no longer claims customer notification when request linking fails.
 - Customers can now open their support requests, read the non-internal support thread, retry failed loads, reply securely, and reopen resolved tickets through the existing server authorization path. Closed tickets clearly direct customers to report a new issue from the related order.
 - Expo SDK 57 patch dependencies are aligned, vulnerable transitive URI-decoding and UUID packages are pinned to patched releases, Expo Doctor passes all 21 checks, and `npm audit` reports zero known vulnerabilities.
 - Delivery addresses now preserve separate unit, city, state or region, postal code, and ISO country fields. Checkout rejects incomplete legacy rows and Stripe Tax receives the owner-verified saved delivery address instead of a broad client location.
@@ -299,6 +299,11 @@ The two auth-hardening gaps found in that pass were closed 2026-09-17: native se
 - [x] Service bookings remain active when Stripe cannot confirm the promised deposit refund. The customer receives a retryable error instead of a completed-cancellation response.
 - [x] Cook-initiated experience cancellation stops on an unconfirmed guest refund before reversing that booking's ledger credit or notifying the customer. Retrying is safe because every refund uses the same booking-scoped idempotency key.
 - [x] Customer booking cancellation, paid-balance completion, and cook session cancellation use the cross-platform confirmation dialog on web, iOS, and Android. Mutation controls lock while the request runs.
+
+### Booking balance charge ambiguity — duplicate-charge risk closed locally 2026-09-25
+- [x] RFQ balance reservation now persists a charge state before Stripe is called, so concurrent completion requests cannot start separate attempts.
+- [x] Stripe connection, timeout, and API errors after charge creation begins remain `ambiguous`. Customer and cook messaging says confirmation is pending and explicitly prevents collecting again.
+- [x] `reconcile-booking-balances` finds the original PaymentIntent by booking metadata without creating a charge, validates amount and currency, settles authoritative outcomes, and routes mismatches to admin review. Production migration, function deployment with JWT verification disabled, and a controlled ambiguity test remain launch gates.
 
 ### 16. Apple App Store
 An `ascAppId` is already configured (`6802527112`) — **verify what that actually points to** before assuming setup starts from zero. Then: distribution cert, push entitlement, associated domains/deep links, production EAS build, TestFlight, screenshots/description/privacy disclosures, support/privacy URLs, account deletion, review notes.
