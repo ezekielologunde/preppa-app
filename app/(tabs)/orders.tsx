@@ -10,6 +10,7 @@ import { Icon, Press, GradBox, Btn } from '../../src/ui';
 import { Empty } from '../../src/ui/layout';
 import { listMyBookings, completeBooking, cancelBooking, type BookingView } from '../../src/lib/services';
 import { cancelExperienceBooking, fetchExperienceMeetingUrl } from '../../src/lib/experiences';
+import { confirmAction } from '../../src/lib/confirm';
 
 const STATUS: Record<CustomerOrder['status'], { label: string; bg: (c: any) => string; fg: (c: any) => string }> = {
   confirming: { label: 'Confirming payment', bg: (c) => c.bg2, fg: (c) => c.soft },
@@ -46,7 +47,6 @@ export default function Orders() {
 
   const cancelExp = async (b: BookingView) => {
     if (busy) return;
-    if (typeof window !== 'undefined' && !window.confirm(`Cancel "${b.title ?? 'this booking'}"? Refunds follow the host's cancellation policy.`)) return;
     setBusy(b.id);
     try {
       const res = await cancelExperienceBooking(b.id);
@@ -55,10 +55,18 @@ export default function Orders() {
     } catch (e: any) { toast(e?.message || 'Could not cancel', 'info'); }
     finally { setBusy(null); }
   };
+  const requestCancelExp = (b: BookingView) => {
+    if (busy) return;
+    confirmAction(
+      `Cancel ${b.title ?? 'this booking'}?`,
+      "Your refund follows the host's cancellation policy. The booking stays active if an eligible refund cannot be confirmed.",
+      () => void cancelExp(b),
+      'Cancel booking',
+    );
+  };
 
   const completeRfq = async (b: BookingView) => {
     if (busy) return;
-    if (typeof window !== 'undefined' && !window.confirm(`Mark this booking with ${b.kitchenName} as complete?${b.balanceCents > 0 ? ` The remaining ${money(b.balanceCents / 100)} will be charged.` : ''}`)) return;
     setBusy(b.id);
     try {
       const res = await completeBooking(b.id);
@@ -67,10 +75,20 @@ export default function Orders() {
     } catch (e: any) { toast(e?.message || 'Could not complete the booking', 'info'); }
     finally { setBusy(null); }
   };
+  const requestCompleteRfq = (b: BookingView) => {
+    if (busy) return;
+    confirmAction(
+      'Mark this booking complete?',
+      b.balanceCents > 0
+        ? `This charges the remaining ${money(b.balanceCents / 100)} balance and marks the work complete.`
+        : `This marks the booking with ${b.kitchenName} complete.`,
+      () => void completeRfq(b),
+      'Mark complete',
+    );
+  };
 
   const cancelRfq = async (b: BookingView) => {
     if (busy) return;
-    if (typeof window !== 'undefined' && !window.confirm(`Cancel this booking with ${b.kitchenName}? Any deposit paid will be refunded.`)) return;
     setBusy(b.id);
     try {
       const res = await cancelBooking(b.id);
@@ -78,6 +96,15 @@ export default function Orders() {
       load();
     } catch (e: any) { toast(e?.message || 'Could not cancel the booking', 'info'); }
     finally { setBusy(null); }
+  };
+  const requestCancelRfq = (b: BookingView) => {
+    if (busy) return;
+    confirmAction(
+      `Cancel this booking with ${b.kitchenName}?`,
+      'Any paid deposit must be confirmed as refunded before the cancellation completes.',
+      () => void cancelRfq(b),
+      'Cancel booking',
+    );
   };
 
   const joinLink = async (b: BookingView) => {
@@ -127,11 +154,11 @@ export default function Orders() {
                         b.reviewed ? <Text style={[type(11.5, 800), { color: c.star }]}>Rated ★</Text>
                           : <Press scale={0.95} onPress={() => router.push(`/rate-experience/${b.id}`)} label="Rate experience"><Text style={[type(12, 800), { color: c.accentText }]}>Rate</Text></Press>
                       ) : isExp && b.status === 'confirmed' ? (
-                        <Press scale={0.95} onPress={() => cancelExp(b)} label="Cancel booking"><Text style={[type(12, 800), { color: busy === b.id ? c.muted : c.red }]}>{busy === b.id ? '…' : 'Cancel'}</Text></Press>
+                        <Press scale={0.95} disabled={busy !== null} onPress={() => requestCancelExp(b)} label="Cancel booking"><Text style={[type(12, 800), { color: busy === b.id ? c.muted : c.red }]}>{busy === b.id ? '…' : 'Cancel'}</Text></Press>
                       ) : !isExp && b.status === 'confirmed' ? (
                         <View style={{ alignItems: 'flex-end', gap: 6 }}>
-                          <Press scale={0.95} onPress={() => completeRfq(b)} label="Mark complete"><Text style={[type(12, 800), { color: busy === b.id ? c.muted : c.accentText }]}>{busy === b.id ? '…' : 'Complete'}</Text></Press>
-                          <Press scale={0.95} onPress={() => cancelRfq(b)} label="Cancel booking"><Text style={[type(11, 700), { color: busy === b.id ? c.muted : c.red }]}>Cancel</Text></Press>
+                          <Press scale={0.95} disabled={busy !== null} onPress={() => requestCompleteRfq(b)} label="Mark complete"><Text style={[type(12, 800), { color: busy === b.id ? c.muted : c.accentText }]}>{busy === b.id ? '…' : 'Complete'}</Text></Press>
+                          <Press scale={0.95} disabled={busy !== null} onPress={() => requestCancelRfq(b)} label="Cancel booking"><Text style={[type(11, 700), { color: busy === b.id ? c.muted : c.red }]}>Cancel</Text></Press>
                         </View>
                       ) : null}
                     </View>

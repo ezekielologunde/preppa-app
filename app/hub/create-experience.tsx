@@ -11,6 +11,7 @@ import { money } from '../../src/data/data';
 import { KField, KInput, MoneyInput, KSeg, KBtn } from '../(tabs)/my-hub';
 import { uploadPlanCover } from '../../src/lib/supabase';
 import { fetchExperience, upsertExperience, cancelExperienceSession, type ExperienceType } from '../../src/lib/experiences';
+import { confirmAction } from '../../src/lib/confirm';
 
 const TYPES: { key: ExperienceType; label: string }[] = [
   { key: 'class', label: 'Class' }, { key: 'supper_club', label: 'Supper club' },
@@ -147,9 +148,21 @@ export default function CreateExperienceFlow() {
   };
   const cancelBooked = async (i: number, s: SessRow) => {
     if (!s.id) { removeSess(i); return; }
-    if (typeof window !== 'undefined' && !window.confirm(`Cancel this session? All ${s.seatsTaken} booked guests will be fully refunded and notified.`)) return;
+    if (busy) return;
+    setBusy(true);
     try { const r = await cancelExperienceSession(s.id); toast(`Session cancelled — ${r.refunded} booking${r.refunded !== 1 ? 's' : ''} refunded`, 'check', true); removeSess(i); }
     catch (e: any) { toast(e?.message || 'Could not cancel the session', 'info'); }
+    finally { setBusy(false); }
+  };
+  const requestCancelBooked = (i: number, s: SessRow) => {
+    if (!s.id) { removeSess(i); return; }
+    if (busy) return;
+    confirmAction(
+      'Cancel this session?',
+      `All ${s.seatsTaken} booked guest${s.seatsTaken === 1 ? '' : 's'} must be fully refunded before cancellation completes.`,
+      () => void cancelBooked(i, s),
+      'Cancel and refund',
+    );
   };
 
   const save = async (submit: boolean) => {
@@ -304,7 +317,7 @@ export default function CreateExperienceFlow() {
                 <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }}>
                   <Text style={[type(11.5, 700), { color: locked ? c.primary : c.muted }]}>{locked ? `${s.seatsTaken} of ${s.seats} booked` : 'No bookings yet'}</Text>
                   {locked ? (
-                    <Press scale={0.95} onPress={() => cancelBooked(i, s)} label="Cancel session"><Text style={[type(12, 800), { color: c.red }]}>Cancel session</Text></Press>
+                    <Press scale={0.95} disabled={busy} onPress={() => requestCancelBooked(i, s)} label="Cancel session"><Text style={[type(12, 800), { color: busy ? c.muted : c.red }]}>Cancel session</Text></Press>
                   ) : (
                     <Press scale={0.95} onPress={() => removeSess(i)} label="Remove session"><View style={{ flexDirection: 'row', alignItems: 'center', gap: 5 }}><Icon name="x" size={13} color={c.red} /><Text style={[type(12, 800), { color: c.red }]}>Remove</Text></View></Press>
                   )}

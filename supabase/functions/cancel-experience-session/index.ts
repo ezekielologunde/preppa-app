@@ -64,7 +64,15 @@ Deno.serve(async (req) => {
       if (b.status === 'confirmed') {
         refundCents = b.deposit_cents ?? 0;
         // Idempotency key (audit High finding): dedupes a double-submit/retry on Stripe's side.
-        if (refundCents > 0 && b.deposit_pi_id) { try { await stripe.refunds.create({ payment_intent: b.deposit_pi_id }, { idempotencyKey: `refund_${b.id}` }); } catch (_e) { /* continue; admin can reconcile */ } }
+        if (refundCents > 0 && b.deposit_pi_id) {
+          try {
+            await stripe.refunds.create({ payment_intent: b.deposit_pi_id }, { idempotencyKey: `refund_${b.id}` });
+          } catch (_e) {
+            // Stop before ledger reversal, cancellation, or a false customer notification. A
+            // retry replays successful earlier refunds under the same keys and resumes safely.
+            return json(502, { error: 'A guest refund could not be confirmed. The session remains active; retry cancellation or contact support.' });
+          }
+        }
       } else {
         await db.rpc('release_experience_seats', { p_booking: b.id });
       }

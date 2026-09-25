@@ -58,7 +58,12 @@ Deno.serve(async (req) => {
         // Idempotency key: dedupes a double-submit/retry on Stripe's side.
         await stripe.refunds.create({ payment_intent: (bk as any).deposit_pi_id }, { idempotencyKey: `refund_${bookingId}` });
         refunded = true;
-      } catch (_e) { /* refund failed — still cancel; reconcile of a failed refund is manual */ }
+      } catch (_e) {
+        // Keep the booking active and its ledger untouched. The caller can retry safely because
+        // Stripe sees the same idempotency key; never claim cancellation while a promised refund
+        // is unresolved.
+        return json(502, { error: 'The refund could not be confirmed, so the booking was not cancelled. Please try again or contact support.' });
+      }
     }
 
     // finalize_booking_cancel does the ledger reversal + status update under an advisory lock,

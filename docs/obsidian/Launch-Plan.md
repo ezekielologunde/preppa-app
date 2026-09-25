@@ -295,6 +295,11 @@ The two auth-hardening gaps found in that pass were closed 2026-09-17: native se
 - [x] Ambiguous Stripe responses now mark the cycle while preserving `payment_status='charging'`. `advance_cycles()` only releases a stale claim when Stripe was never contacted, so the cycle cannot be charged again under a fresh attempt key.
 - [x] Automated reconciliation is implemented locally. The worker searches the original PaymentIntent by cycle metadata without creating a new charge, applies authoritative Stripe states, sends term mismatches to admin review, and waits 24 hours before treating an exhaustive no-match as a failed attempt. Production migration, function deployment with JWT verification disabled, and a controlled ambiguity test remain launch gates.
 
+### Booking cancellation and refund truthfulness — hardened locally 2026-09-25
+- [x] Service bookings remain active when Stripe cannot confirm the promised deposit refund. The customer receives a retryable error instead of a completed-cancellation response.
+- [x] Cook-initiated experience cancellation stops on an unconfirmed guest refund before reversing that booking's ledger credit or notifying the customer. Retrying is safe because every refund uses the same booking-scoped idempotency key.
+- [x] Customer booking cancellation, paid-balance completion, and cook session cancellation use the cross-platform confirmation dialog on web, iOS, and Android. Mutation controls lock while the request runs.
+
 ### 16. Apple App Store
 An `ascAppId` is already configured (`6802527112`) — **verify what that actually points to** before assuming setup starts from zero. Then: distribution cert, push entitlement, associated domains/deep links, production EAS build, TestFlight, screenshots/description/privacy disclosures, support/privacy URLs, account deletion, review notes.
 
