@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import { View, Text, ScrollView, TextInput } from 'react-native';
 import { useC } from '../src/theme/ThemeContext';
 import { type, radius } from '../src/theme/theme';
@@ -17,21 +17,25 @@ function TicketThread({ ticket, onReplied }: { ticket: MyTicket; onReplied: () =
   const [reply, setReply] = useState('');
   const [busy, setBusy] = useState(false);
   const [myUid, setMyUid] = useState<string | null>(null);
+  const loadSequence = useRef(0);
+  const sendInFlight = useRef(false);
 
   const load = async () => {
-    setMessages(null);
+    const sequence = ++loadSequence.current;
     setError('');
     try {
       const [{ data }, rows] = await Promise.all([supabase.auth.getSession(), ticketThread(ticket.id)]);
+      if (loadSequence.current !== sequence) return;
       setMyUid(data.session?.user?.id ?? null);
       setMessages(rows);
-    } catch { setError('Could not load this conversation. Check your connection and try again.'); }
+    } catch { if (loadSequence.current === sequence) setError('Could not load this conversation. Check your connection and try again.'); }
   };
-  useEffect(() => { void load(); /* eslint-disable-next-line react-hooks/exhaustive-deps */ }, [ticket.id]);
+  useEffect(() => { setMessages(null); void load(); return () => { loadSequence.current += 1; }; /* eslint-disable-next-line react-hooks/exhaustive-deps */ }, [ticket.id]);
 
   const send = async () => {
     const body = reply.trim();
-    if (!body || busy) return;
+    if (!body || sendInFlight.current) return;
+    sendInFlight.current = true;
     setBusy(true);
     try {
       await replyToTicket(ticket.id, body);
@@ -39,8 +43,8 @@ function TicketThread({ ticket, onReplied }: { ticket: MyTicket; onReplied: () =
       await load();
       onReplied();
       toast(ticket.status === 'resolved' ? 'Reply sent and request reopened' : 'Reply sent', 'check', true);
-    } catch (e: any) { toast(e?.message || 'Could not send your reply.', 'info'); }
-    finally { setBusy(false); }
+    } catch { toast('Could not send your reply. Please try again.', 'info'); }
+    finally { sendInFlight.current = false; setBusy(false); }
   };
 
   return (
@@ -74,7 +78,6 @@ export default function MyTickets() {
 
   useEffect(() => {
     let alive = true;
-    setTickets(null);
     setError(null);
     (async () => {
       const { data, error } = await supabase
@@ -92,7 +95,7 @@ export default function MyTickets() {
     <Screen>
       <TopBar title="Your support requests" />
       <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={{ paddingBottom: 40 }}>
-        {error ? (
+        {error && tickets === null ? (
           <Block title="Couldn’t load support requests">
             <Text style={[type(13.5, 600), { color: c.red, marginBottom: 12 }]}>{error}</Text>
             <View style={{ alignSelf: 'flex-start' }}><Btn label="Try again" icon="repeat" variant="ghost" onPress={() => setNonce((n) => n + 1)} /></View>
@@ -102,7 +105,14 @@ export default function MyTickets() {
         ) : tickets.length === 0 ? (
           <Empty icon="info" title="No requests yet" body="Issues you report on an order will show up here with their status." />
         ) : (
-          tickets.map((t) => {
+          <>
+          {error ? (
+            <Block title="Support requests may be out of date">
+              <Text style={[type(13.5, 600), { color: c.red, marginBottom: 12 }]}>Your existing requests are still shown.</Text>
+              <View style={{ alignSelf: 'flex-start' }}><Btn label="Try again" icon="repeat" variant="ghost" onPress={() => setNonce((n) => n + 1)} /></View>
+            </Block>
+          ) : null}
+          {tickets.map((t) => {
             const open = openId === t.id;
             return (
             <Block key={t.id}>
@@ -121,7 +131,8 @@ export default function MyTickets() {
               {open ? <TicketThread ticket={t} onReplied={() => setNonce((n) => n + 1)} /> : null}
             </Block>
             );
-          })
+          })}
+          </>
         )}
       </ScrollView>
     </Screen>
