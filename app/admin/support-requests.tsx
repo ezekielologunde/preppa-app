@@ -9,6 +9,7 @@ import { useAdminSupportRequests } from '../../src/data/hooks';
 import * as admin from '../../src/lib/admin';
 import { AdminHeader } from '../../src/components/admin/AdminHeader';
 import { ErrorRetry } from '../../src/components/admin/states';
+import { confirmAction } from '../../src/lib/confirm';
 
 const STATUSES: admin.SupportRequestStatus[] = ['submitted', 'acknowledged', 'investigating', 'resolved', 'closed'];
 const STATUS_LABEL: Record<admin.SupportRequestStatus, string> = {
@@ -29,10 +30,25 @@ function Row({ r, open, onToggle, onChanged }: { r: admin.AdminSupportRequest; o
   const [busy, setBusy] = useState(false);
 
   const changeStatus = async (s: admin.SupportRequestStatus) => {
+    if (busy) return;
     setBusy(true);
     try { await admin.setSupportRequestStatus(r.id, s); toast(`Marked ${STATUS_LABEL[s].toLowerCase()}`, 'check', true); onChanged(); }
     catch (e: any) { toast(e?.message ?? 'Update failed', 'info'); }
     finally { setBusy(false); }
+  };
+  const requestStatus = (s: admin.SupportRequestStatus) => {
+    if (s !== 'closed') {
+      void changeStatus(s);
+      return;
+    }
+    confirmAction(
+      'Close this request?',
+      r.immediate_risk
+        ? 'This request is marked urgent. Closing it removes it from the active urgent count. Confirm the immediate risk has been addressed and documented.'
+        : 'Closing removes this request from the active support queue. Confirm the issue and any reporter follow-up are complete.',
+      () => void changeStatus(s),
+      'Close request',
+    );
   };
 
   const emailReporter = async () => {
@@ -79,7 +95,7 @@ function Row({ r, open, onToggle, onChanged }: { r: admin.AdminSupportRequest; o
               {STATUSES.map((s) => {
                 const on = r.status === s;
                 return (
-                  <Press key={s} scale={0.96} disabled={busy || on} onPress={() => changeStatus(s)} label={`${STATUS_LABEL[s]}${on ? ', current status' : ''}`} selected={on}>
+                  <Press key={s} scale={0.96} disabled={busy || on} onPress={() => requestStatus(s)} label={`${STATUS_LABEL[s]}${on ? ', current status' : ''}`} selected={on}>
                     <View style={{ paddingHorizontal: 13, minHeight: 44, borderRadius: radius.pill, alignItems: 'center', justifyContent: 'center', backgroundColor: on ? c.primary : c.bg2, borderWidth: 1, borderColor: on ? c.primary : c.border }}>
                       <Text style={[type(12.5, 800), { color: on ? '#fff' : c.ink }]}>{STATUS_LABEL[s]}</Text>
                     </View>
