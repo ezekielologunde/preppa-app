@@ -56,6 +56,7 @@ tags: [project/preppa, type/launch-plan]
 - Customer meal-order history now hydrates from RLS-scoped paid/refunded server orders. Demo orders and device-persisted order history were removed, and sign-out clears in-memory order data to prevent cross-account leakage.
 - Customer delivery addresses now load and mutate through owner-scoped database rows rather than shared device fixtures. Delivery checkout requires a server-verified address, snapshots it on the order, and exposes that immutable fulfillment address only through the assigned kitchen’s protected order detail.
 - Checkout now stops when Stripe Tax fails instead of silently turning a provider or configuration error into a zero-tax order. A successful Stripe calculation may still return zero where applicable.
+- Legacy catering, quote, and request deep links no longer show static customer data or local-only success screens. They redirect to the live server-backed service request hub.
 
 ### Customer acceptance evidence still needed
 
