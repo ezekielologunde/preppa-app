@@ -9,6 +9,7 @@ import { useAdminTickets } from '../../src/data/hooks';
 import * as admin from '../../src/lib/admin';
 import { AdminHeader } from '../../src/components/admin/AdminHeader';
 import { ErrorRetry } from '../../src/components/admin/states';
+import { confirmAction } from '../../src/lib/confirm';
 
 const STATUSES: admin.TicketStatus[] = ['open', 'in_progress', 'resolved', 'closed'];
 const STATUS_LABEL: Record<admin.TicketStatus, string> = {
@@ -40,10 +41,23 @@ function Detail({ ticketId, onChanged }: { ticketId: string; onChanged: () => vo
   useEffect(() => { load(); /* eslint-disable-next-line react-hooks/exhaustive-deps */ }, [ticketId]);
 
   const changeStatus = async (s: admin.TicketStatus) => {
+    if (busy) return;
     setBusy(true);
     try { await admin.setTicketStatus(ticketId, s); toast(`Marked ${STATUS_LABEL[s].toLowerCase()}`, 'check', true); await load(); onChanged(); }
     catch (e: any) { toast(e?.message ?? 'Update failed', 'info'); }
     finally { setBusy(false); }
+  };
+  const requestStatus = (s: admin.TicketStatus) => {
+    if (s !== 'closed') {
+      void changeStatus(s);
+      return;
+    }
+    confirmAction(
+      'Close this ticket?',
+      'Closing stops the reporter and cook from replying. Reopen the ticket before sending any further response.',
+      () => void changeStatus(s),
+      'Close ticket',
+    );
   };
   const send = async () => {
     if (reply.trim().length < 1) return;
@@ -61,6 +75,7 @@ function Detail({ ticketId, onChanged }: { ticketId: string; onChanged: () => vo
 
   if (loading) return <Text style={[type(13.5, 600), { color: c.soft, marginTop: 12 }]}>Loading…</Text>;
   if (loadError || !detail) return <ErrorRetry message={loadError || 'This ticket is no longer available.'} onRetry={load} />;
+  const closed = detail.status === 'closed';
 
   return (
     <View style={{ marginTop: 14, borderTopWidth: 1, borderTopColor: c.border2, paddingTop: 14, gap: 14 }}>
@@ -72,7 +87,7 @@ function Detail({ ticketId, onChanged }: { ticketId: string; onChanged: () => vo
           {STATUSES.map((s) => {
             const on = detail.status === s;
             return (
-              <Press key={s} scale={0.96} disabled={busy || on} onPress={() => changeStatus(s)} label={`${STATUS_LABEL[s]}${on ? ', current status' : ''}`} selected={on}>
+              <Press key={s} scale={0.96} disabled={busy || on} onPress={() => requestStatus(s)} label={`${STATUS_LABEL[s]}${on ? ', current status' : ''}`} selected={on}>
                 <View style={{ paddingHorizontal: 13, minHeight: 44, borderRadius: radius.pill, alignItems: 'center', justifyContent: 'center', backgroundColor: on ? c.primary : c.bg2, borderWidth: 1, borderColor: on ? c.primary : c.border }}>
                   <Text style={[type(12.5, 800), { color: on ? '#fff' : c.ink }]}>{STATUS_LABEL[s]}</Text>
                 </View>
@@ -106,7 +121,7 @@ function Detail({ ticketId, onChanged }: { ticketId: string; onChanged: () => vo
         </View>
       ) : null}
 
-      <View>
+      {!closed ? <View>
         <TextInput
           value={reply}
           onChangeText={setReply}
@@ -128,9 +143,13 @@ function Detail({ ticketId, onChanged }: { ticketId: string; onChanged: () => vo
             </View>
           </Press>
           <View style={{ flex: 1 }} />
-          <Btn label="Send" icon="arrow" loading={busy} onPress={send} height={44} />
+          <Btn label="Send" icon="arrow" loading={busy} disabled={busy || !reply.trim()} onPress={send} height={44} />
         </View>
-      </View>
+      </View> : (
+        <View accessibilityRole="alert" style={{ padding: 12, borderRadius: radius.md, backgroundColor: c.bg2, borderWidth: 1, borderColor: c.border }}>
+          <Text style={[type(12.5, 700), { color: c.soft, lineHeight: 18 }]}>This ticket is closed. Change its status to Open or In progress before replying or adding an internal note.</Text>
+        </View>
+      )}
     </View>
   );
 }
