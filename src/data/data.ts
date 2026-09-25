@@ -156,11 +156,6 @@ export const thumb = (url?: string): string | undefined =>
   url && url.includes('themealdb.com') ? url + '/preview' : url;
 
 export const FOUNDING = new Set<CookId>(['maria', 'amara']);
-export interface Addon { key: string; name: string; cook: CookId; price: number; grad: GradKey; }
-export const ADDONS: Addon[] = [
-  { key: 'cornbread', name: 'Honey cornbread (6)', cook: 'denise', price: 6.0, grad: 'g4' },
-  { key: 'lemonade', name: 'Sparkling lemonade', cook: 'maria', price: 3.5, grad: 'g8' },
-];
 
 export interface Experience {
   id: string; title: string; sub: string; cook: CookId; price: number;

@@ -2,7 +2,7 @@ import React, { useState } from 'react';
 import { View, Text, ScrollView, ActivityIndicator } from 'react-native';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { mealPhotos, ADDONS, money, cookOf, type CookId } from '../../src/data/data';
+import { mealPhotos, money, cookOf, type CookId } from '../../src/data/data';
 import { useMeal, useKitchenReviews } from '../../src/data/hooks';
 import { useC } from '../../src/theme/ThemeContext';
 import { type, radius } from '../../src/theme/theme';
@@ -24,7 +24,6 @@ export default function MealDetail() {
   const { fav, toggleFav, addToCart, toast, showFlash, isMine } = useStore();
   const { data: m, loading } = useMeal(id!);
   const [qty, setQty] = useState(1);
-  const [adds, setAdds] = useState<string[]>([]);
   const [viewer, setViewer] = useState(false);
   const [viewerIdx, setViewerIdx] = useState(0);
   const { data: mealRevs } = useKitchenReviews(m?.kitchenUuid); // real kitchen reviews (empty → New)
@@ -34,14 +33,11 @@ export default function MealDetail() {
   const cook = cookOf(m); // real kitchen identity for non-seed kitchens (not a seed fallback)
   const isSeedKitchen = !m.kitchenName; // real kitchens carry kitchenName; seeds don't
   const kitchenLink = isSeedKitchen ? m.cook : m.kitchenUuid; // route to the real kitchen by UUID
-  const toggleAdd = (k: string) => setAdds((p) => (p.includes(k) ? p.filter((x) => x !== k) : [...p, k]));
-  const addPrice = adds.reduce((s, k) => s + ADDONS.find((a) => a.key === k)!.price, 0);
-  const lineTotal = m.price * qty + addPrice;
+  const lineTotal = m.price * qty;
   const isFav = fav.has(m.id);
 
   const add = () => {
     addToCart({ key: m.id, name: m.name, cook: m.cook, price: m.price, grad: m.grad, img: m.img, mealUuid: m.mealUuid, kitchenUuid: m.kitchenUuid, kitchenName: m.kitchenName }, qty);
-    adds.forEach((k) => { const a = ADDONS.find((x) => x.key === k)!; addToCart(a, 1); });
     showFlash({ name: m.name, grad: m.grad });
     router.back();
   };
@@ -96,20 +92,6 @@ export default function MealDetail() {
             <Fact b={String(m.kcal)} s="calories" />
             <Fact b={`Serves ${m.serves}`} s="portion" />
           </View>
-
-          <SectionLabel>Make it a meal</SectionLabel>
-          {ADDONS.map((a) => {
-            const on = adds.includes(a.key);
-            return (
-              <Press key={a.key} scale={0.99} onPress={() => toggleAdd(a.key)}>
-                <View style={{ flexDirection: 'row', alignItems: 'center', gap: 12, paddingVertical: 14, borderBottomWidth: 1, borderBottomColor: c.border2 }}>
-                  <View style={{ width: 24, height: 24, borderRadius: 8, borderWidth: 2, borderColor: on ? c.primary : c.border, backgroundColor: on ? c.primary : 'transparent', alignItems: 'center', justifyContent: 'center' }}>{on ? <Icon name="check" size={14} color="#fff" /> : null}</View>
-                  <Text style={[type(14.5, 700), { color: c.ink, flex: 1 }]}>{a.name}</Text>
-                  <Text style={[type(13, 800), { color: c.soft }]}>+{money(a.price)}</Text>
-                </View>
-              </Press>
-            );
-          })}
 
           <SectionLabel>Portion</SectionLabel>
           <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }}>
