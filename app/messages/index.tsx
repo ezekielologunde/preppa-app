@@ -1,4 +1,4 @@
-import React, { useCallback, useState } from 'react';
+import React, { useCallback, useRef, useState } from 'react';
 import { View, Text, ScrollView, ActivityIndicator, Image } from 'react-native';
 import { useRouter, useFocusEffect } from 'expo-router';
 import { useC } from '../../src/theme/ThemeContext';
@@ -30,27 +30,35 @@ export default function MessagesList() {
   const [threads, setThreads] = useState<Thread[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
+  const loadSequence = useRef(0);
 
   const load = useCallback(async () => {
+    const sequence = ++loadSequence.current;
     setLoading(true);
     setError('');
-    try { setThreads(await listThreads()); }
-    catch (e: any) { setError(e?.message ?? 'Couldn’t load your conversations.'); }
-    finally { setLoading(false); }
+    try { const next = await listThreads(); if (loadSequence.current === sequence) setThreads(next); }
+    catch { if (loadSequence.current === sequence) setError('Check your connection and try loading your conversations again.'); }
+    finally { if (loadSequence.current === sequence) setLoading(false); }
   }, []);
-  useFocusEffect(useCallback(() => { load(); }, [load]));
+  useFocusEffect(useCallback(() => { load(); return () => { loadSequence.current += 1; }; }, [load]));
 
   return (
     <Screen>
       <TopBar title="Messages" sub={loading ? '' : `${threads.length} conversation${threads.length !== 1 ? 's' : ''}`} onBack={() => router.back()} />
-      {loading ? (
+      {loading && threads.length === 0 ? (
         <View style={{ paddingVertical: 60, alignItems: 'center' }}><ActivityIndicator color={c.primary} /></View>
-      ) : error ? (
+      ) : error && threads.length === 0 ? (
         <Empty icon="info" title="Couldn’t load messages" body={error} action={<Btn label="Try again" icon="repeat" onPress={load} />} />
       ) : threads.length === 0 ? (
         <Empty icon="chat" title="No messages yet" body="Message a cook from their kitchen, an order, or a plan and the conversation shows up here." />
       ) : (
         <ScrollView showsVerticalScrollIndicator={false}>
+          {error ? (
+            <View accessibilityRole="alert" style={{ margin: 16, padding: 14, borderRadius: radius.md, backgroundColor: c.bg2 }}>
+              <Text style={[type(13, 700), { color: c.soft, marginBottom: 10 }]}>Conversations could not be refreshed. Existing messages are still available.</Text>
+              <Btn label="Try again" icon="repeat" variant="ghost" onPress={load} />
+            </View>
+          ) : null}
           {threads.map((t) => (
             <Press key={t.id} scale={0.99} onPress={() => router.push(`/messages/${t.id}`)} label={`Open conversation with ${t.name}`}>
               <View style={{ flexDirection: 'row', alignItems: 'center', gap: 13, paddingVertical: 14, paddingHorizontal: 16, backgroundColor: t.unread ? c.unread : c.surface, borderBottomWidth: 1, borderBottomColor: c.border2 }}>

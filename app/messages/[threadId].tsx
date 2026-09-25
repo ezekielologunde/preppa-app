@@ -35,6 +35,14 @@ function dayLabel(iso: string): string {
 function clock(iso: string): string {
   return new Date(iso).toLocaleTimeString(undefined, { hour: 'numeric', minute: '2-digit' });
 }
+function mergeMessages(...groups: Message[][]): Message[] {
+  const byId = new Map<string, Message>();
+  groups.flat().forEach((message) => byId.set(message.id, message));
+  return [...byId.values()].sort((a, b) => new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime());
+}
+function replaceOptimistic(messages: Message[], tempId: string, saved: Message): Message[] {
+  return mergeMessages(messages.filter((message) => message.id !== tempId && message.id !== saved.id), [saved]);
+}
 
 export default function ThreadView() {
   const c = useC();
@@ -60,6 +68,7 @@ export default function ThreadView() {
   const typingChannelRef = useRef<TypingChannel | null>(null);
   const typingHideTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const typingSendTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const moderationInFlight = useRef(false);
 
   useEffect(() => {
     supabase.auth.getSession().then(({ data }) => { const id = data.session?.user?.id ?? null; setMyId(id); meIdRef.current = meIdRef.current ?? id; });
@@ -73,6 +82,8 @@ export default function ThreadView() {
     setLoading(true);
     setLoadError('');
     setNotFound(false);
+    setHeader(null);
+    setMsgs([]);
     (async () => {
       try {
         const h = await fetchThreadHeader(threadId);
@@ -82,11 +93,11 @@ export default function ThreadView() {
         const m = await fetchMessages(threadId);
         if (!alive) return;
         meIdRef.current = m.find((x) => x.mine)?.senderId ?? meIdRef.current;
-        setMsgs(m);
+        setMsgs((current) => mergeMessages(m, current));
         markThreadRead(threadId).catch(() => {});
         scrollDown();
-      } catch (e: any) {
-        if (alive) setLoadError(e?.message ?? 'Couldn’t load this conversation.');
+      } catch {
+        if (alive) setLoadError('Check your connection and try loading this conversation again.');
       } finally {
         if (alive) setLoading(false);
       }
@@ -162,12 +173,12 @@ export default function ThreadView() {
       const saved = await sendMessage(threadId, body);
       if (saved) {
         meIdRef.current = saved.senderId;
-        setMsgs((m) => m.map((x) => (x.id === tempId ? saved : x)));
+        setMsgs((m) => replaceOptimistic(m, tempId, saved));
       }
     } catch (e: any) {
       setMsgs((m) => m.filter((x) => x.id !== tempId)); // roll back the optimistic bubble
       setText(body);
-      toast(e?.message?.includes('policy') || e?.code === '42501' ? 'You can’t message this conversation' : (e?.message || 'Couldn’t send'), 'info');
+      toast(e?.message?.includes('policy') || e?.code === '42501' ? 'You can’t message this conversation' : 'Couldn’t send your message. Please try again.', 'info');
     } finally { sendInFlight.current = false; setSending(false); }
   };
 
@@ -187,11 +198,11 @@ export default function ThreadView() {
       const saved = await sendImageMessage(threadId, file);
       if (saved) {
         meIdRef.current = saved.senderId;
-        setMsgs((m) => m.map((x) => (x.id === tempId ? saved : x)));
+        setMsgs((m) => replaceOptimistic(m, tempId, saved));
       }
-    } catch (e: any) {
+    } catch {
       setMsgs((m) => m.filter((x) => x.id !== tempId));
-      toast(e?.message || 'Could not send the photo', 'info');
+      toast('Could not send the photo. Please try again.', 'info');
     } finally { sendInFlight.current = false; setSending(false); URL.revokeObjectURL(tempUrl); }
   };
 
@@ -208,19 +219,25 @@ export default function ThreadView() {
   };
 
   const doBlock = async (blocked: boolean) => {
+    if (moderationInFlight.current) return;
+    moderationInFlight.current = true;
     setMenu(false);
     try {
       await setThreadBlock(threadId, blocked);
       setHeader((h) => (h ? { ...h, blockedByMe: blocked, blocked: blocked || h.blocked } : h));
       toast(blocked ? 'Conversation blocked' : 'Conversation unblocked', blocked ? 'x' : 'check', !blocked);
-    } catch (e: any) { toast(e?.message || 'Could not update', 'info'); }
+    } catch { toast('Could not update this conversation. Please try again.', 'info'); }
+    finally { moderationInFlight.current = false; }
   };
   const doReport = async () => {
+    if (moderationInFlight.current) return;
     setMenu(false);
     const last = [...msgs].reverse().find((m) => !m.mine && !m.id.startsWith('temp-'));
     if (!last) { toast('Nothing to report yet', 'info'); return; }
-    try { await reportMessage(last.id, 'reported from chat'); toast('Reported to Preppa — thank you', 'flag', true); }
-    catch (e: any) { toast(e?.message || 'Could not report', 'info'); }
+    moderationInFlight.current = true;
+    try { await reportMessage(last.id, 'reported from chat'); toast('Reported to Preppa. Thank you.', 'flag', true); }
+    catch { toast('Could not report this conversation. Please try again.', 'info'); }
+    finally { moderationInFlight.current = false; }
   };
 
   if (notFound) return <NotFound title="Conversation" />;
