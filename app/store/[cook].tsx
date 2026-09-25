@@ -19,6 +19,7 @@ import { openThread } from '../../src/lib/messages';
 import { toggleFollow, fetchIsFollowing } from '../../src/lib/feed';
 import { fetchExperiencesForKitchen, type Experience } from '../../src/lib/experiences';
 import { fetchKitchenLivestream } from '../../src/lib/livestream';
+import { invalidate } from '../../src/data/cache';
 
 const _WD = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
 const _MO = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
@@ -27,7 +28,19 @@ function StoreExperiences({ kitchenId }: { kitchenId?: string }) {
   const c = useC();
   const router = useRouter();
   const [items, setItems] = React.useState<Experience[]>([]);
-  React.useEffect(() => { if (kitchenId) fetchExperiencesForKitchen(kitchenId).then(setItems).catch(() => {}); }, [kitchenId]);
+  const [loading, setLoading] = React.useState(false);
+  const [error, setError] = React.useState(false);
+  const load = React.useCallback(async () => {
+    if (!kitchenId) return;
+    setLoading(true);
+    setError(false);
+    try { setItems(await fetchExperiencesForKitchen(kitchenId)); }
+    catch { setError(true); }
+    finally { setLoading(false); }
+  }, [kitchenId]);
+  React.useEffect(() => { void load(); }, [load]);
+  if (loading && items.length === 0) return <View style={{ paddingVertical: 22, alignItems: 'center' }}><ActivityIndicator color={c.primary} /></View>;
+  if (error && items.length === 0) return <DataNotice text="Experiences could not be loaded." onRetry={load} />;
   if (items.length === 0) return null;
   const next = (e: Experience) => {
     const up = e.sessions.filter((s) => s.status === 'open' && new Date(s.startsAt).getTime() > Date.now()).sort((a, b) => +new Date(a.startsAt) - +new Date(b.startsAt))[0];
@@ -37,6 +50,7 @@ function StoreExperiences({ kitchenId }: { kitchenId?: string }) {
   return (
     <>
       <SectionHeader title="Experiences" />
+      {error ? <DataNotice text="Experiences may be out of date." onRetry={load} compact /> : null}
       {items.map((e) => (
         <Press key={e.id} scale={0.985} onPress={() => router.push(`/experience/${e.id}`)} style={{ marginHorizontal: 16, marginBottom: 12 }}>
           <View style={{ backgroundColor: c.surface, borderWidth: 1, borderColor: c.border2, borderRadius: radius.xl, padding: 14, flexDirection: 'row', alignItems: 'center', gap: 12, ...shadow.card }}>
@@ -100,9 +114,9 @@ export default function CookStoreScreen() {
   const cd = COOKS[cook as CookId];
   const isSeed = !!cd; // one of the six seeded kitchens (rich seed presentation) vs a real kitchen UUID
   // Hooks run unconditionally; args differ by seed-vs-real.
-  const { data: cookMeals, loading: mealsLoading } = useMeals(isSeed ? { cook: cook as CookId } : { kitchenUuid: cook });
-  const { data: kitchenRevs } = useKitchenReviews(isSeed ? KITCHEN_ID[cook as CookId] : cook);
-  const { data: profile, loading: profLoading } = useKitchenProfile(isSeed ? undefined : cook);
+  const { data: cookMeals, loading: mealsLoading, error: mealsError } = useMeals(isSeed ? { cook: cook as CookId } : { kitchenUuid: cook });
+  const { data: kitchenRevs, error: reviewsError } = useKitchenReviews(isSeed ? KITCHEN_ID[cook as CookId] : cook);
+  const { data: profile, loading: profLoading, error: profileError } = useKitchenProfile(isSeed ? undefined : cook);
 
   // Hydrate real follow-state for the seed kitchens (KITCHEN_ID maps a seed id → its real UUID).
   // Placed before the early return so hook order stays stable.
@@ -114,8 +128,9 @@ export default function CookStoreScreen() {
   // Real (non-seed) verified kitchen — render from live data.
   if (!isSeed) {
     if (profLoading) return <Screen><View style={{ flex: 1, alignItems: 'center', justifyContent: 'center' }}><ActivityIndicator color={c.primary} /></View></Screen>;
+    if (profileError) return <Screen><View style={{ flex: 1, justifyContent: 'center', paddingHorizontal: 24 }}><DataNotice text="This kitchen could not be loaded." onRetry={() => invalidate('kitchen:' + cook)} /></View></Screen>;
     if (!profile) return <NotFound title="Kitchen" />;
-    return <RealKitchenStore profile={profile} meals={cookMeals ?? []} mealsLoading={mealsLoading} revCount={kitchenRevs?.count ?? 0} revAvg={kitchenRevs?.avg ?? 0} insetsTop={insets.top} onBack={() => router.back()} />;
+    return <RealKitchenStore profile={profile} meals={cookMeals ?? []} mealsLoading={mealsLoading} mealsError={!!mealsError} reviewsError={!!reviewsError} revCount={kitchenRevs?.count ?? 0} revAvg={kitchenRevs?.avg ?? 0} insetsTop={insets.top} onBack={() => router.back()} />;
   }
 
   const id = cook as CookId;
@@ -200,9 +215,12 @@ export default function CookStoreScreen() {
 
         {mealsLoading ? (
           <View style={{ paddingVertical: 40, alignItems: 'center' }}><ActivityIndicator color={c.primary} /></View>
+        ) : mealsError && meals.length === 0 ? (
+          <DataNotice text="Meals could not be loaded." onRetry={() => invalidate('catalog:live')} />
         ) : meals.length > 0 ? (
           <>
             <SectionHeader title="Meals" right={<Text style={[type(13, 700), { color: c.muted }]}>{meals.length} dish{meals.length !== 1 ? 'es' : ''}</Text>} />
+            {mealsError ? <DataNotice text="Meals may be out of date." onRetry={() => invalidate('catalog:live')} compact /> : null}
             <MealGrid meals={meals} />
           </>
         ) : null}
@@ -251,7 +269,8 @@ export default function CookStoreScreen() {
         ) : null}
 
         <SectionHeader title="Reviews" right={revCount > 0 ? <Text style={[type(13, 800), { color: c.accentText }]}>See all {revCount}</Text> : undefined} />
-        <ReviewsBlock kitchenId={KITCHEN_ID[id]} />
+        {reviewsError ? <DataNotice text={revCount > 0 ? "Reviews may be out of date." : "Reviews could not be loaded."} onRetry={() => invalidate('reviews:' + KITCHEN_ID[id])} compact /> : null}
+        {!reviewsError || revCount > 0 ? <ReviewsBlock kitchenId={KITCHEN_ID[id]} /> : null}
 
         {FLAGS.services && !isMine(id) ? (
         <Press scale={0.985} onPress={() => router.push(`/service-request?category=cook_at_home&kitchen=${KITCHEN_ID[id]}`)} style={{ marginHorizontal: 16, marginTop: 14 }}>
@@ -276,8 +295,8 @@ export default function CookStoreScreen() {
  *  TODO(follow-up): near-total layout duplication with CookStoreScreen's seed-cook render —
  *  worth flattening into one parametrized component. Left alone in this visual-only redesign
  *  pass (structural refactor risks behavior changes, out of scope here). */
-function RealKitchenStore({ profile, meals, mealsLoading, revCount, revAvg, insetsTop, onBack }: {
-  profile: KitchenProfile; meals: any[]; mealsLoading: boolean; revCount: number; revAvg: number; insetsTop: number; onBack: () => void;
+function RealKitchenStore({ profile, meals, mealsLoading, mealsError, reviewsError, revCount, revAvg, insetsTop, onBack }: {
+  profile: KitchenProfile; meals: any[]; mealsLoading: boolean; mealsError: boolean; reviewsError: boolean; revCount: number; revAvg: number; insetsTop: number; onBack: () => void;
 }) {
   const c = useC();
   const router = useRouter();
@@ -358,9 +377,12 @@ function RealKitchenStore({ profile, meals, mealsLoading, revCount, revAvg, inse
 
         {mealsLoading ? (
           <View style={{ paddingVertical: 40, alignItems: 'center' }}><ActivityIndicator color={c.primary} /></View>
+        ) : mealsError && meals.length === 0 ? (
+          <DataNotice text="Meals could not be loaded." onRetry={() => invalidate('catalog:live')} />
         ) : meals.length > 0 ? (
           <>
             <SectionHeader title="Meals" right={<Text style={[type(13, 700), { color: c.muted }]}>{meals.length} dish{meals.length !== 1 ? 'es' : ''}</Text>} />
+            {mealsError ? <DataNotice text="Meals may be out of date." onRetry={() => invalidate('catalog:live')} compact /> : null}
             <MealGrid meals={meals} />
           </>
         ) : (
@@ -389,7 +411,8 @@ function RealKitchenStore({ profile, meals, mealsLoading, revCount, revAvg, inse
         ) : null}
 
         <SectionHeader title="Reviews" right={revCount > 0 ? <Text style={[type(13, 800), { color: c.accentText }]}>See all {revCount}</Text> : undefined} />
-        <ReviewsBlock kitchenId={profile.id} />
+        {reviewsError ? <DataNotice text={revCount > 0 ? "Reviews may be out of date." : "Reviews could not be loaded."} onRetry={() => invalidate('reviews:' + profile.id)} compact /> : null}
+        {!reviewsError || revCount > 0 ? <ReviewsBlock kitchenId={profile.id} /> : null}
 
         {FLAGS.services ? (
           <Press scale={0.985} onPress={() => router.push(`/service-request?category=cook_at_home&kitchen=${profile.id}`)} style={{ marginHorizontal: 16, marginTop: 14 }}>
@@ -405,6 +428,16 @@ function RealKitchenStore({ profile, meals, mealsLoading, revCount, revAvg, inse
         ) : null}
       </ScrollView>
     </Screen>
+  );
+}
+
+function DataNotice({ text, onRetry, compact = false }: { text: string; onRetry: () => void | Promise<void>; compact?: boolean }) {
+  const c = useC();
+  return (
+    <View style={{ marginHorizontal: 16, marginVertical: compact ? 6 : 18, padding: compact ? 12 : 18, borderRadius: radius.lg, backgroundColor: c.bg2, alignItems: 'center', gap: 10 }}>
+      <Text style={[type(13, 600), { color: c.soft, textAlign: 'center' }]}>{text}</Text>
+      <Btn label="Try again" variant="ghost" height={38} onPress={() => void onRetry()} />
+    </View>
   );
 }
 

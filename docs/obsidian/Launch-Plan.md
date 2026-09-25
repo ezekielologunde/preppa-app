@@ -13,7 +13,7 @@ tags: [project/preppa, type/launch-plan]
 
 **Not signed off for public launch.** Core implementation exists, but the customer-to-cook money journey and operational gates remain open. Older completed items below are historical evidence, not a fresh production verification.
 
-- Local `npm run typecheck`, web export, targeted bundle-secret scan, full local migration replay, and SQL regressions passed on 2026-09-25. GitHub CI run `36144688801` at `67d1806` passed `typecheck`, `web-build-security`, and `db-regression-tests`.
+- Local `npm run typecheck`, web export, targeted bundle-secret scan, full local migration replay, and SQL regressions passed on 2026-09-25. GitHub CI run `36149741597` at `36456ef` passed `typecheck`, `web-build-security`, and `db-regression-tests`.
 - Local `npx expo export --platform web` passed. Built output scan found no Stripe secret-key prefixes, PEM private-key headers or `SUPABASE_SERVICE_ROLE_KEY` identifiers; this is a targeted scan, not a comprehensive secret audit.
 - Expo SDK 57 patch alignment removed the 4 high findings and the Hermes regression. Current `npm audit`: 14 moderate, 0 high, 0 critical. `expo-doctor` passes 21/21. Remaining advisories are transitive in the Expo toolchain/router graph; no incompatible forced downgrade applied.
 - Fixed build-upload exclusions by removing the two-line `.easignore` overriding `.gitignore`; added general `.env.*` protection with example-file exceptions. A local `.p8` file exists and is Git-ignored; its contents were not read. Prior build archives were not inspected, so no credential leak is confirmed. See [[Security]].
@@ -36,6 +36,7 @@ tags: [project/preppa, type/launch-plan]
 - Admin role changes now require a separate review step, with typed confirmation for any admin elevation or demotion. Payout reconciliation now validates Stripe transfer IDs and requires an explanatory note before marking a payout failed.
 - Admin application and in-home-vetting document previews now tolerate partial signed-URL failures, report unavailable evidence, and provide retry actions instead of displaying an indefinite loading label.
 - The notification center now distinguishes loading and request failures from a legitimate empty inbox, exposes failed mark-read persistence, and provides refresh recovery. Stale messaging-unavailable copy was removed because relationship messaging is live.
+- Public kitchen storefronts now distinguish failed profile, meal, review, and experience requests from missing or empty content, preserve stale meal and experience data when available, and provide retry actions.
 
 ### Customer acceptance evidence still needed
 
