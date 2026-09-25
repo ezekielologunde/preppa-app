@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import { View, Text, ScrollView, Platform, ActivityIndicator, TextInput } from 'react-native';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { createRealOrder, confirmSavedCardPayment, payWithCard } from '../src/lib/payments';
@@ -43,16 +43,29 @@ export default function Checkout() {
   const [selectedCardId, setSelectedCardId] = useState<string | null>(null);
   const [saveNewCard, setSaveNewCard] = useState(true);
   const [pickedCard, setPickedCard] = useState(false); // has the user chosen explicitly?
-  // Stable idempotency key for this checkout visit. Retries (double-tap, network retry, a
-  // failed-card re-attempt) reuse it, so create-order + Stripe DEDUPE instead of creating a
-  // second order / second charge. A fresh checkout visit mints a new key = a genuinely new order.
-  const [idemKey] = useState(() => `${ck ?? 'cart'}-${Date.now().toString(36)}-${Math.round(Math.random() * 1e9).toString(36)}`);
+  // One nonce per checkout visit. The final idempotency key also includes every input that
+  // defines the order, so an unchanged retry deduplicates while edits after a closed payment
+  // sheet cannot accidentally resume an older amount, fulfillment method, address, or tip.
+  const [checkoutNonce] = useState(() => `${Date.now().toString(36)}-${Math.round(Math.random() * 1e9).toString(36)}`);
   useEffect(() => {
     if (pickedCard || Platform.OS !== 'web') return;
     if (methods.length > 0) setSelectedCardId(defaultId ?? methods[0].id);
     else setSelectedCardId(null);
   }, [methods, defaultId, pickedCard]);
   const selectedCard = methods.find((mm) => mm.id === selectedCardId) ?? null;
+  const checkoutSignature = JSON.stringify({
+    kitchen: ck ?? lineKey(lines[0] ?? { cook: '' }),
+    items: lines.map((line) => [line.mealUuid, line.qty]),
+    mode,
+    tip,
+    addressId: mode === 'delivery' ? address?.id ?? null : null,
+    instructions: mode === 'delivery' ? deliveryInstructions.trim() : '',
+    payment: selectedCard?.id ?? `new:${saveNewCard}`,
+  });
+  const idemKey = useMemo(
+    () => `${ck ?? 'cart'}-${checkoutNonce}-${hashCheckoutSignature(checkoutSignature)}`,
+    [ck, checkoutNonce, checkoutSignature],
+  );
   const theCook = cookOfLine(lines[0] ?? { cook: '', grad: 'g1' });
   const deliveryAddressMissing = mode === 'delivery' && !isCompleteDeliveryAddress(address);
   const finalTotal = t.total + cardTaxCents / 100;
@@ -312,6 +325,16 @@ export default function Checkout() {
       </Dialog>
     </Screen>
   );
+}
+
+/** Compact, deterministic client fingerprint. The server remains authoritative for all values. */
+function hashCheckoutSignature(value: string): string {
+  let hash = 2166136261;
+  for (let i = 0; i < value.length; i += 1) {
+    hash ^= value.charCodeAt(i);
+    hash = Math.imul(hash, 16777619);
+  }
+  return (hash >>> 0).toString(36);
 }
 
 /** Informational payment-method row — Stripe is the only method (COD was retired), so this

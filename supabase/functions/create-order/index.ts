@@ -147,10 +147,16 @@ Deno.serve(async (req) => {
       if (m.kitchen_id !== input.kitchenId) return json(400, { error: 'All items must be from one kitchen.' });
       if (m.status !== 'live') return json(409, { error: `${m.name} is no longer available.` });
     }
+    const priceById = new Map((meals as any[]).map((m) => [m.id, m.price_cents as number]));
+    const nameById = new Map((meals as any[]).map((m) => [m.id, m.name as string]));
+    let subtotal = 0;
+    for (const it of input.items) subtotal += (priceById.get(it.mealId) ?? 0) * it.qty;
+    const serviceFee = computeServiceFeeCents(subtotal);
+    const tip = clampTipCents(input.tipCents);
 
     const { data: existing, error: existingError } = await db
       .from('orders')
-      .select('id, kitchen_id, pay_status, subtotal_cents, tax_cents, tip_cents, total_cents')
+      .select('id, kitchen_id, pay_status, fulfillment, subtotal_cents, tax_cents, tip_cents, total_cents, delivery_address_id, delivery_instructions')
       .eq('customer_id', customerId)
       .eq('idempotency_key', input.idempotencyKey)
       .maybeSingle();
@@ -162,20 +168,17 @@ Deno.serve(async (req) => {
       if (existing.pay_status !== 'unpaid') {
         return json(409, { error: existing.pay_status === 'paid' ? 'This order has already been paid.' : 'This order is no longer payable.' });
       }
-
-      const { data: piRow, error: piRowError } = await db
-        .from('payment_intents').select('stripe_payment_intent_id').eq('order_id', existing.id)
-        .order('created_at', { ascending: false }).limit(1).maybeSingle();
-      if (piRowError) throw piRowError;
-      if (piRow) {
-        const pi = await stripe.paymentIntents.retrieve(piRow.stripe_payment_intent_id);
-        if (pi.status === 'succeeded') return json(409, { error: 'This order has already been paid.' });
-        if (!pi.client_secret) return json(409, { error: 'This payment could not be resumed. Return to your cart and start checkout again.' });
-        return json(200, { orderId: existing.id, clientSecret: pi.client_secret, taxCents: existing.tax_cents ?? 0, reused: true });
+      const requestedInstructions = input.fulfillment === 'delivery' ? input.deliveryInstructions || null : null;
+      if (existing.fulfillment !== input.fulfillment
+        || existing.subtotal_cents !== subtotal
+        || existing.tip_cents !== tip
+        || (existing.delivery_address_id || null) !== (input.fulfillment === 'delivery' ? input.addressId || null : null)
+        || (existing.delivery_instructions || null) !== requestedInstructions) {
+        return json(409, { error: 'Your checkout details changed. Return to your cart and start checkout again.' });
       }
 
-      // The order and its items may have committed before Stripe or the local payment row
-      // failed. Recover only when the persisted cart exactly matches this retry.
+      // Validate the persisted cart before returning any existing PaymentIntent. Otherwise a
+      // reused key could resume an older amount even when quantities or meal IDs changed.
       const { data: persistedItems, error: persistedItemsError } = await db
         .from('order_items')
         .select('meal_id, qty')
@@ -189,6 +192,17 @@ Deno.serve(async (req) => {
         && [...requestedQty].every(([mealId, qty]) => persistedQty.get(mealId) === qty);
       if (!itemsMatch || existing.total_cents <= 0) {
         return json(409, { error: 'This order could not be recovered. Return to your cart and start checkout again.' });
+      }
+
+      const { data: piRow, error: piRowError } = await db
+        .from('payment_intents').select('stripe_payment_intent_id').eq('order_id', existing.id)
+        .order('created_at', { ascending: false }).limit(1).maybeSingle();
+      if (piRowError) throw piRowError;
+      if (piRow) {
+        const pi = await stripe.paymentIntents.retrieve(piRow.stripe_payment_intent_id);
+        if (pi.status === 'succeeded') return json(409, { error: 'This order has already been paid.' });
+        if (!pi.client_secret) return json(409, { error: 'This payment could not be resumed. Return to your cart and start checkout again.' });
+        return json(200, { orderId: existing.id, clientSecret: pi.client_secret, taxCents: existing.tax_cents ?? 0, reused: true });
       }
 
       const stripeCustomerId = await getOrCreateCustomer(db, customerId, email);
@@ -256,12 +270,6 @@ Deno.serve(async (req) => {
       };
     }
 
-    const priceById = new Map((meals as any[]).map((m) => [m.id, m.price_cents as number]));
-    const nameById = new Map((meals as any[]).map((m) => [m.id, m.name as string]));
-    let subtotal = 0;
-    for (const it of input.items) subtotal += (priceById.get(it.mealId) ?? 0) * it.qty;
-    const serviceFee = computeServiceFeeCents(subtotal);
-    const tip = clampTipCents(input.tipCents);
     const taxAddress = input.fulfillment === 'delivery'
       ? deliveryTaxAddress
       : pickupTaxAddress;
@@ -275,6 +283,7 @@ Deno.serve(async (req) => {
         pay_status: 'unpaid', fulfillment: input.fulfillment, subtotal_cents: subtotal,
         service_fee_cents: serviceFee, tax_cents: tax, tax_calculation_id: taxCalculationId,
         tip_cents: tip, total_cents: total, idempotency_key: input.idempotencyKey,
+        delivery_address_id: input.fulfillment === 'delivery' ? input.addressId : null,
         delivery_address_text: deliveryAddressText,
         delivery_instructions: input.fulfillment === 'delivery' ? input.deliveryInstructions || null : null,
       })
