@@ -1,15 +1,17 @@
-import React, { useState } from 'react';
+import React, { useRef, useState } from 'react';
 import { View, Text, Image, Platform, ActivityIndicator } from 'react-native';
+import * as ImagePicker from 'expo-image-picker';
 import { useC } from '../theme/ThemeContext';
 import { type, radius, shadow } from '../theme/theme';
 import { Icon, Press } from '../ui';
 import { uploadCookPhoto } from '../lib/supabase';
+import { useStore } from '../store/store';
 
 export interface PhotoRef { path: string; preview: string }
 
 /**
- * Multi-image uploader for cook verification (Gov ID, refrigeration, kitchen). Web-only
- * capture (browser file picker + camera on mobile web). Each file uploads to the private
+ * Multi-image uploader for cook verification (refrigeration, kitchen, and related evidence).
+ * Web and native pickers upload each file to the private
  * cook-docs bucket via uploadCookPhoto(group) and shows an instant local preview; the
  * caller keeps the returned paths and submits them in the application.
  */
@@ -22,36 +24,75 @@ export function PhotoUploader({ label, hint, group, photos, onChange, min = 0 }:
   min?: number;
 }) {
   const c = useC();
+  const { toast } = useStore();
   const [busy, setBusy] = useState(false);
+  const uploadInFlight = useRef(false);
   const met = photos.length >= min;
 
-  const pick = () => {
-    if (Platform.OS !== 'web' || typeof document === 'undefined') return;
-    const input = document.createElement('input');
-    input.type = 'file';
-    input.accept = 'image/*';
-    input.multiple = true;
-    (input as any).capture = 'environment';
-    input.onchange = async () => {
-      const files = Array.from(input.files || []);
-      if (!files.length) return;
-      setBusy(true);
-      const added: PhotoRef[] = [];
-      for (const f of files) {
-        try {
-          const path = await uploadCookPhoto(f, group);
-          added.push({ path, preview: URL.createObjectURL(f) });
-        } catch {
-          /* skip a file that failed to upload */
-        }
+  const uploadSelected = async (items: Array<{ blob: Blob; preview: string }>) => {
+    if (!items.length || uploadInFlight.current) return;
+    uploadInFlight.current = true;
+    setBusy(true);
+    const added: PhotoRef[] = [];
+    let failed = 0;
+    for (const item of items) {
+      try {
+        const path = await uploadCookPhoto(item.blob, group);
+        added.push({ path, preview: item.preview });
+      } catch {
+        failed += 1;
+        if (Platform.OS === 'web' && item.preview.startsWith('blob:')) URL.revokeObjectURL(item.preview);
       }
-      setBusy(false);
-      if (added.length) onChange([...photos, ...added]);
-    };
-    input.click();
+    }
+    setBusy(false);
+    uploadInFlight.current = false;
+    if (added.length) onChange([...photos, ...added]);
+    if (failed) toast(failed === items.length ? 'Could not upload those photos. Please try again.' : `${failed} photo${failed === 1 ? '' : 's'} could not be uploaded.`, 'info');
   };
 
-  const remove = (path: string) => onChange(photos.filter((p) => p.path !== path));
+  const pick = async () => {
+    if (Platform.OS === 'web' && typeof document !== 'undefined') {
+      const input = document.createElement('input');
+      input.type = 'file';
+      input.accept = 'image/*';
+      input.multiple = true;
+      (input as any).capture = 'environment';
+      input.onchange = () => {
+        const files = Array.from(input.files || []);
+        void uploadSelected(files.map((file) => ({ blob: file, preview: URL.createObjectURL(file) })));
+      };
+      input.click();
+      return;
+    }
+    try {
+      const permission = await ImagePicker.requestMediaLibraryPermissionsAsync();
+      if (!permission.granted) {
+        toast('Photo library access is off. Enable it in Settings to add verification photos.', 'info');
+        return;
+      }
+      const result = await ImagePicker.launchImageLibraryAsync({
+        mediaTypes: ['images'],
+        allowsMultipleSelection: true,
+        selectionLimit: 8,
+        quality: 0.85,
+      });
+      if (result.canceled || !result.assets.length) return;
+      const items = await Promise.all(result.assets.map(async (asset) => {
+        const response = await fetch(asset.uri);
+        if (!response.ok) throw new Error('PHOTO_READ_FAILED');
+        return { blob: await response.blob(), preview: asset.uri };
+      }));
+      await uploadSelected(items);
+    } catch {
+      toast('Could not open those photos. Please try again.', 'info');
+    }
+  };
+
+  const remove = (path: string) => {
+    const removed = photos.find((photo) => photo.path === path);
+    if (Platform.OS === 'web' && removed?.preview.startsWith('blob:')) URL.revokeObjectURL(removed.preview);
+    onChange(photos.filter((p) => p.path !== path));
+  };
 
   return (
     <View>
@@ -75,7 +116,7 @@ export function PhotoUploader({ label, hint, group, photos, onChange, min = 0 }:
             </Press>
           </View>
         ))}
-        <Press scale={0.96} onPress={busy ? undefined : pick} label={`Add ${label}`}>
+        <Press scale={0.96} onPress={pick} disabled={busy} label={`Add ${label}`}>
           <View style={{ width: 84, height: 84, borderRadius: radius.md, borderWidth: 1.5, borderColor: c.border, borderStyle: 'dashed', backgroundColor: c.bg2, alignItems: 'center', justifyContent: 'center', gap: 3 }}>
             {busy ? <ActivityIndicator size="small" color={c.primary} /> : (
               <>
