@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { View, Text, ScrollView, Platform, ActivityIndicator } from 'react-native';
+import { View, Text, ScrollView, Platform, ActivityIndicator, TextInput } from 'react-native';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { createRealOrder, confirmSavedCardPayment, payWithCard } from '../src/lib/payments';
 import { useSavedCards } from '../src/lib/useSavedCards';
@@ -37,6 +37,7 @@ export default function Checkout() {
   const [cardOrderId, setCardOrderId] = useState<string | null>(null);
   const [cardTaxCents, setCardTaxCents] = useState(0);
   const [paymentError, setPaymentError] = useState<string | null>(null);
+  const [deliveryInstructions, setDeliveryInstructions] = useState('');
   const [savedCardConfirmOpen, setSavedCardConfirmOpen] = useState(false);
   // Which saved card to charge; `null` = enter a new card. Initialized to the default.
   const [selectedCardId, setSelectedCardId] = useState<string | null>(null);
@@ -107,6 +108,7 @@ export default function Checkout() {
           idempotencyKey: idemKey,
           savePaymentMethod: useSaved ? false : saveNewCard,
           addressId: mode === 'delivery' ? address?.id : undefined,
+          deliveryInstructions: mode === 'delivery' ? deliveryInstructions.trim() || undefined : undefined,
         });
         if (useSaved) {
           // Show the server-calculated tax and final total before directly charging a saved
@@ -135,6 +137,7 @@ export default function Checkout() {
       const { orderId, taxCents } = await payWithCard({
         cook: cookId, lines, mode, tipDollars: tip, idempotencyKey: idemKey, savePaymentMethod: false,
         addressId: mode === 'delivery' ? address?.id : undefined,
+        deliveryInstructions: mode === 'delivery' ? deliveryInstructions.trim() || undefined : undefined,
       });
       setBusy(false);
       placeOrder('paid', ck, orderId, taxCents);
@@ -197,6 +200,22 @@ export default function Checkout() {
             )}
           </View>
         </Block>
+
+        {mode === 'delivery' ? (
+          <Block title="Delivery instructions · optional">
+            <TextInput
+              value={deliveryInstructions}
+              onChangeText={(value) => setDeliveryInstructions(value.slice(0, 500))}
+              placeholder="Gate code, parking, drop-off details, or how to find your door"
+              placeholderTextColor={c.muted}
+              multiline
+              maxLength={500}
+              accessibilityLabel="Delivery instructions"
+              style={[type(14, 600), { color: c.ink, minHeight: 88, borderWidth: 1, borderColor: c.border, borderRadius: radius.md, backgroundColor: c.surface, padding: 12, textAlignVertical: 'top' }]}
+            />
+            <Text style={[type(11.5, 600), { color: c.muted, textAlign: 'right', marginTop: 6 }]}>{deliveryInstructions.length}/500</Text>
+          </Block>
+        ) : null}
 
         <Block title="Payment">
           {Platform.OS === 'web' && cardsLoading ? (

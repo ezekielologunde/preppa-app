@@ -37,6 +37,7 @@ const createOrderInput = z.object({
   idempotencyKey: z.string().min(8).max(200),
   savePaymentMethod: z.boolean().optional(),
   addressId: z.string().uuid().optional(),
+  deliveryInstructions: z.string().trim().max(500).optional(),
 });
 
 /** Real sales tax via Stripe Tax. A successful zero-tax calculation remains valid, but an
@@ -275,6 +276,7 @@ Deno.serve(async (req) => {
         service_fee_cents: serviceFee, tax_cents: tax, tax_calculation_id: taxCalculationId,
         tip_cents: tip, total_cents: total, idempotency_key: input.idempotencyKey,
         delivery_address_text: deliveryAddressText,
+        delivery_instructions: input.fulfillment === 'delivery' ? input.deliveryInstructions || null : null,
       })
       .select('id').single();
     if (oErr) {

@@ -407,12 +407,25 @@ begin
     raise exception 'REGRESSION: orders.delivery_address_text is missing';
   end if;
 
+  if not exists (
+    select 1 from information_schema.columns
+    where table_schema = 'public'
+      and table_name = 'orders'
+      and column_name = 'delivery_instructions'
+      and data_type = 'text'
+  ) then
+    raise exception 'REGRESSION: orders.delivery_instructions is missing';
+  end if;
+
   select pg_get_function_result('public.kitchen_order_detail(uuid)'::regprocedure) into v_result;
   if v_result !~ 'buyer_id uuid' then
     raise exception 'REGRESSION: kitchen_order_detail() no longer returns buyer_id -- cook-to-customer order messaging is broken';
   end if;
   if v_result !~ 'delivery_address_text text' then
     raise exception 'REGRESSION: kitchen_order_detail() no longer returns the delivery address snapshot';
+  end if;
+  if v_result !~ 'delivery_instructions text' then
+    raise exception 'REGRESSION: kitchen_order_detail() no longer returns customer delivery instructions';
   end if;
   if has_function_privilege('anon', 'public.kitchen_order_detail(uuid)', 'execute') then
     raise exception 'REGRESSION: anon can call kitchen_order_detail() directly';

@@ -68,6 +68,7 @@ tags: [project/preppa, type/launch-plan]
 - Cook applications now collect and privately store a structured pickup address. Pickup checkout uses that kitchen address for Stripe Tax and blocks kitchens with incomplete legacy address data instead of calculating tax from the buyer's rough location.
 - Reorder now checks current meal availability, kitchen status, fulfillment support, prices, and images before adding historical items to the cart. Cook ownership UI now compares the authenticated cook's real kitchen UUID instead of a legacy presentation persona. Checkout rejects self-orders server-side and revalidates kitchen, payout, and meal eligibility before resuming an interrupted payment.
 - Newly confirmed Stripe payments now remain in an explicit "Confirming payment" state until the protected order row reports `pay_status = paid`. Customer order detail and tracking no longer present webhook-pending orders as if the kitchen were already preparing them.
+- Delivery checkout now accepts a 500-character order-specific handoff note with a visible counter. The note is snapshotted on the order and exposed to the assigned active kitchen only through the protected order-detail RPC.
 
 ### Customer acceptance evidence still needed
 

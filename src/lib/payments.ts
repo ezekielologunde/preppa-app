@@ -14,6 +14,8 @@ export interface OrderOpts {
   savePaymentMethod?: boolean;
   /** Required for delivery. The server verifies ownership and snapshots the address on the order. */
   addressId?: string;
+  /** Optional order-specific delivery note, snapshotted for the assigned kitchen. */
+  deliveryInstructions?: string;
 }
 
 /** A tokenized saved card (Stripe PaymentMethod) — no PAN, only display fields. */
@@ -59,6 +61,7 @@ export async function createRealOrder(opts: OrderOpts): Promise<{ orderId: strin
       idempotencyKey: opts.idempotencyKey,
       savePaymentMethod: opts.savePaymentMethod ?? false,
       ...(opts.addressId ? { addressId: opts.addressId } : {}),
+      ...(opts.deliveryInstructions ? { deliveryInstructions: opts.deliveryInstructions } : {}),
     },
   });
   await assertFunctionSuccess(data, error, 'Could not start your payment.');

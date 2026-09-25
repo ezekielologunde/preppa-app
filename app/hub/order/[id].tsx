@@ -154,9 +154,17 @@ export default function OrderDetail() {
           {!isPickup ? (
             <View accessibilityRole={o.delivery_address_text ? undefined : 'alert'} style={{ marginTop: 14, paddingTop: 12, borderTopWidth: 1, borderTopColor: c.border2, flexDirection: 'row', gap: 9, alignItems: 'flex-start' }}>
               <Icon name="pin" size={16} color={o.delivery_address_text ? c.primary : c.red} />
-              <View style={{ flex: 1 }}>
-                <Text style={[type(11.5, 800), { color: c.muted, textTransform: 'uppercase' }]}>Delivery address</Text>
-                <Text style={[type(13.5, 700), { color: o.delivery_address_text ? c.ink : c.red, marginTop: 3, lineHeight: 19 }]}>{o.delivery_address_text || 'Address unavailable. Contact the customer before preparing this order.'}</Text>
+              <View style={{ flex: 1, gap: 9 }}>
+                <View>
+                  <Text style={[type(11.5, 800), { color: c.muted, textTransform: 'uppercase' }]}>Delivery address</Text>
+                  <Text style={[type(13.5, 700), { color: o.delivery_address_text ? c.ink : c.red, marginTop: 3, lineHeight: 19 }]}>{o.delivery_address_text || 'Address unavailable. Contact the customer before preparing this order.'}</Text>
+                </View>
+                {o.delivery_instructions ? (
+                  <View>
+                    <Text style={[type(11.5, 800), { color: c.muted, textTransform: 'uppercase' }]}>Customer instructions</Text>
+                    <Text style={[type(13.5, 700), { color: c.ink, marginTop: 3, lineHeight: 19 }]}>{o.delivery_instructions}</Text>
+                  </View>
+                ) : null}
               </View>
             </View>
           ) : null}

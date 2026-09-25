@@ -78,6 +78,7 @@ export interface KitchenOrderDetail {
   status: string;
   fulfillment: string;
   delivery_address_text: string | null;
+  delivery_instructions: string | null;
   method: string;
   subtotal_cents: number;
   service_fee_cents: number;
