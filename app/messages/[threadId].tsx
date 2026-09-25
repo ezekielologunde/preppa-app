@@ -108,15 +108,11 @@ export default function ThreadView() {
   // live stream — append inbound messages, mark read as they arrive
   useEffect(() => {
     if (!threadId) return;
-    const off = subscribeThread(threadId, (row) => {
+    const off = subscribeThread(threadId, (message) => {
       setMsgs((prev) => {
-        if (prev.some((m) => m.id === row.id)) return prev; // dedupe (incl. our own optimistic→real)
-        const mine = !!meIdRef.current && row.sender_id === meIdRef.current;
-        const next = [...prev, {
-          id: row.id, threadId: row.thread_id, senderId: row.sender_id, senderRole: row.sender_role,
-          kind: row.kind, body: row.body, createdAt: row.created_at, mine,
-        } as Message];
-        if (!mine) markThreadRead(threadId).catch(() => {});
+        if (prev.some((m) => m.id === message.id)) return prev; // dedupe (incl. our own optimistic to real)
+        const next = [...prev, message];
+        if (!message.mine) markThreadRead(threadId).catch(() => {});
         return next;
       });
       scrollDown();

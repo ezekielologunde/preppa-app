@@ -27,7 +27,7 @@ GitHub Actions ── typecheck only, no tests/lint/build/deploy
 
 - Single Supabase client: `src/lib/supabase.ts`, AsyncStorage-persisted session, `detectSessionInUrl:false`.
 - **Authorization is server-authoritative.** `fetchAccountState()` derives `role`, `prepperStatus` (kitchen ownership + `verification_status='verified'`), `payoutsEnabled` (`stripe_accounts.payouts_enabled`), `isPrepPlus` (mirrors server `is_prepplus_member()`). `isAdmin` client-side is cosmetic only — every admin action is independently re-checked server-side.
-- **Media uploads** are funneled through a single `upload-media` Edge Function (not vendored in-repo) which sniffs magic bytes server-side. Direct-to-Storage INSERT/UPDATE policies were dropped for 4 buckets so the proxy is the only write path, after a 2026-08-08 finding that HTML was accepted as `image/png`.
+- **Media uploads** are funneled through the vendored `upload-media` Edge Function, which sniffs magic bytes server-side. Direct-to-Storage INSERT/UPDATE policies are absent for proxy-managed buckets so the proxy is the only write path, after a 2026-08-08 finding that HTML was accepted as `image/png`. Private message photos also use this path, with participant checks, failure cleanup, and short-lived signed reads.
 - **Provider split (SPRINT-27 plan):** Supabase is system of record for ownership, state, moderation, commerce links; provider APIs (Cloudflare Stream planned, Mux shipped for live) own media ingest/transcode/delivery only.
 
 ## Deployment

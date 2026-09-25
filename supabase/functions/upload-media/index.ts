@@ -1,6 +1,7 @@
 // deno-lint-ignore-file no-explicit-any
 // upload-media: single proxy-upload endpoint for every image/video upload in the app
-// (avatar, plan cover, post cover, post video, meal photo, cook verification doc).
+// (avatar, plan cover, post cover, post video, meal photo, cook verification doc,
+// private message attachment).
 //
 // WHY THIS EXISTS: direct-to-Storage client uploads only validated the CLIENT-DECLARED
 // Content-Type header against each bucket's allowed_mime_types -- proven live (audit,
@@ -38,18 +39,20 @@ function asUser(jwt: string) {
   });
 }
 
-type BucketId = 'avatars' | 'meal-photos' | 'post-videos' | 'cook-docs';
+type BucketId = 'avatars' | 'meal-photos' | 'post-videos' | 'cook-docs' | 'message-attachments';
 const BUCKET_LIMITS: Record<BucketId, number> = {
   avatars: 8 * 1024 * 1024,
   'meal-photos': 8 * 1024 * 1024,
   'cook-docs': 15 * 1024 * 1024,
   'post-videos': 100 * 1024 * 1024,
+  'message-attachments': 8 * 1024 * 1024,
 };
 const BUCKET_ALLOWED: Record<BucketId, string[]> = {
   avatars: ['image/png', 'image/jpeg', 'image/webp', 'image/heic'],
   'meal-photos': ['image/png', 'image/jpeg', 'image/webp', 'image/heic'],
   'cook-docs': ['image/png', 'image/jpeg', 'image/webp', 'image/heic'],
   'post-videos': ['video/mp4', 'video/quicktime'],
+  'message-attachments': ['image/png', 'image/jpeg', 'image/webp', 'image/heic'],
 };
 const EXT_FOR: Record<string, string> = {
   'image/png': 'png', 'image/jpeg': 'jpg', 'image/webp': 'webp', 'image/heic': 'heic',
@@ -93,6 +96,7 @@ Deno.serve(async (req) => {
     const bucket = String(form.get('bucket') ?? '') as BucketId;
     const prefix = String(form.get('prefix') ?? 'file').replace(/[^a-zA-Z0-9_-]/g, '') || 'file';
     const kitchenId = form.get('kitchenId') ? String(form.get('kitchenId')) : null;
+    const threadId = form.get('threadId') ? String(form.get('threadId')) : null;
     const file = form.get('file');
 
     if (!(bucket in BUCKET_LIMITS)) return json(400, { error: 'invalid bucket' });
@@ -105,6 +109,13 @@ Deno.serve(async (req) => {
       const { data: owns } = await dbAsUser.rpc('is_kitchen_owner', { kid: kitchenId });
       if (owns !== true) return json(403, { error: 'not your kitchen' });
       folder = kitchenId;
+    }
+    if (bucket === 'message-attachments') {
+      if (!threadId) return json(400, { error: 'threadId required for message attachments' });
+      const dbAsUser = asUser(jwt);
+      const { data: thread } = await dbAsUser.from('message_threads').select('id').eq('id', threadId).maybeSingle();
+      if (!thread) return json(403, { error: 'not a conversation participant' });
+      folder = threadId;
     }
 
     const bytes = new Uint8Array(await file.arrayBuffer());
@@ -125,6 +136,18 @@ Deno.serve(async (req) => {
     const { error: upErr } = await db.storage.from(bucket).upload(path, bytes, { upsert: true, contentType: realType });
     if (upErr) return json(500, { error: 'Upload failed. Please try again.' });
 
+    if (bucket === 'message-attachments') {
+      const dbAsUser = asUser(jwt);
+      const { data: message, error: messageErr } = await dbAsUser
+        .rpc('send_message_attachment', { p_thread: threadId, p_path: path });
+      if (messageErr || !message) {
+        await db.storage.from(bucket).remove([path]);
+        return json(403, { error: 'The photo could not be sent to this conversation.' });
+      }
+      const { data: signed, error: signedErr } = await db.storage.from(bucket).createSignedUrl(path, 3600);
+      if (signedErr || !signed?.signedUrl) return json(500, { error: 'The photo was sent but cannot be displayed yet. Refresh the conversation.' });
+      return json(200, { path, url: signed.signedUrl, message });
+    }
     if (bucket === 'cook-docs') return json(200, { path });
     const { data: pub } = db.storage.from(bucket).getPublicUrl(path);
     return json(200, { url: pub.publicUrl, path });

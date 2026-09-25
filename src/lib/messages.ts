@@ -100,11 +100,31 @@ export async function openThreadAsKitchen(customerId: string, contextType?: stri
 }
 
 const MSG_COLS = 'id, thread_id, sender_id, sender_role, kind, body, created_at';
-function rowToMessage(r: any, me: string | null): Message {
+const PUBLIC_ATTACHMENT = /^(https?:|blob:|data:)/i;
+
+function rowToMessage(r: any, me: string | null, displayBody?: string): Message {
   return {
     id: r.id, threadId: r.thread_id, senderId: r.sender_id, senderRole: r.sender_role,
-    kind: r.kind, body: r.body, createdAt: r.created_at, mine: !!me && r.sender_id === me,
+    kind: r.kind, body: displayBody ?? r.body, createdAt: r.created_at, mine: !!me && r.sender_id === me,
   };
+}
+
+async function signedAttachmentUrls(rows: any[]): Promise<Map<string, string>> {
+  const paths = [...new Set(rows
+    .filter((r) => r.kind === 'image' && typeof r.body === 'string' && !PUBLIC_ATTACHMENT.test(r.body))
+    .map((r) => r.body as string))];
+  if (!paths.length) return new Map();
+  const { data, error } = await supabase.storage.from('message-attachments').createSignedUrls(paths, 3600);
+  if (error) throw error;
+  return new Map((data ?? []).flatMap((item: any, index: number) => item?.signedUrl ? [[paths[index], item.signedUrl]] : []));
+}
+
+async function rowToDisplayMessage(r: any, me: string | null): Promise<Message> {
+  if (r.kind !== 'image' || PUBLIC_ATTACHMENT.test(r.body)) return rowToMessage(r, me);
+  const urls = await signedAttachmentUrls([r]);
+  const url = urls.get(r.body);
+  if (!url) throw new Error('ATTACHMENT_UNAVAILABLE');
+  return rowToMessage(r, me, url);
 }
 
 export async function fetchMessages(threadId: string, limit = 200): Promise<Message[]> {
@@ -114,7 +134,9 @@ export async function fetchMessages(threadId: string, limit = 200): Promise<Mess
     .eq('thread_id', threadId).order('created_at', { ascending: true }).limit(limit);
   if (error) throw error;
   if (!data) return [];
-  return (data as any[]).map((r) => rowToMessage(r, me));
+  const rows = data as any[];
+  const urls = await signedAttachmentUrls(rows);
+  return rows.map((r) => rowToMessage(r, me, urls.get(r.body)));
 }
 
 /** Send a message (direct RLS-guarded insert; blocked/non-participant sends are rejected by the policy). */
@@ -130,18 +152,12 @@ export async function sendMessage(threadId: string, body: string): Promise<Messa
   return rowToMessage(data, me);
 }
 
-/** Send a photo attachment — uploads (server-validated, see uploadMessageAttachment), then
- *  inserts a kind:'image' message whose body is the resulting public URL. Same RLS path as
- *  a text send, just a different `kind`/`body` shape. */
+/** Send a photo through the private, participant-scoped attachment path. */
 export async function sendImageMessage(threadId: string, file: Blob): Promise<Message | null> {
   const me = await myUid();
   if (!me) throw new Error('AUTH_REQUIRED');
-  const url = await uploadMessageAttachment(file);
-  const { data, error } = await supabase
-    .from('messages').insert({ thread_id: threadId, sender_id: me, kind: 'image', body: url })
-    .select(MSG_COLS).single();
-  if (error) throw error;
-  return rowToMessage(data, me);
+  const { message, url } = await uploadMessageAttachment(threadId, file);
+  return rowToMessage(message, me, url);
 }
 
 export async function markThreadRead(threadId: string): Promise<void> {
@@ -186,14 +202,20 @@ export async function sendBroadcast(body: string, idempotencyKey: string): Promi
 }
 
 /** Live per-thread message stream (Realtime postgres_changes, INSERT). Returns an unsubscribe fn. */
-export function subscribeThread(threadId: string, onInsert: (row: any) => void): () => void {
+export function subscribeThread(threadId: string, onInsert: (message: Message) => void): () => void {
+  let active = true;
   const channel = supabase
     .channel(`messages:${threadId}`)
     .on('postgres_changes',
       { event: 'INSERT', schema: 'public', table: 'messages', filter: `thread_id=eq.${threadId}` },
-      (payload) => onInsert(payload.new))
+      (payload) => {
+        void myUid()
+          .then((me) => rowToDisplayMessage(payload.new, me))
+          .then((message) => { if (active) onInsert(message); })
+          .catch(() => { /* history retry will recover an attachment that could not be signed */ });
+      })
     .subscribe();
-  return () => { supabase.removeChannel(channel); };
+  return () => { active = false; supabase.removeChannel(channel); };
 }
 
 /** Live read-receipt updates — fires whenever the counterpart (or I) mark the thread read, so

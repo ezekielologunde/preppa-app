@@ -69,6 +69,10 @@ Webhook signature verification real and fail-closed (Stripe + Mux); service-role
 
 2026-08-08: direct-to-Storage uploads validated only the client-declared `Content-Type`; raw HTML uploaded as `image/png` was accepted and served back with that type. Fixed by routing all uploads through `upload-media`, which sniffs magic bytes; Storage write policies dropped for the 4 affected buckets.
 
+## Private message attachments
+
+2026-09-25: chat photos no longer reuse the public `avatars` bucket. New attachments are stored in the private `message-attachments` bucket under their thread ID. Only the customer, the kitchen owner, and dispute-review admins can request short-lived read links. The `upload-media` function verifies membership and creates the file and message as one operation, deleting the file if the RLS-guarded message insert fails. Direct image-message inserts are rejected, preventing external tracking-image URLs from bypassing upload validation. Conversation previews and notifications show `Photo` instead of the private object path. Existing public chat-photo URLs remain readable for compatibility.
+
 ## Related
 
 - [[Project]] · [[Database]] · [[Backend]] · [[Payments]] · [[Bugs]] · [[Tasks]]

@@ -351,7 +351,9 @@ export async function updateProfile(patch: Partial<EditableProfile>): Promise<vo
  * was accepted and served back with that content-type). The matching Storage RLS INSERT/
  * UPDATE policies for these 4 buckets have been dropped so this is the only write path.
  */
-async function uploadViaProxy(bucket: string, prefix: string, file: Blob, extra?: Record<string, string>): Promise<{ url?: string; path?: string }> {
+type ProxyUploadResult = { url?: string; path?: string; message?: Record<string, unknown> };
+
+async function uploadViaProxy(bucket: string, prefix: string, file: Blob, extra?: Record<string, string>): Promise<ProxyUploadResult> {
   const { data: sess } = await supabase.auth.getSession();
   const token = sess.session?.access_token;
   if (!token) throw new Error('You need to be signed in.');
@@ -394,12 +396,16 @@ export async function uploadPostVideo(file: Blob, _ext: string): Promise<string>
   return url!;
 }
 
-/** Upload a chat attachment. Same public-URL model as avatars/plan covers/post images —
- *  not per-thread access-controlled, consistent with the rest of the app's media (a URL
- *  is guessable/shareable, same as everything else uploaded through this proxy). */
-export async function uploadMessageAttachment(file: Blob): Promise<string> {
-  const { url } = await uploadViaProxy('avatars', 'message', file);
-  return url!;
+/**
+ * Upload and send a private chat attachment in one server-side operation. The Edge Function
+ * verifies thread membership, stores the image in a private bucket, inserts the RLS-guarded
+ * message, and deletes the object if the insert fails. The stored message body is a private
+ * object path; only the short-lived `url` returned for display is shareable.
+ */
+export async function uploadMessageAttachment(threadId: string, file: Blob): Promise<{ message: Record<string, unknown>; url: string }> {
+  const { message, url } = await uploadViaProxy('message-attachments', 'message', file, { threadId });
+  if (!message || !url) throw new Error('The photo could not be secured. Please try again.');
+  return { message, url };
 }
 
 // ---- Social login (web) -------------------------------------------------------

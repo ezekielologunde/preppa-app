@@ -771,6 +771,50 @@ begin
   end if;
 end $$;
 
+-- Private chat attachments must remain non-public, have no direct client write path, and
+-- permit signed reads only when the caller belongs to the path's conversation.
+do $$
+declare v_policy text; v_trigger text; v_sender text;
+begin
+  if not exists (
+    select 1 from storage.buckets
+    where id = 'message-attachments' and public = false and file_size_limit = 8388608
+  ) then
+    raise exception 'REGRESSION: private message attachment bucket is missing or public';
+  end if;
+  if exists (
+    select 1 from pg_policies
+    where schemaname = 'storage' and tablename = 'objects'
+      and roles && array['anon'::name, 'authenticated'::name]
+      and cmd in ('INSERT', 'UPDATE', 'ALL')
+      and (coalesce(qual, '') ~ 'message-attachments' or coalesce(with_check, '') ~ 'message-attachments')
+  ) then
+    raise exception 'REGRESSION: clients can write directly to private message attachments';
+  end if;
+  select coalesce(qual, '') into v_policy
+  from pg_policies
+  where schemaname = 'storage' and tablename = 'objects'
+    and policyname = 'message_attachments_read_participant' and cmd = 'SELECT';
+  if v_policy !~ 'message_threads' or v_policy !~ 'customer_id' or v_policy !~ 'is_kitchen_owner' then
+    raise exception 'REGRESSION: message attachment reads are no longer participant scoped';
+  end if;
+  select prosrc into v_trigger from pg_proc where oid = 'public.on_message_insert()'::regprocedure;
+  if v_trigger !~ 'new.kind = ''image''' or v_trigger !~ '''Photo''' then
+    raise exception 'REGRESSION: private attachment paths can leak into message previews';
+  end if;
+  select prosrc into v_sender from pg_proc where oid = 'public.send_message_attachment(uuid,text)'::regprocedure;
+  if v_sender !~ 'trusted_msg_kind' or v_sender !~ 'invalid attachment path' or v_sender !~ 'message_blocks' then
+    raise exception 'REGRESSION: attachment send RPC lost path, participant, or block validation';
+  end if;
+  select prosrc into v_trigger from pg_proc where oid = 'public.enforce_message_kind()'::regprocedure;
+  if v_trigger !~ '''image''' or v_trigger !~ 'trusted_msg_kind' then
+    raise exception 'REGRESSION: direct image-message inserts are no longer rejected';
+  end if;
+  if has_function_privilege('anon', 'public.send_message_attachment(uuid,text)', 'execute') then
+    raise exception 'REGRESSION: anonymous users can send message attachments';
+  end if;
+end $$;
+
 rollback;
 
 select 'all regression checks passed' as result;

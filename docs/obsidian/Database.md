@@ -52,7 +52,7 @@ Only 3 policies are actually defined in-repo (`meals_write_own`, `capacity_owner
 
 ## Storage buckets
 
-`avatars`, `meal-photos`, `post-videos` (public, in the media URL allowlist, 8MB, image MIME types), `cook-docs`, `kyc-docs` (private, signed URLs, 15MB). Direct-write policies dropped for all — writes go through `upload-media` Edge Function only (see [[Architecture]]).
+`avatars`, `meal-photos`, `post-videos` are public product-media buckets. `cook-docs`, `kyc-docs`, and `message-attachments` are private. Message attachments are limited to 8MB images, stored beneath the conversation ID, and readable through short-lived signed URLs only by conversation participants or admins. Direct-write policies are absent for the proxy-managed buckets; writes go through `upload-media` (see [[Architecture]]).
 
 ## Client types
 

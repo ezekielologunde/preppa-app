@@ -28,9 +28,9 @@ Part of [[Project]]. Edge Functions live in `supabase/functions/` (35 vendored d
 - **Live:** `live-start`, `live-end`, `mux-webhook`.
 - **Push:** `send-push` — invoked by Postgres via `net.http_post`, not directly by the client.
 
-## Not vendored (called by client, no source in repo)
+## Media and account functions
 
-`upload-media` (the sole storage write path — see [[Architecture]]) and `delete-account` (App Store 5.1.1(v) requirement). Both are unreviewable from this repo.
+`upload-media` is the vendored storage write path and performs byte sniffing plus bucket-specific authorization (see [[Architecture]]). `delete-account` remains required for App Store 5.1.1(v).
 
 ## Rate limiting
 
