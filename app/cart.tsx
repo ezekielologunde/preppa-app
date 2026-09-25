@@ -75,7 +75,7 @@ export default function Cart() {
         ) : null}
       </ScrollView>
       <Dock>
-        <DockTotal label={isMulti ? `${cartCount} items · ${cooks.length} kitchens` : 'Total'} value={money(grandTotal)} />
+        <DockTotal label={isMulti ? `Subtotal · ${cooks.length} kitchens` : 'Subtotal'} value={money(grandTotal)} />
         {isMulti ? null : <Btn label="Checkout" iconRight="arrow" flex={1} onPress={() => router.push(`/checkout?cook=${cooks[0]}`)} />}
       </Dock>
     </Screen>
