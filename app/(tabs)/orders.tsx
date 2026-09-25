@@ -32,15 +32,20 @@ export default function Orders() {
   const [bookingsError, setBookingsError] = useState('');
   const [busy, setBusy] = useState<string | null>(null);
   const bookingActionInFlight = useRef(false);
+  const bookingLoadSequence = useRef(0);
   const load = useCallback(() => {
+    const sequence = ++bookingLoadSequence.current;
     setBookingsLoading(true);
     setBookingsError('');
     listMyBookings()
-      .then(setBookings)
-      .catch((e: any) => setBookingsError(e?.message || 'Could not load your bookings.'))
-      .finally(() => setBookingsLoading(false));
+      .then((next) => { if (bookingLoadSequence.current === sequence) setBookings(next); })
+      .catch(() => { if (bookingLoadSequence.current === sequence) setBookingsError('Check your connection and try loading your bookings again.'); })
+      .finally(() => { if (bookingLoadSequence.current === sequence) setBookingsLoading(false); });
   }, []);
-  useFocusEffect(useCallback(() => { load(); }, [load]));
+  useFocusEffect(useCallback(() => {
+    load();
+    return () => { bookingLoadSequence.current += 1; };
+  }, [load]));
   useFocusEffect(useCallback(() => { void refreshOrders(); }, [refreshOrders]));
   useFocusEffect(useCallback(() => {
     orders.filter((o) => o.dbId && o.status !== 'completed' && o.status !== 'cancelled').forEach((o) => { void refreshOrderStatus(o.id); });
@@ -185,7 +190,7 @@ export default function Orders() {
           ) : null}
 
           {bookingsError ? (
-            <View style={{ marginBottom: 18, padding: 14, borderWidth: 1, borderColor: c.border, borderRadius: radius.md, backgroundColor: c.surface }}>
+            <View accessibilityRole="alert" style={{ marginBottom: 18, padding: 14, borderWidth: 1, borderColor: c.border, borderRadius: radius.md, backgroundColor: c.surface }}>
               <Text style={[type(13, 700), { color: c.soft, marginBottom: 10 }]}>Bookings could not be refreshed. Your meal orders are still available.</Text>
               <Btn label="Retry bookings" icon="repeat" variant="ghost" onPress={load} />
             </View>
@@ -207,7 +212,7 @@ export default function Orders() {
                   const s = STATUS[o.status];
                   const summary = o.lines.map((l) => `${l.qty}× ${l.name}`).join(', ');
                   return (
-                    <Press key={o.id} scale={0.99} onPress={() => router.push(`/order/${o.id}`)}>
+                    <Press key={o.id} scale={0.99} onPress={() => router.push(`/order/${o.id}`)} label={`Open ${cook.kitchen} order, ${s.label}, ${money(o.total)}`}>
                       <View style={{ flexDirection: 'row', alignItems: 'center', gap: 12, backgroundColor: c.surface, borderRadius: radius.card, borderWidth: 1, borderColor: c.border2, padding: 14, ...shadow.card }}>
                         <GradBox grad={cook.grad} img={thumb(o.lines[0]?.img)} style={{ width: 52, height: 52, borderRadius: radius.md, alignItems: 'center', justifyContent: 'center' }}>
                           {o.lines[0]?.img ? null : <Text style={[type(20, 900), { color: '#fff' }]}>{cook.initial}</Text>}
