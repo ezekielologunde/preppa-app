@@ -306,7 +306,7 @@ export default function CreatePlanFlow() {
           </View>
         </KField>
         <KField label="Weekly capacity (optional)">
-          <KInput value={capacity} onChange={setCapacity} placeholder="Max meals per delivery day" />
+          <KInput value={capacity} onChange={setCapacity} placeholder="Max meals per delivery day" accessibilityLabel="Kitchen capacity per delivery day" />
           <Text style={[type(11.5, 600), { color: c.muted, marginTop: 6, lineHeight: 16 }]}>We won’t sell past this — leave blank for unlimited. E.g. a 3-meal box → 30 means up to ~10 subscribers.</Text>
         </KField>
         <KField label="Dietary tags (optional)">

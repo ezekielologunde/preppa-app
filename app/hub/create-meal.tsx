@@ -174,7 +174,7 @@ export default function CreateMealFlow() {
           </View>
         </KField>
         <KField label="Ingredients" hint="required · list every ingredient">
-          <KInput value={ingredients} onChange={setIngredients} placeholder="Chicken, rice, onion, garlic, olive oil, spices…" multiline />
+          <KInput value={ingredients} onChange={setIngredients} placeholder="Chicken, rice, onion, garlic, olive oil, spices…" multiline accessibilityLabel="Ingredients" />
         </KField>
         <KField label="Contains allergens" hint="select every allergen that applies">
           <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 9 }}>

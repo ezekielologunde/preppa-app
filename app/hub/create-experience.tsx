@@ -297,7 +297,7 @@ export default function CreateExperienceFlow() {
         {sessions.length > 0 ? (
           <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8, marginBottom: 10, flexWrap: 'wrap' }}>
             <Text style={[type(12.5, 700), { color: c.soft }]}>Repeat weekly for</Text>
-            <View style={{ width: 52 }}><KInput value={repeatN} onChange={setRepeatN} placeholder="4" /></View>
+            <View style={{ width: 52 }}><KInput value={repeatN} onChange={setRepeatN} placeholder="4" accessibilityLabel="Number of weekly sessions" /></View>
             <Text style={[type(12.5, 700), { color: c.soft }]}>weeks</Text>
             <Press scale={0.96} onPress={repeatWeekly}>
               <View style={{ height: 36, paddingHorizontal: 14, borderRadius: radius.pill, backgroundColor: c.primaryL, alignItems: 'center', justifyContent: 'center' }}><Text style={[type(12.5, 800), { color: c.primaryD }]}>Add weeks</Text></View>
@@ -310,9 +310,9 @@ export default function CreateExperienceFlow() {
             return (
               <View key={i} style={{ backgroundColor: c.bg2, borderRadius: 14, padding: 12, gap: 8 }}>
                 <View style={{ flexDirection: 'row', gap: 8 }}>
-                  <View style={{ flex: 1.4 }}><KInput value={s.date} onChange={(v) => setSess(i, { date: v })} placeholder="YYYY-MM-DD" /></View>
-                  <View style={{ flex: 1 }}><KInput value={s.time} onChange={(v) => setSess(i, { time: v })} placeholder="18:00" /></View>
-                  <View style={{ width: 74 }}><KInput value={s.seats} onChange={(v) => setSess(i, { seats: v })} placeholder="Seats" /></View>
+              <View style={{ flex: 1.4 }}><KInput value={s.date} onChange={(v) => setSess(i, { date: v })} placeholder="YYYY-MM-DD" accessibilityLabel={`Session ${i + 1} date`} /></View>
+              <View style={{ flex: 1 }}><KInput value={s.time} onChange={(v) => setSess(i, { time: v })} placeholder="18:00" accessibilityLabel={`Session ${i + 1} time`} /></View>
+              <View style={{ width: 74 }}><KInput value={s.seats} onChange={(v) => setSess(i, { seats: v })} placeholder="Seats" accessibilityLabel={`Session ${i + 1} seats`} /></View>
                 </View>
                 <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }}>
                   <Text style={[type(11.5, 700), { color: locked ? c.primary : c.muted }]}>{locked ? `${s.seatsTaken} of ${s.seats} booked` : 'No bookings yet'}</Text>

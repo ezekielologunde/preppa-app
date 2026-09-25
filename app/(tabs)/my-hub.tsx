@@ -232,6 +232,9 @@ function ActionCard({ it }: { it: QItem }) {
 /* ---------- form primitives (create meal / plan / bid / payout) ---------- */
 export function KField({ label, hint, children }: { label?: string; hint?: string; children: React.ReactNode }) {
   const c = useC();
+  const control = label && React.isValidElement(children)
+    ? React.cloneElement(children as React.ReactElement<any>, { accessibilityLabel: label })
+    : children;
   return (
     <View style={{ marginTop: 20 }}>
       {label ? (
@@ -240,12 +243,12 @@ export function KField({ label, hint, children }: { label?: string; hint?: strin
           {hint ? <Text style={[type(12, 600), { color: c.muted }]}>{'  ' + hint}</Text> : null}
         </Text>
       ) : null}
-      {children}
+      {control}
     </View>
   );
 }
 
-export function KInput({ value, onChange, placeholder, multiline }: { value: string; onChange: (t: string) => void; placeholder?: string; multiline?: boolean }) {
+export function KInput({ value, onChange, placeholder, multiline, accessibilityLabel }: { value: string; onChange: (t: string) => void; placeholder?: string; multiline?: boolean; accessibilityLabel?: string }) {
   const c = useC();
   const [f, setF] = useState(false);
   return (
@@ -254,6 +257,7 @@ export function KInput({ value, onChange, placeholder, multiline }: { value: str
       onChangeText={onChange}
       placeholder={placeholder}
       placeholderTextColor={c.muted}
+      accessibilityLabel={accessibilityLabel}
       multiline={multiline}
       onFocus={() => setF(true)}
       onBlur={() => setF(false)}
@@ -262,7 +266,7 @@ export function KInput({ value, onChange, placeholder, multiline }: { value: str
   );
 }
 
-export function MoneyInput({ value, onChange, placeholder = '0.00', big }: { value: string; onChange: (t: string) => void; placeholder?: string; big?: boolean }) {
+export function MoneyInput({ value, onChange, placeholder = '0.00', big, accessibilityLabel }: { value: string; onChange: (t: string) => void; placeholder?: string; big?: boolean; accessibilityLabel?: string }) {
   const c = useC();
   const [f, setF] = useState(false);
   return (
@@ -275,6 +279,7 @@ export function MoneyInput({ value, onChange, placeholder = '0.00', big }: { val
         onChangeText={(t) => onChange(t.replace(/[^0-9.]/g, ''))}
         placeholder={placeholder}
         placeholderTextColor={c.muted}
+        accessibilityLabel={accessibilityLabel}
         keyboardType="decimal-pad"
         onFocus={() => setF(true)}
         onBlur={() => setF(false)}
@@ -287,7 +292,7 @@ export function MoneyInput({ value, onChange, placeholder = '0.00', big }: { val
 export function KChoice({ label, on, onPress, check }: { label: string; on: boolean; onPress: () => void; check?: boolean }) {
   const c = useC();
   return (
-    <Press scale={0.96} onPress={onPress}>
+    <Press scale={0.96} onPress={onPress} label={label} selected={on}>
       <View style={{ height: 42, paddingHorizontal: 16, borderRadius: 12, backgroundColor: on ? c.primaryL : c.bg2, borderWidth: 1.5, borderColor: on ? c.primary : 'transparent', flexDirection: 'row', alignItems: 'center', gap: 7 }}>
         {check && on ? <Icon name="check" size={13} color={c.primaryD} /> : null}
         <Text style={[type(13.5, 800), { color: on ? c.primaryD : c.soft }]}>{label}</Text>
@@ -311,7 +316,7 @@ export function PhotoPick({ grad, setGrad }: { grad: GradKey | null; setGrad: (g
     );
   }
   return (
-    <Press scale={0.98} onPress={() => setGrad(PHOTO_GRADS[0])}>
+    <Press scale={0.98} onPress={() => setGrad(PHOTO_GRADS[0])} label="Add a dish photo placeholder">
       <View style={{ height: 150, borderRadius: 16, borderWidth: 2, borderStyle: 'dashed', borderColor: c.border, backgroundColor: c.bg2, alignItems: 'center', justifyContent: 'center', gap: 9 }}>
         <Icon name="camera" size={26} color={c.muted} />
         <Text style={[type(13.5, 700), { color: c.muted }]}>Add a photo of your dish</Text>
@@ -353,7 +358,7 @@ function ShortcutsGrid() {
         {w > 0 && SHORTCUTS.map((s) => {
           const [bg, fg] = well(c, s.tone);
           return (
-            <Press key={s.route} scale={0.96} onPress={() => router.push(s.route as any)} style={{ width: cardW }}>
+            <Press key={s.route} scale={0.96} onPress={() => router.push(s.route as any)} style={{ width: cardW }} label={s.l}>
               <View style={{ backgroundColor: c.surface, borderWidth: 1, borderColor: c.border2, borderRadius: 18, paddingVertical: 15, paddingHorizontal: 12, gap: 10 }}>
                 <View style={{ width: 38, height: 38, borderRadius: 12, backgroundColor: bg, alignItems: 'center', justifyContent: 'center' }}>
                   <Icon name={s.ic} size={19} color={fg} />
