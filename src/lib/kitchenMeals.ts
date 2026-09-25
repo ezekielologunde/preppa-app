@@ -20,7 +20,13 @@ export interface MyMealRow {
   slug: string;
   status: RealMealStatus;
   created_at: string;
+  ingredients: string;
+  allergens: string[];
+  allergen_reviewed_at: string | null;
 }
+
+/** The nine major food allergens a cook must review for every dish. */
+export const MAJOR_ALLERGENS = ['Milk', 'Eggs', 'Fish', 'Shellfish', 'Tree nuts', 'Peanuts', 'Wheat', 'Soy', 'Sesame'];
 
 export async function fetchMyMeals(): Promise<MyMealRow[]> {
   const { data, error } = await supabase.rpc('my_meals');
