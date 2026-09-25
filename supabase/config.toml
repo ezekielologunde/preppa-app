@@ -2,12 +2,12 @@ project_id = "fwidhpzwldneeaphrxgg"
 
 [api]
 enabled = true
-port = 55321
+port = 54321
 schemas = ["public"]
 
 [db]
-port = 55322
+port = 54322
 
 [studio]
 enabled = true
-port = 55323
+port = 54323
