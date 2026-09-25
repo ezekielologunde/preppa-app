@@ -51,8 +51,8 @@ export function BrowsePlansSection() {
       const [p, s] = await Promise.all([fetchActivePlans(), listMySubscriptions()]);
       setPlans(p);
       setSubs(s);
-    } catch (e: any) {
-      setError(e?.message || 'Plans could not be loaded.');
+    } catch {
+      setError('Check your connection and try loading meal plans again.');
     } finally {
       setLoading(false);
     }
@@ -80,15 +80,23 @@ export function BrowsePlansSection() {
 
       <View style={{ paddingHorizontal: 16, paddingTop: 18 }}>
         <Text style={[type(12, 800), { color: c.muted, textTransform: 'uppercase', letterSpacing: 0.5, marginBottom: 10 }]}>Plans from cooks near you</Text>
-        {loading ? (
+        {loading && plans.length === 0 ? (
           <View style={{ paddingVertical: 50, alignItems: 'center' }}><ActivityIndicator color={c.primary} /></View>
-        ) : error ? (
+        ) : error && plans.length === 0 ? (
           <View accessibilityRole="alert" style={{ alignItems: 'center', paddingVertical: 40, paddingHorizontal: 20 }}>
             <View style={{ width: 56, height: 56, borderRadius: 18, backgroundColor: c.redL, alignItems: 'center', justifyContent: 'center' }}><Icon name="info" size={25} color={c.red} /></View>
             <Text style={[type(16, 900), { color: c.ink, marginTop: 14 }]}>Plans couldn’t load</Text>
             <Text style={[type(13.5, 600), { color: c.soft, textAlign: 'center', marginTop: 6, marginBottom: 16, maxWidth: 300, lineHeight: 20 }]}>{error}</Text>
             <Btn label="Try again" icon="repeat" onPress={() => void load()} />
           </View>
+        ) : error && plans.length > 0 ? (
+          <>
+            <View accessibilityRole="alert" style={{ padding: 12, marginBottom: 10, borderRadius: radius.md, backgroundColor: c.redL }}>
+              <Text style={[type(12.5, 700), { color: c.red, marginBottom: 8 }]}>Meal plans could not be refreshed. Your existing results are still shown.</Text>
+              <Btn label="Try again" icon="repeat" variant="ghost" onPress={() => void load()} />
+            </View>
+            {available.map((p) => <PlanCard key={p.id} p={p} feeWaived={isPrepPlus} onPress={() => router.push(`/plan/${p.id}`)} />)}
+          </>
         ) : available.length === 0 ? (
           <View style={{ alignItems: 'center', paddingVertical: 40, paddingHorizontal: 20 }}>
             <View style={{ width: 56, height: 56, borderRadius: 18, backgroundColor: c.primaryL, alignItems: 'center', justifyContent: 'center' }}><Icon name="repeat" size={26} color={c.primary} /></View>
@@ -96,7 +104,9 @@ export function BrowsePlansSection() {
             <Text style={[type(13.5, 600), { color: c.soft, textAlign: 'center', marginTop: 6, maxWidth: 300, lineHeight: 20 }]}>Cooks are adding weekly boxes. Check back soon — or order a meal now on Home.</Text>
           </View>
         ) : (
-          available.map((p) => <PlanCard key={p.id} p={p} feeWaived={isPrepPlus} onPress={() => router.push(`/plan/${p.id}`)} />)
+          <>
+            {available.map((p) => <PlanCard key={p.id} p={p} feeWaived={isPrepPlus} onPress={() => router.push(`/plan/${p.id}`)} />)}
+          </>
         )}
       </View>
     </ScrollView>
@@ -121,8 +131,8 @@ export function MyPlansSection({ onBrowse }: { onBrowse: () => void }) {
     setError('');
     try {
       setSubs(await listMySubscriptions());
-    } catch (e: any) {
-      setError(e?.message || 'Your plans could not be loaded.');
+    } catch {
+      setError('Check your connection and try loading your plans again.');
     } finally {
       setLoading(false);
     }
@@ -138,8 +148,8 @@ export function MyPlansSection({ onBrowse }: { onBrowse: () => void }) {
       else if (action === 'skip') { await skipCycle(sub.nextCycle!.id); toast('Skipped this week', 'check', true); }
       else { await cancelSubscription(sub.id); toast('Plan canceled', 'x'); }
       await load();
-    } catch (e: any) {
-      toast(e?.message || 'Could not update your plan', 'info');
+    } catch {
+      toast(`Could not ${action} this plan. Please try again.`, 'info');
     } finally { setBusy(null); }
   };
 
@@ -149,7 +159,7 @@ export function MyPlansSection({ onBrowse }: { onBrowse: () => void }) {
     try {
       const tid = await openThread(sub.kitchenId, 'subscription', sub.id);
       router.push(`/messages/${tid}`);
-    } catch (e: any) { toast(e?.message || 'Could not open chat', 'info'); }
+    } catch { toast('Could not open chat. Please try again.', 'info'); }
   };
 
   const requestAction = (sub: MySubscription, action: 'pause' | 'resume' | 'cancel' | 'skip') => {
@@ -182,9 +192,9 @@ export function MyPlansSection({ onBrowse }: { onBrowse: () => void }) {
   return (
     <View style={{ flex: 1 }}>
       <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={{ paddingBottom: 40, maxWidth: 760, alignSelf: 'center', width: '100%' }}>
-        {loading ? (
+        {loading && subs.length === 0 ? (
           <View style={{ paddingVertical: 60, alignItems: 'center' }}><ActivityIndicator color={c.primary} /></View>
-        ) : error ? (
+        ) : error && subs.length === 0 ? (
           <View accessibilityRole="alert" style={{ alignItems: 'center', paddingVertical: 50, paddingHorizontal: 24 }}>
             <View style={{ width: 56, height: 56, borderRadius: 18, backgroundColor: c.redL, alignItems: 'center', justifyContent: 'center' }}><Icon name="info" size={25} color={c.red} /></View>
             <Text style={[type(16, 900), { color: c.ink, marginTop: 14 }]}>Your plans couldn’t load</Text>
@@ -204,6 +214,12 @@ export function MyPlansSection({ onBrowse }: { onBrowse: () => void }) {
           </View>
         ) : (
           <View style={{ paddingHorizontal: 16, paddingTop: 16, gap: 12 }}>
+            {error ? (
+              <View accessibilityRole="alert" style={{ padding: 12, borderRadius: radius.md, backgroundColor: c.redL }}>
+                <Text style={[type(12.5, 700), { color: c.red, marginBottom: 8 }]}>Your plans could not be refreshed. Existing plan details are still shown.</Text>
+                <Btn label="Try again" icon="repeat" variant="ghost" onPress={() => void load()} />
+              </View>
+            ) : null}
             {subs.map((s) => (
               <SubCard key={s.id} s={s} busy={busy === s.id} onAct={(a) => requestAction(s, a)} onEditMeals={() => setEditSub(s)} onMessage={() => void message(s)} onAddress={() => setAddressSub(s)} />
             ))}
