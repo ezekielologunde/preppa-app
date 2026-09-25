@@ -17,6 +17,8 @@ import { Stepper } from '../../src/ui/primitives';
 import { fetchPlan, subscribeToPlan, estimateCycle, customerWeeklyCents, type Plan } from '../../src/lib/subscriptions';
 import { useSavedCards } from '../../src/lib/useSavedCards';
 import { createSetupIntent } from '../../src/lib/payments';
+import { AddressPickerSheet } from '../../src/components/PickerSheets';
+import { addressLocality, isCompleteDeliveryAddress } from '../../src/lib/addresses';
 
 const WEEKDAY = ['sunday', 'monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday'];
 const WEEKDAY_SHORT = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
@@ -66,7 +68,7 @@ function RealPlanDetail({ plan }: { plan: Plan }) {
   const c = useC();
   const insets = useSafeAreaInsets();
   const router = useRouter();
-  const { toast, isPrepPlus } = useStore();
+  const { toast, isPrepPlus, address } = useStore();
   const { refetch } = useSavedCards();
 
   const selModel = plan.selectionModel ?? 'fixed';
@@ -79,6 +81,7 @@ function RealPlanDetail({ plan }: { plan: Plan }) {
   const [busy, setBusy] = useState(false);
   const subscribeInFlight = useRef(false);
   const [addCard, setAddCard] = useState<string | null>(null);
+  const [addressOpen, setAddressOpen] = useState(false);
   const [result, setResult] = useState<{ firstDeliveryDate: string | null; firstCycleSkipped?: boolean } | null>(null);
   const rotationWeeks = plan.rotating ? (plan.itemsByWeek?.length ?? 1) : 1;
   const [previewWeek, setPreviewWeek] = useState(0);
@@ -101,6 +104,11 @@ function RealPlanDetail({ plan }: { plan: Plan }) {
 
   const doSubscribe = async (pmId?: string) => {
     if (subscribeInFlight.current) return;
+    if (plan.fulfillment === 'delivery' && !isCompleteDeliveryAddress(address)) {
+      setAddressOpen(true);
+      toast('Add a complete delivery address before subscribing.', 'info');
+      return;
+    }
     subscribeInFlight.current = true;
     setBusy(true);
     try {
@@ -110,6 +118,7 @@ function RealPlanDetail({ plan }: { plan: Plan }) {
         fulfillment: plan.fulfillment,
         startDate: startIso || undefined,
         preferredDay: startDay,
+        addressId: plan.fulfillment === 'delivery' ? address!.id : undefined,
         selection: selModel === 'customer_choice' ? selectedItems.map((i) => ({ mealId: i.mealId!, qty: i.qty })) : undefined,
       });
       if (res.recovered) toast('Your existing subscription was recovered.', 'check', true);
@@ -173,12 +182,24 @@ function RealPlanDetail({ plan }: { plan: Plan }) {
           ) : null}
 
           {stage === 'schedule' ? (
-            <Block title={`First ${plan.fulfillment === 'pickup' ? 'pickup' : 'delivery'}`}>
-              <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 7 }}>
-                {dates.map((d) => { const iso = isoDate(d); return <DayChip key={iso} label={chipLabel(d)} on={startIso === iso} onPress={() => setStartIso(iso)} />; })}
-              </View>
-              <Text style={[type(12.5, 600), { color: c.muted, marginTop: 12, lineHeight: 19 }]}>You’ll confirm each week’s meals before the cutoff, then your card is charged for that {plan.fulfillment === 'pickup' ? 'pickup' : 'delivery'}.</Text>
-            </Block>
+            <>
+              <Block title={`First ${plan.fulfillment === 'pickup' ? 'pickup' : 'delivery'}`}>
+                <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 7 }}>
+                  {dates.map((d) => { const iso = isoDate(d); return <DayChip key={iso} label={chipLabel(d)} on={startIso === iso} onPress={() => setStartIso(iso)} />; })}
+                </View>
+                <Text style={[type(12.5, 600), { color: c.muted, marginTop: 12, lineHeight: 19 }]}>You’ll confirm each week’s meals before the cutoff, then your card is charged for that {plan.fulfillment === 'pickup' ? 'pickup' : 'delivery'}.</Text>
+              </Block>
+              {plan.fulfillment === 'delivery' ? (
+                <Block title="Deliver to">
+                  {address && isCompleteDeliveryAddress(address) ? (
+                    <Press onPress={() => setAddressOpen(true)} label="Change delivery address">
+                      <Text style={[type(14, 800), { color: c.ink }]}>{address.label} · {address.line1}</Text>
+                      <Text style={[type(12.5, 600), { color: c.soft, marginTop: 3 }]}>{addressLocality(address)}</Text>
+                    </Press>
+                  ) : <Btn label="Add delivery address" onPress={() => setAddressOpen(true)} />}
+                </Block>
+              ) : null}
+            </>
           ) : null}
 
           {stage === 'review' ? (
@@ -188,6 +209,7 @@ function RealPlanDetail({ plan }: { plan: Plan }) {
                 <SummaryRow label="Kitchen" value={plan.kitchenName} c={c} />
                 <SummaryRow label="Meals" value={`${selCount || target} / week`} c={c} />
                 <SummaryRow label={`First ${plan.fulfillment === 'pickup' ? 'pickup' : 'delivery'}`} value={startIso ? fmtDate(startIso) : '—'} c={c} />
+                {plan.fulfillment === 'delivery' && address ? <SummaryRow label="Deliver to" value={`${address.line1}, ${addressLocality(address)}`} c={c} /> : null}
               </Block>
               <Block title="Weekly pricing">
                 <SummaryRow label="Meals subtotal" value={money2(est.subtotalCents)} c={c} />
@@ -208,12 +230,13 @@ function RealPlanDetail({ plan }: { plan: Plan }) {
           {stage === 'customize' ? (
             <Btn label="Continue" iconRight="arrow" flex={1} disabled={selCount < 1} onPress={() => setStage('schedule')} />
           ) : stage === 'schedule' ? (
-            <Btn label="Review" iconRight="arrow" flex={1} disabled={!startIso} onPress={() => setStage('review')} />
+            <Btn label="Review" iconRight="arrow" flex={1} disabled={!startIso || (plan.fulfillment === 'delivery' && !isCompleteDeliveryAddress(address))} onPress={() => setStage('review')} />
           ) : (
-            <Btn label={busy ? 'Starting…' : 'Confirm & subscribe'} icon="repeat" flex={1} loading={busy} onPress={subscribe} />
+            <Btn label={busy ? 'Starting…' : 'Confirm & subscribe'} icon="repeat" flex={1} loading={busy} disabled={plan.fulfillment === 'delivery' && !isCompleteDeliveryAddress(address)} onPress={subscribe} />
           )}
         </Dock>
         <CardPaymentSheet visible={!!addCard} clientSecret={addCard} amountLabel="" mode="save" onPaid={onCardSaved} onClose={() => setAddCard(null)} />
+        <AddressPickerSheet visible={addressOpen} onClose={() => setAddressOpen(false)} />
       </Screen>
     );
   }

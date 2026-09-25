@@ -14,6 +14,8 @@ import { buildBox, estimateBox } from '../src/lib/subscriptions';
 import { useSavedCards } from '../src/lib/useSavedCards';
 import { createSetupIntent } from '../src/lib/payments';
 import { invalidate } from '../src/data/cache';
+import { AddressPickerSheet } from '../src/components/PickerSheets';
+import { addressLocality, isCompleteDeliveryAddress } from '../src/lib/addresses';
 
 const WD = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
 const MO = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
@@ -31,7 +33,7 @@ type Stage = 'pick' | 'schedule' | 'done';
 export default function BuildPlanFlow() {
   const c = useC();
   const router = useRouter();
-  const { toast, isPrepPlus } = useStore();
+  const { toast, isPrepPlus, address } = useStore();
   const { data: meals, loading, error: mealsError } = useMeals();
   const { refetch } = useSavedCards();
   const dates = useMemo(() => nextDates(8), []);
@@ -42,6 +44,7 @@ export default function BuildPlanFlow() {
   const [busy, setBusy] = useState(false);
   const subscribeInFlight = useRef(false);
   const [addCard, setAddCard] = useState<string | null>(null);
+  const [addressOpen, setAddressOpen] = useState(false);
   const [result, setResult] = useState<{ firstDeliveryDate: string | null; count: number } | null>(null);
 
   const pool = (meals ?? []).filter((m) => !!m.mealUuid);
@@ -53,12 +56,13 @@ export default function BuildPlanFlow() {
 
   const doBuild = async (pmId?: string) => {
     if (subscribeInFlight.current) return;
+    if (!isCompleteDeliveryAddress(address)) { setAddressOpen(true); toast('Add a complete delivery address before starting your box.', 'info'); return; }
     subscribeInFlight.current = true;
     setBusy(true);
     try {
       const res = await buildBox({
         items: selected.map((m) => ({ mealId: m.mealUuid!, qty: 1 })),
-        paymentMethodId: pmId, fulfillment: 'delivery', startDate: startIso, preferredDay: startDay,
+        paymentMethodId: pmId, fulfillment: 'delivery', startDate: startIso, preferredDay: startDay, addressId: address!.id,
       });
       if (res.recovered) toast('Your existing box was recovered.', 'check', true);
       setResult({ firstDeliveryDate: res.firstDeliveryDate, count });
@@ -111,12 +115,21 @@ export default function BuildPlanFlow() {
               <Text style={[type(12.5, 600), { color: c.soft, flex: 1, lineHeight: 18 }]}>One weekly charge, split fairly to each cook. Delivery free for subscribers. Skip, pause, or cancel anytime.</Text>
             </View>
           </Block>
+          <Block title="Deliver to">
+            {address && isCompleteDeliveryAddress(address) ? (
+              <Press onPress={() => setAddressOpen(true)} label="Change delivery address">
+                <Text style={[type(14, 800), { color: c.ink }]}>{address.label} · {address.line1}</Text>
+                <Text style={[type(12.5, 600), { color: c.soft, marginTop: 3 }]}>{addressLocality(address)}</Text>
+              </Press>
+            ) : <Btn label="Add delivery address" onPress={() => setAddressOpen(true)} />}
+          </Block>
         </ScrollView>
         <Dock>
           <DockTotal label="Per week" value={`${money2(est.totalCents)}/wk`} />
-          <Btn label={busy ? 'Starting…' : 'Start my box'} icon="repeat" flex={1} loading={busy} onPress={subscribe} />
+          <Btn label={busy ? 'Starting…' : 'Start my box'} icon="repeat" flex={1} loading={busy} disabled={!isCompleteDeliveryAddress(address)} onPress={subscribe} />
         </Dock>
         <CardPaymentSheet visible={!!addCard} clientSecret={addCard} amountLabel="" mode="save" onPaid={onCardSaved} onClose={() => setAddCard(null)} />
+        <AddressPickerSheet visible={addressOpen} onClose={() => setAddressOpen(false)} />
       </Screen>
     );
   }

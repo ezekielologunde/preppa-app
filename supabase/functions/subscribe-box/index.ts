@@ -59,6 +59,7 @@ const input = z.object({
   fulfillment: z.enum(['pickup', 'delivery']).optional(),
   startDate: z.string().regex(/^\d{4}-\d{2}-\d{2}$/).optional(),
   preferredDay: z.string().max(12).optional(),
+  addressId: z.string().uuid().optional(),
 });
 
 const DISCOUNT_BPS = 1000; // 10% bundle discount, funded by Preppa's margin
@@ -83,6 +84,19 @@ Deno.serve(async (req) => {
     const parsed = input.safeParse(await req.json());
     if (!parsed.success) return json(400, { error: 'invalid input', issues: parsed.error.issues });
     const inp = parsed.data;
+
+    const fulfillment = inp.fulfillment ?? 'delivery';
+    let deliveryAddressText: string | null = null;
+    if (fulfillment === 'delivery') {
+      if (!inp.addressId) return json(400, { error: 'Choose a complete delivery address before subscribing.' });
+      const { data: address } = await db.from('addresses')
+        .select('line1, line2, city, region, postal_code, country, kind')
+        .eq('id', inp.addressId).eq('owner_id', uid).maybeSingle();
+      if (!address || address.kind !== 'customer_delivery' || !address.line1?.trim() || !address.city?.trim() || !address.region?.trim() || !address.postal_code?.trim() || !/^[A-Z]{2}$/.test(address.country ?? '')) {
+        return json(400, { error: 'Choose a complete delivery address before subscribing.' });
+      }
+      deliveryAddressText = [address.line1, address.line2, `${address.city}, ${address.region} ${address.postal_code}`, address.country].filter(Boolean).join(', ');
+    }
 
     // validate meals: live + collect distinct kitchens (a real box spans ≥1 kitchen)
     const mealIds = [...new Set(inp.items.map((i) => i.mealId))];
@@ -125,8 +139,9 @@ Deno.serve(async (req) => {
     const { data: sub, error: sErr } = await db.from('subscriptions').insert({
       customer_id: uid, kitchen_id: null, plan_id: null,
       lifecycle: 'active', status: 'active', kind: 'box', cadence_weeks: cadenceWeeks,
-      fulfillment: inp.fulfillment ?? 'delivery', billing_anchor: iso(start), next_cycle_date: iso(start),
+      fulfillment, billing_anchor: iso(start), next_cycle_date: iso(start),
       stripe_payment_method_id: pmId, preferred_day: inp.preferredDay ?? null,
+      delivery_address_id: inp.addressId ?? null, delivery_address_text: deliveryAddressText,
       discount_bps: DISCOUNT_BPS, service_fee_bps: BOX_FEE_BPS,
     }).select('id').single();
     if (sErr) {

@@ -279,6 +279,7 @@ export interface SubscribeOptions {
   fulfillment?: 'pickup' | 'delivery';
   startDate?: string;         // YYYY-MM-DD
   preferredDay?: string;
+  addressId?: string;
   selection?: { mealId: string; qty: number }[];  // first cycle (customer_choice)
   preferences?: SubscribePrefs;
 }
@@ -308,6 +309,7 @@ export interface BuildBoxOptions {
   fulfillment?: 'pickup' | 'delivery';
   startDate?: string;
   preferredDay?: string;
+  addressId?: string;
 }
 
 /** Build a cross-kitchen box and subscribe (one charge per cycle, split across cooks). */

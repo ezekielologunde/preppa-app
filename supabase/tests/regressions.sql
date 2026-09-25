@@ -732,6 +732,27 @@ begin
   end if;
 end $$;
 
+do $$
+declare v_src text;
+begin
+  if not exists (
+    select 1 from information_schema.columns
+    where table_schema = 'public' and table_name = 'subscriptions' and column_name = 'delivery_address_text'
+  ) or not exists (
+    select 1 from pg_trigger
+    where tgrelid = 'public.orders'::regclass and tgname = 'orders_snapshot_subscription_address' and not tgisinternal
+  ) then
+    raise exception 'REGRESSION: subscription delivery address snapshots are not wired into cycle orders';
+  end if;
+  select prosrc into v_src from pg_proc where oid = 'public.snapshot_subscription_order_address()'::regprocedure;
+  if v_src !~ 'delivery subscription has no address snapshot' or v_src !~ 'subscription_cycles' then
+    raise exception 'REGRESSION: generated delivery orders can lose their subscription address snapshot';
+  end if;
+  if has_function_privilege('authenticated', 'public.snapshot_subscription_order_address()', 'execute') then
+    raise exception 'REGRESSION: subscription address trigger function is client-executable';
+  end if;
+end $$;
+
 rollback;
 
 select 'all regression checks passed' as result;

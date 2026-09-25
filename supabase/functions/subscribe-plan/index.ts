@@ -59,6 +59,7 @@ const input = z.object({
   fulfillment: z.enum(['pickup', 'delivery']).optional(),
   startDate: z.string().regex(/^\d{4}-\d{2}-\d{2}$/).optional(),
   preferredDay: z.string().max(12).optional(),
+  addressId: z.string().uuid().optional(),
   selection: z.array(z.object({ mealId: z.string().uuid(), qty: z.number().int().min(1).max(20) })).max(50).optional(),
   preferences: z.object({
     dietary: z.array(z.string()).max(30).optional(),
@@ -95,6 +96,19 @@ Deno.serve(async (req) => {
       .select('id, kitchen_id, price_cents, status, selection_model, fulfillment, lead_time_hours, cutoff_hours, delivery_days, trial_cycles, meals_per_delivery')
       .eq('id', inp.planId).maybeSingle();
     if (!plan || plan.status !== 'active') return json(404, { error: 'This plan is not available.' });
+
+    const requestedFulfillment = inp.fulfillment ?? plan.fulfillment ?? 'delivery';
+    let deliveryAddressText: string | null = null;
+    if (requestedFulfillment === 'delivery') {
+      if (!inp.addressId) return json(400, { error: 'Choose a complete delivery address before subscribing.' });
+      const { data: address } = await db.from('addresses')
+        .select('line1, line2, city, region, postal_code, country, kind')
+        .eq('id', inp.addressId).eq('owner_id', uid).maybeSingle();
+      if (!address || address.kind !== 'customer_delivery' || !address.line1?.trim() || !address.city?.trim() || !address.region?.trim() || !address.postal_code?.trim() || !/^[A-Z]{2}$/.test(address.country ?? '')) {
+        return json(400, { error: 'Choose a complete delivery address before subscribing.' });
+      }
+      deliveryAddressText = [address.line1, address.line2, `${address.city}, ${address.region} ${address.postal_code}`, address.country].filter(Boolean).join(', ');
+    }
 
     const { data: kitchen } = await db.from('kitchens').select('owner_id').eq('id', plan.kitchen_id).maybeSingle();
     if (kitchen?.owner_id === uid) return json(400, { error: "You can't subscribe to your own plan." });
@@ -143,9 +157,10 @@ Deno.serve(async (req) => {
     const { data: sub, error: sErr } = await db.from('subscriptions').insert({
       customer_id: uid, kitchen_id: plan.kitchen_id, plan_id: plan.id,
       lifecycle: 'active', status: 'active', kind: inp.kind, cadence_weeks: cadenceWeeks,
-      fulfillment: inp.fulfillment ?? plan.fulfillment ?? 'delivery',
+      fulfillment: requestedFulfillment,
       billing_anchor: iso(start), next_cycle_date: iso(start),
       stripe_payment_method_id: pmId, preferred_day: inp.preferredDay ?? null,
+      delivery_address_id: inp.addressId ?? null, delivery_address_text: deliveryAddressText,
       trial_cycles_remaining: trialCycles,
     }).select('id').single();
     if (sErr) {
