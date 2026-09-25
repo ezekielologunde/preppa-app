@@ -172,7 +172,7 @@ do $$
 declare v_src text;
 begin
   select prosrc into v_src from pg_proc where oid = 'public.on_order_ticket_status_changed()'::regprocedure;
-  if v_src !~ 'Support request' or v_src !~ 'Resolved' or v_src !~ 'Closed' then
+  if v_src !~ 'Support request' or v_src !~ 'Resolved' or v_src !~ 'Closed' or v_src !~ 'auth.uid\(\) = new.reporter_id' then
     raise exception 'REGRESSION: order support status notifications are incomplete';
   end if;
   if not exists (select 1 from pg_trigger where tgname = 'order_ticket_status_changed_notify' and not tgisinternal) then
