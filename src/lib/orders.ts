@@ -109,10 +109,10 @@ export async function declineOrder(orderId: string, reason?: string): Promise<{ 
 }
 
 /** Customer-side: read the live status of one's own order (RLS: customer_id = auth.uid()). */
-export async function fetchOrderStatus(orderId: string): Promise<{ status: string; fulfillment: string } | null> {
-  const { data, error } = await supabase.from('orders').select('status,fulfillment').eq('id', orderId).maybeSingle();
+export async function fetchOrderStatus(orderId: string): Promise<{ status: string; fulfillment: string; payStatus: string } | null> {
+  const { data, error } = await supabase.from('orders').select('status,fulfillment,pay_status').eq('id', orderId).maybeSingle();
   if (error) throw error;
-  return data ?? null;
+  return data ? { status: data.status, fulfillment: data.fulfillment, payStatus: data.pay_status } : null;
 }
 
 export interface CustomerOrderRecord {

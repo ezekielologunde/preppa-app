@@ -12,6 +12,7 @@ import { listMyBookings, completeBooking, cancelBooking, type BookingView } from
 import { cancelExperienceBooking, fetchExperienceMeetingUrl } from '../../src/lib/experiences';
 
 const STATUS: Record<CustomerOrder['status'], { label: string; bg: (c: any) => string; fg: (c: any) => string }> = {
+  confirming: { label: 'Confirming payment', bg: (c) => c.bg2, fg: (c) => c.soft },
   preparing: { label: 'Preparing', bg: (c) => c.primaryL, fg: (c) => c.primaryD },
   ready: { label: 'Ready', bg: (c) => c.greenL, fg: (c) => c.green },
   completed: { label: 'Completed', bg: (c) => c.bg2, fg: (c) => c.soft },

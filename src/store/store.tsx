@@ -58,7 +58,7 @@ export interface CustomerOrder {
   total: number;
   mode: 'delivery' | 'pickup';
   flow: OrderFlow;
-  status: 'preparing' | 'ready' | 'completed' | 'cancelled';
+  status: 'confirming' | 'preparing' | 'ready' | 'completed' | 'cancelled';
   when: string;
   ownerUid?: string; // session owner for a just-paid order awaiting server reconciliation
 }
@@ -569,7 +569,7 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
           cook: key, kitchenName: lines[0]?.kitchenName, lines,
           subtotal: t.subtotal, service: t.service, tax, delivery: t.delivery, tip: t.tip, total,
           mode, flow,
-          status: flow === 'cod' ? 'completed' : 'preparing',
+          status: flow === 'cod' ? 'completed' : 'confirming',
           when: 'Just now',
         };
       })
@@ -623,10 +623,11 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
     try {
       const row = await fetchOrderStatus(o.dbId);
       if (!row) return true;
-      const next: CustomerOrder['status'] | null =
-        row.status === 'ready' ? 'ready' : row.status === 'completed' ? 'completed'
+      const next: CustomerOrder['status'] | null = row.status === 'cancelled' ? 'cancelled'
+        : row.payStatus !== 'paid' ? 'confirming'
+        : row.status === 'ready' ? 'ready' : row.status === 'completed' ? 'completed'
         : row.status === 'preparing' || row.status === 'confirmed' || row.status === 'pending' ? 'preparing'
-        : row.status === 'cancelled' ? 'cancelled' : null;
+        : null;
       if (next && next !== o.status) setOrders((os) => os.map((x) => (x.id === id ? { ...x, status: next } : x)));
       return true;
     } catch {

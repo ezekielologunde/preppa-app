@@ -38,7 +38,7 @@ export default function Track() {
   // COOKS fallback only covers the 6 seed kitchens.
   const matchedOrder = orders.find((o) => (orderId && o.dbId === orderId) || o.cook === ck);
   const theCook = cookOfLine({ cook: ck, kitchenName: matchedOrder?.kitchenName, grad: matchedOrder?.lines[0]?.grad ?? 'g1' });
-  const [live, setLive] = useState<{ status: string; fulfillment: string } | null>(null);
+  const [live, setLive] = useState<{ status: string; fulfillment: string; payStatus: string } | null>(null);
   const [loadError, setLoadError] = useState('');
   const [loading, setLoading] = useState(!!orderId);
 
@@ -65,15 +65,17 @@ export default function Track() {
   // link with no orderId fall back to the prior static presentation (COD's own mock status
   // is a separate, already-tracked finding — not this screen's job to fix).
   const pickup = live ? live.fulfillment === 'pickup' : mode === 'pickup';
+  const paymentConfirmed = live?.payStatus === 'paid' || live?.payStatus === 'refunded';
+  const confirmingPayment = !!live && !paymentConfirmed;
   const STEPS = orderId && !cod
-    ? stepsFromStatus((live?.status as RealStatus) ?? null, pickup, theCook.name, theCook.kitchen)
+    ? stepsFromStatus(paymentConfirmed ? (live?.status as RealStatus) ?? null : null, pickup, theCook.name, theCook.kitchen)
     : [
         { t: 'Order confirmed', p: `${theCook.name} accepted your order`, st: 'done' },
         { t: 'Cooking now', p: 'Fresh on the stove', st: cod ? 'done' : 'active' },
         { t: mode === 'pickup' ? 'Ready for pickup' : 'Out for delivery', p: mode === 'pickup' ? `Head to ${theCook.kitchen}` : 'On the way to you', st: cod ? 'done' : 'pending' },
         { t: cod ? 'Handed off · paid in cash' : 'Delivered', p: cod ? 'Confirmed by QR + code' : 'Leave a review to earn points', st: cod ? 'done' : 'pending' },
       ];
-  const realStatusLabel = live?.status === 'completed' ? 'Delivered' : live?.status === 'cancelled' ? 'Cancelled' : 'Live';
+  const realStatusLabel = live && !paymentConfirmed ? 'Confirming payment' : live?.status === 'completed' ? 'Delivered' : live?.status === 'cancelled' ? 'Cancelled' : 'Live';
 
   return (
     <Screen>
@@ -97,9 +99,9 @@ export default function Track() {
                 {cod ? 'Completed' : orderId ? (live ? realStatusLabel : loading ? 'Loading…' : 'Unavailable') : 'Live'}
               </Text>
             </View>
-            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6, height: 32, paddingHorizontal: 14, borderRadius: radius.pill, backgroundColor: orderId && loadError && !live ? c.redL : c.greenL }}>
-              <View style={{ width: 7, height: 7, borderRadius: 4, backgroundColor: orderId && loadError && !live ? c.red : c.green }} />
-              <Text style={[type(12.5, 900), { color: orderId && loadError && !live ? c.red : c.green }]}>
+            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6, height: 32, paddingHorizontal: 14, borderRadius: radius.pill, backgroundColor: orderId && loadError && !live ? c.redL : confirmingPayment ? c.bg2 : c.greenL }}>
+              <View style={{ width: 7, height: 7, borderRadius: 4, backgroundColor: orderId && loadError && !live ? c.red : confirmingPayment ? c.muted : c.green }} />
+              <Text style={[type(12.5, 900), { color: orderId && loadError && !live ? c.red : confirmingPayment ? c.soft : c.green }]}>
                 {cod ? 'Delivered' : orderId && loadError && !live ? 'Unavailable' : orderId ? realStatusLabel : 'Live'}
               </Text>
             </View>

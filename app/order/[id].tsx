@@ -29,7 +29,12 @@ export default function OrderDetail() {
     const ok = await refreshOrderStatus(id);
     setRefreshError(!ok);
   }, [id, refreshOrderStatus]);
-  useFocusEffect(useCallback(() => { void refresh(); }, [refresh]));
+  useFocusEffect(useCallback(() => {
+    void refresh();
+    if (o?.status !== 'confirming') return undefined;
+    const timer = setInterval(() => { void refresh(); }, 5000);
+    return () => clearInterval(timer);
+  }, [refresh, o?.status]));
 
   if (!o) {
     return (
@@ -47,8 +52,8 @@ export default function OrderDetail() {
     try { const tid = await openThread(kitchenId, 'order', o.dbId); router.push(`/messages/${tid}`); }
     catch (e: any) { toast(e?.message || 'Could not open chat', 'info'); }
   };
-  const active = o.status === 'completed' ? 3 : o.status === 'ready' ? 2 : 1;
-  const headline = o.status === 'cancelled' ? 'Order cancelled' : o.status === 'completed' ? (o.flow === 'cod' ? 'Completed · paid in cash' : 'Completed — enjoy!') : o.status === 'ready' ? (o.mode === 'pickup' ? 'Ready for pickup' : 'On its way') : 'Your cook is preparing';
+  const active = o.status === 'confirming' ? 0 : o.status === 'completed' ? 3 : o.status === 'ready' ? 2 : 1;
+  const headline = o.status === 'confirming' ? 'Confirming your payment' : o.status === 'cancelled' ? 'Order cancelled' : o.status === 'completed' ? (o.flow === 'cod' ? 'Completed · paid in cash' : 'Completed — enjoy!') : o.status === 'ready' ? (o.mode === 'pickup' ? 'Ready for pickup' : 'On its way') : 'Your cook is preparing';
 
   return (
     <Screen>
@@ -57,9 +62,9 @@ export default function OrderDetail() {
         <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }}>
           <Text style={[type(22, 900), { color: c.ink, letterSpacing: -0.7, flex: 1 }]}>{headline}</Text>
           {o.status !== 'completed' ? (
-            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6, height: 30, paddingHorizontal: 12, borderRadius: radius.pill, backgroundColor: o.status === 'cancelled' || refreshError ? c.redL : c.greenL }}>
-              <View style={{ width: 7, height: 7, borderRadius: 4, backgroundColor: o.status === 'cancelled' || refreshError ? c.red : c.green }} />
-              <Text style={[type(12, 900), { color: o.status === 'cancelled' || refreshError ? c.red : c.green }]}>{o.status === 'cancelled' ? 'Cancelled' : refreshError ? 'Unavailable' : 'Live'}</Text>
+            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6, height: 30, paddingHorizontal: 12, borderRadius: radius.pill, backgroundColor: o.status === 'cancelled' || refreshError ? c.redL : o.status === 'confirming' ? c.bg2 : c.greenL }}>
+              <View style={{ width: 7, height: 7, borderRadius: 4, backgroundColor: o.status === 'cancelled' || refreshError ? c.red : o.status === 'confirming' ? c.muted : c.green }} />
+              <Text style={[type(12, 900), { color: o.status === 'cancelled' || refreshError ? c.red : o.status === 'confirming' ? c.soft : c.green }]}>{o.status === 'cancelled' ? 'Cancelled' : refreshError ? 'Unavailable' : o.status === 'confirming' ? 'Confirming' : 'Live'}</Text>
             </View>
           ) : null}
         </View>
@@ -68,6 +73,12 @@ export default function OrderDetail() {
           <View accessibilityRole="alert" style={{ padding: 13, borderRadius: radius.md, backgroundColor: c.redL, borderWidth: 1, borderColor: c.red }}>
             <Text style={[type(12.5, 700), { color: c.red, lineHeight: 18, marginBottom: 9 }]}>We couldn’t refresh this order. The status shown may be out of date.</Text>
             <View style={{ alignSelf: 'flex-start' }}><Btn label="Try again" icon="repeat" variant="ghost" onPress={refresh} /></View>
+          </View>
+        ) : null}
+
+        {o.status === 'confirming' && !refreshError ? (
+          <View style={{ padding: 13, borderRadius: radius.md, backgroundColor: c.bg2, borderWidth: 1, borderColor: c.border2 }}>
+            <Text style={[type(12.5, 700), { color: c.soft, lineHeight: 18 }]}>Stripe accepted the payment step. We’re waiting for secure server confirmation before sending the order to the kitchen.</Text>
           </View>
         ) : null}
 
