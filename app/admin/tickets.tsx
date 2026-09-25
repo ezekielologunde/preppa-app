@@ -28,10 +28,14 @@ function Detail({ ticketId, onChanged }: { ticketId: string; onChanged: () => vo
   const [reply, setReply] = useState('');
   const [internal, setInternal] = useState(false);
   const [busy, setBusy] = useState(false);
+  const [loadError, setLoadError] = useState<string | null>(null);
 
   const load = async () => {
     setLoading(true);
-    try { setDetail(await admin.ticketDetail(ticketId)); } catch { /* surfaced below */ } finally { setLoading(false); }
+    setLoadError(null);
+    try { setDetail(await admin.ticketDetail(ticketId)); }
+    catch (e: any) { setLoadError(e?.message || 'Couldn’t load this ticket.'); }
+    finally { setLoading(false); }
   };
   useEffect(() => { load(); /* eslint-disable-next-line react-hooks/exhaustive-deps */ }, [ticketId]);
 
@@ -56,7 +60,7 @@ function Detail({ ticketId, onChanged }: { ticketId: string; onChanged: () => vo
   };
 
   if (loading) return <Text style={[type(13.5, 600), { color: c.soft, marginTop: 12 }]}>Loading…</Text>;
-  if (!detail) return <Text style={[type(13.5, 600), { color: c.red, marginTop: 12 }]}>Couldn’t load this ticket.</Text>;
+  if (loadError || !detail) return <ErrorRetry message={loadError || 'This ticket is no longer available.'} onRetry={load} />;
 
   return (
     <View style={{ marginTop: 14, borderTopWidth: 1, borderTopColor: c.border2, paddingTop: 14, gap: 14 }}>
@@ -68,8 +72,8 @@ function Detail({ ticketId, onChanged }: { ticketId: string; onChanged: () => vo
           {STATUSES.map((s) => {
             const on = detail.status === s;
             return (
-              <Press key={s} scale={0.96} disabled={busy || on} onPress={() => changeStatus(s)}>
-                <View style={{ paddingHorizontal: 13, height: 34, borderRadius: radius.pill, alignItems: 'center', justifyContent: 'center', backgroundColor: on ? c.primary : c.bg2, borderWidth: 1, borderColor: on ? c.primary : c.border }}>
+              <Press key={s} scale={0.96} disabled={busy || on} onPress={() => changeStatus(s)} label={`${STATUS_LABEL[s]}${on ? ', current status' : ''}`} selected={on}>
+                <View style={{ paddingHorizontal: 13, minHeight: 44, borderRadius: radius.pill, alignItems: 'center', justifyContent: 'center', backgroundColor: on ? c.primary : c.bg2, borderWidth: 1, borderColor: on ? c.primary : c.border }}>
                   <Text style={[type(12.5, 800), { color: on ? '#fff' : c.ink }]}>{STATUS_LABEL[s]}</Text>
                 </View>
               </Press>
@@ -112,7 +116,7 @@ function Detail({ ticketId, onChanged }: { ticketId: string; onChanged: () => vo
           style={{ minHeight: 56, borderWidth: 1, borderColor: c.border, borderRadius: radius.md, padding: 12, color: c.ink, backgroundColor: c.bg2, textAlignVertical: 'top', ...(type(14, 600) as object) }}
         />
         <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10, marginTop: 10 }}>
-          <Press scale={0.96} onPress={() => setInternal((v) => !v)}>
+          <Press scale={0.96} onPress={() => setInternal((v) => !v)} label={`Internal note${internal ? ', selected' : ''}`} selected={internal}>
             <View style={{ flexDirection: 'row', alignItems: 'center', gap: 7 }}>
               <View style={{ width: 20, height: 20, borderRadius: 6, borderWidth: 1.5, borderColor: internal ? c.primary : c.border, backgroundColor: internal ? c.primary : 'transparent', alignItems: 'center', justifyContent: 'center' }}>
                 {internal ? <Icon name="check" size={13} color="#fff" /> : null}

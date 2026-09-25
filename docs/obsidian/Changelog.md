@@ -16,6 +16,8 @@ Restored quantity increase controls for cart lines with a quantity of one. Deliv
 
 Order and earnings API failures now show recoverable error states instead of empty queues or false zero balances. A cook can open the relationship-gated customer conversation directly from an order. Order cancellation accepts an optional customer-facing reason and carries it through the service-only locked cancellation transaction into the refund notification. Fulfillment settings also distinguish load failure from a missing kitchen. Added migration and regression coverage for the order-detail customer identifier, messaging access boundary, and reason-aware cancellation function. See [[Launch-Plan]] and [[Security]].
 
+Admin ticket detail failures now offer a direct retry. Ticket and public support status controls meet native touch-target sizing and expose their selected state to assistive technology; the internal-note control does the same.
+
 ## Launch review and build-upload security (2026-09-17)
 
 Removed incomplete `.easignore` so EAS uses the private-key and local-file protections in `.gitignore`; broadened environment-file exclusions while allowing examples. Local TypeScript passed and the latest main CI run passed typecheck and DB regressions. Recorded current dependency-audit counts and a customer acceptance matrix in [[Launch-Plan]], distinguishing prior test evidence from still-open payment, refund, support-resolution and device acceptance. No deployment or live customer/payment mutation performed. See [[Security]].
