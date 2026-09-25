@@ -405,7 +405,13 @@ export default function MyHub() {
       });
       if (!kitchen) return;
       if (connect === 'return') {
-        const status = await refreshConnectStatus(kitchen.id).catch(() => null);
+        let status;
+        try {
+          status = await refreshConnectStatus(kitchen.id);
+        } catch (e: any) {
+          toast(e?.message || 'Couldn’t verify payout setup. Open Earnings and try again.', 'info');
+          return;
+        }
         if (status?.payoutsEnabled) {
           toast('Payouts are set up — you’re ready to get paid.', 'check', true);
           router.push('/hub/money');

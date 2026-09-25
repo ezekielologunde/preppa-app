@@ -56,7 +56,7 @@ export async function startConnectOnboarding(kitchenId: string): Promise<void> {
 /** Sync + return the cook's Connect onboarding status from Stripe. */
 export async function refreshConnectStatus(kitchenId: string): Promise<ConnectStatus> {
   const { data, error } = await supabase.functions.invoke('connect-status', { body: { kitchenId } });
-  if (error) throw new Error(error.message);
+  if (error || data?.error) throw new Error(data?.error || error?.message || 'Could not verify payout setup.');
   return {
     onboarded: !!data?.onboarded,
     chargesEnabled: !!data?.chargesEnabled,

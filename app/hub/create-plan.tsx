@@ -68,7 +68,10 @@ export default function CreatePlanFlow() {
     try {
       const { kitchenId: kid, meals } = await fetchMyKitchenMeals();
       setHasKitchen(!!kid); setKitchenId(kid); setMeals(meals);
-      if (kid) { try { const cap = await fetchKitchenCapacity(kid); if (cap != null) setCapacity(String(cap)); } catch { /* ignore */ } }
+      if (kid) {
+        const cap = await fetchKitchenCapacity(kid);
+        setCapacity(cap == null ? '' : String(cap));
+      }
       if (editing) {
         const pl = await fetchPlan(planId!);
         if (!pl) throw new Error('This meal plan is no longer available.');
@@ -183,8 +186,12 @@ export default function CreatePlanFlow() {
           ? { perMealCents, mealsPerDelivery: mpd, priceCents: perMealCents * mpd }
           : { priceCents }),
       });
-      // per-kitchen weekly capacity (blank = unlimited)
-      try { await setKitchenCapacity(capacity.trim() ? Math.max(0, parseInt(capacity, 10) || 0) : null); } catch { /* non-fatal */ }
+      // Capacity protects the kitchen from overselling. Do not report full success if it was not saved.
+      try {
+        await setKitchenCapacity(capacity.trim() ? Math.max(0, parseInt(capacity, 10) || 0) : null);
+      } catch {
+        throw new Error('The plan was saved, but weekly capacity could not update. Try saving again.');
+      }
       // If this plan answers a customer's meal-plan brief, link it + notify them.
       if (!asDraft && forRequest && pid) { try { await fulfillPlanRequest(forRequest, pid); } catch (_e) { /* non-fatal */ } }
       if (asDraft) { toast('Draft saved', 'check', true); router.replace('/hub/plans'); return; }
