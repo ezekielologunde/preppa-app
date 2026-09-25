@@ -1,6 +1,7 @@
 import React, { useEffect, useRef, useState } from 'react';
 import { View, Text, ScrollView, ActivityIndicator, Image, Platform } from 'react-native';
 import { useRouter, useLocalSearchParams } from 'expo-router';
+import * as ImagePicker from 'expo-image-picker';
 import { useC } from '../../src/theme/ThemeContext';
 import { type, radius } from '../../src/theme/theme';
 import { useStore } from '../../src/store/store';
@@ -143,24 +144,47 @@ export default function CreatePlanFlow() {
     return () => { mounted.current = false; loadSequence.current += 1; };
   }, []);
 
-  const pickCover = () => {
-    if (coverInFlight.current || Platform.OS !== 'web' || typeof document === 'undefined') return;
-    const input = document.createElement('input');
-    input.type = 'file'; input.accept = 'image/*';
-    input.onchange = async () => {
-      const f = (input.files || [])[0]; if (!f) return;
-      if (coverInFlight.current) return;
-      coverInFlight.current = true;
-      setCoverBusy(true);
-      try {
-        const ext = (f.name.split('.').pop() || 'jpg').toLowerCase();
-        const nextCover = await uploadPlanCover(f, ext);
-        if (mounted.current) setCover(nextCover);
+  const uploadCover = async (file: Blob, ext: string) => {
+    if (coverInFlight.current) return;
+    coverInFlight.current = true;
+    setCoverBusy(true);
+    try {
+      const nextCover = await uploadPlanCover(file, ext);
+      if (mounted.current) setCover(nextCover);
+    } catch {
+      toast('Could not upload the plan photo. Please try another.', 'info');
+    } finally {
+      coverInFlight.current = false;
+      if (mounted.current) setCoverBusy(false);
+    }
+  };
+  const pickCover = async () => {
+    if (coverInFlight.current) return;
+    if (Platform.OS === 'web' && typeof document !== 'undefined') {
+      const input = document.createElement('input');
+      input.type = 'file'; input.accept = 'image/*';
+      input.onchange = () => {
+        const file = (input.files || [])[0];
+        if (file) void uploadCover(file, (file.name.split('.').pop() || 'jpg').toLowerCase());
+      };
+      input.click();
+      return;
+    }
+    try {
+      const permission = await ImagePicker.requestMediaLibraryPermissionsAsync();
+      if (!permission.granted) {
+        toast('Photo library access is off. Enable it in Settings to add a plan photo.', 'info');
+        return;
       }
-      catch (e: any) { toast(e?.message || 'Could not upload the photo', 'info'); }
-      finally { coverInFlight.current = false; if (mounted.current) setCoverBusy(false); }
-    };
-    input.click();
+      const result = await ImagePicker.launchImageLibraryAsync({ mediaTypes: ['images'], allowsEditing: true, aspect: [16, 9], quality: 0.85 });
+      if (result.canceled || !result.assets?.[0]) return;
+      const asset = result.assets[0];
+      const response = await fetch(asset.uri);
+      if (!response.ok) throw new Error('PHOTO_READ_FAILED');
+      await uploadCover(await response.blob(), (asset.uri.split('.').pop() || 'jpg').toLowerCase());
+    } catch {
+      toast('Could not open that photo. Please try another.', 'info');
+    }
   };
   const toggleDay = (k: string) => setDays((d) => d.includes(k) ? d.filter((x) => x !== k) : [...d, k]);
 

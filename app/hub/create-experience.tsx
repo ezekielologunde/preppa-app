@@ -1,6 +1,7 @@
 import React, { useEffect, useRef, useState } from 'react';
 import { View, Text, ScrollView, ActivityIndicator, Image, Platform } from 'react-native';
 import { useRouter, useLocalSearchParams } from 'expo-router';
+import * as ImagePicker from 'expo-image-picker';
 import { useC } from '../../src/theme/ThemeContext';
 import { type, radius } from '../../src/theme/theme';
 import { useStore } from '../../src/store/store';
@@ -122,26 +123,51 @@ export default function CreateExperienceFlow() {
     return () => { mounted.current = false; loadSequence.current += 1; };
   }, []);
 
-  const pickPhotos = () => {
-    if (photoInFlight.current || Platform.OS !== 'web' || typeof document === 'undefined') return;
-    const input = document.createElement('input');
-    input.type = 'file'; input.accept = 'image/*'; input.multiple = true;
-    input.onchange = async () => {
-      const slots = 6 - photos.length;
-      const files = Array.from(input.files || []).slice(0, Math.max(0, slots));
-      if (!files.length) return;
-      photoInFlight.current = true;
-      setPhotoBusy(true);
+  const uploadPhotos = async (items: Array<{ blob: Blob; ext: string }>) => {
+    if (!items.length || photoInFlight.current) return;
+    photoInFlight.current = true;
+    setPhotoBusy(true);
+    let failed = 0;
+    for (const item of items) {
       try {
-        for (const f of files) {
-          const ext = (f.name.split('.').pop() || 'jpg').toLowerCase();
-          const url = await uploadPlanCover(f, ext);              // public avatars bucket → public URL
-          if (mounted.current) setPhotos((p) => (p.length >= 6 ? p : [...p, url]));
-        }
-      } catch (e: any) { toast(e?.message || 'Could not upload a photo', 'info'); }
-      finally { photoInFlight.current = false; if (mounted.current) setPhotoBusy(false); }
-    };
-    input.click();
+        const url = await uploadPlanCover(item.blob, item.ext);
+        if (mounted.current) setPhotos((current) => (current.length >= 6 ? current : [...current, url]));
+      } catch { failed += 1; }
+    }
+    photoInFlight.current = false;
+    if (mounted.current) setPhotoBusy(false);
+    if (failed) toast(failed === items.length ? 'Could not upload those photos. Please try again.' : `${failed} photo${failed === 1 ? '' : 's'} could not be uploaded.`, 'info');
+  };
+  const pickPhotos = async () => {
+    if (photoInFlight.current || photos.length >= 6) return;
+    const slots = 6 - photos.length;
+    if (Platform.OS === 'web' && typeof document !== 'undefined') {
+      const input = document.createElement('input');
+      input.type = 'file'; input.accept = 'image/*'; input.multiple = true;
+      input.onchange = () => {
+        const files = Array.from(input.files || []).slice(0, slots);
+        void uploadPhotos(files.map((file) => ({ blob: file, ext: (file.name.split('.').pop() || 'jpg').toLowerCase() })));
+      };
+      input.click();
+      return;
+    }
+    try {
+      const permission = await ImagePicker.requestMediaLibraryPermissionsAsync();
+      if (!permission.granted) {
+        toast('Photo library access is off. Enable it in Settings to add experience photos.', 'info');
+        return;
+      }
+      const result = await ImagePicker.launchImageLibraryAsync({ mediaTypes: ['images'], allowsMultipleSelection: true, selectionLimit: slots, quality: 0.85 });
+      if (result.canceled || !result.assets.length) return;
+      const items = await Promise.all(result.assets.slice(0, slots).map(async (asset) => {
+        const response = await fetch(asset.uri);
+        if (!response.ok) throw new Error('PHOTO_READ_FAILED');
+        return { blob: await response.blob(), ext: (asset.uri.split('.').pop() || 'jpg').toLowerCase() };
+      }));
+      await uploadPhotos(items);
+    } catch {
+      toast('Could not open those photos. Please try again.', 'info');
+    }
   };
 
   const parsedPriceCents = cents(price);
