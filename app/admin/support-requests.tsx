@@ -37,8 +37,17 @@ function Row({ r, open, onToggle, onChanged }: { r: admin.AdminSupportRequest; o
     finally { setBusy(false); }
   };
   const requestStatus = (s: admin.SupportRequestStatus) => {
-    if (s !== 'closed') {
+    if (s !== 'closed' && !(s === 'resolved' && r.immediate_risk)) {
       void changeStatus(s);
+      return;
+    }
+    if (s === 'resolved') {
+      confirmAction(
+        'Resolve this urgent request?',
+        'Resolving removes this request from the active urgent count. Confirm the immediate risk has been addressed and the response is documented.',
+        () => void changeStatus(s),
+        'Resolve request',
+      );
       return;
     }
     confirmAction(
