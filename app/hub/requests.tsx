@@ -9,6 +9,7 @@ import { Screen, TopBar } from '../../src/ui/layout';
 import { money } from '../../src/data/data';
 import { KBtn } from '../(tabs)/my-hub';
 import { listIncomingRequests, submitQuote, SERVICE_LABELS, type IncomingRequest, listMyKitchenBookings, completeBooking, cancelBooking, type KitchenBookingView } from '../../src/lib/services';
+import { confirmAction } from '../../src/lib/confirm';
 
 export default function HubRequests() {
   const c = useC();
@@ -79,9 +80,14 @@ function BookingCard({ b, onChanged, toast }: { b: KitchenBookingView; onChanged
     } catch (e: any) { toast(e?.message || 'Could not complete the booking', 'info'); }
     finally { setBusy(null); }
   };
+  const requestComplete = () => {
+    const chargeCopy = b.balanceCents > 0
+      ? `This marks the booking complete and charges the customer’s remaining ${money(b.balanceCents / 100)} balance.`
+      : 'This marks the booking complete. The customer has already paid in full.';
+    confirmAction('Complete this booking?', chargeCopy, () => void complete(), 'Mark complete');
+  };
   const cancel = async () => {
     if (busy) return;
-    if (typeof window !== 'undefined' && !window.confirm(`Cancel this booking with ${b.customerName}? The deposit will be refunded.`)) return;
     setBusy('cancel');
     try {
       const res = await cancelBooking(b.id);
@@ -89,6 +95,14 @@ function BookingCard({ b, onChanged, toast }: { b: KitchenBookingView; onChanged
       onChanged();
     } catch (e: any) { toast(e?.message || 'Could not cancel the booking', 'info'); }
     finally { setBusy(null); }
+  };
+  const requestCancel = () => {
+    confirmAction(
+      'Cancel this booking?',
+      `This cancels the booking with ${b.customerName} and refunds the customer’s deposit when one was charged.`,
+      () => void cancel(),
+      'Cancel booking',
+    );
   };
 
   return (
@@ -101,8 +115,8 @@ function BookingCard({ b, onChanged, toast }: { b: KitchenBookingView; onChanged
         {money(b.amountCents / 100)} total{b.balanceCents > 0 ? ` · ${money(b.balanceCents / 100)} due on completion` : ' · paid in full'}
       </Text>
       <View style={{ flexDirection: 'row', gap: 10, marginTop: 12 }}>
-        <KBtn label={busy === 'cancel' ? '…' : 'Cancel'} variant="ghost" flex={1} onPress={cancel} />
-        <KBtn label={busy === 'complete' ? '…' : 'Mark complete'} variant="pri" icon="check" flex={2} onPress={complete} />
+        <KBtn label={busy === 'cancel' ? '…' : 'Cancel'} variant="ghost" flex={1} onPress={requestCancel} />
+        <KBtn label={busy === 'complete' ? '…' : 'Mark complete'} variant="pri" icon="check" flex={2} onPress={requestComplete} />
       </View>
     </View>
   );
