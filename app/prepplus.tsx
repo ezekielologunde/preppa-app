@@ -88,6 +88,17 @@ export default function PrepPlus() {
     } finally { setBusy(false); }
   };
 
+  const requestSwitch = () => {
+    const nextInterval = mem?.planInterval === 'year' ? 'month' : 'year';
+    const nextPrice = nextInterval === 'year' ? PREPPLUS_ANNUAL_CENTS : PREPPLUS_MONTHLY_CENTS;
+    confirmAction(
+      `Switch to ${nextInterval === 'year' ? 'annual' : 'monthly'} billing?`,
+      `Your plan will change to ${money(nextPrice)} per ${nextInterval}. Stripe will prorate the price difference for the current billing period and apply the adjustment to your next invoice.`,
+      () => void doManage('switch', nextInterval),
+      'Switch plan',
+    );
+  };
+
   if (loading) {
     return (
       <Screen>
@@ -151,7 +162,7 @@ export default function PrepPlus() {
             ) : (
               <>
                 <Btn label={`Switch to ${mem?.planInterval === 'year' ? 'monthly' : 'annual'}`} variant="ghost"
-                  onPress={() => doManage('switch', mem?.planInterval === 'year' ? 'month' : 'year')} disabled={busy} />
+                  onPress={requestSwitch} disabled={busy} />
                 <Press scale={0.98} onPress={() => confirmAction(
                   'Cancel PrepPlus?',
                   `Your benefits will remain active until ${fmtDate(mem?.currentPeriodEnd ?? null) || 'the end of your paid period'}. After that, service fees will apply again.`,
