@@ -585,6 +585,15 @@ end $$;
 do $$
 declare v_src text;
 begin
+  select pg_get_functiondef('public.admin_set_experience_status(uuid,text)'::regprocedure) into v_src;
+  if v_src !~ 'starts_at > now' or v_src !~ 'status = ''pending''' or v_src !~ 'check_rate_limit' then
+    raise exception 'REGRESSION: experience moderation no longer requires a pending record, future session, and rate limit';
+  end if;
+end $$;
+
+do $$
+declare v_src text;
+begin
   if to_regprocedure('public.finalize_order_cancel(uuid,boolean,text)') is null then
     raise exception 'REGRESSION: reason-aware finalize_order_cancel() is missing';
   end if;

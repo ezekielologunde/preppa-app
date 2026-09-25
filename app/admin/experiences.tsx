@@ -27,7 +27,7 @@ export default function AdminExperiences() {
   const load = useCallback(async () => {
     setLoading(true); setError('');
     try { setItems(await fetchPendingExperiences()); }
-    catch (e: any) { setError(e?.message ?? 'Couldn’t load experiences awaiting review.'); }
+    catch { setError('Check your connection and try loading experience reviews again.'); }
     finally { setLoading(false); }
   }, []);
   useFocusEffect(useCallback(() => { load(); }, [load]));
@@ -37,7 +37,7 @@ export default function AdminExperiences() {
     reviewInFlight.current = true;
     setBusy(e.id);
     try { await adminSetExperienceStatus(e.id, status); toast(status === 'published' ? 'Published' : 'Rejected', status === 'published' ? 'check' : 'x', status === 'published'); await load(); }
-    catch (err: any) { toast(err?.message || 'Could not update', 'info'); }
+    catch { toast('Could not update this experience. Refresh it and try again.', 'info'); }
     finally { reviewInFlight.current = false; setBusy(null); }
   };
 
@@ -69,7 +69,7 @@ export default function AdminExperiences() {
             <Text style={[type(13, 600), { color: c.soft, marginTop: 4 }]}>New experiences awaiting approval show up here.</Text>
           </View>
         ) : items.map((e) => {
-          const upcoming = e.sessions.filter((s) => s.status !== 'cancelled').length;
+          const upcoming = e.sessions.filter((s) => s.status === 'open' && new Date(s.startsAt).getTime() > Date.now()).length;
           return (
             <View key={e.id} style={{ backgroundColor: c.surface, borderWidth: 1, borderColor: c.border2, borderRadius: radius.card, overflow: 'hidden' }}>
               {e.coverUrl ? <Image source={{ uri: e.coverUrl }} style={{ width: '100%', height: 150 }} resizeMode="cover" /> : null}
@@ -85,14 +85,20 @@ export default function AdminExperiences() {
                 ))}
                 {e.whatsIncluded.length ? <Text style={[type(12, 600), { color: c.soft, marginTop: 8 }]}>Includes: {e.whatsIncluded.join(', ')}</Text> : null}
                 {e.allergens.length ? <Text style={[type(12, 700), { color: c.red, marginTop: 4 }]}>Allergens: {e.allergens.join(', ')}</Text> : null}
+                {upcoming === 0 ? (
+                  <View accessibilityRole="alert" style={{ marginTop: 12, backgroundColor: c.redL, borderWidth: 1, borderColor: c.red, borderRadius: radius.md, padding: 11 }}>
+                    <Text style={[type(12.5, 800), { color: c.red }]}>No open future sessions</Text>
+                    <Text style={[type(12, 600), { color: c.red, marginTop: 3, lineHeight: 18 }]}>The cook must add an open future session before this experience can be published.</Text>
+                  </View>
+                ) : null}
 
                 <View style={{ flexDirection: 'row', gap: 10, marginTop: 14 }}>
-                  <Press scale={0.97} onPress={() => requestAction(e, 'archived')} disabled={busy !== null} style={{ flex: 1 }}>
+                  <Press scale={0.97} onPress={() => requestAction(e, 'archived')} disabled={busy !== null} label={`Reject ${e.title}`} style={{ flex: 1 }}>
                     <View style={{ height: 44, borderRadius: radius.md, backgroundColor: c.bg2, borderWidth: 1, borderColor: c.border, alignItems: 'center', justifyContent: 'center' }}>
                       {busy === e.id ? <ActivityIndicator size="small" color={c.red} /> : <Text style={[type(13.5, 800), { color: c.red }]}>Reject</Text>}
                     </View>
                   </Press>
-                  <Press scale={0.97} onPress={() => requestAction(e, 'published')} disabled={busy !== null} style={{ flex: 1 }}>
+                  <Press scale={0.97} onPress={() => requestAction(e, 'published')} disabled={busy !== null || upcoming === 0} label={`Approve and publish ${e.title}`} style={{ flex: 1 }}>
                     <View style={{ height: 44, borderRadius: radius.md, backgroundColor: c.primaryD, alignItems: 'center', justifyContent: 'center' }}>
                       {busy === e.id ? <ActivityIndicator size="small" color="#fff" /> : <Text style={[type(13.5, 800), { color: '#fff' }]}>Approve & publish</Text>}
                     </View>
