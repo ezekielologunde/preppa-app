@@ -13,6 +13,7 @@ import { CardPaymentSheet } from '../src/components/CardPaymentSheet';
 import { buildBox, estimateBox } from '../src/lib/subscriptions';
 import { useSavedCards } from '../src/lib/useSavedCards';
 import { createSetupIntent } from '../src/lib/payments';
+import { invalidate } from '../src/data/cache';
 
 const WD = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
 const MO = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
@@ -31,7 +32,7 @@ export default function BuildPlanFlow() {
   const c = useC();
   const router = useRouter();
   const { toast } = useStore();
-  const { data: meals, loading } = useMeals();
+  const { data: meals, loading, error: mealsError } = useMeals();
   const { refetch } = useSavedCards();
   const dates = useMemo(() => nextDates(8), []);
 
@@ -123,6 +124,12 @@ export default function BuildPlanFlow() {
         <Text style={[type(13.5, 600), { color: c.soft, marginHorizontal: 16, marginTop: 14, marginBottom: 6, lineHeight: 20 }]}>Mix meals from any cooks into one weekly box — we bundle the deliveries and take 10% off. Each cook is paid for their own dishes.</Text>
         {loading && pool.length === 0 ? (
           <View style={{ paddingVertical: 50, alignItems: 'center' }}><ActivityIndicator color={c.primary} /></View>
+        ) : mealsError && pool.length === 0 ? (
+          <View accessibilityRole="alert" style={{ alignItems: 'center', paddingHorizontal: 24, paddingVertical: 50 }}>
+            <Text style={[type(16, 900), { color: c.ink }]}>Meals couldn’t load</Text>
+            <Text style={[type(13.5, 600), { color: c.soft, textAlign: 'center', lineHeight: 20, marginTop: 6, marginBottom: 16 }]}>{mealsError.message || 'Check your connection and try again.'}</Text>
+            <Btn label="Try again" icon="repeat" onPress={() => invalidate('catalog:live')} />
+          </View>
         ) : pool.map((m) => {
           const on = !!picked[m.mealUuid!];
           const cook = m.kitchenName ?? COOKS[m.cook]?.name ?? 'A cook';

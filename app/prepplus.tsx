@@ -25,15 +25,24 @@ export default function PrepPlus() {
   const { toast, reconcileAccount } = useStore();
 
   const [loading, setLoading] = useState(true);
+  const [loadError, setLoadError] = useState('');
   const [mem, setMem] = useState<Membership | null>(null);
   const [interval, setInterval] = useState<'month' | 'year'>('month');
   const [busy, setBusy] = useState(false);
   const [addCard, setAddCard] = useState<string | null>(null);
 
   const refresh = async () => {
-    try { setMem(await fetchMembership()); } catch { /* keep */ }
+    setLoadError('');
+    try {
+      setMem(await fetchMembership());
+      return true;
+    } catch (e: any) {
+      setLoadError(e?.message || 'Could not load your membership.');
+      return false;
+    }
   };
-  useEffect(() => { (async () => { await refresh(); setLoading(false); })(); }, []);
+  const load = async () => { setLoading(true); await refresh(); setLoading(false); };
+  useEffect(() => { void load(); }, []);
 
   const isMember = membershipActive(mem);
   const trialAvailable = !mem?.trialConsumed;
@@ -83,6 +92,18 @@ export default function PrepPlus() {
       <Screen>
         <TopBar title="PrepPlus" />
         <View style={{ flex: 1, alignItems: 'center', justifyContent: 'center' }}><ActivityIndicator color={c.primary} /></View>
+      </Screen>
+    );
+  }
+  if (loadError) {
+    return (
+      <Screen>
+        <TopBar title="PrepPlus" />
+        <View accessibilityRole="alert" style={{ flex: 1, alignItems: 'center', justifyContent: 'center', padding: 24 }}>
+          <Text style={[type(17, 900), { color: c.ink }]}>Membership couldn’t load</Text>
+          <Text style={[type(13.5, 600), { color: c.soft, textAlign: 'center', lineHeight: 20, marginTop: 6, marginBottom: 16 }]}>{loadError}</Text>
+          <Btn label="Try again" icon="repeat" onPress={load} />
+        </View>
       </Screen>
     );
   }

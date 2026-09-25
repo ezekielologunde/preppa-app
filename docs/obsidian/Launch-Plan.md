@@ -30,6 +30,7 @@ tags: [project/preppa, type/launch-plan]
 - Customer order detail now preserves the real order and kitchen identifiers when opening live tracking, represents cancelled orders honestly, and warns when status refresh fails instead of showing a false live state.
 - Cook order lists and detail now place cancelled orders in history, label them correctly, and remove duplicate fulfillment and cancellation actions.
 - Checkout now distinguishes saved-card loading and failure from an empty wallet, supports retry or an explicit new-card path, and recovers from rejected Stripe card and wallet promises without leaving payment controls stuck busy.
+- Favorites and custom-box catalog failures now show retry recovery instead of false empty inventory. PrepPlus blocks subscription actions when membership state cannot be loaded, preventing a failed lookup from being presented as a non-member state.
 
 ### Customer acceptance evidence still needed
 

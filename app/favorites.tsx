@@ -7,12 +7,13 @@ import { useC } from '../src/theme/ThemeContext';
 import { Btn } from '../src/ui';
 import { Screen, TopBar, Empty } from '../src/ui/layout';
 import { MealGrid } from '../src/components/cards';
+import { invalidate } from '../src/data/cache';
 
 export default function Favorites() {
   const c = useC();
   const router = useRouter();
   const { fav } = useStore();
-  const { data: allMeals, loading } = useMeals();
+  const { data: allMeals, loading, error } = useMeals();
   const saved = (allMeals ?? []).filter((m) => fav.has(m.id));
 
   return (
@@ -20,6 +21,8 @@ export default function Favorites() {
       <TopBar title="Favorites" sub={saved.length ? `${saved.length} saved` : undefined} />
       {loading ? (
         <View style={{ flex: 1, alignItems: 'center', justifyContent: 'center' }}><ActivityIndicator color={c.primary} /></View>
+      ) : error && !allMeals ? (
+        <Empty icon="info" title="Couldn’t load favorites" body={error.message || 'Check your connection and try again.'} action={<Btn label="Try again" icon="repeat" onPress={() => invalidate('catalog:live')} />} />
       ) : saved.length === 0 ? (
         <Empty
           icon="heart"
