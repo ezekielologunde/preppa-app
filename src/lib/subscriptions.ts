@@ -329,8 +329,7 @@ export async function subscribeToPlan(opts: SubscribeOptions): Promise<Subscribe
 
 // ---- build-your-own (cross-kitchen box) ---------------------------------
 
-const BOX_DISCOUNT_BPS = 1000;   // 10% bundle discount (Preppa-funded)
-const BOX_FEE_BPS = 1500;        // box service fee (vs 10% for a single-cook plan)
+export { estimateBox } from '../data/subscriptionTotals';
 
 export interface BuildBoxOptions {
   items: { mealId: string; qty: number }[];
@@ -339,16 +338,6 @@ export interface BuildBoxOptions {
   fulfillment?: 'pickup' | 'delivery';
   startDate?: string;
   preferredDay?: string;
-}
-
-/** Estimate a box's weekly price the SAME way advance_cycles prices it: S − 10% + 15%. */
-export function estimateBox(items: { qty: number; priceCents: number }[]): {
-  subtotalCents: number; discountCents: number; feeCents: number; totalCents: number;
-} {
-  const subtotal = items.reduce((n, i) => n + i.priceCents * i.qty, 0);
-  const discount = Math.round((subtotal * BOX_DISCOUNT_BPS) / 10000);
-  const fee = Math.round((subtotal * BOX_FEE_BPS) / 10000);
-  return { subtotalCents: subtotal, discountCents: discount, feeCents: fee, totalCents: subtotal - discount + fee };
 }
 
 /** Build a cross-kitchen box and subscribe (one charge per cycle, split across cooks). */

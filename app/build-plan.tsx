@@ -31,7 +31,7 @@ type Stage = 'pick' | 'schedule' | 'done';
 export default function BuildPlanFlow() {
   const c = useC();
   const router = useRouter();
-  const { toast } = useStore();
+  const { toast, isPrepPlus } = useStore();
   const { data: meals, loading, error: mealsError } = useMeals();
   const { refetch } = useSavedCards();
   const dates = useMemo(() => nextDates(8), []);
@@ -45,7 +45,7 @@ export default function BuildPlanFlow() {
 
   const pool = (meals ?? []).filter((m) => !!m.mealUuid);
   const selected = pool.filter((m) => picked[m.mealUuid!]);
-  const est = estimateBox(selected.map((m) => ({ qty: 1, priceCents: Math.round(m.price * 100) })));
+  const est = estimateBox(selected.map((m) => ({ qty: 1, priceCents: Math.round(m.price * 100) })), isPrepPlus);
   const count = selected.length;
   const valid = count >= 2;
   const startDay = WD[new Date(startIso + 'T00:00:00').getDay()];
@@ -100,7 +100,7 @@ export default function BuildPlanFlow() {
           <Block title="Weekly pricing">
             <Row c={c} k="Meals subtotal" v={money2(est.subtotalCents)} />
             <Row c={c} k="Bundle discount (10%)" v={`−${money2(est.discountCents)}`} accent={c.green} />
-            <Row c={c} k="Service fee" v={money2(est.feeCents)} />
+            <Row c={c} k="Service fee" v={isPrepPlus ? 'Included with PrepPlus' : money2(est.feeCents)} accent={isPrepPlus ? c.green : undefined} />
             <View style={{ height: 1, backgroundColor: c.border2, marginVertical: 8 }} />
             <Row c={c} k="Per week" v={money2(est.totalCents)} bold />
             <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8, marginTop: 12 }}>

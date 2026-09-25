@@ -89,6 +89,7 @@ Went end-to-end through Shef's actual ordering flow (add to cart → cross-sell 
 - [x] ~~Vendor the remaining ~114 un-tracked live migrations~~ — **done 2026-09-07**, full 212-migration history restored; add a deploy-verification step diffing live Edge Function/RPC definitions against the repo is still open.
 - [x] ~~Move native session tokens to `expo-secure-store`; add a password-reset flow~~ — done 2026-09-17. Web retains browser storage; recovery uses an emailed OTP and does not create unknown accounts.
 - [~] Add a real regression test suite beyond the DB-level `supabase/tests/regressions.sql`. The first TypeScript suite now pins customer-visible cart subtotal, service-fee, rounding, tax-preview, delivery-fee, tip, and per-kitchen behavior in CI. Continue expanding it around pure checkout and subscription logic as those seams are extracted.
+- [x] ~~Match custom-box previews to PrepPlus billing~~ — completed 2026-09-25. The shared box estimator now applies the server-enforced 10% bundle discount and 15% fee in integer cents, waives that fee for the server-derived PrepPlus entitlement, and is covered by TypeScript regression tests. Active members see the included-fee state before subscribing instead of an overstated weekly price.
 - [~] Add `.env`/staging separation. Repository enforcement is complete: development and preview fail closed, contain no production service values, and CI prevents regression. Creating and funding the external test Supabase project plus Stripe test configuration remains open.
 
 ## In-code "coming soon" surfaces

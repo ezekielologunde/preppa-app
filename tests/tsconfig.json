@@ -4,6 +4,6 @@
     "noEmit": true,
     "types": ["node"]
   },
-  "include": ["./**/*.ts", "../src/data/totals.ts"],
+  "include": ["./**/*.ts", "../src/data/totals.ts", "../src/data/subscriptionTotals.ts"],
   "exclude": []
 }
