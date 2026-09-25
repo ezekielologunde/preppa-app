@@ -121,6 +121,11 @@ export async function confirmSavedCardPayment(clientSecret: string, paymentMetho
     if (!stripe) throw new Error('Stripe.js failed to load');
     const res = await stripe.confirmCardPayment(clientSecret, { payment_method: paymentMethodId });
     if (res.error) throw new Error(res.error.message || 'card payment failed');
+    if (res.paymentIntent?.status !== 'succeeded') {
+      throw new Error(res.paymentIntent?.status === 'processing'
+        ? 'Payment is still processing. Try again in a moment.'
+        : 'card payment was not confirmed');
+    }
     return;
   }
   const { error } = await confirmPayment(clientSecret, {

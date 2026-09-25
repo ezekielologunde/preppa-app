@@ -15,6 +15,16 @@ function labelToCents(label: string): number {
   return Number.isFinite(n) ? n : 0;
 }
 
+function confirmationError(mode: 'pay' | 'save', status: string | undefined): string | null {
+  if (status === 'succeeded') return null;
+  if (status === 'processing') return mode === 'pay'
+    ? 'Your payment is still processing. Keep this window open and try again in a moment.'
+    : 'Your card is still being verified. Try again in a moment.';
+  return mode === 'save'
+    ? 'Stripe did not finish saving this card. Check the details and try again.'
+    : 'Stripe did not confirm this payment. Check the card details or try another card.';
+}
+
 /**
  * Real card entry (web only) — mounts a Stripe Elements Card into the shared
  * Sheet and confirms the PaymentIntent with the card the buyer types. Native
@@ -115,10 +125,14 @@ export function CardPaymentSheet({
                     }
                     ev.complete('success');
                     eventCompleted = true;
+                    let confirmedIntent = paymentIntent;
                     if (paymentIntent?.status === 'requires_action') {
-                      const { error: actionError } = await stripe.confirmCardPayment(clientSecret);
+                      const { paymentIntent: actionIntent, error: actionError } = await stripe.confirmCardPayment(clientSecret);
                       if (actionError) { setErr(actionError.message || 'Payment failed'); return; }
+                      confirmedIntent = actionIntent;
                     }
+                    const statusError = confirmationError('pay', confirmedIntent?.status);
+                    if (statusError) { setErr(statusError); return; }
                     onPaid();
                   } catch {
                     if (!eventCompleted) ev.complete('fail');
@@ -159,6 +173,9 @@ export function CardPaymentSheet({
           ? await stripeRef.current.confirmCardSetup(clientSecret, { payment_method: { card: cardRef.current } })
           : await stripeRef.current.confirmCardPayment(clientSecret, { payment_method: { card: cardRef.current } });
       if (res.error) { setErr(res.error.message || (mode === 'save' ? 'Could not save the card' : 'Payment failed')); return; }
+      const status = 'setupIntent' in res ? res.setupIntent?.status : res.paymentIntent?.status;
+      const statusError = confirmationError(mode, status);
+      if (statusError) { setErr(statusError); return; }
       onPaid();
     } catch {
       setErr(mode === 'save' ? 'Could not save the card. Check your connection and try again.' : 'Payment could not be completed. Check your connection and try again.');
