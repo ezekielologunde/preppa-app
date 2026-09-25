@@ -1,4 +1,4 @@
-import React, { useCallback, useState } from 'react';
+import React, { useCallback, useRef, useState } from 'react';
 import { View, Text, ScrollView, ActivityIndicator, Image } from 'react-native';
 import { useFocusEffect } from 'expo-router';
 import { useC } from '../../src/theme/ThemeContext';
@@ -22,6 +22,7 @@ export default function AdminExperiences() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
   const [busy, setBusy] = useState<string | null>(null);
+  const reviewInFlight = useRef(false);
 
   const load = useCallback(async () => {
     setLoading(true); setError('');
@@ -32,15 +33,16 @@ export default function AdminExperiences() {
   useFocusEffect(useCallback(() => { load(); }, [load]));
 
   const act = async (e: Experience, status: 'published' | 'archived') => {
-    if (busy) return;
+    if (reviewInFlight.current) return;
+    reviewInFlight.current = true;
     setBusy(e.id);
     try { await adminSetExperienceStatus(e.id, status); toast(status === 'published' ? 'Published' : 'Rejected', status === 'published' ? 'check' : 'x', status === 'published'); await load(); }
     catch (err: any) { toast(err?.message || 'Could not update', 'info'); }
-    finally { setBusy(null); }
+    finally { reviewInFlight.current = false; setBusy(null); }
   };
 
   const requestAction = (e: Experience, status: 'published' | 'archived') => {
-    if (busy) return;
+    if (reviewInFlight.current) return;
     const publishing = status === 'published';
     confirmAction(
       publishing ? `Publish ${e.title}?` : `Reject ${e.title}?`,

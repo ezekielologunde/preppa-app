@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useRef, useState, useEffect } from 'react';
 import { View, Text, ScrollView, TextInput, Image, Linking } from 'react-native';
 import { useRouter } from 'expo-router';
 import { useC } from '../../src/theme/ThemeContext';
@@ -27,11 +27,14 @@ export default function AdminApplications() {
   const [openId, setOpenId] = useState<string | null>(null);
   const [reason, setReason] = useState('');
   const [busy, setBusy] = useState<null | 'approve' | 'reject'>(null);
+  const reviewInFlight = useRef(false);
 
   const refetch = () => setNonce((n) => n + 1);
   const close = () => { setOpenId(null); setReason(''); setBusy(null); };
 
   const approve = async (id: string, name: string) => {
+    if (reviewInFlight.current) return;
+    reviewInFlight.current = true;
     setBusy('approve');
     try {
       await admin.approveApplication(id);
@@ -41,11 +44,13 @@ export default function AdminApplications() {
     } catch (e: any) {
       toast(e?.message ?? 'Approve failed', 'info');
       setBusy(null);
-    }
+    } finally { reviewInFlight.current = false; }
   };
 
   const reject = async (id: string, name: string) => {
+    if (reviewInFlight.current) return;
     if (reason.trim().length < 3) { toast('Add a short reason to reject', 'info'); return; }
+    reviewInFlight.current = true;
     setBusy('reject');
     try {
       await admin.rejectApplication(id, reason.trim());
@@ -55,9 +60,10 @@ export default function AdminApplications() {
     } catch (e: any) {
       toast(e?.message ?? 'Reject failed', 'info');
       setBusy(null);
-    }
+    } finally { reviewInFlight.current = false; }
   };
   const requestApprove = (id: string, name: string) => {
+    if (reviewInFlight.current) return;
     confirmAction(
       `Approve ${name}?`,
       'Approval makes this kitchen eligible for marketplace operations once its remaining payout and listing requirements are satisfied.',
@@ -66,6 +72,7 @@ export default function AdminApplications() {
     );
   };
   const requestReject = (id: string, name: string) => {
+    if (reviewInFlight.current) return;
     const trimmed = reason.trim();
     if (trimmed.length < 3) { toast('Add a short reason to reject', 'info'); return; }
     confirmAction(

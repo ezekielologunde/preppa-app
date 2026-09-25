@@ -93,6 +93,7 @@ tags: [project/preppa, type/launch-plan]
 - The same synchronous submission protection now covers experience bookings, service quote deposits, meal-plan subscriptions, custom-box subscriptions, PrepPlus membership changes, and service-request cancellation. Related controls expose disabled states while a money or cancellation action is running.
 - Cook Pro subscription and billing actions now use the same synchronous lock. Switching billing cadence discloses Stripe proration before confirmation, and cancellation requires confirmation with the benefit end-state explained.
 - Admin ticket status, replies, cook sharing, urgent support status changes, and payout reconciliation now use synchronous shared mutation locks. Conflicting rapid operator actions cannot race before the disabled state renders.
+- Admin kitchen applications, in-home vetting, experience review, user-role changes, suspension, and reinstatement now use the same synchronous review lock, preventing duplicate or conflicting approval and access decisions.
 
 ### Customer acceptance evidence still needed
 

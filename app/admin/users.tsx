@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useRef, useState } from 'react';
 import { View, Text, ScrollView, TextInput } from 'react-native';
 import { useC } from '../../src/theme/ThemeContext';
 import { type, tnum, radius } from '../../src/theme/theme';
@@ -25,16 +25,18 @@ export default function AdminUsers() {
   const [roleChoice, setRoleChoice] = useState<'customer' | 'prepper' | 'admin' | null>(null);
   const [roleConfirm, setRoleConfirm] = useState('');
   const [busy, setBusy] = useState(false);
+  const userActionInFlight = useRef(false);
   const refetch = () => setNonce((n) => n + 1);
 
   // Audit High finding: role changes previously happened out-of-band with no audit trail.
   const doSetRole = async (role: 'customer' | 'prepper' | 'admin') => {
-    if (busy || !roleTarget) return;
+    if (userActionInFlight.current || !roleTarget) return;
     const sensitive = role === 'admin' || roleTarget.role === 'admin';
     if (sensitive && roleConfirm.trim().toUpperCase() !== 'CHANGE') {
       toast('Type CHANGE to confirm an admin role change', 'info');
       return;
     }
+    userActionInFlight.current = true;
     setBusy(true);
     try {
       await admin.setUserRole(roleTarget.user_id, role);
@@ -42,15 +44,16 @@ export default function AdminUsers() {
       setRoleTarget(null); setRoleChoice(null); setRoleConfirm(''); refetch();
     } catch (e: any) {
       toast(e?.message ?? 'Role change failed', 'info');
-    } finally { setBusy(false); }
+    } finally { userActionInFlight.current = false; setBusy(false); }
   };
 
   // Audit Critical #10: there was no capability anywhere to suspend/reinstate an
   // already-verified kitchen, despite the Cook Agreement promising Preppa can do exactly
   // that. This is the admin surface for it.
   const doSuspend = async () => {
-    if (busy || !target?.kitchen_id) return;
+    if (userActionInFlight.current || !target?.kitchen_id) return;
     if (reason.trim().length < 3) { toast('Add a short reason to suspend', 'info'); return; }
+    userActionInFlight.current = true;
     setBusy(true);
     try {
       await admin.suspendKitchen(target.kitchen_id, reason.trim());
@@ -58,10 +61,11 @@ export default function AdminUsers() {
       setTarget(null); setReason(''); refetch();
     } catch (e: any) {
       toast(e?.message ?? 'Suspend failed', 'info');
-    } finally { setBusy(false); }
+    } finally { userActionInFlight.current = false; setBusy(false); }
   };
   const doReinstate = async (u: admin.AdminUser) => {
-    if (busy || !u.kitchen_id) return;
+    if (userActionInFlight.current || !u.kitchen_id) return;
+    userActionInFlight.current = true;
     setBusy(true);
     try {
       await admin.reinstateKitchen(u.kitchen_id);
@@ -69,10 +73,10 @@ export default function AdminUsers() {
       refetch();
     } catch (e: any) {
       toast(e?.message ?? 'Reinstate failed', 'info');
-    } finally { setBusy(false); }
+    } finally { userActionInFlight.current = false; setBusy(false); }
   };
   const requestReinstate = (u: admin.AdminUser) => {
-    if (busy) return;
+    if (userActionInFlight.current) return;
     confirmAction(
       `Reinstate ${u.kitchen_name ?? 'this kitchen'}?`,
       'Reinstatement restores the kitchen’s verified status and can make its live listings available to customers again.',

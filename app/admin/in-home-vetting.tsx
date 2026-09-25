@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import { View, Text, ScrollView, TextInput, Image } from 'react-native';
 import { useRouter } from 'expo-router';
 import { useC } from '../../src/theme/ThemeContext';
@@ -26,6 +26,7 @@ export default function AdminInHomeVetting() {
   const [openId, setOpenId] = useState<string | null>(null);
   const [reason, setReason] = useState('');
   const [busy, setBusy] = useState<null | 'approve' | 'reject'>(null);
+  const reviewInFlight = useRef(false);
   const [viewUri, setViewUri] = useState<string | null>(null);
 
   const load = () => {
@@ -37,7 +38,8 @@ export default function AdminInHomeVetting() {
   const close = () => { setOpenId(null); setReason(''); setBusy(null); };
 
   const approve = async (kitchenId: string, name: string) => {
-    if (busy) return;
+    if (reviewInFlight.current) return;
+    reviewInFlight.current = true;
     setBusy('approve');
     try {
       await admin.approveInHomeVetting(kitchenId);
@@ -46,11 +48,12 @@ export default function AdminInHomeVetting() {
     } catch (e: any) {
       toast(e?.message ?? 'Approve failed', 'info');
       setBusy(null);
-    }
+    } finally { reviewInFlight.current = false; }
   };
   const reject = async (kitchenId: string, name: string) => {
-    if (busy) return;
+    if (reviewInFlight.current) return;
     if (reason.trim().length < 3) { toast('Add a short reason to reject', 'info'); return; }
+    reviewInFlight.current = true;
     setBusy('reject');
     try {
       await admin.rejectInHomeVetting(kitchenId, reason.trim());
@@ -59,11 +62,11 @@ export default function AdminInHomeVetting() {
     } catch (e: any) {
       toast(e?.message ?? 'Reject failed', 'info');
       setBusy(null);
-    }
+    } finally { reviewInFlight.current = false; }
   };
 
   const requestApprove = (kitchenId: string, name: string) => {
-    if (busy) return;
+    if (reviewInFlight.current) return;
     confirmAction(
       `Approve ${name} for in-home cooking?`,
       'Approval allows this kitchen to accept in-home cooking work. Confirm the background-check and insurance documents are current and valid.',
@@ -73,7 +76,7 @@ export default function AdminInHomeVetting() {
   };
 
   const requestReject = (kitchenId: string, name: string) => {
-    if (busy) return;
+    if (reviewInFlight.current) return;
     const trimmed = reason.trim();
     if (trimmed.length < 3) { toast('Add a short reason to reject', 'info'); return; }
     confirmAction(
