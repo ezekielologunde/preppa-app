@@ -5,9 +5,10 @@
  */
 import { supabase } from './supabase';
 
-export type TicketCategory = 'missing_item' | 'wrong_item' | 'not_received' | 'food_quality' | 'payment' | 'other';
+export type TicketCategory = 'cancellation' | 'missing_item' | 'wrong_item' | 'not_received' | 'food_quality' | 'payment' | 'other';
 
 export const TICKET_CATEGORIES: { value: TicketCategory; label: string }[] = [
+  { value: 'cancellation', label: 'Cancel order' },
   { value: 'missing_item', label: 'Missing item' },
   { value: 'wrong_item', label: 'Wrong item' },
   { value: 'not_received', label: 'Never arrived' },
@@ -23,6 +24,8 @@ export async function createOrderTicket(
   subject: string,
   body: string,
 ): Promise<string> {
+  if (subject.trim().length > 120) throw new Error('Keep the subject under 120 characters.');
+  if (body.trim().length > 2000) throw new Error('Keep the description under 2,000 characters.');
   const { data, error } = await supabase.rpc('create_ticket', {
     p_order: orderId,
     p_category: category,
@@ -65,6 +68,7 @@ export async function ticketThread(ticketId: string): Promise<ThreadMessage[]> {
 
 /** Reporter or an authorized cook replies to a visible ticket. The RPC enforces membership. */
 export async function replyToTicket(ticketId: string, body: string): Promise<void> {
+  if (body.trim().length > 2000) throw new Error('Keep the reply under 2,000 characters.');
   const { error } = await supabase.rpc('add_ticket_message', { p_ticket: ticketId, p_body: body, p_internal: false });
   if (error) throw error;
 }

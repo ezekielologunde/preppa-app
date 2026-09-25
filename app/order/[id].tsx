@@ -180,8 +180,8 @@ function ReportIssue({ orderId }: { orderId: string }) {
       await createOrderTicket(orderId, cat, subject.trim(), body.trim());
       toast('Issue reported — we’ll follow up', 'check', true);
       setOpen(false); setSubject(''); setBody(''); setCat('missing_item');
-    } catch {
-      toast('Couldn’t send your report just now. Please try again.', 'info');
+    } catch (e: any) {
+      toast(e?.message || 'Couldn’t send your report just now. Please try again.', 'info');
     } finally {
       setBusy(false);
     }
@@ -208,8 +208,9 @@ function ReportIssue({ orderId }: { orderId: string }) {
           );
         })}
       </View>
-      <TextInput value={subject} onChangeText={setSubject} placeholder="Subject" placeholderTextColor={c.muted} style={input} />
-      <TextInput value={body} onChangeText={setBody} placeholder="What went wrong?" placeholderTextColor={c.muted} multiline style={[input, { minHeight: 72, textAlignVertical: 'top' }]} />
+      <TextInput value={subject} onChangeText={setSubject} maxLength={120} placeholder="Subject" placeholderTextColor={c.muted} accessibilityLabel="Issue subject, 120 characters maximum" style={input} />
+      <TextInput value={body} onChangeText={setBody} maxLength={2000} placeholder="What went wrong?" placeholderTextColor={c.muted} multiline accessibilityLabel="Issue description, 2,000 characters maximum" style={[input, { minHeight: 72, textAlignVertical: 'top' }]} />
+      <Text style={[type(11.5, 600), { color: c.muted, textAlign: 'right' }]}>{body.length}/2000</Text>
       <Btn label="Submit report" icon="check" loading={busy} onPress={submit} />
     </View>
   );

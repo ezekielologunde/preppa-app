@@ -110,11 +110,14 @@ function Detail({ ticketId, onChanged }: { ticketId: string; onChanged: () => vo
         <TextInput
           value={reply}
           onChangeText={setReply}
+          maxLength={2000}
           placeholder="Write a reply…"
           placeholderTextColor={c.muted}
           multiline
+          accessibilityLabel="Ticket reply, 2,000 characters maximum"
           style={{ minHeight: 56, borderWidth: 1, borderColor: c.border, borderRadius: radius.md, padding: 12, color: c.ink, backgroundColor: c.bg2, textAlignVertical: 'top', ...(type(14, 600) as object) }}
         />
+        <Text style={[type(11.5, 600), { color: c.muted, textAlign: 'right', marginTop: 6 }]}>{reply.length}/2000</Text>
         <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10, marginTop: 10 }}>
           <Press scale={0.96} onPress={() => setInternal((v) => !v)} label={`Internal note${internal ? ', selected' : ''}`} selected={internal}>
             <View style={{ flexDirection: 'row', alignItems: 'center', gap: 7 }}>

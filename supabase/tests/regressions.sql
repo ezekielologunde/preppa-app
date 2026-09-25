@@ -126,6 +126,27 @@ begin
   end if;
 end $$;
 
+-- Order support input remains bounded at the trusted database boundary and cancellation
+-- requests retain a dedicated operational category.
+do $$
+declare v_create text; v_reply text;
+begin
+  if not exists (
+    select 1 from pg_enum e join pg_type t on t.oid = e.enumtypid
+    where t.typnamespace = 'public'::regnamespace and t.typname = 'ticket_category'
+      and e.enumlabel = 'cancellation'
+  ) then raise exception 'REGRESSION: cancellation ticket category is missing'; end if;
+  if not exists (select 1 from pg_constraint where conname = 'tickets_subject_length')
+    or not exists (select 1 from pg_constraint where conname = 'tickets_body_length')
+    or not exists (select 1 from pg_constraint where conname = 'ticket_messages_body_length') then
+    raise exception 'REGRESSION: order support length constraints are missing';
+  end if;
+  select prosrc into v_create from pg_proc where oid = 'public.create_ticket(uuid,ticket_category,text,text)'::regprocedure;
+  select prosrc into v_reply from pg_proc where oid = 'public.add_ticket_message(uuid,text,boolean)'::regprocedure;
+  if v_create !~ '> 120' or v_create !~ '> 2000' then raise exception 'REGRESSION: create_ticket input limits are missing'; end if;
+  if v_reply !~ '> 2000' then raise exception 'REGRESSION: ticket reply input limit is missing'; end if;
+end $$;
+
 do $$
 begin
   if has_function_privilege('authenticated', 'public.kitchen_broadcast_audience(uuid)', 'execute') then

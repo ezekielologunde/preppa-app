@@ -57,11 +57,14 @@ function Thread({ ticketId, myUid, onReplied }: { ticketId: string; myUid: strin
       {!loadError ? <TextInput
         value={reply}
         onChangeText={setReply}
+        maxLength={2000}
         placeholder="Reply to support…"
         placeholderTextColor={c.muted}
         multiline
+        accessibilityLabel="Reply to support, 2,000 characters maximum"
         style={{ minHeight: 52, borderWidth: 1, borderColor: c.border, borderRadius: radius.md, padding: 12, color: c.ink, backgroundColor: c.surface, textAlignVertical: 'top', ...(type(14, 600) as object) }}
       /> : null}
+      {!loadError ? <Text style={[type(11.5, 600), { color: c.muted, textAlign: 'right' }]}>{reply.length}/2000</Text> : null}
       {!loadError ? <View style={{ flexDirection: 'row', justifyContent: 'flex-end' }}>
         <Btn label="Send" icon="arrow" loading={busy} onPress={send} height={44} />
       </View> : null}

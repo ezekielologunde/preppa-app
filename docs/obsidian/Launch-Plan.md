@@ -70,6 +70,7 @@ tags: [project/preppa, type/launch-plan]
 - Newly confirmed Stripe payments now remain in an explicit "Confirming payment" state until the protected order row reports `pay_status = paid`. Customer order detail and tracking no longer present webhook-pending orders as if the kitchen were already preparing them.
 - Delivery checkout now accepts a 500-character order-specific handoff note with a visible counter. The note is snapshotted on the order and exposed to the assigned active kitchen only through the protected order-detail RPC.
 - Cook cancellation now refunds a split-cart order's full customer-facing kitchen allocation, including tax and service fee. Paid orders remain active when Stripe cannot confirm the refund, with an actionable retry/support error instead of silently requiring manual reconciliation.
+- Order support now includes an explicit cancellation-request category. Ticket subjects, descriptions, and replies have matching client and database limits so oversized input cannot degrade the customer, cook, or admin workflow.
 
 ### Customer acceptance evidence still needed
 
