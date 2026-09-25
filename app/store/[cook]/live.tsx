@@ -3,12 +3,11 @@ import { View, Text, ActivityIndicator } from 'react-native';
 import { useLocalSearchParams, useRouter, useFocusEffect } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { VideoView, useVideoPlayer } from 'expo-video';
-import { COOKS, CookId } from '../../../src/data/data';
-import { KITCHEN_ID } from '../../../src/lib/supabase';
 import { type, radius } from '../../../src/theme/theme';
 import { Icon, Press } from '../../../src/ui';
 import { fetchKitchenLivestream, hlsUrl, type LiveStreamRow } from '../../../src/lib/livestream';
 import { FLAGS } from '../../../src/config/flags';
+import { isRejectedSeedKitchenRoute } from '../../../src/lib/routePolicy';
 
 /** Viewer-side live playback. Plain HLS via expo-video — no vendor SDK needed on this side;
  * the hard part (broadcasting) lives entirely on the go-live/publisher side. */
@@ -16,7 +15,8 @@ export default function KitchenLive() {
   const insets = useSafeAreaInsets();
   const router = useRouter();
   const { cook } = useLocalSearchParams<{ cook: string }>();
-  const kitchenId = COOKS[cook as CookId] ? KITCHEN_ID[cook as CookId] : cook;
+  const rejectedSeed = isRejectedSeedKitchenRoute(cook);
+  const kitchenId = rejectedSeed ? '' : cook;
 
   const [stream, setStream] = useState<LiveStreamRow | null | undefined>(undefined);
   const player = useVideoPlayer(stream?.status === 'live' ? hlsUrl(stream.playbackId) : null, (p) => { p.play(); });
@@ -35,7 +35,7 @@ export default function KitchenLive() {
 
   // Guarded route (audit Critical): livestreaming has no moderation/kill-switch yet. A stale
   // deep link or cached "Live now" button can't reach real playback while the flag is off.
-  if (!FLAGS.live) {
+  if (!FLAGS.live || rejectedSeed) {
     return (
       <View style={{ flex: 1, backgroundColor: '#000', alignItems: 'center', justifyContent: 'center', padding: 40 }}>
         <Icon name="video" size={40} color="rgba(255,255,255,.5)" />

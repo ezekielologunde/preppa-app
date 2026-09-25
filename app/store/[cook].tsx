@@ -19,11 +19,10 @@ import { toggleFollow, fetchIsFollowing } from '../../src/lib/feed';
 import { fetchExperiencesForKitchen, type Experience } from '../../src/lib/experiences';
 import { fetchKitchenLivestream } from '../../src/lib/livestream';
 import { invalidate } from '../../src/data/cache';
+import { isRejectedSeedKitchenRoute } from '../../src/lib/routePolicy';
 
 const _WD = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
 const _MO = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
-const REJECTED_SEED_ROUTES = new Set(['maria', 'david', 'amara', 'denise', 'lucia', 'sana']);
-const isRejectedSeedRoute = (value: string) => REJECTED_SEED_ROUTES.has(value);
 /** A kitchen's real published experiences on its storefront (replaces the retired seed rail). */
 function StoreExperiences({ kitchenId }: { kitchenId?: string }) {
   const c = useC();
@@ -113,7 +112,7 @@ export default function CookStoreScreen() {
   const { data: kitchenRevs, error: reviewsError } = useKitchenReviews(cook);
   const { data: profile, loading: profLoading, error: profileError } = useKitchenProfile(cook);
 
-  if (isRejectedSeedRoute(cook)) return <NotFound title="Kitchen" />;
+  if (isRejectedSeedKitchenRoute(cook)) return <NotFound title="Kitchen" />;
   if (profLoading) return <Screen><View style={{ flex: 1, alignItems: 'center', justifyContent: 'center' }}><ActivityIndicator color={c.primary} /></View></Screen>;
   if (profileError) return <Screen><View style={{ flex: 1, justifyContent: 'center', paddingHorizontal: 24 }}><DataNotice text="This kitchen could not be loaded." onRetry={() => invalidate('kitchen:' + cook)} /></View></Screen>;
   if (!profile) return <NotFound title="Kitchen" />;

@@ -2,9 +2,8 @@ import React, { useCallback, useRef, useState } from 'react';
 import { View, Text, FlatList, ActivityIndicator, RefreshControl } from 'react-native';
 import { useLocalSearchParams, useRouter, useFocusEffect, Redirect } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { COOKS, CookId } from '../../../src/data/data';
-import { KITCHEN_ID } from '../../../src/lib/supabase';
 import { FLAGS } from '../../../src/config/flags';
+import { isRejectedSeedKitchenRoute } from '../../../src/lib/routePolicy';
 import { type } from '../../../src/theme/theme';
 import { Btn, Icon, Press } from '../../../src/ui';
 import { fetchKitchenFeed, FeedPost } from '../../../src/lib/feed';
@@ -15,8 +14,8 @@ export default function KitchenFeed() {
   const insets = useSafeAreaInsets();
   const router = useRouter();
   const { cook } = useLocalSearchParams<{ cook: string }>();
-  // `cook` is either a seeded CookId (resolve via KITCHEN_ID) or already a real kitchen UUID.
-  const kitchenId = COOKS[cook as CookId] ? KITCHEN_ID[cook as CookId] : cook;
+  const rejectedSeed = isRejectedSeedKitchenRoute(cook);
+  const kitchenId = rejectedSeed ? '' : cook;
 
   const [h, setH] = useState(0);
   const [items, setItems] = useState<FeedPost[]>([]);
@@ -31,7 +30,7 @@ export default function KitchenFeed() {
   const onViewableItemsChanged = useRef(({ viewableItems }: any) => {
     if (viewableItems.length > 0) setActiveId(viewableItems[0].item.id);
   }).current;
-  if (!FLAGS.feed) return <Redirect href="/(tabs)/home" />;
+  if (!FLAGS.feed || rejectedSeed) return <Redirect href="/(tabs)/home" />;
 
   useFocusEffect(useCallback(() => {
     let alive = true;

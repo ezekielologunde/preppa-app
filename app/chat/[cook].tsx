@@ -1,9 +1,8 @@
 import React, { useCallback, useEffect, useState } from 'react';
 import { ActivityIndicator, Text, View } from 'react-native';
 import { useLocalSearchParams, useRouter } from 'expo-router';
-import { COOKS, CookId } from '../../src/data/data';
-import { KITCHEN_ID } from '../../src/lib/supabase';
 import { openThread } from '../../src/lib/messages';
+import { isRejectedSeedKitchenRoute } from '../../src/lib/routePolicy';
 import { useC } from '../../src/theme/ThemeContext';
 import { type } from '../../src/theme/theme';
 import { Btn } from '../../src/ui';
@@ -17,24 +16,25 @@ export default function LegacyChatRedirect() {
   const { cook } = useLocalSearchParams<{ cook: string }>();
   const [error, setError] = useState('');
   const [attempt, setAttempt] = useState(0);
-  const validCook = cook && cook in COOKS ? cook as CookId : null;
+  const rejectedSeed = isRejectedSeedKitchenRoute(cook);
+  const kitchenId = cook && !rejectedSeed ? cook : null;
 
   const connect = useCallback(async () => {
-    if (!validCook) return;
+    if (!kitchenId) return;
     setError('');
     try {
-      const threadId = await openThread(KITCHEN_ID[validCook], 'store');
+      const threadId = await openThread(kitchenId, 'store');
       router.replace(`/messages/${threadId}`);
     } catch (e: any) {
       setError(/auth|session|sign in/i.test(String(e?.message))
         ? 'Sign in to message this kitchen.'
         : (e?.message || 'Could not open this conversation.'));
     }
-  }, [router, validCook, attempt]);
+  }, [router, kitchenId, attempt]);
 
   useEffect(() => { void connect(); }, [connect]);
 
-  if (!validCook) return <NotFound title="Conversation" />;
+  if (!kitchenId) return <NotFound title="Conversation" />;
 
   return (
     <Screen>
