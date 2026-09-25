@@ -72,6 +72,7 @@ tags: [project/preppa, type/launch-plan]
 - Cook cancellation now refunds a split-cart order's full customer-facing kitchen allocation, including tax and service fee. Paid orders remain active when Stripe cannot confirm the refund, with an actionable retry/support error instead of silently requiring manual reconciliation.
 - Order support now includes an explicit cancellation-request category. Ticket subjects, descriptions, and replies have matching client and database limits so oversized input cannot degrade the customer, cook, or admin workflow.
 - New order support requests alert admins, and non-internal replies alert the customer, shared cook, or admin queue as appropriate. The persisted support thread no longer depends on each participant manually reopening the queue to discover activity.
+- Customers receive an in-app and push notification when admins move an order support request to in progress, resolved, closed, or reopened, completing the support lifecycle feedback loop.
 
 ### Customer acceptance evidence still needed
 
