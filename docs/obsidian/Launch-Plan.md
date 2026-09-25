@@ -2,12 +2,40 @@
 project: Preppa
 type: launch-plan
 status: active
-last_updated: 2026-09-12
+last_updated: 2026-09-18
 tags: [project/preppa, type/launch-plan]
 
 ---
 
 # Launch Plan
+
+## Readiness review — 2026-09-17
+
+**Not signed off for public launch.** Core implementation exists, but the customer-to-cook money journey and operational gates remain open. Older completed items below are historical evidence, not a fresh production verification.
+
+- Local `npm run typecheck` passed. GitHub CI run `34698865511` at `c21c2fb` passed both `typecheck` and `db-regression-tests`. Local DB tests could not be rerun because Docker's Linux daemon is not running.
+- Local `npx expo export --platform web` passed. Built output scan found no Stripe secret-key prefixes, PEM private-key headers or `SUPABASE_SERVICE_ROLE_KEY` identifiers; this is a targeted scan, not a comprehensive secret audit.
+- Expo SDK 57 patch alignment removed the 4 high findings and the Hermes regression. Current `npm audit`: 14 moderate, 0 high, 0 critical. `expo-doctor` passes 21/21. Remaining advisories are transitive in the Expo toolchain/router graph; no incompatible forced downgrade applied.
+- Fixed build-upload exclusions by removing the two-line `.easignore` overriding `.gitignore`; added general `.env.*` protection with example-file exceptions. A local `.p8` file exists and is Git-ignored; its contents were not read. Prior build archives were not inspected, so no credential leak is confirmed. See [[Security]].
+- Native session persistence now uses SecureStore and sign-in includes OTP-verified password recovery. Production fallback configuration and the absence of a full UI customer-flow suite remain.
+- Development and preview profiles are now explicitly labeled and refuse every client-side live-money entry point when a live Stripe publishable key is present. Production native builds and `app.preppa.live` remain enabled. This prevents accidental charges/refunds/payouts from ordinary non-production clients; it is an accident guard, not a server authorization boundary, and a separate test backend is still required for realistic acceptance testing.
+- New meals now require a full ingredient list and explicit allergen review, store major allergens, and show the disclosure plus a cross-contact warning on meal detail. Historical meals without disclosure show a visible warning until updated.
+
+### Customer acceptance evidence still needed
+
+Run synthetic cases in an isolated backend with Stripe test mode first. Current profiles share production configuration; preview builds are not a sandbox.
+
+| Scenario | Required outcome | Current evidence |
+|---|---|---|
+| Signup, login, wrong code/password, logout, session restore, deletion | Correct session and recovery behavior | Historical web pass September 8; native unverified |
+| Payment through fulfillment, review and cook payout | One charge/order, correct fees/ledger, payout received | Controlled real-money acceptance unchecked |
+| Declined card, cancelled checkout, timeout and retry/double tap | Clear outcome; no duplicate charge/order | Acceptance unchecked |
+| Cook cancellation and refund | Customer sees cancellation; refund reconciles | Acceptance unchecked |
+| Customer A requests customer B's orders/messages/tickets | Access denied without leaking data | Dedicated multi-account acceptance evidence needed |
+| Missing-item ticket and safety report | Ticket saved, customer confirmation, admin alert and follow-up | Implementation present; historical safety alert verification September 12; full support resolution unverified |
+| Native Connect return/expired link and bad-network recovery | Correct return state, status refresh, retry | Device pass outstanding |
+
+Public launch also needs real approved cooks/menus, selected geography and legal sign-off, a named support operator, and device/store acceptance. See detailed gates below and [[Tasks]].
 
 Part of [[Project]]. The concrete "turn the working application into an operational business" checklist — as distinct from [[Tasks]] (engineering backlog) and [[PM-Onboarding]] (narrative tour). Items below are marked verified where checked directly against live state on 2026-09-07; everything else is proposed and unverified until someone checks it off for real.
 
@@ -97,6 +125,8 @@ The actual launch blocker, per [[PM-Onboarding]]. Target 5-10 cooks, not fifty.
 
 Funnel: Contacted → Interested → Signed up → Applied → Approved → Stripe verified → Menu published → Kitchen open → First paid order → First payout.
 
+**Cook training now exists (2026-09-18):** a 68-second walkthrough for Preppers (apply → Stripe payouts → post a meal with allergens → orders and cash-out) is live at [help.preppa.live/training](https://help.preppa.live/training#preppers) — the `#preppers` link opens it at the Preppers section. Send candidates there before they apply. See [[Changelog]].
+
 - [ ] 10 serious candidates.
 - [ ] 5+ fully approved.
 - [ ] 5+ Stripe payout-ready.
@@ -167,7 +197,7 @@ Tested live against production (disposable `@mailinator.com` test accounts, clea
 
 **Real bug found and fixed**: `Alert.alert` (from `react-native`) is a documented no-op on `react-native-web` — clicking "Delete account" produced **no dialog and no API call whatsoever** on web, silently. The exact same pattern existed in the admin waitlist's "Delete signup" (which is web-only-gated, so that one was fully broken in production with no native fallback). Added `src/lib/confirm.ts` (`window.confirm` on web, real `Alert.alert` elsewhere) and switched both call sites to it. Verified fixed: the dialog now fires with the correct copy and, on accept, correctly calls the delete API.
 
-[[Bugs]] already flags session tokens in AsyncStorage (not `expo-secure-store`) and no password-reset flow as open (password auth exists but has no "forgot password" recovery flow yet).
+The two auth-hardening gaps found in that pass were closed 2026-09-17: native sessions now use SecureStore and sign-in offers an emailed-OTP password reset. The historical web session-restore result above still refers to browser storage, which remains appropriate on web.
 
 ## P0 — legal/store compliance
 

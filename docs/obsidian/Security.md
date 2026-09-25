@@ -2,19 +2,29 @@
 project: Preppa
 type: security
 status: active
-last_updated: 2026-09-07
+last_updated: 2026-09-17
 tags: [project/preppa, type/security]
 ---
 
 # Security
+
+## Build-upload hardening — 2026-09-17
+
+Removed `.easignore`, which contained only `.claude` and `.agents` and overrode the stronger `.gitignore`. EAS now falls back to `.gitignore`, preserving exclusions for local private keys (including `.p8`), environment files, generated output and local tooling. Added `.env.*` with example-file exceptions. Verified representative paths with `git check-ignore`. A local Git-ignored Apple `.p8` exists; contents were not read and historical upload exposure is unverified. [Expo's documented ignore precedence](https://docs.expo.dev/build-reference/easignore/) explains the risk. See [[Launch-Plan]] for current validation and remaining customer/security gates.
+
+Native Supabase sessions now use Expo SecureStore (`WHEN_UNLOCKED_THIS_DEVICE_ONLY`), backed by iOS Keychain and Android Keystore; web retains AsyncStorage because browsers have no equivalent OS credential vault. Password recovery now uses an emailed OTP with `shouldCreateUser: false`, then changes the password only after that OTP establishes an authenticated session. Expo SDK 57 dependencies were aligned with `expo install --fix`, removing all high-severity npm audit findings and the affected Hermes build; `expo-doctor` passes 21/21. Fourteen moderate transitive findings remain in the Expo toolchain/router graph.
+
+CI now creates the production web bundle and scans it for Stripe secret/restricted key prefixes, private-key headers, the Supabase service-role environment name, and service-role JWT claims. Database regressions now assert that customer order, payment, ticket, ticket-message and message tables keep RLS and that order/ticket policies retain their ownership checks.
+
+Development and preview EAS profiles now set `EXPO_PUBLIC_APP_ENV`; shared payment helpers reject live-money operations outside the production native profile or the exact `app.preppa.live` hostname. The guard covers orders, saved-card actions, subscriptions, memberships, experiences, service deposits/balances/refunds, order refunds and cook cash-outs. This reduces accidental production mutations while environments still share a backend. It is intentionally treated as a client safety interlock, not authorization: server-side auth, ownership checks, idempotency and Stripe webhook verification remain the actual trust boundaries.
 
 Part of [[Project]]. Backed by the living `AUDIT.md`/`AUDIT_FULL.md` in the repo (23-agent fleet audit, last full pass 2026-07-14, verdict NO GO at the time; most Criticals since fixed). See also [[Database]], [[Backend]], [[Payments]].
 
 ## Authentication
 
 - `src/lib/supabase.ts` — email OTP (unified sign-up/sign-in), email+password, Google OAuth (**web-only, currently disabled** — broke the Expo-web SPA with "OAuth state parameter missing").
-- Session tokens in **AsyncStorage, not `expo-secure-store`** (open Medium finding).
-- No password-reset flow exists.
+- Native session tokens use `expo-secure-store`; web sessions use browser-backed AsyncStorage.
+- Password reset is available from sign-in and requires an emailed OTP before the new password is saved.
 - All auth calls wrapped in a 15s timeout guard. `ensureAuth()` throws before any payment/account action.
 
 ## Authorization

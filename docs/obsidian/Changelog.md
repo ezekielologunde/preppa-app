@@ -2,13 +2,25 @@
 project: Preppa
 type: changelog
 status: active
-last_updated: 2026-09-12
+last_updated: 2026-09-18
 tags: [project/preppa, type/changelog]
 ---
 
 # Changelog
 
+## Launch review and build-upload security (2026-09-17)
+
+Removed incomplete `.easignore` so EAS uses the private-key and local-file protections in `.gitignore`; broadened environment-file exclusions while allowing examples. Local TypeScript passed and the latest main CI run passed typecheck and DB regressions. Recorded current dependency-audit counts and a customer acceptance matrix in [[Launch-Plan]], distinguishing prior test evidence from still-open payment, refund, support-resolution and device acceptance. No deployment or live customer/payment mutation performed. See [[Security]].
+
+Moved native Supabase session persistence to Expo SecureStore and added an OTP-verified forgot-password flow. Aligned Expo SDK 57 packages, clearing the known Hermes regression and all high-severity npm audit findings; Expo Doctor now passes 21/21. Added CI production-web export and secret scanning, plus database regression assertions for cross-customer isolation. Removed duplicate Android camera/audio permission declarations. The production web export and bundle scan pass locally; Docker was unavailable for a local DB replay, so the new SQL assertions await CI execution.
+
+Added launch food-safety disclosure: new meal publishing requires ingredients and an explicit major-allergen review; meal detail shows both disclosures and a home-kitchen cross-contact warning, while legacy rows without data show a warning. Added DB regression assertions for the new schema/RPC requirements. Development and preview builds now fail closed before live charges, refunds, subscriptions or payouts; only production native builds and the exact production web hostname can use a live Stripe publishable key.
+
 Part of [[Project]]. Reconstructed from 137 commits on `main`, 2026-07-06 → 2026-08-08, plus the 2026-09-07 session below.
+
+## Video training on the help center (2026-09-18)
+
+Extended the 22-second launch teaser into a 68-second training video and published it at **help.preppa.live/training**: a customer track (find a cook, read allergens, pay and tip, track) and a Preppers track (apply, Stripe payouts, post a meal with allergens, orders and cash-out), built from the app's real UI copy with clearly labelled sample data and no invented ratings or traction. The page has a player with chapter buttons that seek and follow playback, `#customers` / `#preppers` deep links, `VideoObject` JSON-LD, links to the matching written guides, and a full text version; the help home gained a featured video card. This lives in the **marketing/help repo** (`ezekielologunde/Preppa`, `landing/`, Vercel project `preppa`), not this app — commit `0b8c5de`, pushed straight to `master` at the owner's direction after a local production build, lint (ESLint and the repo's oxlint), and browser playback checks. Gotcha worth remembering: that app's `middleware.ts` rewrites *every* `help.preppa.live` path to `/help-site/*`, so static assets for help pages must live under `public/help-site/`. Confirmed live on the real domain (video 200, range requests 206, chapters seek). Vercel only started building ~6 minutes after the push. Video source (Hyperframes composition, `build.py`, masters) is in this repo's untracked `brag-output/training/`. See [[Launch-Plan]] item 8.
 
 ## Safety/abuse report alerting + order-ticket confirmation (2026-09-12)
 

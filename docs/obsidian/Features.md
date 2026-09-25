@@ -2,11 +2,15 @@
 project: Preppa
 type: features
 status: active
-last_updated: 2026-09-07
+last_updated: 2026-09-17
 tags: [project/preppa, type/features]
 ---
 
 # Features
+
+## Meal ingredient and allergen disclosure
+
+Implemented 2026-09-17 for newly published meals. Cooks must list ingredients, select all applicable major allergens, and explicitly confirm they reviewed the complete recipe. Customers see the ingredient list, allergen declaration, and a home-kitchen cross-contact warning on meal detail. Historical meals without the new data remain readable but show a prominent incomplete-disclosure warning. See [[Database]] and [[Security]].
 
 Part of [[Project]]. Status inferred from code (flag guards, real API calls vs. mock imports, in-code comments). See also [[Frontend]], [[Payments]].
 

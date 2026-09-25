@@ -2,7 +2,7 @@
 project: Preppa
 type: tasks
 status: active
-last_updated: 2026-09-09
+last_updated: 2026-09-17
 tags: [project/preppa, type/tasks]
 ---
 
@@ -83,7 +83,7 @@ Went end-to-end through Shef's actual ordering flow (add to cart → cross-sell 
 - [x] ~~Fix Preppa's Auth SMTP sender~~ — **investigated 2026-09-08, turned out to be a false alarm.** A similarly-named `Supabase Auth SMTP` key was spotted in an unrelated Resend workspace and mistaken for Preppa's; a real OTP send (via the Auth REST API) confirmed Preppa's Auth SMTP already correctly sends from `noreply@preppa.live` through the right Resend account (`200`, logged). No change needed.
 - [ ] Turn on branch protection on `main`; enable Dependabot security alerts (15 vulnerabilities flagged on push 2026-09-07: 10 high, 5 moderate — unreviewed); add `CODEOWNERS`.
 - [x] ~~Vendor the remaining ~114 un-tracked live migrations~~ — **done 2026-09-07**, full 212-migration history restored; add a deploy-verification step diffing live Edge Function/RPC definitions against the repo is still open.
-- [ ] Move session tokens to `expo-secure-store`; add a password-reset flow.
+- [x] ~~Move native session tokens to `expo-secure-store`; add a password-reset flow~~ — done 2026-09-17. Web retains browser storage; recovery uses an emailed OTP and does not create unknown accounts.
 - [ ] Add a real regression test suite beyond the DB-level `supabase/tests/regressions.sql` (currently zero JS/TS tests, CI is `tsc --noEmit` + DB regressions only).
 - [ ] Add `.env`/staging separation so not every build hits the live Supabase project and live Stripe mode.
 

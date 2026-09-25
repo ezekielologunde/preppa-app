@@ -2,11 +2,15 @@
 project: Preppa
 type: database
 status: active
-last_updated: 2026-09-07
+last_updated: 2026-09-17
 tags: [project/preppa, type/database]
 ---
 
 # Database
+
+## Meal disclosure hardening (2026-09-17)
+
+Migration `20260917010000_meal_ingredient_allergen_disclosure.sql` adds `meals.ingredients`, `meals.allergens`, and `meals.allergen_reviewed_at`. The owner-gated `create_meal` RPC now rejects missing ingredient lists and unconfirmed allergen reviews. Existing rows retain empty defaults for compatibility and are visibly flagged in the customer UI until updated. Regression SQL protects the columns, RPC checks, and anonymous execute revocation.
 
 Part of [[Project]]. Live Supabase project: `fwidhpzwldneeaphrxgg`. See also [[Backend]], [[Security]].
 
