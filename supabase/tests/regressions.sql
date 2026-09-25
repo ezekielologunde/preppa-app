@@ -544,6 +544,16 @@ begin
   end if;
 end $$;
 
+do $$
+declare v_src text;
+begin
+  select prosrc into v_src from pg_proc
+  where oid = 'public.admin_ticket_detail(uuid)'::regprocedure;
+  if v_src !~ 'author_kind' or v_src !~ 'reporter_id' or v_src !~ '''cook''' then
+    raise exception 'REGRESSION: admin ticket detail no longer distinguishes reporter and cook messages';
+  end if;
+end $$;
+
 rollback;
 
 select 'all regression checks passed' as result;

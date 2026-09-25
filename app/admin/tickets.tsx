@@ -96,7 +96,7 @@ function Detail({ ticketId, onChanged }: { ticketId: string; onChanged: () => vo
           {detail.messages.map((m) => (
             <View key={m.id} style={{ backgroundColor: c.bg2, borderRadius: radius.md, padding: 11, borderWidth: m.is_internal ? 1.5 : 0, borderColor: c.primary }}>
               <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8, marginBottom: 4 }}>
-                <Text style={[type(11.5, 800), { color: c.soft }]}>{m.from_admin ? 'Admin' : 'User'}</Text>
+                <Text style={[type(11.5, 800), { color: c.soft }]}>{m.author_kind === 'admin' ? 'Admin' : m.author_kind === 'reporter' ? 'Reporter' : 'Cook'}</Text>
                 {m.is_internal ? <MiniTag label="Internal" tone="purple" /> : null}
                 <Text style={[type(10.5, 600), { color: c.muted }]}>{when(m.created_at)}</Text>
               </View>

@@ -190,6 +190,7 @@ export interface AdminTicketMessage {
   body: string;
   is_internal: boolean;
   from_admin: boolean;
+  author_kind: 'admin' | 'reporter' | 'cook';
   created_at: string;
 }
 
