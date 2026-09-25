@@ -86,36 +86,6 @@ export interface MySubscription {
 
 const SERVICE_FEE_BPS_DEFAULT = 1000;
 
-/** Customer weekly price = cook price + service fee. */
-export function customerWeeklyCents(cookCents: number, serviceFeeBps = SERVICE_FEE_BPS_DEFAULT): number {
-  return cookCents + Math.round((cookCents * serviceFeeBps) / 10000);
-}
-
-/**
- * Estimate one cycle's price the SAME way advance_cycles() snapshots it at closeout:
- * fixed → the cook's bundle price; customer_choice → per_meal_cents × qty (or meal sum).
- */
-export function estimateCycle(
-  plan: Pick<Plan, 'priceCents' | 'selectionModel' | 'perMealCents' | 'perDeliveryCents' | 'serviceFeeBps' | 'items'>,
-  selection?: { qty: number; priceCents?: number }[],
-): { subtotalCents: number; feeCents: number; totalCents: number } {
-  const bps = plan.serviceFeeBps ?? SERVICE_FEE_BPS_DEFAULT;
-  const perDelivery = plan.perDeliveryCents ?? 0;
-  let subtotal: number;
-  if ((plan.selectionModel ?? 'fixed') === 'fixed') {
-    subtotal = plan.priceCents;
-  } else {
-    const items = selection ?? plan.items;
-    const qty = items.reduce((n, i) => n + i.qty, 0);
-    subtotal = plan.perMealCents != null
-      ? plan.perMealCents * qty
-      : items.reduce((n, i) => n + (i.priceCents ?? 0) * i.qty, 0);
-  }
-  subtotal += perDelivery;
-  const fee = Math.round((subtotal * bps) / 10000);
-  return { subtotalCents: subtotal, feeCents: fee, totalCents: subtotal + fee };
-}
-
 function planItems(rows: any[] | null | undefined, weekIndex?: number): PlanItem[] {
   return (rows ?? [])
     .filter((pi) => weekIndex == null || (Number(pi?.week_index) || 0) === weekIndex)
@@ -329,7 +299,7 @@ export async function subscribeToPlan(opts: SubscribeOptions): Promise<Subscribe
 
 // ---- build-your-own (cross-kitchen box) ---------------------------------
 
-export { estimateBox } from '../data/subscriptionTotals';
+export { customerWeeklyCents, estimateBox, estimateCycle } from '../data/subscriptionTotals';
 
 export interface BuildBoxOptions {
   items: { mealId: string; qty: number }[];

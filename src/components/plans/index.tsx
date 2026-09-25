@@ -26,7 +26,7 @@ export function fmtDate(iso?: string | null): string {
   return `${WD[d.getDay()]} ${MO[d.getMonth()]} ${d.getDate()}`;
 }
 /** Customer weekly price to advertise for a browse card (fixed = cook price + fee). */
-export const browseWeekly = (p: Plan) => customerWeeklyCents(p.priceCents, p.serviceFeeBps);
+export const browseWeekly = (p: Plan, feeWaived = false) => customerWeeklyCents(p.priceCents, p.serviceFeeBps, feeWaived);
 
 // ─────────────────────────────────────────────────────────────────────────────
 // SECTIONS (self-contained, data-loading) — reused by the Experiences hub and the
@@ -37,6 +37,7 @@ export const browseWeekly = (p: Plan) => customerWeeklyCents(p.priceCents, p.ser
 export function BrowsePlansSection() {
   const c = useC();
   const router = useRouter();
+  const { isPrepPlus } = useStore();
   const [plans, setPlans] = useState<Plan[]>([]);
   const [subs, setSubs] = useState<MySubscription[]>([]);
   const [loading, setLoading] = useState(true);
@@ -94,7 +95,7 @@ export function BrowsePlansSection() {
             <Text style={[type(13.5, 600), { color: c.soft, textAlign: 'center', marginTop: 6, maxWidth: 300, lineHeight: 20 }]}>Cooks are adding weekly boxes. Check back soon — or order a meal now on Home.</Text>
           </View>
         ) : (
-          available.map((p) => <PlanCard key={p.id} p={p} onPress={() => router.push(`/plan/${p.id}`)} />)
+          available.map((p) => <PlanCard key={p.id} p={p} feeWaived={isPrepPlus} onPress={() => router.push(`/plan/${p.id}`)} />)
         )}
       </View>
     </ScrollView>
@@ -431,7 +432,7 @@ export function EditMealsModal({ sub, onClose, onSaved }: { sub: MySubscription 
   );
 }
 
-export function PlanCard({ p, onPress }: { p: Plan; onPress: () => void }) {
+export function PlanCard({ p, feeWaived = false, onPress }: { p: Plan; feeWaived?: boolean; onPress: () => void }) {
   const c = useC();
   const meals = p.mealsPerDelivery ?? p.items.reduce((n, i) => n + i.qty, 0);
   return (
@@ -447,7 +448,7 @@ export function PlanCard({ p, onPress }: { p: Plan; onPress: () => void }) {
             <Text style={[type(12.5, 600), { color: c.soft, marginTop: 3 }]}>{p.kitchenName} · {meals} meals/wk · {p.fulfillment === 'pickup' ? 'Pickup' : 'Delivery'}{p.selectionModel === 'customer_choice' ? ' · you choose' : ''}</Text>
           </View>
           <View style={{ alignItems: 'flex-end' }}>
-            <Text style={[type(18, 900), { color: c.ink, letterSpacing: -0.5 }]}>{money2(browseWeekly(p))}</Text>
+            <Text style={[type(18, 900), { color: c.ink, letterSpacing: -0.5 }]}>{money2(browseWeekly(p, feeWaived))}</Text>
             <Text style={[type(10.5, 700), { color: c.muted }]}>/week</Text>
           </View>
         </View>

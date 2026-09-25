@@ -66,7 +66,7 @@ function RealPlanDetail({ plan }: { plan: Plan }) {
   const c = useC();
   const insets = useSafeAreaInsets();
   const router = useRouter();
-  const { toast } = useStore();
+  const { toast, isPrepPlus } = useStore();
   const { refetch } = useSavedCards();
 
   const selModel = plan.selectionModel ?? 'fixed';
@@ -87,7 +87,7 @@ function RealPlanDetail({ plan }: { plan: Plan }) {
     ? plan.items.filter((i) => (sel[i.mealId ?? ''] ?? 0) > 0).map((i) => ({ ...i, qty: sel[i.mealId!]! }))
     : plan.items;
   const selCount = selModel === 'customer_choice' ? Object.values(sel).reduce((n, q) => n + q, 0) : target;
-  const est = estimateCycle(plan, selModel === 'customer_choice' ? selectedItems : undefined);
+  const est = estimateCycle(plan, selModel === 'customer_choice' ? selectedItems : undefined, isPrepPlus);
   const weeklyLabel = `${money2(est.totalCents)}/wk`;
   const startDay = startIso ? WEEKDAY_SHORT[new Date(startIso + 'T00:00:00').getDay()] : undefined;
 
@@ -188,7 +188,7 @@ function RealPlanDetail({ plan }: { plan: Plan }) {
               </Block>
               <Block title="Weekly pricing">
                 <SummaryRow label="Meals subtotal" value={money2(est.subtotalCents)} c={c} />
-                <SummaryRow label="Service fee" value={money2(est.feeCents)} c={c} />
+                <SummaryRow label="Service fee" value={isPrepPlus ? 'Included with PrepPlus' : money2(est.feeCents)} c={c} />
                 <View style={{ height: 1, backgroundColor: c.border2, marginVertical: 8 }} />
                 <SummaryRow label="Per week" value={money2(est.totalCents)} bold c={c} />
                 <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8, marginTop: 12 }}>

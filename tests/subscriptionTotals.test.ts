@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
-import { estimateBox } from '../src/data/subscriptionTotals';
+import { customerWeeklyCents, estimateBox, estimateCycle } from '../src/data/subscriptionTotals';
 
 test('applies the advertised box discount and service fee in cents', () => {
   const estimate = estimateBox([
@@ -41,4 +41,32 @@ test('waives the box service fee for an active PrepPlus member', () => {
   assert.equal(estimate.discountCents, 400);
   assert.equal(estimate.feeCents, 0);
   assert.equal(estimate.totalCents, 3600);
+});
+
+test('shows the server-matched fixed plan price for members and nonmembers', () => {
+  assert.equal(customerWeeklyCents(2500, 1000), 2750);
+  assert.equal(customerWeeklyCents(2500, 1000, true), 2500);
+});
+
+test('waives the full plan service fee after per-delivery pricing', () => {
+  const plan = {
+    priceCents: 0,
+    selectionModel: 'customer_choice' as const,
+    perMealCents: 1125,
+    perDeliveryCents: 250,
+    serviceFeeBps: 1000,
+    items: [],
+  };
+  const selection = [{ qty: 3 }];
+
+  assert.deepEqual(estimateCycle(plan, selection), {
+    subtotalCents: 3625,
+    feeCents: 363,
+    totalCents: 3988,
+  });
+  assert.deepEqual(estimateCycle(plan, selection, true), {
+    subtotalCents: 3625,
+    feeCents: 0,
+    totalCents: 3625,
+  });
 });
