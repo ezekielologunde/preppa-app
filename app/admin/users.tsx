@@ -21,17 +21,24 @@ export default function AdminUsers() {
   const [target, setTarget] = useState<admin.AdminUser | null>(null);
   const [reason, setReason] = useState('');
   const [roleTarget, setRoleTarget] = useState<admin.AdminUser | null>(null);
+  const [roleChoice, setRoleChoice] = useState<'customer' | 'prepper' | 'admin' | null>(null);
+  const [roleConfirm, setRoleConfirm] = useState('');
   const [busy, setBusy] = useState(false);
   const refetch = () => setNonce((n) => n + 1);
 
   // Audit High finding: role changes previously happened out-of-band with no audit trail.
   const doSetRole = async (role: 'customer' | 'prepper' | 'admin') => {
     if (!roleTarget) return;
+    const sensitive = role === 'admin' || roleTarget.role === 'admin';
+    if (sensitive && roleConfirm.trim().toUpperCase() !== 'CHANGE') {
+      toast('Type CHANGE to confirm an admin role change', 'info');
+      return;
+    }
     setBusy(true);
     try {
       await admin.setUserRole(roleTarget.user_id, role);
       toast(`${roleTarget.display_name ?? 'User'} is now ${role}`, 'check', true);
-      setRoleTarget(null); refetch();
+      setRoleTarget(null); setRoleChoice(null); setRoleConfirm(''); refetch();
     } catch (e: any) {
       toast(e?.message ?? 'Role change failed', 'info');
     } finally { setBusy(false); }
@@ -90,7 +97,7 @@ export default function AdminUsers() {
           ) : u.kitchen_id && u.verification_status === 'suspended' ? (
             <Press scale={0.95} onPress={() => doReinstate(u)}><Text style={[type(12.5, 800), { color: c.green }]}>Reinstate</Text></Press>
           ) : null}
-          <Press scale={0.95} onPress={() => setRoleTarget(u)}><Text style={[type(12.5, 800), { color: c.accentText }]}>Role</Text></Press>
+          <Press scale={0.95} onPress={() => { setRoleTarget(u); setRoleChoice(null); setRoleConfirm(''); }}><Text style={[type(12.5, 800), { color: c.accentText }]}>Role</Text></Press>
         </View>
       ),
     },
@@ -136,15 +143,27 @@ export default function AdminUsers() {
         </View>
       </Sheet>
 
-      <Sheet visible={!!roleTarget} onClose={() => setRoleTarget(null)} title={`Change role — ${roleTarget?.display_name ?? 'User'}`}>
+      <Sheet visible={!!roleTarget} onClose={busy ? () => {} : () => { setRoleTarget(null); setRoleChoice(null); setRoleConfirm(''); }} title={`Change role — ${roleTarget?.display_name ?? 'User'}`}>
         <Text style={[type(13, 600), { color: c.soft, marginBottom: 12 }]}>
           Current role: {roleTarget?.role}. This writes to the audit log.
         </Text>
         <View style={{ gap: 10 }}>
           {(['customer', 'prepper', 'admin'] as const).map((r) => (
-            <Btn key={r} label={`Set to ${r}`} variant={roleTarget?.role === r ? 'dark' : 'ghost'} disabled={busy || roleTarget?.role === r} loading={busy} onPress={() => doSetRole(r)} />
+            <Btn key={r} label={`Set to ${r}`} variant={roleChoice === r || roleTarget?.role === r ? 'dark' : 'ghost'} disabled={busy || roleTarget?.role === r} onPress={() => { setRoleChoice(r); setRoleConfirm(''); }} />
           ))}
         </View>
+        {roleChoice ? (
+          <View style={{ marginTop: 14, paddingTop: 14, borderTopWidth: 1, borderTopColor: c.border2, gap: 10 }}>
+            <Text style={[type(13, 700), { color: c.ink, lineHeight: 19 }]}>Confirm changing {roleTarget?.display_name ?? 'this user'} from {roleTarget?.role} to {roleChoice}.</Text>
+            {roleChoice === 'admin' || roleTarget?.role === 'admin' ? (
+              <>
+                <Text style={[type(12.5, 600), { color: c.red, lineHeight: 18 }]}>Admin access can change users, payouts, kitchens, and support records. Type CHANGE to continue.</Text>
+                <TextInput value={roleConfirm} onChangeText={setRoleConfirm} placeholder="Type CHANGE" placeholderTextColor={c.muted} autoCapitalize="characters" style={{ height: 46, borderWidth: 1, borderColor: c.border, borderRadius: radius.md, paddingHorizontal: 12, color: c.ink, backgroundColor: c.bg2, ...(type(14, 700) as object) }} />
+              </>
+            ) : null}
+            <Btn label={`Confirm ${roleChoice} role`} loading={busy} disabled={busy || ((roleChoice === 'admin' || roleTarget?.role === 'admin') && roleConfirm.trim().toUpperCase() !== 'CHANGE')} onPress={() => doSetRole(roleChoice)} />
+          </View>
+        ) : null}
       </Sheet>
     </Screen>
   );

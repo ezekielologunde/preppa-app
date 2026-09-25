@@ -45,8 +45,12 @@ function ResolveRow({ payout, onChanged }: { payout: admin.AdminPayout; onChange
   const [busy, setBusy] = useState(false);
 
   const resolve = async (outcome: 'paid' | 'failed') => {
-    if (outcome === 'paid' && transferId.trim().length < 4) {
-      toast('Enter the Stripe transfer id (find it by searching the idempotency key below in the Stripe dashboard)', 'info');
+    if (outcome === 'paid' && !/^tr_[A-Za-z0-9]+$/.test(transferId.trim())) {
+      toast('Enter a valid Stripe transfer id beginning with tr_', 'info');
+      return;
+    }
+    if (outcome === 'failed' && note.trim().length < 4) {
+      toast('Add a note explaining why no transfer should be marked paid', 'info');
       return;
     }
     setBusy(true);
@@ -74,13 +78,13 @@ function ResolveRow({ payout, onChanged }: { payout: admin.AdminPayout; onChange
       <TextInput
         value={note}
         onChangeText={setNote}
-        placeholder="Note (optional)"
+        placeholder="Reconciliation note (required when marking failed)"
         placeholderTextColor={c.muted}
         style={{ height: 42, borderWidth: 1, borderColor: c.border, borderRadius: radius.md, paddingHorizontal: 12, color: c.ink, backgroundColor: c.bg2, ...(type(13.5, 600) as object) }}
       />
       <View style={{ flexDirection: 'row', gap: 10 }}>
         <Btn label="Mark paid" icon="check" loading={busy} onPress={() => resolve('paid')} height={40} />
-        <Btn label="Mark failed" variant="ghost" loading={busy} onPress={() => resolve('failed')} height={40} />
+        <Btn label="Mark failed" variant="ghost" loading={busy} disabled={busy || note.trim().length < 4} onPress={() => resolve('failed')} height={40} />
       </View>
     </View>
   );

@@ -33,6 +33,7 @@ tags: [project/preppa, type/launch-plan]
 - Favorites and custom-box catalog failures now show retry recovery instead of false empty inventory. PrepPlus blocks subscription actions when membership state cannot be loaded, preventing a failed lookup from being presented as a non-member state.
 - Cook experience and meal-plan editors now recover from failed or missing edit records instead of remaining on an indefinite loading screen or opening a blank form that could overwrite the wrong state.
 - Cook in-home vetting and Preppa Pro membership now distinguish backend failures from missing applications or non-membership and provide retry recovery, preventing duplicate or incorrect membership actions.
+- Admin role changes now require a separate review step, with typed confirmation for any admin elevation or demotion. Payout reconciliation now validates Stripe transfer IDs and requires an explanatory note before marking a payout failed.
 
 ### Customer acceptance evidence still needed
 
