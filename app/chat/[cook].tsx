@@ -1,73 +1,57 @@
-import React from 'react';
-import { View, Text, ScrollView } from 'react-native';
-import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import React, { useCallback, useEffect, useState } from 'react';
+import { ActivityIndicator, Text, View } from 'react-native';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { COOKS, CookId } from '../../src/data/data';
+import { KITCHEN_ID } from '../../src/lib/supabase';
+import { openThread } from '../../src/lib/messages';
 import { useC } from '../../src/theme/ThemeContext';
-import { type, radius, shadow } from '../../src/theme/theme';
-import { useStore } from '../../src/store/store';
-import { Icon, Press, Avatar } from '../../src/ui';
-import { Screen } from '../../src/ui/layout';
+import { type } from '../../src/theme/theme';
+import { Btn } from '../../src/ui';
+import { Screen, TopBar } from '../../src/ui/layout';
 import { NotFound } from '../../src/components/NotFound';
 
-const BUBBLES = [
-  { me: false, t: 'Hi! Your order is in the oven now 🔥' },
-  { me: false, t: 'I’ll ping you when it’s boxed — about 20 min.' },
-  { me: true, t: 'Amazing, thank you! Cash on delivery is fine?' },
-  { me: false, t: 'Of course. We’ll confirm the amount with the QR code at handoff 👍' },
-];
-
-export default function Chat() {
+/** Compatibility route for old links. Messaging now lives in /messages/[threadId]. */
+export default function LegacyChatRedirect() {
   const c = useC();
-  const insets = useSafeAreaInsets();
   const router = useRouter();
   const { cook } = useLocalSearchParams<{ cook: string }>();
-  const { toast } = useStore();
-  const cd = COOKS[cook as CookId];
-  if (!cd) return <NotFound title="Chat" />;
-  const first = cd.name.split(' ')[0];
+  const [error, setError] = useState('');
+  const [attempt, setAttempt] = useState(0);
+  const validCook = cook && cook in COOKS ? cook as CookId : null;
+
+  const connect = useCallback(async () => {
+    if (!validCook) return;
+    setError('');
+    try {
+      const threadId = await openThread(KITCHEN_ID[validCook], 'store');
+      router.replace(`/messages/${threadId}`);
+    } catch (e: any) {
+      setError(/auth|session|sign in/i.test(String(e?.message))
+        ? 'Sign in to message this kitchen.'
+        : (e?.message || 'Could not open this conversation.'));
+    }
+  }, [router, validCook, attempt]);
+
+  useEffect(() => { void connect(); }, [connect]);
+
+  if (!validCook) return <NotFound title="Conversation" />;
 
   return (
     <Screen>
-      <View style={{ backgroundColor: c.surface, paddingTop: insets.top + 12, paddingBottom: 12, paddingHorizontal: 14, flexDirection: 'row', alignItems: 'center', gap: 10, borderBottomWidth: 1, borderBottomColor: c.border2 }}>
-        <Press scale={0.9} onPress={() => router.back()}>
-          <View style={[{ width: 42, height: 42, borderRadius: 21, backgroundColor: c.surface, alignItems: 'center', justifyContent: 'center' }, shadow.soft]}><Icon name="chevLeft" size={20} color={c.ink} /></View>
-        </Press>
-        <Press scale={0.97} onPress={() => router.push(`/store/${cook}`)} label={`View ${cd.name}'s kitchen`} style={{ flex: 1 }}>
-          <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10 }}>
-            <Avatar cook={cook as CookId} size={36} rad={12} />
-            <View style={{ flex: 1 }}>
-              <View style={{ flexDirection: 'row', alignItems: 'center', gap: 4 }}>
-                <Text style={[type(16, 900), { color: c.ink }]}>{cd.name}</Text>
-                <Icon name="chevRight" size={15} color={c.muted} />
-              </View>
-              <Text style={[type(12, 700), { color: c.green }]}>● Online now</Text>
-            </View>
-          </View>
-        </Press>
-        <Press scale={0.9} onPress={() => toast('Calling… (demo)', 'phone')}>
-          <View style={[{ width: 42, height: 42, borderRadius: 21, backgroundColor: c.surface, alignItems: 'center', justifyContent: 'center' }, shadow.soft]}><Icon name="phone" size={18} color={c.ink} /></View>
-        </Press>
-      </View>
-
-      <ScrollView style={{ flex: 1 }} contentContainerStyle={{ padding: 16, gap: 10 }}>
-        <Text style={[type(11, 700), { color: c.muted, textAlign: 'center', marginBottom: 4 }]}>TODAY</Text>
-        {BUBBLES.map((b, i) => (
-          <View key={i} style={{ alignSelf: b.me ? 'flex-end' : 'flex-start', maxWidth: '78%', backgroundColor: b.me ? c.primary : c.surface, borderWidth: b.me ? 0 : 1, borderColor: c.border2, paddingVertical: 11, paddingHorizontal: 14, borderRadius: 18, borderBottomRightRadius: b.me ? 4 : 18, borderBottomLeftRadius: b.me ? 18 : 4 }}>
-            <Text style={[type(14, 500), { color: b.me ? '#fff' : c.ink, lineHeight: 20 }]}>{b.t}</Text>
-          </View>
-        ))}
-      </ScrollView>
-
-      <View style={{ backgroundColor: c.surface, borderTopWidth: 1, borderTopColor: c.border2, flexDirection: 'row', alignItems: 'center', gap: 10, padding: 12, paddingBottom: Math.max(insets.bottom, 12) }}>
-        <Press scale={0.99} onPress={() => toast('Demo only — messaging is read-only')} style={{ flex: 1 }}>
-          <View style={{ height: 48, borderRadius: radius.md, backgroundColor: c.bg2, justifyContent: 'center', paddingHorizontal: 16 }}>
-            <Text style={[type(14, 500), { color: c.muted }]}>Message {first}…</Text>
-          </View>
-        </Press>
-        <Press scale={0.94} onPress={() => toast('Demo only — messaging is read-only')}>
-          <View style={{ width: 52, height: 48, borderRadius: radius.md, backgroundColor: c.primaryD, alignItems: 'center', justifyContent: 'center' }}><Icon name="send" size={20} color="#fff" /></View>
-        </Press>
+      <TopBar title="Messages" />
+      <View style={{ flex: 1, alignItems: 'center', justifyContent: 'center', padding: 24 }} accessibilityRole={error ? 'alert' : undefined}>
+        {error ? (
+          <>
+            <Text style={[type(17, 900), { color: c.ink, textAlign: 'center' }]}>Couldn’t open messages</Text>
+            <Text style={[type(14, 600), { color: c.soft, textAlign: 'center', lineHeight: 21, marginTop: 8, marginBottom: 18 }]}>{error}</Text>
+            <Btn label="Try again" icon="repeat" onPress={() => setAttempt((value) => value + 1)} />
+          </>
+        ) : (
+          <>
+            <ActivityIndicator color={c.primary} />
+            <Text style={[type(14, 700), { color: c.soft, marginTop: 12 }]}>Opening your conversation…</Text>
+          </>
+        )}
       </View>
     </Screen>
   );
