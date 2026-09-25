@@ -30,6 +30,7 @@ export default function MoneyScreen() {
   const [autoEnabled, setAutoEnabled] = useState(true);
   const [loading, setLoading] = useState(true);
   const [busy, setBusy] = useState(false);
+  const [autoSaving, setAutoSaving] = useState(false);
   const [loadError, setLoadError] = useState<string | null>(null);
 
   const load = useCallback(async () => {
@@ -87,13 +88,14 @@ export default function MoneyScreen() {
     }
   };
   const toggleAuto = async (next: boolean) => {
-    if (!kitchenId) return;
+    if (!kitchenId || autoSaving) return;
+    setAutoSaving(true);
     setAutoEnabled(next);
     try { await setPayoutPreferences(kitchenId, next, 2000); }
     catch (e: any) {
       setAutoEnabled(!next);
       toast(e?.message || 'Couldn’t update automatic payouts.', 'info');
-    }
+    } finally { setAutoSaving(false); }
   };
 
   const payoutsReady = !!status?.payoutsEnabled;
@@ -140,7 +142,15 @@ export default function MoneyScreen() {
                       <Text style={[type(14, 800), { color: c.ink }]}>Automatic weekly payouts</Text>
                       <Text style={[type(12, 600), { color: c.soft, marginTop: 2, lineHeight: 16 }]}>We’ll send balances of $20+ to your bank every week. You can still cash out manually anytime.</Text>
                     </View>
-                    <Switch value={autoEnabled} onValueChange={toggleAuto} trackColor={{ true: c.primary }} />
+                    {autoSaving ? <ActivityIndicator size="small" color={c.primary} /> : (
+                      <Switch
+                        value={autoEnabled}
+                        onValueChange={toggleAuto}
+                        disabled={autoSaving}
+                        accessibilityLabel="Automatic weekly payouts"
+                        trackColor={{ true: c.primary }}
+                      />
+                    )}
                   </View>
                 </>
               ) : (
