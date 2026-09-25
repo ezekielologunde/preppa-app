@@ -1,4 +1,4 @@
-import React, { useMemo, useState } from 'react';
+import React, { useMemo, useRef, useState } from 'react';
 import { View, Text, ScrollView, Platform, ActivityIndicator } from 'react-native';
 import { useRouter } from 'expo-router';
 import { money } from '../src/data/data';
@@ -40,6 +40,7 @@ export default function BuildPlanFlow() {
   const [startIso, setStartIso] = useState<string>(isoDate(dates[0]));
   const [stage, setStage] = useState<Stage>('pick');
   const [busy, setBusy] = useState(false);
+  const subscribeInFlight = useRef(false);
   const [addCard, setAddCard] = useState<string | null>(null);
   const [result, setResult] = useState<{ firstDeliveryDate: string | null; count: number } | null>(null);
 
@@ -51,6 +52,8 @@ export default function BuildPlanFlow() {
   const startDay = WD[new Date(startIso + 'T00:00:00').getDay()];
 
   const doBuild = async (pmId?: string) => {
+    if (subscribeInFlight.current) return;
+    subscribeInFlight.current = true;
     setBusy(true);
     try {
       const res = await buildBox({
@@ -65,10 +68,10 @@ export default function BuildPlanFlow() {
         try { const { clientSecret } = await createSetupIntent(); setAddCard(clientSecret); }
         catch { toast('Add a card to subscribe.', 'info'); }
       } else { toast(e?.message || 'Could not create your box.', 'info'); }
-    } finally { setBusy(false); }
+    } finally { subscribeInFlight.current = false; setBusy(false); }
   };
   const subscribe = async () => {
-    if (busy) return;
+    if (subscribeInFlight.current) return;
     if (Platform.OS !== 'web') { toast('Building a box is available on the web app for now.', 'info'); return; }
     await doBuild();
   };

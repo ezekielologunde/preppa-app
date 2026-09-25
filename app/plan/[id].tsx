@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import { View, Text, ScrollView, Pressable, ActivityIndicator, Platform } from 'react-native';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -77,6 +77,7 @@ function RealPlanDetail({ plan }: { plan: Plan }) {
   const [sel, setSel] = useState<Record<string, number>>({}); // mealId -> qty (customer_choice)
   const [startIso, setStartIso] = useState<string>(dates[0] ? isoDate(dates[0]) : '');
   const [busy, setBusy] = useState(false);
+  const subscribeInFlight = useRef(false);
   const [addCard, setAddCard] = useState<string | null>(null);
   const [result, setResult] = useState<{ firstDeliveryDate: string | null; firstCycleSkipped?: boolean } | null>(null);
   const rotationWeeks = plan.rotating ? (plan.itemsByWeek?.length ?? 1) : 1;
@@ -99,6 +100,8 @@ function RealPlanDetail({ plan }: { plan: Plan }) {
   });
 
   const doSubscribe = async (pmId?: string) => {
+    if (subscribeInFlight.current) return;
+    subscribeInFlight.current = true;
     setBusy(true);
     try {
       const res = await subscribeToPlan({
@@ -121,11 +124,11 @@ function RealPlanDetail({ plan }: { plan: Plan }) {
       } else {
         toast(e?.message || 'Could not start your plan. Please try again.', 'info');
       }
-    } finally { setBusy(false); }
+    } finally { subscribeInFlight.current = false; setBusy(false); }
   };
 
   const subscribe = async () => {
-    if (busy) return;
+    if (subscribeInFlight.current) return;
     if (Platform.OS !== 'web') { toast('Subscribing is available on the web app for now.', 'info'); return; }
     await doSubscribe();
   };

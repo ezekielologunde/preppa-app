@@ -1,4 +1,4 @@
-import React, { useCallback, useState } from 'react';
+import React, { useCallback, useRef, useState } from 'react';
 import { View, Text, ScrollView, ActivityIndicator } from 'react-native';
 import { useLocalSearchParams, useRouter, useFocusEffect } from 'expo-router';
 import { useC } from '../../src/theme/ThemeContext';
@@ -25,6 +25,7 @@ export default function RequestDetailScreen() {
   const [req, setReq] = useState<RequestView | null | undefined>(undefined);
   const [loadError, setLoadError] = useState('');
   const [busyQ, setBusyQ] = useState<string | null>(null);
+  const requestActionInFlight = useRef(false);
   const [canceling, setCanceling] = useState(false);
   const [pay, setPay] = useState<{ clientSecret: string; label: string } | null>(null);
 
@@ -55,7 +56,8 @@ export default function RequestDetailScreen() {
   const statusTint = req.status === 'accepted' ? c.green : req.status === 'cancelled' || req.status === 'expired' ? c.muted : liveQuotes.length ? c.primary : c.soft;
 
   const accept = async (q: QuoteView) => {
-    if (busyQ) return;
+    if (requestActionInFlight.current) return;
+    requestActionInFlight.current = true;
     setBusyQ(q.id);
     try {
       const { clientSecret, depositCents, alreadyPaid } = await acceptQuoteAndDeposit(q.id);
@@ -63,15 +65,16 @@ export default function RequestDetailScreen() {
       else if (clientSecret) setPay({ clientSecret, label: money2(depositCents ?? q.depositCents) });
       else throw new Error('Could not resume the deposit payment. Please try again.');
     } catch (e: any) { toast(e?.message || 'Could not start your booking', 'info'); }
-    finally { setBusyQ(null); }
+    finally { requestActionInFlight.current = false; setBusyQ(null); }
   };
 
   const cancel = async () => {
-    if (canceling) return;
+    if (requestActionInFlight.current) return;
+    requestActionInFlight.current = true;
     setCanceling(true);
     try { await cancelServiceRequest(id!); toast('Request cancelled', 'x'); router.back(); }
     catch (e: any) { toast(e?.message || 'Could not cancel', 'info'); }
-    finally { setCanceling(false); }
+    finally { requestActionInFlight.current = false; setCanceling(false); }
   };
 
   return (
@@ -127,7 +130,7 @@ export default function RequestDetailScreen() {
                     <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6, marginTop: 10 }}><Icon name="check" size={15} color={c.green} /><Text style={[type(13, 800), { color: c.green }]}>Booked</Text></View>
                   ) : req.status === 'open' || req.status === 'quoted' ? (
                     <View style={{ marginTop: 12 }}>
-                      <Btn label={busyQ === q.id ? 'Starting…' : 'Accept & pay deposit'} icon="card" block loading={busyQ === q.id} onPress={() => accept(q)} />
+                      <Btn label={busyQ === q.id ? 'Starting…' : 'Accept & pay deposit'} icon="card" block loading={busyQ === q.id} disabled={busyQ !== null || canceling} onPress={() => accept(q)} />
                     </View>
                   ) : null}
                 </View>
@@ -141,7 +144,7 @@ export default function RequestDetailScreen() {
           <View style={{ flexDirection: 'row', gap: 10, marginHorizontal: 16, marginTop: 6 }}>
             {canEdit ? <View style={{ flex: 1 }}><Btn label="Edit request" icon="edit" variant="ghost" block onPress={() => router.push(`/service-request?edit=${id}`)} /></View> : null}
             {canCancel ? (
-              <Press scale={0.97} onPress={cancel} style={{ flex: canEdit ? 0.7 : 1 }}>
+              <Press scale={0.97} onPress={cancel} disabled={canceling || busyQ !== null} style={{ flex: canEdit ? 0.7 : 1, opacity: canceling || busyQ !== null ? 0.6 : 1 }}>
                 <View style={{ height: 52, borderRadius: radius.pill, borderWidth: 1.5, borderColor: c.border, alignItems: 'center', justifyContent: 'center' }}>
                   {canceling ? <ActivityIndicator size="small" color={c.red} /> : <Text style={[type(14, 800), { color: c.red }]}>Cancel</Text>}
                 </View>

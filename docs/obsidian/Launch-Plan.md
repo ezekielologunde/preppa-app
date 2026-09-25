@@ -90,6 +90,7 @@ tags: [project/preppa, type/launch-plan]
 - Cook payout setup and bank-management actions now allow only one Stripe account session request at a time. Cash out and shared hub buttons expose real disabled semantics, so unavailable or in-progress financial controls cannot be retriggered by rapid taps, keyboard input, or assistive technology.
 - CI now pins the Supabase CLI and GitHub Actions to reviewed versions and immutable action commits. The database job logs the CLI version, preventing an unreviewed upstream release from silently changing clean-schema migration evidence.
 - Checkout now locks order creation and saved-card confirmation synchronously before React rerenders. Rapid taps cannot start a second customer payment action, and the primary control exposes its disabled state while the request is in flight.
+- The same synchronous submission protection now covers experience bookings, service quote deposits, meal-plan subscriptions, custom-box subscriptions, PrepPlus membership changes, and service-request cancellation. Related controls expose disabled states while a money or cancellation action is running.
 
 ### Customer acceptance evidence still needed
 

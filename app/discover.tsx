@@ -1,4 +1,4 @@
-import React, { useCallback, useState } from 'react';
+import React, { useCallback, useRef, useState } from 'react';
 import { View, Text, ScrollView, ActivityIndicator, TextInput } from 'react-native';
 import { useRouter, useLocalSearchParams, useFocusEffect } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -59,6 +59,7 @@ function ServicesMode() {
   const [loading, setLoading] = useState(true);
   const [pay, setPay] = useState<{ clientSecret: string; label: string } | null>(null);
   const [busyQuote, setBusyQuote] = useState<string | null>(null);
+  const quoteInFlight = useRef(false);
   const [loadError, setLoadError] = useState<string | null>(null);
   // Confirming a deposit moves real money to a stranger's kitchen — one tap straight into the
   // payment sheet was too thin a safety margin, especially with several quotes pending at once.
@@ -76,14 +77,15 @@ function ServicesMode() {
   useFocusEffect(useCallback(() => { load(); }, [load]));
 
   const accept = async (quoteId: string, amountLabel: string) => {
-    if (busyQuote) return;
+    if (quoteInFlight.current) return;
+    quoteInFlight.current = true;
     setBusyQuote(quoteId);
     try {
       const { clientSecret } = await acceptQuoteAndDeposit(quoteId);
       if (clientSecret) setPay({ clientSecret, label: amountLabel });
       else { toast('Booking confirmed', 'check', true); load(); }
     } catch (e: any) { toast(e?.message || 'Could not start your booking', 'info'); }
-    finally { setBusyQuote(null); }
+    finally { quoteInFlight.current = false; setBusyQuote(null); }
   };
   const confirmAccept = () => {
     if (!confirm) return;
@@ -142,7 +144,7 @@ function ServicesMode() {
                   ) : (
                     <View style={{ marginTop: 10 }}>
                       <KDeposit label={busyQuote === q.id ? 'Starting…' : `Accept · deposit ${money0(q.depositCents + Math.round(q.amountCents * feeBps / 10000))}`}
-                        onPress={() => setConfirm({ id: q.id, kitchenName: q.kitchenName, amountLabel: money0(q.depositCents + Math.round(q.amountCents * feeBps / 10000)) })} />
+                        disabled={busyQuote !== null} onPress={() => setConfirm({ id: q.id, kitchenName: q.kitchenName, amountLabel: money0(q.depositCents + Math.round(q.amountCents * feeBps / 10000)) })} />
                     </View>
                   )}
                 </View>
@@ -166,7 +168,7 @@ function ServicesMode() {
               <Text style={[type(14, 800), { color: c.ink }]}>Cancel</Text>
             </View>
           </Press>
-          <Press scale={0.97} onPress={confirmAccept} style={{ flex: 1 }}>
+          <Press scale={0.97} onPress={confirmAccept} disabled={busyQuote !== null} style={{ flex: 1, opacity: busyQuote !== null ? 0.6 : 1 }}>
             <View style={{ height: 46, borderRadius: radius.md, backgroundColor: c.primaryD, alignItems: 'center', justifyContent: 'center' }}>
               <Text style={[type(14, 800), { color: '#fff' }]}>Confirm & pay</Text>
             </View>
@@ -177,10 +179,10 @@ function ServicesMode() {
   );
 }
 
-function KDeposit({ label, onPress }: { label: string; onPress: () => void }) {
+function KDeposit({ label, onPress, disabled = false }: { label: string; onPress: () => void; disabled?: boolean }) {
   const c = useC();
   return (
-    <Press scale={0.97} onPress={onPress}>
+    <Press scale={0.97} onPress={onPress} disabled={disabled} style={{ opacity: disabled ? 0.6 : 1 }}>
       <View style={{ height: 44, borderRadius: radius.md, backgroundColor: c.primaryD, alignItems: 'center', justifyContent: 'center', ...shadow.soft }}>
         <Text style={[type(14, 800), { color: '#fff' }]}>{label}</Text>
       </View>

@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useState } from 'react';
+import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { View, Text, ScrollView, ActivityIndicator, Image } from 'react-native';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -46,6 +46,7 @@ export default function ExperienceDetail() {
   const [selSession, setSelSession] = useState<string | null>(null);
   const [guests, setGuests] = useState(1);
   const [busy, setBusy] = useState(false);
+  const bookingInFlight = useRef(false);
   const [pay, setPay] = useState<{ clientSecret: string; label: string } | null>(null);
   const [waitlisted, setWaitlisted] = useState<Set<string>>(new Set());
   const [rating, setRating] = useState({ avg: 0, count: 0 });
@@ -122,7 +123,8 @@ export default function ExperienceDetail() {
   const canBook = !!sel && (isFlat ? sel.seatsLeft > 0 : sel.seatsLeft >= guests) && guests >= exp.minGuests;
 
   const book = async () => {
-    if (!sel || busy) return;
+    if (!sel || bookingInFlight.current) return;
+    bookingInFlight.current = true;
     setBusy(true);
     try {
       const res = await bookExperience(exp.id, sel.sessionId, guests);
@@ -134,7 +136,7 @@ export default function ExperienceDetail() {
       if (/unauthorized|auth/i.test(msg)) toast('Sign in to book this experience', 'info');
       else if (/full|no longer|unavailable/i.test(msg)) { toast('That session just changed — pick another', 'info'); await loadAvail(exp.id); setSelSession(null); }
       else toast(msg || 'Couldn’t start your booking', 'info');
-    } finally { setBusy(false); }
+    } finally { bookingInFlight.current = false; setBusy(false); }
   };
 
   const onWait = !!sel && waitlisted.has(sel.sessionId);
@@ -282,7 +284,7 @@ export default function ExperienceDetail() {
 
       <Dock>
         <DockTotal label={isFlat ? 'Whole session' : canBook ? `${guests} × ${money(unit / 100)}` : 'Per person'} value={money((isFlat ? unit : (canBook ? total : unit)) / 100)} />
-        <Press scale={0.98} onPress={sel && !busy ? primaryAction : undefined} style={{ flex: 1 }}>
+        <Press scale={0.98} onPress={primaryAction} disabled={!sel || busy} style={{ flex: 1 }}>
           <View style={{ height: 50, borderRadius: radius.md, backgroundColor: !sel ? c.border : onWait ? c.bg2 : c.primaryD, borderWidth: onWait ? 1.5 : 0, borderColor: c.primaryD, alignItems: 'center', justifyContent: 'center', flexDirection: 'row', gap: 8, opacity: busy ? 0.7 : 1 }}>
             {busy ? <ActivityIndicator size="small" color="#fff" /> : <><Icon name={primaryIcon} size={18} color={onWait ? c.primaryD : '#fff'} /><Text style={[type(15, 900), { color: onWait ? c.primaryD : '#fff' }]}>{primaryLabel}</Text></>}
           </View>

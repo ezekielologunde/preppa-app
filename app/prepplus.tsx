@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import { View, Text, ScrollView, Platform, ActivityIndicator } from 'react-native';
 import { useRouter } from 'expo-router';
 import { useC } from '../src/theme/ThemeContext';
@@ -30,6 +30,7 @@ export default function PrepPlus() {
   const [mem, setMem] = useState<Membership | null>(null);
   const [interval, setInterval] = useState<'month' | 'year'>('month');
   const [busy, setBusy] = useState(false);
+  const membershipActionInFlight = useRef(false);
   const [addCard, setAddCard] = useState<string | null>(null);
 
   const refresh = async () => {
@@ -56,8 +57,9 @@ export default function PrepPlus() {
   ];
 
   const doSubscribe = async () => {
-    if (busy) return;
+    if (membershipActionInFlight.current) return;
     if (Platform.OS !== 'web') { toast('Membership is available on the web app for now.', 'info'); return; }
+    membershipActionInFlight.current = true;
     setBusy(true);
     try {
       const res = await subscribeToPrepPlus(interval);
@@ -71,12 +73,13 @@ export default function PrepPlus() {
       } else {
         toast(e?.message || 'Could not start your membership. Please try again.', 'info');
       }
-    } finally { setBusy(false); }
+    } finally { membershipActionInFlight.current = false; setBusy(false); }
   };
   const onCardSaved = async () => { setAddCard(null); await doSubscribe(); };
 
   const doManage = async (action: 'cancel' | 'resume' | 'switch', iv?: 'month' | 'year') => {
-    if (busy) return;
+    if (membershipActionInFlight.current) return;
+    membershipActionInFlight.current = true;
     setBusy(true);
     try {
       await manageMembership(action, iv);
@@ -85,7 +88,7 @@ export default function PrepPlus() {
       toast(action === 'cancel' ? 'Membership will end at the period close' : action === 'resume' ? 'Membership resumed' : 'Plan switched', 'check', true);
     } catch (e: any) {
       toast(e?.message || 'Could not update your membership.', 'info');
-    } finally { setBusy(false); }
+    } finally { membershipActionInFlight.current = false; setBusy(false); }
   };
 
   const requestSwitch = () => {
