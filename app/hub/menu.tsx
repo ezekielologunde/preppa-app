@@ -9,6 +9,7 @@ import { Sheet } from '../../src/ui/overlay';
 import { money } from '../../src/data/data';
 import { fetchMyMeals, updateMeal, setMealStatus, setMealDisclosure, MAJOR_ALLERGENS, MyMealRow, RealMealStatus } from '../../src/lib/kitchenMeals';
 import { HubHeader, KBtn, KSec, KPill, KChoice } from '../(tabs)/my-hub';
+import { confirmAction } from '../../src/lib/confirm';
 
 function statusPill(c: any, s: RealMealStatus) {
   if (s === 'live') return { label: 'Live', bg: c.greenL, fg: c.green, dot: true };
@@ -27,6 +28,8 @@ export default function MenuScreen() {
   const [editing, setEditing] = useState<MyMealRow | null>(null);
 
   const load = useCallback(() => {
+    setMeals(null);
+    setError(null);
     fetchMyMeals().then(setMeals).catch((e) => setError(e?.message || 'Could not load your menu.'));
   }, []);
   useFocusEffect(useCallback(() => { load(); }, [load]));
@@ -34,6 +37,7 @@ export default function MenuScreen() {
   const live = (meals ?? []).filter((m) => m.status === 'live').length;
 
   const cycleStatus = async (m: MyMealRow) => {
+    if (busyId) return;
     const next: RealMealStatus = m.status === 'live' ? 'paused' : 'live';
     setBusyId(m.id);
     try {
@@ -48,6 +52,7 @@ export default function MenuScreen() {
   };
 
   const archive = async (m: MyMealRow) => {
+    if (busyId) return;
     setBusyId(m.id);
     try {
       await setMealStatus(m.id, 'archived');
@@ -59,6 +64,14 @@ export default function MenuScreen() {
       setBusyId(null);
     }
   };
+  const requestArchive = (m: MyMealRow) => {
+    confirmAction(
+      `Archive ${m.name}?`,
+      'Customers will no longer see or order this dish. Existing orders keep their saved item details.',
+      () => void archive(m),
+      'Archive dish',
+    );
+  };
 
   return (
     <View style={{ flex: 1, backgroundColor: c.bg }}>
@@ -67,7 +80,12 @@ export default function MenuScreen() {
         {meals === null && !error ? (
           <View style={{ paddingVertical: 40, alignItems: 'center' }}><ActivityIndicator color={c.primary} /></View>
         ) : error ? (
-          <Text style={[type(13, 600), { color: c.red, paddingHorizontal: 20 }]}>{error}</Text>
+          <View accessibilityRole="alert" style={{ alignItems: 'center', paddingHorizontal: 24, paddingVertical: 40 }}>
+            <Icon name="info" size={28} color={c.red} />
+            <Text style={[type(16, 900), { color: c.ink, marginTop: 12 }]}>Menu couldn’t load</Text>
+            <Text style={[type(13, 600), { color: c.soft, textAlign: 'center', lineHeight: 20, marginTop: 6, marginBottom: 16 }]}>{error}</Text>
+            <Btn label="Try again" icon="repeat" onPress={load} />
+          </View>
         ) : meals!.length === 0 ? (
           <View style={{ paddingHorizontal: 20, paddingVertical: 30, alignItems: 'center' }}>
             <Text style={[type(15, 800), { color: c.ink }]}>No dishes yet</Text>
@@ -95,7 +113,7 @@ export default function MenuScreen() {
                       <KBtn label={m.status === 'live' ? 'Pause' : 'Make live'} variant="ghost" sm onPress={() => cycleStatus(m)} />
                     ) : null}
                     {m.status !== 'archived' ? (
-                      <Press scale={0.95} onPress={() => archive(m)} label={`Archive ${m.name}`}>
+                      <Press scale={0.95} onPress={busyId ? undefined : () => requestArchive(m)} label={`Archive ${m.name}`}>
                         <Text style={[type(11.5, 700), { color: c.muted }]}>{busy ? '…' : 'Archive'}</Text>
                       </Press>
                     ) : null}
