@@ -59,7 +59,7 @@ export default function Orders() {
       const res = await cancelExperienceBooking(b.id);
       toast(res.refundedCents > 0 ? `Cancelled — ${money(res.refundedCents / 100)} refunded` : 'Booking cancelled', res.refundedCents > 0 ? 'check' : 'x', res.refundedCents > 0);
       load();
-    } catch (e: any) { toast(e?.message || 'Could not cancel', 'info'); }
+    } catch { toast('Could not cancel this booking. Check its cancellation window or try again.', 'info'); }
     finally { bookingActionInFlight.current = false; setBusy(null); }
   };
   const requestCancelExp = (b: BookingView) => {
@@ -85,7 +85,7 @@ export default function Orders() {
         : 'Booking marked complete';
       toast(message, res.balanceChargePending || res.balanceChargeError ? 'info' : 'check', !res.balanceChargePending && !res.balanceChargeError);
       load();
-    } catch (e: any) { toast(e?.message || 'Could not complete the booking', 'info'); }
+    } catch { toast('Could not complete the booking. Please try again.', 'info'); }
     finally { bookingActionInFlight.current = false; setBusy(null); }
   };
   const requestCompleteRfq = (b: BookingView) => {
@@ -108,7 +108,7 @@ export default function Orders() {
       const res = await cancelBooking(b.id);
       toast(res.refunded ? 'Booking cancelled and refunded' : 'Booking cancelled', res.refunded ? 'check' : 'x', res.refunded);
       load();
-    } catch (e: any) { toast(e?.message || 'Could not cancel the booking', 'info'); }
+    } catch { toast('Could not cancel the booking. Please try again.', 'info'); }
     finally { bookingActionInFlight.current = false; setBusy(null); }
   };
   const requestCancelRfq = (b: BookingView) => {

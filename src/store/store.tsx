@@ -221,6 +221,7 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
   const [orders, setOrders] = useState<CustomerOrder[]>([]);
   const [ordersLoading, setOrdersLoading] = useState(false);
   const [ordersError, setOrdersError] = useState('');
+  const ordersRequestSequence = useRef(0);
   const [avail, setAvail] = useState(true);
   const [availLoading, setAvailLoading] = useState(true);
   const [availError, setAvailError] = useState('');
@@ -283,11 +284,13 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
   }, []);
 
   const refreshOrders = useCallback(async (userId?: string) => {
+    const sequence = ++ordersRequestSequence.current;
     const owner = userId ?? uid;
     setOrdersLoading(true);
     setOrdersError('');
     try {
       const rows = await fetchCustomerOrders();
+      if (ordersRequestSequence.current !== sequence) return;
       const mapped: CustomerOrder[] = rows.map((r) => ({
         id: `PR-${r.id.slice(0, 6).toUpperCase()}`,
         dbId: r.id,
@@ -317,10 +320,10 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
         const pending = current.filter((o) => o.dbId && o.ownerUid === owner && !mapped.some((m) => m.dbId === o.dbId));
         return [...pending, ...mapped];
       });
-    } catch (e: any) {
-      setOrdersError(e?.message || 'Could not load your meal orders.');
+    } catch {
+      if (ordersRequestSequence.current === sequence) setOrdersError('Check your connection and try loading your meal orders again.');
     } finally {
-      setOrdersLoading(false);
+      if (ordersRequestSequence.current === sequence) setOrdersLoading(false);
     }
   }, [uid]);
 
@@ -379,6 +382,7 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
         setNotificationsLoading(false);
         setNotificationsError('');
         setThreadUnread(0);
+        ordersRequestSequence.current += 1;
         setOrders([]);
         setOrdersError('');
         setOrdersLoading(false);
@@ -627,7 +631,7 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
   }, [orders]);
 
   const resetOnboarding = useCallback(() => setOnboardedState(false), []);
-  const logout = useCallback(() => { signOutUser(); setPrepperStatus('none'); setOwnKitchenId(null); setIsAdmin(false); setIsPrepPlus(false); setPrepplusUntil(null); setOrders([]); setOrdersError(''); setAddresses([]); setAddressId(''); setOnboardedState(false); }, []);
+  const logout = useCallback(() => { ordersRequestSequence.current += 1; signOutUser(); setPrepperStatus('none'); setOwnKitchenId(null); setIsAdmin(false); setIsPrepPlus(false); setPrepplusUntil(null); setOrders([]); setOrdersError(''); setOrdersLoading(false); setAddresses([]); setAddressId(''); setOnboardedState(false); }, []);
   const deleteAccount = useCallback(async () => {
     // Apple 5.1.1(v) / Google Play: account-deletion path. Calls the real delete-account edge
     // function FIRST (anonymizes the profile, soft-deletes the auth user so sign-in is
@@ -635,6 +639,7 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
     // Throws (with a specific, user-facing reason) if a cook's kitchen has in-flight orders,
     // an uncashed balance, or active subscribers — the caller must surface that, not swallow it.
     await deleteAccountServerSide();
+    ordersRequestSequence.current += 1;
     signOutUser();
     AsyncStorage.removeItem(LS).catch(() => {});
     setCart([]);
@@ -642,6 +647,8 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
     setAddresses([]);
     setAddressId('');
     setOrders([]);
+    setOrdersError('');
+    setOrdersLoading(false);
     setTip(2);
     setMode('delivery');
     setLocation('Choose your area');

@@ -22,11 +22,17 @@ export default function OrderDetail() {
   const o = orders.find((x) => x.id === id);
   const [refreshError, setRefreshError] = useState(false);
   const [reordering, setReordering] = useState(false);
+  const refreshInFlight = useRef(false);
 
   const refresh = useCallback(async () => {
-    if (!id) return;
-    const ok = await refreshOrderStatus(id);
-    setRefreshError(!ok);
+    if (!id || refreshInFlight.current) return;
+    refreshInFlight.current = true;
+    try {
+      const ok = await refreshOrderStatus(id);
+      setRefreshError(!ok);
+    } finally {
+      refreshInFlight.current = false;
+    }
   }, [id, refreshOrderStatus]);
   useFocusEffect(useCallback(() => {
     void refresh();
@@ -43,7 +49,7 @@ export default function OrderDetail() {
     return (
       <Screen>
         <TopBar title="Order" />
-        <Empty icon="ticket" title={ordersError ? 'Could not load order' : 'Order not found'} body={ordersError || 'We couldn’t find that order.'} action={ordersError ? <Btn label="Try again" icon="repeat" onPress={() => void refreshOrders()} /> : <Btn label="Your orders" onPress={() => router.replace('/orders')} />} />
+        <Empty icon="ticket" title={ordersError ? 'Could not load order' : 'Order not found'} body={ordersError ? 'Check your connection and try loading this order again.' : 'We couldn’t find that order.'} action={ordersError ? <Btn label="Try again" icon="repeat" onPress={() => void refreshOrders()} /> : <Btn label="Your orders" onPress={() => router.replace('/orders')} />} />
       </Screen>
     );
   }
@@ -52,7 +58,7 @@ export default function OrderDetail() {
   const kitchenId = o.cook;
   const openChat = async () => {
     try { const tid = await openThread(kitchenId, 'order', o.dbId); router.push(`/messages/${tid}`); }
-    catch (e: any) { toast(e?.message || 'Could not open chat', 'info'); }
+    catch { toast('Could not open chat. Please try again.', 'info'); }
   };
   const active = o.status === 'confirming' || o.status === 'confirmed' ? 0 : o.status === 'completed' ? 3 : o.status === 'ready' ? 2 : 1;
   const headline = o.status === 'confirming' ? 'Confirming your payment' : o.status === 'confirmed' ? 'Order confirmed' : o.status === 'cancelled' ? 'Order cancelled' : o.status === 'completed' ? 'Completed, enjoy!' : o.status === 'ready' ? (o.mode === 'pickup' ? 'Ready for pickup' : 'On its way') : 'Your cook is preparing';
@@ -185,8 +191,8 @@ function ReportIssue({ orderId }: { orderId: string }) {
       await createOrderTicket(orderId, cat, subject.trim(), body.trim());
       toast('Issue reported — we’ll follow up', 'check', true);
       setOpen(false); setSubject(''); setBody(''); setCat('missing_item');
-    } catch (e: any) {
-      toast(e?.message || 'Couldn’t send your report just now. Please try again.', 'info');
+    } catch {
+      toast('Couldn’t send your report just now. Please try again.', 'info');
     } finally {
       submitInFlight.current = false;
       setBusy(false);
