@@ -138,6 +138,7 @@ export default function AdminInHomeVetting() {
                         value={reason} onChangeText={setReason}
                         placeholder="e.g. Background-check report is expired"
                         placeholderTextColor={c.muted} multiline
+                        accessibilityLabel="Reason required to reject"
                         style={{
                           minHeight: 64, borderWidth: 1, borderColor: c.border, borderRadius: radius.md,
                           padding: 12, color: c.ink, backgroundColor: c.bg2, textAlignVertical: 'top',

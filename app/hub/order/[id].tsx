@@ -212,6 +212,7 @@ export default function OrderDetail() {
                 onChangeText={setCancelReason}
                 placeholder="For example: ingredient unavailable"
                 placeholderTextColor={c.muted}
+                accessibilityLabel="Cancellation reason for the customer"
                 maxLength={240}
                 multiline
                 style={[type(14, 500), { color: c.ink, minHeight: 52, borderWidth: 1, borderColor: c.border, borderRadius: 12, backgroundColor: c.surface, paddingHorizontal: 12, paddingVertical: 10 }]}

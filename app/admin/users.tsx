@@ -171,7 +171,7 @@ export default function AdminUsers() {
             {roleChoice === 'admin' || roleTarget?.role === 'admin' ? (
               <>
                 <Text style={[type(12.5, 600), { color: c.red, lineHeight: 18 }]}>Admin access can change users, payouts, kitchens, and support records. Type CHANGE to continue.</Text>
-                <TextInput value={roleConfirm} onChangeText={setRoleConfirm} placeholder="Type CHANGE" placeholderTextColor={c.muted} autoCapitalize="characters" style={{ height: 46, borderWidth: 1, borderColor: c.border, borderRadius: radius.md, paddingHorizontal: 12, color: c.ink, backgroundColor: c.bg2, ...(type(14, 700) as object) }} />
+                <TextInput value={roleConfirm} onChangeText={setRoleConfirm} placeholder="Type CHANGE" placeholderTextColor={c.muted} accessibilityLabel="Type CHANGE to confirm admin role change" autoCapitalize="characters" style={{ height: 46, borderWidth: 1, borderColor: c.border, borderRadius: radius.md, paddingHorizontal: 12, color: c.ink, backgroundColor: c.bg2, ...(type(14, 700) as object) }} />
               </>
             ) : null}
             <Btn label={`Confirm ${roleChoice} role`} loading={busy} disabled={busy || ((roleChoice === 'admin' || roleTarget?.role === 'admin') && roleConfirm.trim().toUpperCase() !== 'CHANGE')} onPress={() => doSetRole(roleChoice)} />

@@ -96,6 +96,7 @@ function ResolveRow({ payout, onChanged }: { payout: admin.AdminPayout; onChange
         onChangeText={setTransferId}
         placeholder="tr_… (required to mark paid)"
         placeholderTextColor={c.muted}
+        accessibilityLabel="Stripe transfer ID required to mark paid"
         style={{ height: 42, borderWidth: 1, borderColor: c.border, borderRadius: radius.md, paddingHorizontal: 12, color: c.ink, backgroundColor: c.bg2, ...(type(13.5, 600) as object) }}
       />
       <TextInput
@@ -103,6 +104,7 @@ function ResolveRow({ payout, onChanged }: { payout: admin.AdminPayout; onChange
         onChangeText={setNote}
         placeholder="Reconciliation note (required when marking failed)"
         placeholderTextColor={c.muted}
+        accessibilityLabel="Reconciliation note required when marking failed"
         style={{ height: 42, borderWidth: 1, borderColor: c.border, borderRadius: radius.md, paddingHorizontal: 12, color: c.ink, backgroundColor: c.bg2, ...(type(13.5, 600) as object) }}
       />
       <View style={{ flexDirection: 'row', gap: 10 }}>

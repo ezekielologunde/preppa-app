@@ -189,6 +189,7 @@ function EditMealSheet({ meal, onClose, onSaved }: { meal: MyMealRow | null; onC
         value={name}
         onChangeText={setName}
         placeholderTextColor={c.muted}
+        accessibilityLabel="Dish name"
         style={{ height: 50, borderWidth: 1, borderColor: c.border, borderRadius: radius.md, paddingHorizontal: 14, color: c.ink, backgroundColor: c.bg2, marginBottom: 16, ...(type(15, 600) as object) }}
       />
       <Text style={[type(12, 800), { color: c.muted, textTransform: 'uppercase', letterSpacing: 0.4, marginBottom: 6 }]}>Price</Text>
@@ -198,6 +199,7 @@ function EditMealSheet({ meal, onClose, onSaved }: { meal: MyMealRow | null; onC
         keyboardType="decimal-pad"
         placeholder="0.00"
         placeholderTextColor={c.muted}
+        accessibilityLabel="Dish price"
         style={{ height: 50, borderWidth: 1, borderColor: c.border, borderRadius: radius.md, paddingHorizontal: 14, color: c.ink, backgroundColor: c.bg2, marginBottom: 18, ...(type(15, 600) as object) }}
       />
       <Text style={[type(12, 800), { color: c.muted, textTransform: 'uppercase', letterSpacing: 0.4, marginBottom: 6 }]}>Ingredients</Text>
@@ -207,6 +209,7 @@ function EditMealSheet({ meal, onClose, onSaved }: { meal: MyMealRow | null; onC
         multiline
         placeholder="Chicken, rice, onion, garlic, olive oil, spices…"
         placeholderTextColor={c.muted}
+        accessibilityLabel="Ingredients"
         style={{ minHeight: 84, textAlignVertical: 'top', borderWidth: 1, borderColor: c.border, borderRadius: radius.md, padding: 14, color: c.ink, backgroundColor: c.bg2, marginBottom: 16, ...(type(15, 600) as object) }}
       />
       <Text style={[type(12, 800), { color: c.muted, textTransform: 'uppercase', letterSpacing: 0.4, marginBottom: 8 }]}>Contains allergens</Text>

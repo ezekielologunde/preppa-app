@@ -150,6 +150,7 @@ export default function InHomeVetting() {
             <TextInput
               value={expires} onChangeText={canEdit ? setExpires : undefined} editable={canEdit}
               placeholder="YYYY-MM-DD" placeholderTextColor={c.muted}
+              accessibilityLabel="Insurance expiration date"
               style={{ height: 48, borderRadius: radius.sm, paddingHorizontal: 14, borderWidth: 1, borderColor: c.border, backgroundColor: canEdit ? c.bg : c.bg2, color: c.ink, fontSize: 15 }}
             />
           </View>

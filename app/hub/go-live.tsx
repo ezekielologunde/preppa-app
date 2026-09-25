@@ -103,6 +103,7 @@ export default function GoLive() {
               <TextInput
                 value={title} onChangeText={setTitle} placeholder="Sunday prep session"
                 placeholderTextColor={c.muted}
+                accessibilityLabel="Stream title, optional"
                 style={[type(15.5, 600), { color: c.ink, backgroundColor: c.bg2, borderWidth: 1.5, borderColor: c.border, borderRadius: radius.md, height: 52, paddingHorizontal: 15 }]}
               />
             </View>

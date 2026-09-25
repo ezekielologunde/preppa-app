@@ -199,6 +199,7 @@ function BroadcastComposer({ open, onClose }: { open: boolean; onClose: () => vo
               onChangeText={setBody}
               placeholder="e.g. This week’s menu is live — order by Thursday 6pm 🍜"
               placeholderTextColor={c.muted}
+              accessibilityLabel="Message to subscribers"
               multiline
               maxLength={2000}
               style={[type(14, 500), { color: c.ink, minHeight: 72, textAlignVertical: 'top' }]}

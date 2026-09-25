@@ -181,7 +181,7 @@ function RequestCard({ r, onQuoted, toast }: { r: IncomingRequest; onQuoted: () 
 
 function QInput({ c, value, onChange, placeholder, multiline }: { c: any; value: string; onChange: (t: string) => void; placeholder: string; multiline?: boolean }) {
   return (
-    <TextInput value={value} onChangeText={onChange} placeholder={placeholder} placeholderTextColor={c.muted} multiline={multiline}
+    <TextInput value={value} onChangeText={onChange} placeholder={placeholder} placeholderTextColor={c.muted} accessibilityLabel={placeholder} multiline={multiline}
       keyboardType={multiline ? undefined : 'decimal-pad'}
       style={[type(15, 600), { flex: 1, color: c.ink, backgroundColor: c.bg2, borderWidth: 1.5, borderColor: c.border, borderRadius: radius.md, minHeight: multiline ? 68 : 48, paddingHorizontal: 14, paddingTop: multiline ? 12 : 0 }]} />
   );
