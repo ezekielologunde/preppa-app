@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useRef, useState } from 'react';
 import { View, Text, ScrollView, TextInput } from 'react-native';
 import { useRouter } from 'expo-router';
 import { useC } from '../../src/theme/ThemeContext';
@@ -44,9 +44,10 @@ function ResolveRow({ payout, onChanged }: { payout: admin.AdminPayout; onChange
   const [transferId, setTransferId] = useState('');
   const [note, setNote] = useState('');
   const [busy, setBusy] = useState(false);
+  const resolutionInFlight = useRef(false);
 
   const resolve = async (outcome: 'paid' | 'failed') => {
-    if (busy) return;
+    if (resolutionInFlight.current) return;
     if (outcome === 'paid' && !/^tr_[A-Za-z0-9]+$/.test(transferId.trim())) {
       toast('Enter a valid Stripe transfer id beginning with tr_', 'info');
       return;
@@ -55,6 +56,7 @@ function ResolveRow({ payout, onChanged }: { payout: admin.AdminPayout; onChange
       toast('Add a note explaining why no transfer should be marked paid', 'info');
       return;
     }
+    resolutionInFlight.current = true;
     setBusy(true);
     try {
       await admin.resolvePayout(payout.id, outcome, transferId.trim() || undefined, note.trim() || undefined);
@@ -62,7 +64,7 @@ function ResolveRow({ payout, onChanged }: { payout: admin.AdminPayout; onChange
       onChanged();
     } catch (e: any) {
       toast(e?.message ?? 'Could not resolve this payout', 'info');
-    } finally { setBusy(false); }
+    } finally { resolutionInFlight.current = false; setBusy(false); }
   };
   const requestResolve = (outcome: 'paid' | 'failed') => {
     const transfer = transferId.trim();

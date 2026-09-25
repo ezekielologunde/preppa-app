@@ -15,6 +15,7 @@ Part of [[Project]]. Outstanding work discovered during the audit — not a spri
 - [x] Add a synchronous in-flight lock to checkout order creation and saved-card confirmation so rapid taps cannot start concurrent customer payment actions (2026-09-25).
 - [x] Extend synchronous duplicate-submission protection across experience booking, quote deposits, plans, custom boxes, PrepPlus, and service-request cancellation (2026-09-25).
 - [x] Guard Cook Pro billing actions and confirm plan switches and cancellation with clear proration and benefit-loss disclosure (2026-09-25).
+- [x] Serialize admin ticket, urgent support, and payout-reconciliation mutations before UI rerender to prevent conflicting rapid operator actions (2026-09-25).
 
 ## Competitive gap analysis: Shef (2026-09-09)
 

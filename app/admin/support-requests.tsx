@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useRef, useState } from 'react';
 import { View, Text, ScrollView, Linking } from 'react-native';
 import { useRouter } from 'expo-router';
 import { useC } from '../../src/theme/ThemeContext';
@@ -28,15 +28,18 @@ function Row({ r, open, onToggle, onChanged }: { r: admin.AdminSupportRequest; o
   const c = useC();
   const { toast } = useStore();
   const [busy, setBusy] = useState(false);
+  const statusInFlight = useRef(false);
 
   const changeStatus = async (s: admin.SupportRequestStatus) => {
-    if (busy) return;
+    if (statusInFlight.current) return;
+    statusInFlight.current = true;
     setBusy(true);
     try { await admin.setSupportRequestStatus(r.id, s); toast(`Marked ${STATUS_LABEL[s].toLowerCase()}`, 'check', true); onChanged(); }
     catch (e: any) { toast(e?.message ?? 'Update failed', 'info'); }
-    finally { setBusy(false); }
+    finally { statusInFlight.current = false; setBusy(false); }
   };
   const requestStatus = (s: admin.SupportRequestStatus) => {
+    if (statusInFlight.current) return;
     if (s !== 'closed' && !(s === 'resolved' && r.immediate_risk)) {
       void changeStatus(s);
       return;

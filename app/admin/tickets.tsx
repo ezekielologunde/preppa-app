@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import { View, Text, ScrollView, TextInput } from 'react-native';
 import { useRouter } from 'expo-router';
 import { useC } from '../../src/theme/ThemeContext';
@@ -29,6 +29,7 @@ function Detail({ ticketId, onChanged }: { ticketId: string; onChanged: () => vo
   const [reply, setReply] = useState('');
   const [internal, setInternal] = useState(false);
   const [busy, setBusy] = useState(false);
+  const mutationInFlight = useRef(false);
   const [loadError, setLoadError] = useState<string | null>(null);
 
   const load = async () => {
@@ -41,13 +42,15 @@ function Detail({ ticketId, onChanged }: { ticketId: string; onChanged: () => vo
   useEffect(() => { load(); /* eslint-disable-next-line react-hooks/exhaustive-deps */ }, [ticketId]);
 
   const changeStatus = async (s: admin.TicketStatus) => {
-    if (busy) return;
+    if (mutationInFlight.current) return;
+    mutationInFlight.current = true;
     setBusy(true);
     try { await admin.setTicketStatus(ticketId, s); toast(`Marked ${STATUS_LABEL[s].toLowerCase()}`, 'check', true); await load(); onChanged(); }
     catch (e: any) { toast(e?.message ?? 'Update failed', 'info'); }
-    finally { setBusy(false); }
+    finally { mutationInFlight.current = false; setBusy(false); }
   };
   const requestStatus = (s: admin.TicketStatus) => {
+    if (mutationInFlight.current) return;
     if (s !== 'closed') {
       void changeStatus(s);
       return;
@@ -60,18 +63,20 @@ function Detail({ ticketId, onChanged }: { ticketId: string; onChanged: () => vo
     );
   };
   const send = async () => {
-    if (busy || reply.trim().length < 1) return;
+    if (mutationInFlight.current || reply.trim().length < 1) return;
+    mutationInFlight.current = true;
     setBusy(true);
     try { await admin.replyToTicket(ticketId, reply.trim(), internal); setReply(''); setInternal(false); await load(); onChanged(); }
     catch (e: any) { toast(e?.message ?? 'Reply failed', 'info'); }
-    finally { setBusy(false); }
+    finally { mutationInFlight.current = false; setBusy(false); }
   };
   const shareCook = async () => {
-    if (busy) return;
+    if (mutationInFlight.current) return;
+    mutationInFlight.current = true;
     setBusy(true);
     try { await admin.shareTicketWithCook(ticketId); toast('Shared with the cook', 'check', true); await load(); onChanged(); }
     catch (e: any) { toast(e?.message ?? 'Share failed', 'info'); }
-    finally { setBusy(false); }
+    finally { mutationInFlight.current = false; setBusy(false); }
   };
 
   if (loading) return <Text style={[type(13.5, 600), { color: c.soft, marginTop: 12 }]}>Loading…</Text>;
