@@ -249,7 +249,7 @@ export function KField({ label, hint, children }: { label?: string; hint?: strin
   );
 }
 
-export function KInput({ value, onChange, placeholder, multiline, accessibilityLabel }: { value: string; onChange: (t: string) => void; placeholder?: string; multiline?: boolean; accessibilityLabel?: string }) {
+export function KInput({ value, onChange, placeholder, multiline, accessibilityLabel, maxLength }: { value: string; onChange: (t: string) => void; placeholder?: string; multiline?: boolean; accessibilityLabel?: string; maxLength?: number }) {
   const c = useC();
   const [f, setF] = useState(false);
   return (
@@ -260,6 +260,7 @@ export function KInput({ value, onChange, placeholder, multiline, accessibilityL
       placeholderTextColor={c.muted}
       accessibilityLabel={accessibilityLabel}
       multiline={multiline}
+      maxLength={maxLength}
       onFocus={() => setF(true)}
       onBlur={() => setF(false)}
       style={[type(15, 600), { color: c.ink, backgroundColor: f ? c.surface : c.bg2, borderWidth: 1.5, borderColor: f ? c.primary : 'transparent', borderRadius: 13, paddingHorizontal: 15 }, multiline ? { minHeight: 92, paddingVertical: 13, textAlignVertical: 'top' } : { height: 50 }]}
@@ -267,7 +268,7 @@ export function KInput({ value, onChange, placeholder, multiline, accessibilityL
   );
 }
 
-export function MoneyInput({ value, onChange, placeholder = '0.00', big, accessibilityLabel }: { value: string; onChange: (t: string) => void; placeholder?: string; big?: boolean; accessibilityLabel?: string }) {
+export function MoneyInput({ value, onChange, placeholder = '0.00', big, accessibilityLabel, maxLength = 12 }: { value: string; onChange: (t: string) => void; placeholder?: string; big?: boolean; accessibilityLabel?: string; maxLength?: number }) {
   const c = useC();
   const [f, setF] = useState(false);
   return (
@@ -281,6 +282,7 @@ export function MoneyInput({ value, onChange, placeholder = '0.00', big, accessi
         placeholder={placeholder}
         placeholderTextColor={c.muted}
         accessibilityLabel={accessibilityLabel}
+        maxLength={maxLength}
         keyboardType="decimal-pad"
         onFocus={() => setF(true)}
         onBlur={() => setF(false)}

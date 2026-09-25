@@ -8,6 +8,8 @@ tags: [project/preppa, type/tasks]
 
 # Tasks
 
+- [x] Bound public meal catalog inputs in the form and database: enforce finite price, serving, name, description, ingredient, tag, and allergen limits, with regression coverage and visible character counts (2026-09-25)
+
 - [x] Harden cook analytics recovery: sequence loads, preserve the last verified totals through refresh failures, replace raw backend errors with stable guidance, and provide an accessible inline retry state (2026-09-25)
 
 - [x] Harden cook fulfillment settings: sequence kitchen loads, ignore updates after unmount, use stable recovery guidance, and synchronously lock delivery and pickup mutations (2026-09-25)

@@ -71,8 +71,17 @@ export default function CreateMealFlow() {
   const publishInFlight = useRef(false);
   const toggleD = (d: string) => setDiet((p) => (p.includes(d) ? p.filter((x) => x !== d) : [...p, d]));
   const toggleAllergen = (a: string) => setAllergens((p) => (p.includes(a) ? p.filter((x) => x !== a) : [...p, a]));
-  const valid = !!name.trim() && Number(price) > 0 && ingredients.trim().length >= 3 && allergenReviewed;
-  const reason = !name.trim() ? 'Add a dish name' : Number(price) <= 0 ? 'Set a price above $0' : ingredients.trim().length < 3 ? 'List the ingredients customers should know about' : 'Confirm you reviewed the allergen disclosure';
+  const priceCents = Math.round(Number(price) * 100);
+  const validPrice = Number.isSafeInteger(priceCents) && priceCents >= 100 && priceCents <= 100_000_000;
+  const valid = name.trim().length >= 2 && name.trim().length <= 120 && desc.trim().length <= 2000 && validPrice && serves <= 100 && ingredients.trim().length >= 3 && ingredients.trim().length <= 5000 && allergenReviewed;
+  const reason = name.trim().length < 2 ? 'Add a dish name with at least 2 characters'
+    : name.trim().length > 120 ? 'Keep the dish name to 120 characters'
+    : desc.trim().length > 2000 ? 'Keep the description to 2,000 characters'
+    : !validPrice ? 'Enter a price from $1 to $1,000,000'
+    : serves > 100 ? 'A meal can serve up to 100 people'
+    : ingredients.trim().length < 3 ? 'List the ingredients customers should know about'
+    : ingredients.trim().length > 5000 ? 'Keep the ingredient list to 5,000 characters'
+    : 'Confirm you reviewed the allergen disclosure';
   const submit = async () => {
     if (publishInFlight.current) return;
     if (!valid) { toast(reason, 'info'); return; }
@@ -82,7 +91,7 @@ export default function CreateMealFlow() {
       const mealId = await createMeal({
         name: name.trim(),
         description: desc.trim() || undefined,
-        priceCents: Math.round(Number(price) * 100),
+        priceCents,
         serves,
         tags: [cat, ...diet],
         grad: grad ?? undefined,
@@ -164,8 +173,8 @@ export default function CreateMealFlow() {
           <Text style={[type(12, 700), { color: c.soft, marginTop: 16, marginBottom: 8 }]}>Fallback color <Text style={[type(12, 500), { color: c.muted }]}>· shown until a photo is added</Text></Text>
           <PhotoPick grad={grad} setGrad={setGrad} />
         </View>
-        <KField label="Dish name"><KInput value={name} onChange={setName} placeholder="e.g. Family Lasagna Tray" /></KField>
-        <KField label="Description" hint="tell the story"><KInput value={desc} onChange={setDesc} placeholder="Layered fresh pasta, slow-simmered ragù, three cheeses…" multiline /></KField>
+        <KField label="Dish name"><KInput value={name} onChange={setName} placeholder="e.g. Family Lasagna Tray" maxLength={120} /></KField>
+        <KField label="Description" hint={`${desc.length}/2000`}><KInput value={desc} onChange={setDesc} placeholder="Layered fresh pasta, slow-simmered ragù, three cheeses…" multiline maxLength={2000} /></KField>
         <View style={{ flexDirection: 'row', gap: 12 }}>
           <View style={{ flex: 1 }}>
             <KField label="Price"><MoneyInput value={price} onChange={setPrice} /></KField>
@@ -174,7 +183,7 @@ export default function CreateMealFlow() {
             <KField label="Serves">
               <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', height: 50, paddingLeft: 14, paddingRight: 6, backgroundColor: c.bg2, borderRadius: 13 }}>
                 <Text style={[type(15, 800), { color: c.ink }]}>{serves}</Text>
-                <Stepper sm value={serves} onDec={() => setServes(Math.max(1, serves - 1))} onInc={() => setServes(serves + 1)} />
+                <Stepper sm value={serves} onDec={() => setServes(Math.max(1, serves - 1))} onInc={() => setServes(Math.min(100, serves + 1))} />
               </View>
             </KField>
           </View>
@@ -189,8 +198,8 @@ export default function CreateMealFlow() {
             {DIETS.map((x) => <KChoice key={x} label={x} on={diet.includes(x)} onPress={() => toggleD(x)} check />)}
           </View>
         </KField>
-        <KField label="Ingredients" hint="required · list every ingredient">
-          <KInput value={ingredients} onChange={setIngredients} placeholder="Chicken, rice, onion, garlic, olive oil, spices…" multiline accessibilityLabel="Ingredients" />
+        <KField label="Ingredients" hint={`required · ${ingredients.length}/5000`}>
+          <KInput value={ingredients} onChange={setIngredients} placeholder="Chicken, rice, onion, garlic, olive oil, spices…" multiline accessibilityLabel="Ingredients" maxLength={5000} />
         </KField>
         <KField label="Contains allergens" hint="select every allergen that applies">
           <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 9 }}>

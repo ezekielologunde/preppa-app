@@ -180,11 +180,12 @@ function EditMealSheet({ meal, onClose, onSaved }: { meal: MyMealRow | null; onC
   const save = async () => {
     const cents = Math.round(parseFloat(price || '0') * 100);
     if (name.trim().length < 2) { toast('Dish name is too short', 'info'); return; }
-    if (!cents || cents <= 0) { toast('Enter a valid price', 'info'); return; }
+    if (name.trim().length > 120) { toast('Keep the dish name to 120 characters', 'info'); return; }
+    if (!Number.isSafeInteger(cents) || cents < 100 || cents > 100_000_000) { toast('Enter a price from $1 to $1,000,000', 'info'); return; }
     const hasDisclosure = !!meal.allergen_reviewed_at;
     const disclosureTouched = ingredients.trim() !== (meal.ingredients ?? '') || allergens.join() !== (meal.allergens ?? []).join() || (!hasDisclosure && reviewed);
-    if (disclosureTouched && (ingredients.trim().length < 3 || !reviewed)) {
-      toast(ingredients.trim().length < 3 ? 'List the ingredients customers should know about' : 'Confirm you reviewed the allergen disclosure', 'info');
+    if (disclosureTouched && (ingredients.trim().length < 3 || ingredients.trim().length > 5000 || !reviewed)) {
+      toast(ingredients.trim().length < 3 ? 'List the ingredients customers should know about' : ingredients.trim().length > 5000 ? 'Keep the ingredient list to 5,000 characters' : 'Confirm you reviewed the allergen disclosure', 'info');
       return;
     }
     setBusy(true);
@@ -212,6 +213,7 @@ function EditMealSheet({ meal, onClose, onSaved }: { meal: MyMealRow | null; onC
         onChangeText={setName}
         placeholderTextColor={c.muted}
         accessibilityLabel="Dish name"
+        maxLength={120}
         style={{ height: 50, borderWidth: 1, borderColor: c.border, borderRadius: radius.md, paddingHorizontal: 14, color: c.ink, backgroundColor: c.bg2, marginBottom: 16, ...(type(15, 600) as object) }}
       />
       <Text style={[type(12, 800), { color: c.muted, textTransform: 'uppercase', letterSpacing: 0.4, marginBottom: 6 }]}>Price</Text>
@@ -222,6 +224,7 @@ function EditMealSheet({ meal, onClose, onSaved }: { meal: MyMealRow | null; onC
         placeholder="0.00"
         placeholderTextColor={c.muted}
         accessibilityLabel="Dish price"
+        maxLength={12}
         style={{ height: 50, borderWidth: 1, borderColor: c.border, borderRadius: radius.md, paddingHorizontal: 14, color: c.ink, backgroundColor: c.bg2, marginBottom: 18, ...(type(15, 600) as object) }}
       />
       <Text style={[type(12, 800), { color: c.muted, textTransform: 'uppercase', letterSpacing: 0.4, marginBottom: 6 }]}>Ingredients</Text>
@@ -232,8 +235,10 @@ function EditMealSheet({ meal, onClose, onSaved }: { meal: MyMealRow | null; onC
         placeholder="Chicken, rice, onion, garlic, olive oil, spices…"
         placeholderTextColor={c.muted}
         accessibilityLabel="Ingredients"
+        maxLength={5000}
         style={{ minHeight: 84, textAlignVertical: 'top', borderWidth: 1, borderColor: c.border, borderRadius: radius.md, padding: 14, color: c.ink, backgroundColor: c.bg2, marginBottom: 16, ...(type(15, 600) as object) }}
       />
+      <Text style={[type(11.5, 600), { color: c.muted, textAlign: 'right', marginTop: -12, marginBottom: 16 }]} accessibilityLabel={`${ingredients.length} of 5000 ingredient characters used`}>{ingredients.length}/5000</Text>
       <Text style={[type(12, 800), { color: c.muted, textTransform: 'uppercase', letterSpacing: 0.4, marginBottom: 8 }]}>Contains allergens</Text>
       <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 9, marginBottom: 16 }}>
         {MAJOR_ALLERGENS.map((x) => <KChoice key={x} label={x} on={allergens.includes(x)} onPress={() => setAllergens((a) => (a.includes(x) ? a.filter((y) => y !== x) : [...a, x]))} check />)}

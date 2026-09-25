@@ -633,6 +633,29 @@ end $$;
 
 do $$
 begin
+  if (select count(*) from pg_constraint where conrelid = 'public.meals'::regclass and conname = any(array[
+    'meals_public_name_length', 'meals_public_description_length', 'meals_public_price_range',
+    'meals_public_serves_range', 'meals_public_ingredients_length', 'meals_public_tags_count',
+    'meals_public_allergens_allowlist'
+  ])) <> 7 or not exists (
+    select 1 from pg_constraint where conrelid = 'public.meals'::regclass
+      and conname = 'meals_public_name_length'
+      and pg_get_constraintdef(oid) ~ 'char_length.*120'
+  ) or not exists (
+    select 1 from pg_constraint where conrelid = 'public.meals'::regclass
+      and conname = 'meals_public_price_range'
+      and pg_get_constraintdef(oid) ~ '100000000'
+  ) or not exists (
+    select 1 from pg_constraint where conrelid = 'public.meals'::regclass
+      and conname = 'meals_public_ingredients_length'
+      and pg_get_constraintdef(oid) ~ '5000'
+  ) then
+    raise exception 'REGRESSION: public meal input limits are no longer enforced at the database';
+  end if;
+end $$;
+
+do $$
+begin
   if not exists (
     select 1 from pg_constraint
     where conrelid = 'public.reviews'::regclass
