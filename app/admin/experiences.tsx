@@ -23,14 +23,24 @@ export default function AdminExperiences() {
   const [error, setError] = useState('');
   const [busy, setBusy] = useState<string | null>(null);
   const reviewInFlight = useRef(false);
+  const loadRequest = useRef(0);
 
   const load = useCallback(async () => {
+    const request = ++loadRequest.current;
     setLoading(true); setError('');
-    try { setItems(await fetchPendingExperiences()); }
-    catch { setError('Check your connection and try loading experience reviews again.'); }
-    finally { setLoading(false); }
+    try {
+      const next = await fetchPendingExperiences();
+      if (request === loadRequest.current) setItems(next);
+    } catch {
+      if (request === loadRequest.current) setError('Check your connection and try loading experience reviews again.');
+    } finally {
+      if (request === loadRequest.current) setLoading(false);
+    }
   }, []);
-  useFocusEffect(useCallback(() => { load(); }, [load]));
+  useFocusEffect(useCallback(() => {
+    load();
+    return () => { loadRequest.current += 1; };
+  }, [load]));
 
   const act = async (e: Experience, status: 'published' | 'archived') => {
     if (reviewInFlight.current) return;

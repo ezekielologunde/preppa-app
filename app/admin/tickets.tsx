@@ -30,16 +30,30 @@ function Detail({ ticketId, onChanged }: { ticketId: string; onChanged: () => vo
   const [internal, setInternal] = useState(false);
   const [busy, setBusy] = useState(false);
   const mutationInFlight = useRef(false);
+  const loadRequest = useRef(0);
   const [loadError, setLoadError] = useState<string | null>(null);
 
   const load = async () => {
+    const request = ++loadRequest.current;
     setLoading(true);
     setLoadError(null);
-    try { setDetail(await admin.ticketDetail(ticketId)); }
-    catch { setLoadError('Check your connection and try loading this ticket again.'); }
-    finally { setLoading(false); }
+    try {
+      const next = await admin.ticketDetail(ticketId);
+      if (request === loadRequest.current) setDetail(next);
+    } catch {
+      if (request === loadRequest.current) setLoadError('Check your connection and try loading this ticket again.');
+    } finally {
+      if (request === loadRequest.current) setLoading(false);
+    }
   };
-  useEffect(() => { load(); /* eslint-disable-next-line react-hooks/exhaustive-deps */ }, [ticketId]);
+  useEffect(() => {
+    setDetail(null);
+    setReply('');
+    setInternal(false);
+    load();
+    return () => { loadRequest.current += 1; };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [ticketId]);
 
   const changeStatus = async (s: admin.TicketStatus) => {
     if (mutationInFlight.current) return;

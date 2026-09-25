@@ -1,4 +1,4 @@
-import React, { useCallback, useEffect, useState } from 'react';
+import React, { useCallback, useEffect, useRef, useState } from 'react';
 import { View, Text, ScrollView } from 'react-native';
 import { useC } from '../../src/theme/ThemeContext';
 import { type, radius, tnum } from '../../src/theme/theme';
@@ -20,38 +20,48 @@ export default function AdminAudit() {
   const [done, setDone] = useState(false);
   const [error, setError] = useState<Error | null>(null);
   const [sel, setSel] = useState<admin.AdminAuditEntry | null>(null);
+  const loadRequest = useRef(0);
+  const moreInFlight = useRef(false);
 
   const loadFirst = useCallback(async () => {
+    const request = ++loadRequest.current;
+    moreInFlight.current = false;
     setLoading(true);
     setError(null);
     setDone(false);
     try {
       const page = await admin.listAudit({ limit: PAGE });
+      if (request !== loadRequest.current) return;
       setRows(page);
       setDone(page.length < PAGE);
-    } catch (e) {
-      setError(e as Error);
+    } catch {
+      if (request === loadRequest.current) setError(new Error('Could not load audit events.'));
     } finally {
-      setLoading(false);
+      if (request === loadRequest.current) setLoading(false);
     }
   }, []);
 
   useEffect(() => {
     loadFirst();
+    return () => { loadRequest.current += 1; moreInFlight.current = false; };
   }, [loadFirst]);
 
   const loadOlder = async () => {
-    if (rows.length === 0) return;
+    if (rows.length === 0 || moreInFlight.current) return;
+    moreInFlight.current = true;
+    const request = loadRequest.current;
     setMore(true);
     setError(null);
     try {
       const page = await admin.listAudit({ limit: PAGE, before: rows[rows.length - 1].created_at });
+      if (request !== loadRequest.current) return;
       setRows((prev) => [...prev, ...page]);
       if (page.length < PAGE) setDone(true);
-    } catch (e) {
-      setError(e as Error);
+    } catch {
+      if (request === loadRequest.current) setError(new Error('Could not load older audit events.'));
     } finally {
-      setMore(false);
+      if (request === loadRequest.current) setMore(false);
+      moreInFlight.current = false;
     }
   };
 
@@ -93,7 +103,7 @@ export default function AdminAudit() {
             />
             {!loading && rows.length > 0 && !done ? (
               <View style={{ paddingHorizontal: 16, marginTop: 12 }}>
-                <Btn label={more ? 'Loading…' : 'Load older'} variant="ghost" loading={more} onPress={loadOlder} />
+                <Btn label={more ? 'Loading…' : 'Load older'} variant="ghost" loading={more} disabled={more} onPress={loadOlder} />
               </View>
             ) : null}
           </>

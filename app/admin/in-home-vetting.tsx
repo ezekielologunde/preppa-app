@@ -27,13 +27,22 @@ export default function AdminInHomeVetting() {
   const [reason, setReason] = useState('');
   const [busy, setBusy] = useState<null | 'approve' | 'reject'>(null);
   const reviewInFlight = useRef(false);
+  const loadRequest = useRef(0);
   const [viewUri, setViewUri] = useState<string | null>(null);
 
   const load = () => {
+    const request = ++loadRequest.current;
     setLoading(true); setError(null);
-    admin.listInHomeVetting().then((r) => { setData(r); setLoading(false); }).catch(() => { setError(new Error('Check your connection and try loading in-home reviews again.')); setLoading(false); });
+    admin.listInHomeVetting()
+      .then((r) => { if (request === loadRequest.current) setData(r); })
+      .catch(() => { if (request === loadRequest.current) setError(new Error('Check your connection and try loading in-home reviews again.')); })
+      .finally(() => { if (request === loadRequest.current) setLoading(false); });
   };
-  useEffect(load, []);
+  useEffect(() => {
+    load();
+    return () => { loadRequest.current += 1; };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   const close = () => { setOpenId(null); setReason(''); setBusy(null); };
 
