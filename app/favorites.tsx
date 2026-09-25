@@ -22,7 +22,7 @@ export default function Favorites() {
       {loading ? (
         <View style={{ flex: 1, alignItems: 'center', justifyContent: 'center' }}><ActivityIndicator color={c.primary} /></View>
       ) : error && !allMeals ? (
-        <Empty icon="info" title="Couldn’t load favorites" body={error.message || 'Check your connection and try again.'} action={<Btn label="Try again" icon="repeat" onPress={() => invalidate('catalog:live')} />} />
+        <Empty icon="info" title="Couldn’t load favorites" body="Check your connection and try loading your saved meals again." action={<Btn label="Try again" icon="repeat" onPress={() => invalidate('catalog:live')} />} />
       ) : saved.length === 0 ? (
         <Empty
           icon="heart"
@@ -32,6 +32,7 @@ export default function Favorites() {
         />
       ) : (
         <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={{ paddingTop: 16, paddingBottom: 40 }}>
+          {error ? <Empty icon="info" title="Favorites may be out of date" body="Your saved meals are still available. Try refreshing when your connection returns." action={<Btn label="Refresh" icon="repeat" onPress={() => invalidate('catalog:live')} />} /> : null}
           <MealGrid meals={saved} px={16} />
         </ScrollView>
       )}

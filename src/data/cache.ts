@@ -29,9 +29,11 @@ function bump(e: Entry) { e.version++; e.subs.forEach((fn) => fn()); }
 function runKey(key: string) {
   const e = ent(key);
   if (e.promise || !e.run) return;
+  e.error = null;
   e.promise = e.run()
     .then((d) => { e.data = d; e.error = null; e.ts = Date.now(); e.promise = null; bump(e); })
     .catch((err) => { e.error = err instanceof Error ? err : new Error(String(err)); e.promise = null; bump(e); });
+  bump(e);
 }
 
 /** Invalidate one key or all keys matching a predicate; refetch any that are being observed. */
@@ -69,7 +71,7 @@ export function useCachedAsync<T>(key: string | null, fetcher: () => Promise<T>,
   const e = key ? ent(key) : null;
   return {
     data: (e && e.data !== undefined ? e.data : null) as T | null,
-    loading: !!key && e!.data === undefined && !e!.error,
+    loading: !!key && e!.data === undefined && (!!e!.promise || !e!.error),
     error: e?.error ?? null,
   };
 }

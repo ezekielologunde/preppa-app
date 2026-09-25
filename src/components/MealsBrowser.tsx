@@ -7,6 +7,7 @@ import { type, radius } from '../theme/theme';
 import { Icon, Press, Btn, Sheet } from '../ui';
 import { Empty } from '../ui/layout';
 import { MealGrid } from './cards';
+import { invalidate } from '../data/cache';
 
 const CATS = ['All', 'Comfort', 'Healthy', 'Halal', 'Mexican', 'Seafood', 'Soul food'];
 const PRICES: { label: string; test: (p: number) => boolean }[] = [
@@ -104,12 +105,15 @@ export function MealsBrowser({ initialCat, initialGoal }: { initialCat?: string;
 
         {loading ? (
           <View style={{ paddingVertical: 60, alignItems: 'center' }}><ActivityIndicator color={c.primary} /></View>
-        ) : error ? (
-          <Empty icon="info" title="Couldn’t load meals" body="Something went wrong loading meals. Pull to refresh or try again." />
+        ) : error && (!allMeals || allMeals.length === 0) ? (
+          <Empty icon="info" title="Couldn’t load meals" body="Check your connection and try loading available meals again." action={<Btn label="Try again" icon="repeat" onPress={() => invalidate('catalog:live')} />} />
         ) : list.length === 0 ? (
           <Empty icon="search" title="No matches" body="Try another cuisine, clear filters, or search again." />
         ) : (
-          <MealGrid meals={list} showMatch px={16} />
+          <>
+            {error ? <Empty icon="info" title="Meals may be out of date" body="You can keep browsing the last loaded menu while we reconnect." action={<Btn label="Refresh" icon="repeat" onPress={() => invalidate('catalog:live')} />} /> : null}
+            <MealGrid meals={list} showMatch px={16} />
+          </>
         )}
       </ScrollView>
 

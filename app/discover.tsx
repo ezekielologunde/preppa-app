@@ -14,6 +14,7 @@ import { Dialog } from '../src/ui/overlay';
 import { listMyRequests, acceptQuoteAndDeposit, SERVICE_LABELS, type RequestView } from '../src/lib/services';
 import { useStore } from '../src/store/store';
 import { FLAGS } from '../src/config/flags';
+import { invalidate } from '../src/data/cache';
 
 // Meal-plan browsing lives in the Experiences hub (→ /experiences?tab=plans), not here.
 type Mode = 'meals' | 'preppers' | 'services';
@@ -61,6 +62,7 @@ function ServicesMode() {
   const [busyQuote, setBusyQuote] = useState<string | null>(null);
   const quoteInFlight = useRef(false);
   const [loadError, setLoadError] = useState<string | null>(null);
+  const loadSequence = useRef(0);
   // Confirming a deposit moves real money to a stranger's kitchen — one tap straight into the
   // payment sheet was too thin a safety margin, especially with several quotes pending at once.
   const [confirm, setConfirm] = useState<{ id: string; kitchenName: string; amountLabel: string } | null>(null);
@@ -69,12 +71,17 @@ function ServicesMode() {
   // Audit High finding: this used to have no .catch, so a rejected listMyRequests() call
   // left `loading` stuck true forever with no error surfaced.
   const load = useCallback(() => {
+    const sequence = ++loadSequence.current;
     setLoading(true); setLoadError(null);
     listMyRequests()
-      .then((r) => { setRequests(r); setLoading(false); })
-      .catch((e: any) => { setLoadError(e?.message || 'Could not load your requests.'); setLoading(false); });
+      .then((r) => { if (sequence === loadSequence.current) setRequests(r); })
+      .catch(() => { if (sequence === loadSequence.current) setLoadError('Check your connection and try loading your requests again.'); })
+      .finally(() => { if (sequence === loadSequence.current) setLoading(false); });
   }, []);
-  useFocusEffect(useCallback(() => { load(); }, [load]));
+  useFocusEffect(useCallback(() => {
+    load();
+    return () => { loadSequence.current += 1; };
+  }, [load]));
 
   const accept = async (quoteId: string, amountLabel: string) => {
     if (quoteInFlight.current) return;
@@ -110,7 +117,7 @@ function ServicesMode() {
       <Text style={[type(12, 800), { color: c.muted, textTransform: 'uppercase', letterSpacing: 0.5, marginTop: 22, marginBottom: 10 }]}>Your requests</Text>
       {loading ? (
         <View style={{ paddingVertical: 40, alignItems: 'center' }}><ActivityIndicator color={c.primary} /></View>
-      ) : loadError ? (
+      ) : loadError && requests.length === 0 ? (
         <View style={{ alignItems: 'center', paddingVertical: 30, paddingHorizontal: 24 }}>
           <Text style={[type(13.5, 600), { color: c.red, textAlign: 'center', marginBottom: 10 }]}>{loadError}</Text>
           <Press scale={0.96} onPress={load}><Text style={[type(13.5, 800), { color: c.accentText }]}>Try again</Text></Press>
@@ -119,7 +126,14 @@ function ServicesMode() {
         <View style={{ alignItems: 'center', paddingVertical: 30, paddingHorizontal: 24 }}>
           <Text style={[type(13.5, 600), { color: c.soft, textAlign: 'center' }]}>No requests yet. Post one above to get quotes from local preppers.</Text>
         </View>
-      ) : requests.map((r) => (
+      ) : <>
+        {loadError ? (
+          <View accessibilityRole="alert" style={{ backgroundColor: c.bg2, borderWidth: 1, borderColor: c.border, borderRadius: radius.md, padding: 12, marginBottom: 12 }}>
+            <Text style={[type(12.5, 700), { color: c.soft, lineHeight: 18 }]}>Your requests may be out of date. You can keep reviewing the last loaded results.</Text>
+            <Press scale={0.96} onPress={load} label="Refresh service requests"><Text style={[type(12.5, 800), { color: c.accentText, marginTop: 8 }]}>Refresh</Text></Press>
+          </View>
+        ) : null}
+        {requests.map((r) => (
         <View key={r.id} style={{ backgroundColor: c.surface, borderWidth: 1, borderColor: c.border2, borderRadius: radius.xl, padding: 16, marginBottom: 12, ...shadow.card }}>
           <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }}>
             <Text style={[type(15.5, 900), { color: c.ink }]}>{SERVICE_LABELS[r.category]}</Text>
@@ -152,7 +166,8 @@ function ServicesMode() {
             </View>
           )}
         </View>
-      ))}
+        ))}
+      </>}
 
       <CardPaymentSheet visible={!!pay} clientSecret={pay?.clientSecret ?? null} amountLabel={pay?.label ?? ''} mode="pay"
         onPaid={() => { setPay(null); toast('Deposit paid — booking confirmed', 'check', true); load(); }} onClose={() => setPay(null)} />
@@ -198,9 +213,10 @@ function PreppersMode() {
   if (loading) return <View style={{ paddingVertical: 60, alignItems: 'center' }}><ActivityIndicator color={c.primary} /></View>;
   // Audit High finding: this used to drop the `error` field entirely, so a failed fetch
   // rendered the same "no preppers" empty-state text as a genuine zero-results case.
-  if (error) return (
+  if (error && (!kitchens || kitchens.length === 0)) return (
     <View style={{ alignItems: 'center', paddingVertical: 50, paddingHorizontal: 24 }}>
       <Text style={[type(13.5, 600), { color: c.red, textAlign: 'center', marginBottom: 10 }]}>Could not load preppers. Please try again.</Text>
+      <Press scale={0.96} onPress={() => invalidate('kitchens:public')} label="Try loading preppers again"><Text style={[type(13.5, 800), { color: c.accentText }]}>Try again</Text></Press>
     </View>
   );
   const all = kitchens ?? [];
@@ -223,6 +239,12 @@ function PreppersMode() {
           <TextInput value={q} onChangeText={setQ} placeholder="Search preppers, cuisines…" placeholderTextColor={c.muted} accessibilityLabel="Search preppers and cuisines" style={[type(15, 600), { color: c.ink, flex: 1, padding: 0 }]} />
         </View>
       </View>
+      {error ? (
+        <View accessibilityRole="alert" style={{ backgroundColor: c.bg2, borderWidth: 1, borderColor: c.border, borderRadius: radius.md, padding: 12, marginHorizontal: 16, marginTop: 12 }}>
+          <Text style={[type(12.5, 700), { color: c.soft }]}>Prepper results may be out of date. You can keep browsing while we reconnect.</Text>
+          <Press scale={0.96} onPress={() => invalidate('kitchens:public')} label="Refresh preppers"><Text style={[type(12.5, 800), { color: c.accentText, marginTop: 8 }]}>Refresh</Text></Press>
+        </View>
+      ) : null}
       {list.length === 0 ? (
         <View style={{ alignItems: 'center', paddingVertical: 50, paddingHorizontal: 24 }}>
           <Text style={[type(14, 600), { color: c.soft, textAlign: 'center' }]}>No preppers match “{q}”.</Text>
