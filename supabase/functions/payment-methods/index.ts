@@ -107,8 +107,31 @@ Deno.serve(async (req) => {
       if (!pmId) return json(400, { error: 'missing paymentMethodId' });
       const pm = await stripe.paymentMethods.retrieve(pmId);
       if ((pm as any).customer !== customer) return json(403, { error: 'not your card' });
+      const cust = await stripe.customers.retrieve(customer) as any;
+      const defaultId = cust?.invoice_settings?.default_payment_method ?? null;
+      let replacementId: string | null = null;
+      if (defaultId === pmId) {
+        const cards = await stripe.paymentMethods.list({ customer, type: 'card' });
+        replacementId = cards.data.find((card) => card.id !== pmId)?.id ?? null;
+        if (!replacementId) {
+          const [membershipResult, subscriptionsResult] = await Promise.all([
+            db.from('memberships').select('id').eq('customer_id', uid)
+              .in('status', ['active', 'trialing', 'past_due']).limit(1),
+            db.from('subscriptions').select('id').eq('customer_id', uid)
+              .in('lifecycle', ['pending_confirmation', 'active', 'paused', 'payment_failed', 'cancellation_scheduled']).limit(1),
+          ]);
+          if (membershipResult.error || subscriptionsResult.error) {
+            throw membershipResult.error ?? subscriptionsResult.error;
+          }
+          if ((membershipResult.data?.length ?? 0) > 0 || (subscriptionsResult.data?.length ?? 0) > 0) {
+            return json(409, { error: 'Add another card before removing the default card used for an active membership or meal plan.' });
+          }
+        } else {
+          await stripe.customers.update(customer, { invoice_settings: { default_payment_method: replacementId } });
+        }
+      }
       await stripe.paymentMethods.detach(pmId);
-      return json(200, { ok: true });
+      return json(200, { ok: true, defaultId: replacementId });
     }
 
     if (action === 'default') {
