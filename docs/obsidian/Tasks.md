@@ -115,6 +115,7 @@ Went end-to-end through Shef's actual ordering flow (add to cart → cross-sell 
 - [x] ~~Protect cook menu recovery and archiving~~ — done 2026-09-25. Menu load failures now provide a real retry state, status mutations reject overlapping taps, and dish archiving requires a cross-platform confirmation that explains the effect on customer visibility and existing orders.
 - [x] ~~Confirm manual payout reconciliation outcomes~~ — done 2026-09-25. Admins now review the amount, kitchen, Stripe transfer ID, or failure note in a cross-platform confirmation before marking a payout paid or failed. Overlapping reconciliation submissions are blocked.
 - [x] ~~Confirm admin kitchen application decisions~~ — done 2026-09-25. Approval now explains when marketplace eligibility begins, rejection repeats the applicant-visible reason before submission, and rejection text is visibly bounded to 1,000 characters.
+- [x] ~~Protect kitchen reinstatement and suspension reasons~~ — done 2026-09-25. Reinstatement now requires confirmation that customer-facing listings may return, and the owner-visible suspension reason is visibly bounded to 1,000 characters.
 - [ ] In-app camera broadcast for Go Live (currently external RTMP only — no official Mux RN SDK).
 - Cash on delivery is not offered. Any future version requires a separately approved held-card, deposit, and identity design before client work begins.
 

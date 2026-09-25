@@ -12,6 +12,7 @@ import { DataTable, Column } from '../../src/components/admin/DataTable';
 import { AdminHeader } from '../../src/components/admin/AdminHeader';
 import { ErrorRetry } from '../../src/components/admin/states';
 import { fmtDate, humanize, roleTone } from '../../src/components/admin/format';
+import { confirmAction } from '../../src/lib/confirm';
 
 export default function AdminUsers() {
   const c = useC();
@@ -70,6 +71,14 @@ export default function AdminUsers() {
       toast(e?.message ?? 'Reinstate failed', 'info');
     } finally { setBusy(false); }
   };
+  const requestReinstate = (u: admin.AdminUser) => {
+    confirmAction(
+      `Reinstate ${u.kitchen_name ?? 'this kitchen'}?`,
+      'Reinstatement restores the kitchen’s verified status and can make its live listings available to customers again.',
+      () => void doReinstate(u),
+      'Reinstate kitchen',
+    );
+  };
 
   const columns: Column<admin.AdminUser>[] = [
     {
@@ -95,7 +104,7 @@ export default function AdminUsers() {
           {u.kitchen_id && u.verification_status === 'verified' ? (
             <Press scale={0.95} onPress={() => { setTarget(u); setReason(''); }}><Text style={[type(12.5, 800), { color: c.red }]}>Suspend</Text></Press>
           ) : u.kitchen_id && u.verification_status === 'suspended' ? (
-            <Press scale={0.95} onPress={() => doReinstate(u)}><Text style={[type(12.5, 800), { color: c.green }]}>Reinstate</Text></Press>
+            <Press scale={0.95} onPress={() => requestReinstate(u)}><Text style={[type(12.5, 800), { color: c.green }]}>Reinstate</Text></Press>
           ) : null}
           <Press scale={0.95} onPress={() => { setRoleTarget(u); setRoleChoice(null); setRoleConfirm(''); }}><Text style={[type(12.5, 800), { color: c.accentText }]}>Role</Text></Press>
         </View>
@@ -135,9 +144,12 @@ export default function AdminUsers() {
           onChangeText={setReason}
           placeholder="Reason (required, shown to the owner)"
           placeholderTextColor={c.muted}
+          maxLength={1000}
+          accessibilityLabel="Kitchen suspension reason, 1,000 characters maximum"
           multiline
           style={{ minHeight: 64, borderWidth: 1, borderColor: c.border, borderRadius: radius.md, padding: 12, color: c.ink, backgroundColor: c.bg2, textAlignVertical: 'top', ...(type(14, 600) as object) }}
         />
+        <Text style={[type(11.5, 600), { color: c.muted, textAlign: 'right', marginTop: 4 }]}>{reason.length}/1000</Text>
         <View style={{ marginTop: 12 }}>
           <Btn label="Suspend kitchen" variant="ghost" loading={busy} disabled={busy} onPress={doSuspend} />
         </View>
