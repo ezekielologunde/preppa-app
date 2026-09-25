@@ -35,9 +35,9 @@ export default function AdminDashboard() {
 
   return (
     <Screen max={1040}>
-      <AdminHeader title="Dashboard" sub="Money & marketplace health — last 7 days" />
+      <AdminHeader title="Dashboard" sub="Money and marketplace health, last 7 days" />
       <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={{ paddingBottom: 44 }}>
-        {error ? <ErrorRetry message={error.message} onRetry={() => setNonce((n) => n + 1)} /> : null}
+        {error ? <ErrorRetry message="Check your connection and try loading dashboard metrics again." onRetry={() => setNonce((n) => n + 1)} /> : null}
 
         <Section title="Money" />
         <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 12, paddingHorizontal: 16 }}>
@@ -59,7 +59,7 @@ export default function AdminDashboard() {
         </View>
 
         <Text style={[type(12, 600), { color: c.muted, textAlign: 'center', marginTop: 26, paddingHorizontal: 30, lineHeight: 18 }]}>
-          System health (Vercel/Edge Function errors/cron failures) isn't tracked here yet — it needs external monitoring, not a DB query.
+          System health for Vercel, Edge Function errors, and cron failures requires external monitoring.
         </Text>
       </ScrollView>
     </Screen>

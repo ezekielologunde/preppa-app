@@ -61,7 +61,7 @@ export default function AdminHome() {
         </View>
 
         {error ? (
-          <ErrorRetry message={error.message} onRetry={() => setNonce((n) => n + 1)} />
+          <ErrorRetry message="Check your connection and try loading the admin overview again." onRetry={() => setNonce((n) => n + 1)} />
         ) : null}
 
         <Text style={[type(12, 900), { color: c.muted, textTransform: 'uppercase', letterSpacing: 0.5, marginTop: 26, marginBottom: 2, paddingHorizontal: 20 }]}>Modules</Text>

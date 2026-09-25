@@ -43,6 +43,7 @@ export default function AdminAudit() {
   const loadOlder = async () => {
     if (rows.length === 0) return;
     setMore(true);
+    setError(null);
     try {
       const page = await admin.listAudit({ limit: PAGE, before: rows[rows.length - 1].created_at });
       setRows((prev) => [...prev, ...page]);
@@ -75,9 +76,10 @@ export default function AdminAudit() {
       <AdminHeader title="Audit log" sub={loading ? 'Loading…' : `${rows.length} events`} back={true} />
       <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={{ paddingBottom: 44 }}>
         {error && rows.length === 0 ? (
-          <ErrorRetry message={error.message} onRetry={loadFirst} />
+          <ErrorRetry message="Check your connection and try loading the audit log again." onRetry={loadFirst} />
         ) : (
           <>
+            {error ? <ErrorRetry message="Could not load older audit events. Try again." onRetry={loadOlder} /> : null}
             <DataTable
               columns={columns}
               rows={rows}

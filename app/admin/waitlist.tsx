@@ -47,6 +47,7 @@ export default function AdminWaitlist() {
   const loadOlder = async () => {
     if (rows.length === 0) return;
     setMore(true);
+    setError(null);
     try {
       const page = await admin.listWaitlist({ limit: PAGE, before: rows[rows.length - 1].created_at });
       setRows((prev) => [...prev, ...page]);
@@ -69,8 +70,8 @@ export default function AdminWaitlist() {
           setRows((prev) => prev.filter((r) => r.id !== entry.id));
           setSel(null);
           toast('Signup deleted', 'check', true);
-        } catch (e: any) {
-          toast(e?.message ?? 'Delete failed', 'info');
+        } catch {
+          toast('Could not delete this signup. Refresh the waitlist and try again.', 'info');
         } finally {
           setDeleting(false);
         }
@@ -95,9 +96,10 @@ export default function AdminWaitlist() {
       <AdminHeader title="Waitlist" sub={loading ? 'Loading…' : `${rows.length} signups`} back={true} />
       <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={{ paddingBottom: 44 }}>
         {error && rows.length === 0 ? (
-          <ErrorRetry message={error.message} onRetry={loadFirst} />
+          <ErrorRetry message="Check your connection and try loading the waitlist again." onRetry={loadFirst} />
         ) : (
           <>
+            {error ? <ErrorRetry message="Could not load older signups. Try again." onRetry={loadOlder} /> : null}
             <DataTable
               columns={columns}
               rows={rows}
@@ -118,7 +120,7 @@ export default function AdminWaitlist() {
         )}
       </ScrollView>
 
-      <Sheet visible={!!sel} onClose={() => setSel(null)} title="Waitlist signup" scroll>
+      <Sheet visible={!!sel} onClose={deleting ? () => {} : () => setSel(null)} title="Waitlist signup" scroll>
         {sel ? (
           <View style={{ gap: 12, paddingBottom: 8 }}>
             <ARow c={c} k="Email" v={sel.email} />
@@ -129,6 +131,7 @@ export default function AdminWaitlist() {
               label="Delete signup"
               variant="ghost"
               loading={deleting}
+              disabled={deleting}
               onPress={() => confirmDelete(sel)}
               style={{ backgroundColor: c.redL, marginTop: 8 }}
             />
