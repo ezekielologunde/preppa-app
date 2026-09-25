@@ -2,7 +2,7 @@ import React, { useEffect, useState } from 'react';
 import { View, Text, ScrollView, Pressable, ActivityIndicator, Platform } from 'react-native';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { marketPlanById, COOKS, PLAN_DAYS, money, type MarketPlan } from '../../src/data/data';
+import { money } from '../../src/data/data';
 import { useC } from '../../src/theme/ThemeContext';
 import { type, radius } from '../../src/theme/theme';
 import { useStore } from '../../src/store/store';
@@ -21,6 +21,7 @@ import { createSetupIntent } from '../../src/lib/payments';
 const WEEKDAY = ['sunday', 'monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday'];
 const WEEKDAY_SHORT = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
 const MONTH_SHORT = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+const REJECTED_SEED_PLAN_IDS = new Set(['weeknight', 'protein', 'soul', 'halal']);
 const money2 = (cents: number) => money(cents / 100);
 function isoDate(d: Date): string { return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`; }
 function chipLabel(d: Date): string { return `${WEEKDAY_SHORT[d.getDay()]} ${MONTH_SHORT[d.getMonth()]} ${d.getDate()}`; }
@@ -51,10 +52,8 @@ export default function PlanDetailScreen() {
     return () => { alive = false; };
   }, [id, retryNonce]);
 
-  // Short seed-plan IDs are historical prototype routes and are not marketplace supply.
-  const seed = marketPlanById(id!);
   if (plan) return <RealPlanDetail plan={plan} />;
-  if (seed) return <NotFound title="Meal plan" />;
+  if (REJECTED_SEED_PLAN_IDS.has(id!)) return <NotFound title="Meal plan" />;
   if (plan === undefined) return <Screen><View style={{ flex: 1, alignItems: 'center', justifyContent: 'center' }}><ActivityIndicator /></View></Screen>;
   if (loadError) return <Screen><View accessibilityRole="alert" style={{ flex: 1, alignItems: 'center', justifyContent: 'center', padding: 28 }}><Icon name="info" size={36} color={c.red} /><Text style={[type(18, 900), { color: c.ink, marginTop: 12 }]}>Meal plan didn’t load</Text><Text style={[type(13.5, 600), { color: c.soft, textAlign: 'center', marginTop: 6, marginBottom: 16 }]}>{loadError}</Text><Btn label="Try again" icon="repeat" onPress={() => setRetryNonce((n) => n + 1)} /></View></Screen>;
   return <NotFound title="Meal plan" />;
@@ -299,111 +298,6 @@ function SummaryRow({ label, value, bold, c }: { label: string; value: string; b
   );
 }
 
-/* ------------------------------------------------------------------ */
-/* Seed (demo) plan — reservation placeholder for the sample cooks     */
-/* ------------------------------------------------------------------ */
-function SeedPlanDetail({ p }: { p: MarketPlan }) {
-  const c = useC();
-  const insets = useSafeAreaInsets();
-  const router = useRouter();
-  const { subscribe, isMine } = useStore();
-  const [day, setDay] = useState('Thu');
-  const [stage, setStage] = useState<'info' | 'pay' | 'done'>('info');
-  const [viewer, setViewer] = useState(false);
-  const cook = COOKS[p.cook];
-  const mealsLbl = `${p.meals} meal${p.meals !== 1 ? 's' : ''}`;
-
-  if (stage === 'done') {
-    return (
-      <Screen bg={c.surface}>
-        <Burst title="You’re on the list!" body={<>You’ve reserved <Text style={type(15, 800)}>{p.name}</Text> with <Text style={type(15, 800)}>{cook.name}</Text>. This is a sample plan — subscribe to a live plan from Plans.</>} actionLabel="Browse plans" onAction={() => router.replace('/experiences?tab=plans')} />
-      </Screen>
-    );
-  }
-  if (stage === 'pay') {
-    return (
-      <Screen>
-        <TopBar title="Reserve your plan" onBack={() => setStage('info')} />
-        <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={{ paddingBottom: 130 }}>
-          <Block title={`${p.name} · every ${day}`}>
-            <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 7 }}>
-              <Fact icon="chefhat" text={cook.name} />
-              <Fact icon="repeat" text={`${mealsLbl}/week`} />
-            </View>
-          </Block>
-          <View style={{ backgroundColor: c.surface, borderRadius: radius.card, margin: 16, padding: 16, borderWidth: 1, borderColor: c.border2 }}>
-            <View style={{ flexDirection: 'row', alignItems: 'flex-start', gap: 10 }}>
-              <Icon name="shield" size={17} color={c.primary} />
-              <Text style={[type(12.5, 600), { color: c.ink2, flex: 1, lineHeight: 18 }]}>This is a sample plan from a demo cook. Live plans are billed weekly and shown in Plans.</Text>
-            </View>
-          </View>
-        </ScrollView>
-        <Dock>
-          <DockTotal label="Sample" value={`${money(p.price)}/wk`} />
-          <Btn label="Reserve my spot" flex={1} onPress={() => { subscribe({ name: p.name, cook: p.cook, price: p.price, per: 'week', items: p.items, day, status: 'active', skipNext: false }); setStage('done'); }} />
-        </Dock>
-      </Screen>
-    );
-  }
-
-  return (
-    <Screen bg={c.surface}>
-      <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={{ paddingBottom: 120 }}>
-        <GradBox grad={p.grad} img={p.img} style={{ height: 280 }}>
-          {p.img ? <Pressable onPress={() => setViewer(true)} accessibilityLabel={`View photo of ${p.name}`} style={{ position: 'absolute', top: 0, left: 0, right: 0, bottom: 0 }} /> : null}
-          <HeroTopBar topInset={insets.top} onBack={() => router.back()} />
-          <View pointerEvents="none" style={{ position: 'absolute', bottom: 38, left: 18, height: 24, borderRadius: radius.pill, paddingHorizontal: 9, flexDirection: 'row', alignItems: 'center', gap: 4, backgroundColor: c.purple }}>
-            <Icon name="repeat" size={11} color="#fff" />
-            <Text style={[type(10, 900), { color: '#fff', textTransform: 'uppercase', letterSpacing: 0.3 }]}>Sample plan</Text>
-          </View>
-        </GradBox>
-        <View style={{ backgroundColor: c.surface, borderTopLeftRadius: radius.sheet, borderTopRightRadius: radius.sheet, marginTop: -26, padding: 18, paddingTop: 22 }}>
-          <View style={{ flexDirection: 'row', marginBottom: 10 }}><GoalBadge goal={p.goal} size="md" /></View>
-          <Text style={[type(23, 900), { color: c.ink, letterSpacing: -0.8, lineHeight: 27 }]}>{p.name}</Text>
-          <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6, marginTop: 10 }}>
-            <Icon name="repeat" size={15} color={c.primary} />
-            <Text style={[type(13.5, 700), { color: c.ink }]}>{mealsLbl} every week</Text>
-          </View>
-          <CookRow cook={p.cook} />
-          <SectionLabel>About this plan</SectionLabel>
-          <Text style={[type(14.5, 500), { color: c.soft, lineHeight: 23 }]}>{p.desc}</Text>
-          <SectionLabel>In a typical week</SectionLabel>
-          {p.items.map((it, i) => (
-            <View key={i} style={{ flexDirection: 'row', alignItems: 'center', gap: 12, paddingVertical: 8 }}>
-              <View style={{ width: 24, height: 24, borderRadius: 12, backgroundColor: c.primary, alignItems: 'center', justifyContent: 'center' }}><Icon name="check" size={14} color="#fff" /></View>
-              <Text style={[type(14.5, 700), { color: c.ink, flex: 1 }]}>{it}</Text>
-            </View>
-          ))}
-          <SectionLabel>Delivery day</SectionLabel>
-          <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 7 }}>
-            {PLAN_DAYS.map((d) => <DayChip key={d} label={d} on={day === d} onPress={() => setDay(d)} />)}
-          </View>
-        </View>
-      </ScrollView>
-      <Dock>
-        {isMine(p.cook) ? (
-          <Btn label="Manage in My Hub" icon="chefhat" variant="ghost" block onPress={() => router.push('/hub/plans')} />
-        ) : (
-          <>
-            <DockTotal label="Sample" value={`${money(p.price)}/wk`} />
-            <Btn label="Reserve this plan" iconRight="arrow" flex={1} onPress={() => setStage('pay')} />
-          </>
-        )}
-      </Dock>
-      <ImageViewer uri={p.img} caption={p.name} visible={viewer} onClose={() => setViewer(false)} />
-    </Screen>
-  );
-}
-
-function Fact({ icon, text }: { icon: string; text: string }) {
-  const c = useC();
-  return (
-    <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6, height: 28, paddingHorizontal: 11, borderRadius: radius.pill, backgroundColor: c.bg2 }}>
-      <Icon name={icon} size={14} color={c.muted} />
-      <Text style={[type(12, 700), { color: c.ink2 }]}>{text}</Text>
-    </View>
-  );
-}
 function DayChip({ label, on, onPress }: { label: string; on: boolean; onPress: () => void }) {
   const c = useC();
   return (

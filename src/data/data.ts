@@ -174,30 +174,8 @@ export const NOTIFS: Notif[] = [
 
 /* ---------------- meal plans / subscriptions ---------------- */
 export type PlanGoal = 'cut' | 'bulk' | 'maintain';
-export interface MarketPlan { id: string; cook: CookId; name: string; price: number; per: string; meals: number; grad: GradKey; goal: PlanGoal; desc: string; items: string[]; img?: string; }
-export const MARKET_PLANS: MarketPlan[] = [
-  { id: 'weeknight', cook: 'maria', name: 'Weeknight Italian Box', price: 48, per: 'week', meals: 3, grad: 'g4', goal: 'maintain', desc: 'Three chef-cooked dinners delivered every week — rotating pasta, bakes and one lighter dish.', items: ['Family Lasagna Tray', 'Sunday Meatballs', 'Eggplant Parmigiana'], img: IMG + 'rvxxuy1468312893.jpg' },
-  { id: 'protein', cook: 'david', name: 'High-Protein Reset', price: 42, per: 'week', meals: 3, grad: 'g3', goal: 'cut', desc: 'Lean, macro-balanced dinners — grilled fish, bowls and greens. 40g+ protein each.', items: ['Honey Garlic Salmon', 'Rainbow Poke Bowl', 'Charred Greens Bowl'], img: IMG + 'ikizdm1763760862.jpg' },
-  { id: 'soul', cook: 'denise', name: 'Sunday Soul Table', price: 36, per: 'week', meals: 1, grad: 'g6', goal: 'bulk', desc: 'One big family tray every Sunday — slow-braised comfort that feeds four.', items: ['Slow-Braised Short Rib tray', 'Honey Cornbread (6)'], img: IMG + 'pbzcrx1763765096.jpg' },
-  { id: 'halal', cook: 'sana', name: 'Halal Family Box', price: 54, per: 'week', meals: 4, grad: 'g8', goal: 'maintain', desc: 'Four halal-certified dinners for the family, spiced to order.', items: ['Chicken Biryani Box', 'Karahi Night', 'Daal + Naan', 'Kofta Curry'], img: IMG + 'xrttsx1487339558.jpg' },
-];
-export const marketPlanById = (id: string) => MARKET_PLANS.find((p) => p.id === id);
-export const PLAN_DAYS = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sun'];
 
 export interface Subscription { name: string; cook: CookId | null; price: number; per: string; items: string[]; day: string; status: 'active' | 'paused'; skipNext: boolean; }
-
-/* ---------------- storefront ---------------- */
-export interface StoreReview { name: string; grad: GradKey; stars: number; time: string; text: string; }
-export const STORE_REVIEWS: StoreReview[] = [
-  { name: 'Jordan M.', grad: 'g8', stars: 5, time: '2 days ago', text: 'Ordered for the third week running. Tastes like someone’s grandmother is looking out for you.' },
-  { name: 'The Okafors', grad: 'g3', stars: 5, time: '1 week ago', text: 'Fed the whole family with one tray. Warm at pickup, spotless packaging, lovely note inside.' },
-  { name: 'Priya S.', grad: 'g7', stars: 4, time: '2 weeks ago', text: 'Really good — portion was generous. Delivery ran ten minutes late but they messaged ahead.' },
-];
-export const STORE_SPECIALTIES: Record<CookId, string[]> = {
-  maria: ['Fresh pasta', 'Slow ragù', 'Tiramisu'], david: ['High-protein', 'Seafood', 'Meal prep'],
-  amara: ['Jollof', 'Open-fire', 'Party trays'], denise: ['Braises', 'Soul classics', 'Baking'],
-  lucia: ['Mole', 'Handmade tortillas', 'Mezcal nights'], sana: ['Dum biryani', 'Halal-certified', 'Family boxes'],
-};
 
 /** Safe currency formatter — guards NaN/Infinity/negative-zero, adds thousands separators. */
 export const money = (n: number) => {
