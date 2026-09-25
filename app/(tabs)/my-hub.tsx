@@ -7,7 +7,6 @@ import { Palette, GradKey, type, radius, shadow } from '../../src/theme/theme';
 import { useStore } from '../../src/store/store';
 import { Btn, Icon, Press, GradBox } from '../../src/ui';
 import { money } from '../../src/data/data';
-import { ME } from '../../src/data/cook';
 import { fetchDashboardSummary, fetchKitchenOrders, updateOrderStatus, KitchenDashboardSummary, KitchenOrderRow } from '../../src/lib/orders';
 import { getMyKitchen, refreshConnectStatus, startConnectOnboarding } from '../../src/lib/connect';
 
@@ -58,9 +57,9 @@ export function HubHeader({ eyebrow = 'My Hub', name, showBell, right, onBack, b
             </View>
           </Press>
         ) : (
-          <GradBox grad={ME.grad} style={{ width: 42, height: 42, borderRadius: 13, alignItems: 'center', justifyContent: 'center' }}>
+          <View style={{ width: 42, height: 42, borderRadius: 13, backgroundColor: c.primary, alignItems: 'center', justifyContent: 'center' }}>
             <Text style={[type(17, 900), { color: '#fff' }]}>{(name || '?').trim()[0]?.toUpperCase() ?? '?'}</Text>
-          </GradBox>
+          </View>
         )}
         <View style={{ flex: 1, minWidth: 0 }}>
           <Text style={[type(10.5, 800), { color: c.muted, letterSpacing: 0.6, textTransform: 'uppercase' }]}>{eyebrow}</Text>

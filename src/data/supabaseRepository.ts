@@ -6,7 +6,7 @@
  * screen's error state rather than silently showing fixtures.
  */
 import { supabase } from '../lib/supabase';
-import { Meal, COOKS, CookId } from './data';
+import { Meal } from './data';
 import { distanceKm, distanceLabel, type LatLng } from '../lib/geo';
 import type { GradKey } from '../theme/theme';
 import type { Repositories, MealQuery } from './repository';
@@ -100,7 +100,7 @@ export function filterMeals(meals: Meal[], query?: MealQuery): Meal[] {
   }
   if (query?.q) {
     const q = query.q.toLowerCase();
-    out = out.filter((m) => m.name.toLowerCase().includes(q) || (m.kitchenName ?? COOKS[m.cook as CookId]?.name ?? '').toLowerCase().includes(q));
+    out = out.filter((m) => m.name.toLowerCase().includes(q) || (m.kitchenName ?? '').toLowerCase().includes(q));
   }
   return out;
 }

@@ -115,7 +115,10 @@ export function cookOfLine(l: { cook: string; kitchenName?: string; grad: GradKe
       prepscore: 0,
     };
   }
-  return COOKS[l.cook as CookId] ?? COOKS.maria;
+  return COOKS[l.cook as CookId] ?? {
+    name: 'Kitchen', kitchen: 'Kitchen', initial: 'K', grad: l.grad, cuisine: '',
+    rating: 0, reviews: 0, dist: '', verified: false, prepscore: 0,
+  };
 }
 
 /** The real grouping/routing key for a cart or order line: a real kitchen's UUID when
@@ -139,8 +142,6 @@ export interface Experience {
 }
 /* ---------------- meal plans / subscriptions ---------------- */
 export type PlanGoal = 'cut' | 'bulk' | 'maintain';
-
-export interface Subscription { name: string; cook: CookId | null; price: number; per: string; items: string[]; day: string; status: 'active' | 'paused'; skipNext: boolean; }
 
 /** Safe currency formatter — guards NaN/Infinity/negative-zero, adds thousands separators. */
 export const money = (n: number) => {

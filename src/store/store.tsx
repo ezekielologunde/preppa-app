@@ -1,9 +1,7 @@
 import React, { createContext, useContext, useState, useEffect, useCallback, useRef, useMemo } from 'react';
 import { AppState } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import {
-  GradKey, Subscription, lineKey,
-} from '../data/data';
+import { GradKey, lineKey } from '../data/data';
 import { computeTotals } from '../data/totals';
 import {
   signOutUser, fetchAccountState, submitPrepperApplication, updateDisplayName,
@@ -150,11 +148,6 @@ interface Store {
   reorder: (id: string) => Promise<boolean>;
   refreshOrderStatus: (id: string) => Promise<boolean>;
 
-  subscription: Subscription | null;
-  subscribe: (s: Subscription) => void;
-  updateSub: (patch: Partial<Subscription>) => void;
-  cancelSub: () => void;
-
   // prepper "My Hub"
   avail: boolean;
   availLoading: boolean;
@@ -226,9 +219,6 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
   const [orders, setOrders] = useState<CustomerOrder[]>([]);
   const [ordersLoading, setOrdersLoading] = useState(false);
   const [ordersError, setOrdersError] = useState('');
-  // Stored as a list constrained to length 1 for MVP (one active plan). Modeling it
-  // as an array means "add a second plan" later is a config flip, not a rewrite.
-  const [subs, setSubs] = useState<Subscription[]>([]);
   const [avail, setAvail] = useState(true);
   const [availLoading, setAvailLoading] = useState(true);
   const [availError, setAvailError] = useState('');
@@ -265,8 +255,6 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
           // prepperStatus is deliberately NOT hydrated from storage — it's an access
           // gate (My Hub) and must reflect the live session, not a stale cached role.
           // reconcileAccount() sets it authoritatively from the server (see below).
-          if (Array.isArray(s.subs)) setSubs(s.subs);
-          else if (s.subscription) setSubs([s.subscription]); // migrate old single-object shape
           if (typeof s.avail === 'boolean') setAvail(s.avail);
         }
       } catch {}
@@ -280,9 +268,9 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
     if (!hydrated.current) return;
     AsyncStorage.setItem(
       LS,
-      JSON.stringify({ onboarded, darkMode, cart, tip, mode, location, coords, country, name, firstName, fav: [...fav], subs, avail }),
+      JSON.stringify({ onboarded, darkMode, cart, tip, mode, location, coords, country, name, firstName, fav: [...fav], avail }),
     ).catch(() => {});
-  }, [onboarded, darkMode, cart, tip, mode, location, coords, country, name, firstName, fav, subs, avail]);
+  }, [onboarded, darkMode, cart, tip, mode, location, coords, country, name, firstName, fav, avail]);
 
   const toast = useCallback((msg: string, icon = 'check', green = false) => {
     const id = toastSeq++;
@@ -540,8 +528,6 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
     }
   }, [addresses, addressId]);
   const address = addresses.find((a) => a.id === addressId) ?? addresses[0] ?? null;
-  const subscription = subs[0] ?? null; // MVP exposes the single active plan
-
   // Multi-cart: one order PER cook. `cook` scopes checkout to a single cook's lines
   // (and removes only those from the cart); without it, every cook in the cart becomes
   // its own order. Fixes the old bug where a mixed-cook cart collapsed into one order.
@@ -648,7 +634,6 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
     setFav(new Set());
     setAddresses([]);
     setAddressId('');
-    setSubs([]);
     setOrders([]);
     setTip(2);
     setMode('delivery');
@@ -669,13 +654,6 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
     setPrepplusUntil(null);
     setOnboardedState(false);
   }, []);
-
-  const subscribe = useCallback((s: Subscription) => {
-    if (s.cook && isMine(s.cook)) { toast('You can’t reserve your own plan', 'info'); return; }
-    setSubs([s]);
-  }, [isMine, toast]);
-  const updateSub = useCallback((patch: Partial<Subscription>) => setSubs((a) => (a[0] ? [{ ...a[0], ...patch }] : a)), []);
-  const cancelSub = useCallback(() => setSubs([]), []);
 
   // Persists to kitchens.availability (audit Critical: this used to be local-device-only
   // state, so a prepper's "paused" toggle never actually blocked orders server-side).
@@ -797,10 +775,6 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
     refreshOrders,
     reorder,
     refreshOrderStatus,
-    subscription,
-    subscribe,
-    updateSub,
-    cancelSub,
     avail,
     availLoading,
     availError,
