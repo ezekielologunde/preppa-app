@@ -134,6 +134,7 @@ function OrderDetailBody({ d }: { d: admin.AdminOrderDetail }) {
       <View style={{ gap: 6, marginTop: 2 }}>
         <Amount c={c} k="Subtotal" v={m(d.subtotal_cents)} />
         <Amount c={c} k="Service fee" v={m(d.service_fee_cents)} />
+        <Amount c={c} k="Sales tax" v={m(d.tax_cents)} />
         {d.tip_cents > 0 ? <Amount c={c} k="Tip" v={m(d.tip_cents)} /> : null}
         <View style={{ height: 1, backgroundColor: c.border2, marginVertical: 4 }} />
         <Amount c={c} k="Total" v={m(d.total_cents)} bold />

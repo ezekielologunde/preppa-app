@@ -307,6 +307,7 @@ export interface AdminOrderDetail {
   fulfillment: string;
   subtotal_cents: number;
   service_fee_cents: number;
+  tax_cents: number;
   tip_cents: number;
   total_cents: number;
   created_at: string;

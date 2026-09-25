@@ -99,6 +99,7 @@ Went end-to-end through Shef's actual ordering flow (add to cart → cross-sell 
 - [x] ~~Serialize cook fulfillment-setting changes~~ — completed 2026-09-25. Delivery and pickup controls are disabled together while a save is in progress, preventing concurrent requests from resolving out of order and leaving customer discovery inconsistent with the cook's visible setting. Failed saves restore both prior values.
 - [x] ~~Serialize automatic-payout preference changes~~ — completed 2026-09-25. The weekly payout switch now allows one authoritative save at a time, displays progress, restores the prior value after failure, and has an explicit accessible name.
 - [x] ~~Prevent duplicate support-thread mutations~~ — completed 2026-09-25. Admin replies, cook-sharing actions, and cook replies now reject re-entry while a request is active, closing the rapid double-tap window that could create duplicate messages or repeat sharing work.
+- [x] ~~Show sales tax in admin order reconciliation~~ — completed locally 2026-09-25. The authoritative order tax snapshot is now returned by `admin_order_detail` and displayed between service fee and tip, so the operational breakdown adds up to the charged total. Production migration deployment remains a launch gate.
 - [~] Add `.env`/staging separation. Repository enforcement is complete: development and preview fail closed, contain no production service values, and CI prevents regression. Creating and funding the external test Supabase project plus Stripe test configuration remains open.
 
 ## In-code "coming soon" surfaces
