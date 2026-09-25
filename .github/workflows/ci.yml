@@ -19,6 +19,17 @@ jobs:
       - run: npm ci
       - run: npm run typecheck
 
+  web-build-security:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - run: npm ci
+      - run: npm run build:web
+      - run: npm run security:bundle
+
   db-regression-tests:
     runs-on: ubuntu-latest
     steps:

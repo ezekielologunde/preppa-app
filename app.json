@@ -7,7 +7,6 @@
     "icon": "./assets/icon.png",
     "scheme": "preppa",
     "userInterfaceStyle": "automatic",
-    "newArchEnabled": true,
     "ios": {
       "bundleIdentifier": "live.preppa.app",
       "buildNumber": "1",
@@ -31,8 +30,6 @@
       },
       "predictiveBackGestureEnabled": false,
       "permissions": [
-        "android.permission.RECORD_AUDIO",
-        "android.permission.CAMERA",
         "android.permission.RECORD_AUDIO",
         "android.permission.CAMERA"
       ]
@@ -74,7 +71,9 @@
         {
           "merchantIdentifier": "merchant.live.preppa.app"
         }
-      ]
+      ],
+      "expo-secure-store",
+      "expo-status-bar"
     ],
     "extra": {
       "router": {},
