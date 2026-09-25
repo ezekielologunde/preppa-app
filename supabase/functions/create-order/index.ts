@@ -172,7 +172,10 @@ Deno.serve(async (req) => {
         return json(409, { error: 'This checkout key belongs to a different kitchen. Return to your cart and start checkout again.' });
       }
       if (existing.pay_status !== 'unpaid') {
-        return json(409, { error: existing.pay_status === 'paid' ? 'This order has already been paid.' : 'This order is no longer payable.' });
+        if (existing.pay_status === 'paid') {
+          return json(200, { orderId: existing.id, clientSecret: null, taxCents: existing.tax_cents ?? 0, alreadyPaid: true, reused: true });
+        }
+        return json(409, { error: 'This order is no longer payable.' });
       }
       const requestedInstructions = input.fulfillment === 'delivery' ? input.deliveryInstructions || null : null;
       if (existing.fulfillment !== input.fulfillment
@@ -206,7 +209,9 @@ Deno.serve(async (req) => {
       if (piRowError) throw piRowError;
       if (piRow) {
         const pi = await stripe.paymentIntents.retrieve(piRow.stripe_payment_intent_id);
-        if (pi.status === 'succeeded') return json(409, { error: 'This order has already been paid.' });
+        if (pi.status === 'succeeded') {
+          return json(200, { orderId: existing.id, clientSecret: null, taxCents: existing.tax_cents ?? 0, alreadyPaid: true, reused: true });
+        }
         if (!pi.client_secret) return json(409, { error: 'This payment could not be resumed. Return to your cart and start checkout again.' });
         return json(200, { orderId: existing.id, clientSecret: pi.client_secret, taxCents: existing.tax_cents ?? 0, reused: true });
       }

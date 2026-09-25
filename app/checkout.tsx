@@ -132,13 +132,21 @@ export default function Checkout() {
     if (Platform.OS === 'web') {
       try {
         const useSaved = !!selectedCard;
-        const { orderId, clientSecret, taxCents } = await createRealOrder({
+        const { orderId, clientSecret, taxCents, alreadyPaid } = await createRealOrder({
           cook: cookId, lines, mode, tipDollars: tip,
           idempotencyKey: idemKey,
           savePaymentMethod: useSaved ? false : saveNewCard,
           addressId: mode === 'delivery' ? address?.id : undefined,
           deliveryInstructions: mode === 'delivery' ? deliveryInstructions.trim() || undefined : undefined,
         });
+        if (alreadyPaid) {
+          setBusy(false);
+          placeOrder(ck, orderId, taxCents);
+          toast('Payment confirmed. Opening your order.', 'check', true);
+          router.replace(`/track?cook=${ck ?? ''}&orderId=${orderId}`);
+          return;
+        }
+        if (!clientSecret) throw new Error('Could not resume this payment.');
         if (useSaved) {
           // Show the server-calculated tax and final total before directly charging a saved
           // card. New-card and native flows disclose this amount inside Stripe's own sheet.

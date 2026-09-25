@@ -39,7 +39,7 @@ export function getStripe(): Promise<Stripe | null> {
  * Create a real order + PaymentIntent via the `create-order` edge function and
  * return its client secret for confirmation with a real card.
  */
-export async function createRealOrder(opts: OrderOpts): Promise<{ orderId: string; clientSecret: string; taxCents: number }> {
+export async function createRealOrder(opts: OrderOpts): Promise<{ orderId: string; clientSecret: string | null; taxCents: number; alreadyPaid: boolean }> {
   assertLiveMoneyAllowed();
   const kitchenId = opts.lines.find((l) => l.kitchenUuid)?.kitchenUuid;
   if (!kitchenId) throw new Error('This cart is out of date. Remove these items and add them again.');
@@ -64,8 +64,15 @@ export async function createRealOrder(opts: OrderOpts): Promise<{ orderId: strin
     },
   });
   await assertFunctionSuccess(data, error, 'Could not start your payment.');
-  if (!data?.clientSecret) throw new Error(data?.error || 'no client secret from create-order');
-  return { orderId: data.orderId as string, clientSecret: data.clientSecret as string, taxCents: (data.taxCents as number) ?? 0 };
+  if (!data?.orderId) throw new Error(data?.error || 'no order id from create-order');
+  const alreadyPaid = data?.alreadyPaid === true;
+  if (!alreadyPaid && !data?.clientSecret) throw new Error(data?.error || 'no client secret from create-order');
+  return {
+    orderId: data.orderId as string,
+    clientSecret: alreadyPaid ? null : data.clientSecret as string,
+    taxCents: (data.taxCents as number) ?? 0,
+    alreadyPaid,
+  };
 }
 
 // ---- Saved cards (Stripe Customer + SetupIntent; web-only, like the rest of the
@@ -132,7 +139,9 @@ export async function confirmSavedCardPayment(clientSecret: string, paymentMetho
  */
 export async function payWithCard(opts: OrderOpts): Promise<{ orderId: string; taxCents: number }> {
   if (Platform.OS === 'web') throw new Error('payWithCard is native-only — web checkout collects the card itself');
-  const { orderId, clientSecret, taxCents } = await createRealOrder(opts);
+  const { orderId, clientSecret, taxCents, alreadyPaid } = await createRealOrder(opts);
+  if (alreadyPaid) return { orderId, taxCents };
+  if (!clientSecret) throw new Error('Could not resume this payment.');
   // Fetch a fresh ephemeral key per checkout (Stripe's own recommendation — they're
   // short-lived and single-purpose) so PaymentSheet shows this buyer's saved cards.
   // Best-effort: a failure here still lets the sheet collect a brand-new card.
