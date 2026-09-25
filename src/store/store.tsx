@@ -54,7 +54,7 @@ export interface CustomerOrder {
   tip: number;
   total: number;
   mode: 'delivery' | 'pickup';
-  status: 'confirming' | 'preparing' | 'ready' | 'completed' | 'cancelled';
+  status: 'confirming' | 'confirmed' | 'preparing' | 'ready' | 'completed' | 'cancelled';
   when: string;
   ownerUid?: string; // session owner for a just-paid order awaiting server reconciliation
 }
@@ -312,7 +312,11 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
         tip: r.tipCents / 100,
         total: r.totalCents / 100,
         mode: r.fulfillment === 'pickup' ? 'pickup' : 'delivery',
-        status: r.status === 'ready' ? 'ready' : r.status === 'completed' ? 'completed' : r.status === 'cancelled' ? 'cancelled' : 'preparing',
+        status: r.status === 'ready' ? 'ready'
+          : r.status === 'completed' ? 'completed'
+          : r.status === 'cancelled' ? 'cancelled'
+          : r.status === 'preparing' ? 'preparing'
+          : 'confirmed',
         when: timeAgo(r.createdAt),
       }));
       setOrders((current) => {
@@ -617,7 +621,8 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
       const next: CustomerOrder['status'] | null = row.status === 'cancelled' ? 'cancelled'
         : row.payStatus !== 'paid' ? 'confirming'
         : row.status === 'ready' ? 'ready' : row.status === 'completed' ? 'completed'
-        : row.status === 'preparing' || row.status === 'confirmed' || row.status === 'pending' ? 'preparing'
+        : row.status === 'preparing' ? 'preparing'
+        : row.status === 'confirmed' || row.status === 'pending' ? 'confirmed'
         : null;
       if (next && next !== o.status) setOrders((os) => os.map((x) => (x.id === id ? { ...x, status: next } : x)));
       return true;

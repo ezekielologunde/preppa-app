@@ -188,7 +188,7 @@ export default function Checkout() {
             <View style={{ width: 40, height: 40, borderRadius: 12, backgroundColor: c.primaryL, alignItems: 'center', justifyContent: 'center' }}><Icon name="pin" size={20} color={c.primary} /></View>
             <View style={{ flex: 1 }}>
               {mode === 'pickup' ? (
-                <><Text style={[type(14.5, 800), { color: c.ink }]}>{theCook.kitchen}</Text><Text style={[type(13, 500), { color: c.soft, marginTop: 2 }]}>Pick up · {theCook.dist} away · ready ~25 min</Text></>
+                <><Text style={[type(14.5, 800), { color: c.ink }]}>{theCook.kitchen}</Text><Text style={[type(13, 500), { color: c.soft, marginTop: 2 }]}>The kitchen will update your order when it is ready for pickup.</Text></>
               ) : address ? (
                 <><Text numberOfLines={1} style={[type(14.5, 800), { color: c.ink }]}>{address.label} · {address.line1}</Text><Text numberOfLines={1} style={[type(13, 500), { color: isCompleteDeliveryAddress(address) ? c.soft : c.red, marginTop: 2 }]}>{[address.line2, addressLocality(address)].filter(Boolean).join(' · ') || 'Complete this address before payment'}</Text></>
               ) : (

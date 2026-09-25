@@ -52,8 +52,8 @@ export default function OrderDetail() {
     try { const tid = await openThread(kitchenId, 'order', o.dbId); router.push(`/messages/${tid}`); }
     catch (e: any) { toast(e?.message || 'Could not open chat', 'info'); }
   };
-  const active = o.status === 'confirming' ? 0 : o.status === 'completed' ? 3 : o.status === 'ready' ? 2 : 1;
-  const headline = o.status === 'confirming' ? 'Confirming your payment' : o.status === 'cancelled' ? 'Order cancelled' : o.status === 'completed' ? 'Completed — enjoy!' : o.status === 'ready' ? (o.mode === 'pickup' ? 'Ready for pickup' : 'On its way') : 'Your cook is preparing';
+  const active = o.status === 'confirming' || o.status === 'confirmed' ? 0 : o.status === 'completed' ? 3 : o.status === 'ready' ? 2 : 1;
+  const headline = o.status === 'confirming' ? 'Confirming your payment' : o.status === 'confirmed' ? 'Order confirmed' : o.status === 'cancelled' ? 'Order cancelled' : o.status === 'completed' ? 'Completed, enjoy!' : o.status === 'ready' ? (o.mode === 'pickup' ? 'Ready for pickup' : 'On its way') : 'Your cook is preparing';
 
   return (
     <Screen>
@@ -62,9 +62,9 @@ export default function OrderDetail() {
         <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }}>
           <Text style={[type(22, 900), { color: c.ink, letterSpacing: -0.7, flex: 1 }]}>{headline}</Text>
           {o.status !== 'completed' ? (
-            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6, height: 30, paddingHorizontal: 12, borderRadius: radius.pill, backgroundColor: o.status === 'cancelled' || refreshError ? c.redL : o.status === 'confirming' ? c.bg2 : c.greenL }}>
-              <View style={{ width: 7, height: 7, borderRadius: 4, backgroundColor: o.status === 'cancelled' || refreshError ? c.red : o.status === 'confirming' ? c.muted : c.green }} />
-              <Text style={[type(12, 900), { color: o.status === 'cancelled' || refreshError ? c.red : o.status === 'confirming' ? c.soft : c.green }]}>{o.status === 'cancelled' ? 'Cancelled' : refreshError ? 'Unavailable' : o.status === 'confirming' ? 'Confirming' : 'Live'}</Text>
+            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6, height: 30, paddingHorizontal: 12, borderRadius: radius.pill, backgroundColor: o.status === 'cancelled' || refreshError ? c.redL : o.status === 'confirming' || o.status === 'confirmed' ? c.bg2 : c.greenL }}>
+              <View style={{ width: 7, height: 7, borderRadius: 4, backgroundColor: o.status === 'cancelled' || refreshError ? c.red : o.status === 'confirming' || o.status === 'confirmed' ? c.muted : c.green }} />
+              <Text style={[type(12, 900), { color: o.status === 'cancelled' || refreshError ? c.red : o.status === 'confirming' || o.status === 'confirmed' ? c.soft : c.green }]}>{o.status === 'cancelled' ? 'Cancelled' : refreshError ? 'Unavailable' : o.status === 'confirming' ? 'Confirming' : o.status === 'confirmed' ? 'Confirmed' : 'Live'}</Text>
             </View>
           ) : null}
         </View>
