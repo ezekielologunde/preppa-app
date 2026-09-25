@@ -8,6 +8,8 @@ tags: [project/preppa, type/tasks]
 
 # Tasks
 
+- [x] Keep the cook order queue usable through failed refreshes: sequence focus loads, retain the current order list with an accessible retry alert, and give each order row a complete spoken label (2026-09-25)
+
 - [x] Harden cook request refreshes and quote validation: sequence focus loads, preserve current bookings on refresh failure, match the server's price, deposit, and 1,000-character note limits, and expose recovery status accessibly (2026-09-25)
 
 Part of [[Project]]. Outstanding work discovered during the audit — not a sprint backlog, a snapshot.
