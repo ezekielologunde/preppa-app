@@ -1,4 +1,4 @@
-import React, { useCallback, useEffect, useState } from 'react';
+import React, { useCallback, useEffect, useRef, useState } from 'react';
 import { View, Text, ScrollView, ActivityIndicator, Image, LayoutChangeEvent } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useRouter, useFocusEffect, useLocalSearchParams } from 'expo-router';
@@ -24,8 +24,9 @@ function nextSession(e: Experience): string {
 
 function ExperienceCard({ e, onPress }: { e: Experience; onPress: () => void }) {
   const c = useC();
+  const price = money2(e.priceModel === 'flat' ? (e.priceCents ?? 0) : (e.perPersonCents ?? 0));
   return (
-    <Press scale={0.985} onPress={onPress} style={{ marginHorizontal: 16, marginBottom: 12 }}>
+    <Press scale={0.985} onPress={onPress} label={`${e.title} by ${e.kitchenName}, ${nextSession(e)}, ${price} ${e.priceModel === 'flat' ? 'per session' : 'per person'}`} style={{ marginHorizontal: 16, marginBottom: 12 }}>
       <View style={{ backgroundColor: c.surface, borderWidth: 1, borderColor: c.border2, borderRadius: radius.xl, overflow: 'hidden', ...shadow.card }}>
         <GradBox grad={EXPERIENCE_GRAD} img={e.coverUrl ?? undefined} style={{ height: 130 }}>
           <View style={{ position: 'absolute', top: 12, left: 12, height: 22, paddingHorizontal: 9, borderRadius: radius.pill, backgroundColor: 'rgba(0,0,0,.45)', flexDirection: 'row', alignItems: 'center' }}>
@@ -38,7 +39,7 @@ function ExperienceCard({ e, onPress }: { e: Experience; onPress: () => void }) 
             <Text numberOfLines={1} style={[type(12.5, 600), { color: c.soft, marginTop: 3 }]}>{e.kitchenName} · {nextSession(e)}</Text>
           </View>
           <View style={{ alignItems: 'flex-end' }}>
-            <Text style={[type(16, 900), { color: c.ink, letterSpacing: -0.4 }]}>{money2(e.priceModel === 'flat' ? (e.priceCents ?? 0) : (e.perPersonCents ?? 0))}</Text>
+            <Text style={[type(16, 900), { color: c.ink, letterSpacing: -0.4 }]}>{price}</Text>
             <Text style={[type(10.5, 700), { color: c.muted }]}>{e.priceModel === 'flat' ? '/session' : '/person'}</Text>
           </View>
         </View>
@@ -96,7 +97,7 @@ function RealReqCard({ r, onPress }: { r: RequestView; onPress: () => void }) {
   const c = useC();
   const foot = r.status === 'accepted' ? 'View booking' : r.quotes.length > 0 ? 'Review quotes' : 'View request';
   return (
-    <Press scale={0.985} onPress={onPress} style={{ marginHorizontal: 16, marginBottom: 10 }}>
+    <Press scale={0.985} onPress={onPress} label={`${SERVICE_LABELS[r.category] ?? 'Service'} request for ${r.eventDate}, ${foot}`} style={{ marginHorizontal: 16, marginBottom: 10 }}>
       <View style={{ backgroundColor: c.surface, borderWidth: 1, borderColor: c.border2, borderRadius: radius.card, padding: 16, paddingVertical: 15, ...shadow.card }}>
         <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: 10 }}>
           <Text style={[type(11, 800), { color: c.soft, backgroundColor: c.bg2, textTransform: 'uppercase', letterSpacing: 0.3, paddingHorizontal: 9, paddingVertical: 4, borderRadius: radius.pill, overflow: 'hidden' }]}>{SERVICE_LABELS[r.category] ?? r.category}</Text>
@@ -152,52 +153,71 @@ function ExperiencesBody() {
   const [exps, setExps] = useState<Experience[]>([]);
   const [reqs, setReqs] = useState<RequestView[]>([]);
   const [loading, setLoading] = useState(true);
-  const [error, setError] = useState('');
+  const [hasLoaded, setHasLoaded] = useState(false);
+  const [experiencesError, setExperiencesError] = useState(false);
+  const [requestsError, setRequestsError] = useState(false);
   const [retryNonce, setRetryNonce] = useState(0);
+  const loadSequence = useRef(0);
   useFocusEffect(useCallback(() => {
-    let alive = true;
+    const sequence = ++loadSequence.current;
     setLoading(true);
-    setError('');
+    setExperiencesError(false);
+    setRequestsError(false);
     Promise.allSettled([fetchExperiences(), listMyRequests()])
       .then(([experienceResult, requestResult]) => {
-        if (!alive) return;
+        if (sequence !== loadSequence.current) return;
         if (experienceResult.status === 'rejected') {
-          setError(experienceResult.reason?.message ?? 'Couldn’t load experiences.');
-          return;
+          setExperiencesError(true);
+        } else {
+          setExps(experienceResult.value);
         }
-        setExps(experienceResult.value);
-        setReqs(requestResult.status === 'fulfilled' ? requestResult.value : []);
+        if (requestResult.status === 'rejected') {
+          setRequestsError(true);
+        } else {
+          setReqs(requestResult.value);
+        }
       })
-      .finally(() => { if (alive) setLoading(false); });
-    return () => { alive = false; };
+      .finally(() => {
+        if (sequence !== loadSequence.current) return;
+        setLoading(false);
+        setHasLoaded(true);
+      });
+    return () => { loadSequence.current += 1; };
   }, [retryNonce]));
   return (
     <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={{ paddingBottom: 40, maxWidth: 1040, alignSelf: 'center', width: '100%' }}>
-      {loading ? (
+      {loading && !hasLoaded ? (
         <View style={{ paddingVertical: 40, alignItems: 'center' }}><ActivityIndicator color={c.primary} /></View>
-      ) : error ? (
-        <View style={{ margin: 16, padding: 22, borderRadius: radius.card, backgroundColor: c.surface, borderWidth: 1, borderColor: c.border2, alignItems: 'center' }}>
-          <Icon name="info" size={30} color={c.red} />
-          <Text style={[type(16, 900), { color: c.ink, marginTop: 10 }]}>Couldn’t load experiences</Text>
-          <Text style={[type(13, 500), { color: c.soft, textAlign: 'center', marginTop: 5, marginBottom: 14 }]}>{error}</Text>
-          <Btn label="Try again" icon="repeat" onPress={() => setRetryNonce((n) => n + 1)} />
-        </View>
       ) : exps.length > 0 ? (
         <>
           <SectionHeader title="Book an experience" />
+          {experiencesError ? <LoadNotice text="Experiences may be out of date." onRetry={() => setRetryNonce((n) => n + 1)} /> : null}
           {exps.map((e) => <ExperienceCard key={e.id} e={e} onPress={() => router.push(`/experience/${e.id}`)} />)}
         </>
+      ) : experiencesError ? (
+        <LoadNotice text="Experiences couldn’t be loaded. You can still request something custom below." onRetry={() => setRetryNonce((n) => n + 1)} />
       ) : null}
 
-      {!error ? <><SectionHeader title={exps.length > 0 ? 'Or request something custom' : 'What do you need?'} /><NeedGrid /></> : null}
+      {hasLoaded ? <><SectionHeader title={exps.length > 0 ? 'Or request something custom' : 'What do you need?'} /><NeedGrid /></> : null}
 
-      {!error && reqs.length > 0 ? (
+      {hasLoaded && (reqs.length > 0 || requestsError) ? (
         <>
           <SectionHeader title="Your requests" />
+          {requestsError ? <LoadNotice text={reqs.length > 0 ? 'Your requests may be out of date.' : 'Your requests couldn’t be loaded.'} onRetry={() => setRetryNonce((n) => n + 1)} /> : null}
           {reqs.map((r) => <RealReqCard key={r.id} r={r} onPress={() => router.push(`/request/${r.id}`)} />)}
         </>
       ) : null}
     </ScrollView>
+  );
+}
+
+function LoadNotice({ text, onRetry }: { text: string; onRetry: () => void }) {
+  const c = useC();
+  return (
+    <View accessibilityRole="alert" style={{ marginHorizontal: 16, marginVertical: 8, padding: 14, borderRadius: radius.card, backgroundColor: c.surface, borderWidth: 1, borderColor: c.border2, alignItems: 'center' }}>
+      <Text style={[type(13, 600), { color: c.soft, textAlign: 'center', lineHeight: 19 }]}>{text}</Text>
+      <Btn label="Try again" icon="repeat" variant="ghost" height={38} onPress={onRetry} />
+    </View>
   );
 }
 

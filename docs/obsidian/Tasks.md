@@ -8,6 +8,8 @@ tags: [project/preppa, type/tasks]
 
 # Tasks
 
+- [x] Keep customer experiences and custom service requests independently usable: preserve loaded content during focus refreshes, isolate partial failures, keep custom booking available when experiences fail, add section-level retries, and give cards complete spoken labels (2026-09-25)
+
 - [x] Harden the customer storefront: sequence experience loads, cancel live-status updates after unmount, synchronously lock follow and message actions, bound chat failures, and announce data recovery notices (2026-09-25)
 
 - [x] Harden PrepPlus membership handling: sequence and cancel stale loads, preserve the last confirmed membership through refresh failures, replace backend errors with stable recovery guidance, and distinguish successful writes from delayed refreshes (2026-09-25)
