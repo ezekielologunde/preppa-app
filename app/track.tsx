@@ -22,7 +22,7 @@ function stepsFromStatus(status: RealStatus | null, pickup: boolean, theCookName
     { t: 'Order confirmed', p: `${theCookName} accepted your order`, st: st(0) },
     { t: 'Cooking now', p: 'Fresh on the stove', st: st(1) },
     { t: pickup ? 'Ready for pickup' : 'Out for delivery', p: pickup ? `Head to ${kitchenName}` : 'On the way to you', st: st(2) },
-    { t: 'Delivered', p: 'Leave a review to earn points', st: st(3) },
+    { t: 'Delivered', p: 'Review your meal and cook when you’re ready', st: st(3) },
   ];
 }
 
@@ -48,7 +48,7 @@ export default function Track() {
         setLive(next);
         setLoadError('');
       })
-      .catch((e) => setLoadError(e?.message ?? 'Couldn’t refresh this order.'))
+      .catch((e) => setLoadError(e?.message?.startsWith('This order could not be found') ? e.message : 'Couldn’t refresh this order. Check your connection and try again.'))
       .finally(() => setLoading(false));
   }, [orderId]);
 
@@ -68,6 +68,14 @@ export default function Track() {
   const confirmingPayment = !!live && !paymentConfirmed;
   const STEPS = stepsFromStatus(paymentConfirmed ? (live?.status as RealStatus) ?? null : null, pickup, theCook.name, theCook.kitchen);
   const realStatusLabel = live && !paymentConfirmed ? 'Confirming payment' : live?.status === 'completed' ? 'Delivered' : live?.status === 'cancelled' ? 'Cancelled' : 'Live';
+  const kitchenUpdate = !live
+    ? loading ? 'Loading the latest kitchen update…' : 'The latest kitchen update is unavailable.'
+    : !paymentConfirmed ? 'The kitchen will receive this order after payment is confirmed.'
+    : live.status === 'cancelled' ? 'This order was cancelled.'
+    : live.status === 'completed' ? 'This order is complete. Thank you for ordering.'
+    : live.status === 'ready' ? (pickup ? 'Your order is ready for pickup.' : 'Your order is ready for delivery handoff.')
+    : live.status === 'preparing' ? 'Your cook is preparing your order.'
+    : 'The kitchen has your confirmed order.';
 
   return (
     <Screen>
@@ -127,7 +135,7 @@ export default function Track() {
           <Avatar initial={theCook.initial} grad={theCook.grad} size={46} />
             <View style={{ flex: 1 }}>
               <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}><Text style={[type(15, 900), { color: c.ink }]}>{theCook.name}</Text><Icon name="shield" size={15} color={c.green} /></View>
-              <Text style={[type(12, 600), { color: c.soft, marginTop: 2 }]}>Your cook is preparing your order</Text>
+              <Text style={[type(12, 600), { color: c.soft, marginTop: 2 }]}>{kitchenUpdate}</Text>
             </View>
           </View>
 

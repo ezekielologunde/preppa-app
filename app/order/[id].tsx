@@ -1,4 +1,4 @@
-import React, { useCallback, useState } from 'react';
+import React, { useCallback, useRef, useState } from 'react';
 import { View, Text, ScrollView, TextInput, ActivityIndicator } from 'react-native';
 import { useLocalSearchParams, useRouter, useFocusEffect } from 'expo-router';
 import { cookOfLine, money } from '../../src/data/data';
@@ -171,12 +171,15 @@ function ReportIssue({ orderId }: { orderId: string }) {
   const [subject, setSubject] = useState('');
   const [body, setBody] = useState('');
   const [busy, setBusy] = useState(false);
+  const submitInFlight = useRef(false);
 
   const input = { borderWidth: 1, borderColor: c.border, borderRadius: radius.md, padding: 12, color: c.ink, backgroundColor: c.bg2, ...(type(14, 600) as object) };
 
   const submit = async () => {
+    if (submitInFlight.current) return;
     if (subject.trim().length < 3) { toast('Add a short subject', 'info'); return; }
     if (body.trim().length < 3) { toast('Describe the issue', 'info'); return; }
+    submitInFlight.current = true;
     setBusy(true);
     try {
       await createOrderTicket(orderId, cat, subject.trim(), body.trim());
@@ -185,6 +188,7 @@ function ReportIssue({ orderId }: { orderId: string }) {
     } catch (e: any) {
       toast(e?.message || 'Couldn’t send your report just now. Please try again.', 'info');
     } finally {
+      submitInFlight.current = false;
       setBusy(false);
     }
   };
@@ -202,7 +206,7 @@ function ReportIssue({ orderId }: { orderId: string }) {
         {TICKET_CATEGORIES.map((k) => {
           const on = cat === k.value;
           return (
-            <Press key={k.value} scale={0.96} onPress={() => setCat(k.value)}>
+            <Press key={k.value} scale={0.96} onPress={() => setCat(k.value)} label={`${k.label}${on ? ', selected' : ''}`} selected={on}>
               <View style={{ paddingHorizontal: 12, height: 32, borderRadius: radius.pill, alignItems: 'center', justifyContent: 'center', backgroundColor: on ? c.primary : c.bg2, borderWidth: 1, borderColor: on ? c.primary : c.border }}>
                 <Text style={[type(12.5, 800), { color: on ? '#fff' : c.ink }]}>{k.label}</Text>
               </View>
@@ -213,7 +217,7 @@ function ReportIssue({ orderId }: { orderId: string }) {
       <TextInput value={subject} onChangeText={setSubject} maxLength={120} placeholder="Subject" placeholderTextColor={c.muted} accessibilityLabel="Issue subject, 120 characters maximum" style={input} />
       <TextInput value={body} onChangeText={setBody} maxLength={2000} placeholder="What went wrong?" placeholderTextColor={c.muted} multiline accessibilityLabel="Issue description, 2,000 characters maximum" style={[input, { minHeight: 72, textAlignVertical: 'top' }]} />
       <Text style={[type(11.5, 600), { color: c.muted, textAlign: 'right' }]}>{body.length}/2000</Text>
-      <Btn label="Submit report" icon="check" loading={busy} onPress={submit} />
+      <Btn label="Submit report" icon="check" loading={busy} disabled={busy} onPress={submit} />
     </View>
   );
 }

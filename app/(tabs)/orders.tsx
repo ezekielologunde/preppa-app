@@ -1,5 +1,5 @@
 import React, { useCallback, useRef, useState } from 'react';
-import { View, Text, ScrollView, ActivityIndicator } from 'react-native';
+import { View, Text, ScrollView, ActivityIndicator, Linking } from 'react-native';
 import { useRouter, useFocusEffect } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { cookOfLine, money, thumb } from '../../src/data/data';
@@ -120,7 +120,7 @@ export default function Orders() {
     if (!b.experienceId) return;
     try {
       const url = await fetchExperienceMeetingUrl(b.experienceId);
-      if (url && typeof window !== 'undefined') window.open(url, '_blank');
+      if (url) await Linking.openURL(url);
       else toast('The host hasn’t added the link yet', 'info');
     } catch { toast('Could not get the link', 'info'); }
   };
