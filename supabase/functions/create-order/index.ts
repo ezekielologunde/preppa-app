@@ -39,6 +39,7 @@ const createOrderInput = z.object({
   /** ISO-2 country of the buyer's confirmed area. Optional — omitted means $0 tax rather
    *  than a guessed rate. Drives a real Stripe Tax calculation, not a hardcoded rate. */
   country: z.string().length(2).optional(),
+  addressId: z.string().uuid().optional(),
 });
 
 /** Real sales tax via Stripe Tax — replaces the old hardcoded flat-rate estimate.
@@ -117,6 +118,21 @@ Deno.serve(async (req) => {
       return json(200, { orderId: existing.id, clientSecret, taxCents: existing.tax_cents ?? 0, reused: true });
     }
 
+    let deliveryAddressText: string | null = null;
+    if (input.fulfillment === 'delivery') {
+      if (!input.addressId) return json(400, { error: 'Add a delivery address before checkout.' });
+      const { data: address, error: addressErr } = await db
+        .from('addresses')
+        .select('line1,line2,city,region,postal_code')
+        .eq('id', input.addressId)
+        .eq('owner_id', customerId)
+        .eq('kind', 'customer_delivery')
+        .maybeSingle();
+      if (addressErr) throw addressErr;
+      if (!address) return json(400, { error: 'That delivery address is no longer available.' });
+      deliveryAddressText = [address.line1, address.line2, address.city, address.region, address.postal_code].filter(Boolean).join(', ');
+    }
+
     const mealIds = [...new Set(input.items.map((i) => i.mealId))];
     const { data: meals, error: mErr } = await db
       .from('meals').select('id, name, price_cents, kitchen_id, status').in('id', mealIds);
@@ -157,6 +173,7 @@ Deno.serve(async (req) => {
         pay_status: 'unpaid', fulfillment: input.fulfillment, subtotal_cents: subtotal,
         service_fee_cents: serviceFee, tax_cents: tax, tax_calculation_id: taxCalculationId,
         tip_cents: tip, total_cents: total, idempotency_key: input.idempotencyKey,
+        delivery_address_text: deliveryAddressText,
       })
       .select('id').single();
     if (oErr) {

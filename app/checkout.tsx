@@ -106,6 +106,7 @@ export default function Checkout() {
           idempotencyKey: idemKey,
           savePaymentMethod: useSaved ? false : saveNewCard,
           taxCountry: country,
+          addressId: mode === 'delivery' ? address?.id : undefined,
         });
         if (useSaved) {
           // Show the server-calculated tax and final total before directly charging a saved
@@ -133,6 +134,7 @@ export default function Checkout() {
     try {
       const { orderId, taxCents } = await payWithCard({
         cook: cookId, lines, mode, tipDollars: tip, idempotencyKey: idemKey, savePaymentMethod: false, taxCountry: country,
+        addressId: mode === 'delivery' ? address?.id : undefined,
       });
       setBusy(false);
       placeOrder('paid', ck, orderId, taxCents);

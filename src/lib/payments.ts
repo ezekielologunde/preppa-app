@@ -15,6 +15,8 @@ export interface OrderOpts {
   /** ISO-2 country of the buyer's confirmed area — drives real Stripe Tax calculation
    *  server-side. Omitted/null → server charges $0 tax rather than guessing a rate. */
   taxCountry?: string | null;
+  /** Required for delivery. The server verifies ownership and snapshots the address on the order. */
+  addressId?: string;
 }
 
 /** A tokenized saved card (Stripe PaymentMethod) — no PAN, only display fields. */
@@ -60,6 +62,7 @@ export async function createRealOrder(opts: OrderOpts): Promise<{ orderId: strin
       idempotencyKey: opts.idempotencyKey,
       savePaymentMethod: opts.savePaymentMethod ?? false,
       ...(opts.taxCountry ? { country: opts.taxCountry } : {}),
+      ...(opts.addressId ? { addressId: opts.addressId } : {}),
     },
   });
   if (error) throw error;

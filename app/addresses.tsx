@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { View, Text, ScrollView, TextInput } from 'react-native';
+import { View, Text, ScrollView, TextInput, ActivityIndicator } from 'react-native';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { useC } from '../src/theme/ThemeContext';
 import { type, radius } from '../src/theme/theme';
@@ -12,13 +12,14 @@ export default function Addresses() {
   const router = useRouter();
   const { select } = useLocalSearchParams<{ select?: string }>();
   const selecting = select === '1';
-  const { addresses, addressId, selectAddress, removeAddress, addAddress, updateAddress, toast } = useStore();
+  const { addresses, addressId, addressesLoading, addressesError, refreshAddresses, selectAddress, removeAddress, addAddress, updateAddress, toast } = useStore();
 
   const [adding, setAdding] = useState(false);
   const [editId, setEditId] = useState<string | null>(null);
   const [label, setLabel] = useState('');
   const [line1, setLine1] = useState('');
   const [line2, setLine2] = useState('');
+  const [busy, setBusy] = useState(false);
 
   const reset = () => { setAdding(false); setEditId(null); setLabel(''); setLine1(''); setLine2(''); };
   const openNew = () => { setEditId(null); setLabel(''); setLine1(''); setLine2(''); setAdding(true); };
@@ -34,22 +35,38 @@ export default function Addresses() {
     }
   };
 
-  const save = () => {
+  const save = async () => {
     if (!label.trim() || !line1.trim()) {
       toast('Add a label and street address', 'info');
       return;
     }
     const patch = { label: label.trim(), line1: line1.trim(), line2: line2.trim() };
-    if (editId) {
-      updateAddress(editId, patch);
-      toast('Address updated', 'pin', true);
-    } else {
-      const id = addAddress(patch); // dedups: returns an existing id if identical
-      const wasDuplicate = addresses.some((a) => a.id === id);
-      toast(wasDuplicate ? 'That address is already saved — selected it' : 'Address added', 'pin', true);
-    }
-    reset();
+    setBusy(true);
+    try {
+      if (editId) {
+        await updateAddress(editId, patch);
+        toast('Address updated', 'pin', true);
+      } else {
+        const id = await addAddress(patch);
+        const wasDuplicate = addresses.some((a) => a.id === id);
+        toast(wasDuplicate ? 'That address is already saved and selected' : 'Address added', 'pin', true);
+      }
+      reset();
+    } catch (e: any) {
+      toast(e?.message === 'AUTH_REQUIRED' ? 'Sign in to save an address.' : (e?.message || 'Could not save this address.'), 'info');
+    } finally { setBusy(false); }
   };
+
+  const remove = async (id: string) => {
+    if (busy) return;
+    setBusy(true);
+    try { await removeAddress(id); toast('Address removed', 'x'); }
+    catch (e: any) { toast(e?.message || 'Could not remove this address.', 'info'); }
+    finally { setBusy(false); }
+  };
+
+  if (addressesLoading && addresses.length === 0) return <Screen><TopBar title="Addresses" /><View style={{ flex: 1, alignItems: 'center', justifyContent: 'center' }}><ActivityIndicator color={c.primary} /></View></Screen>;
+  if (addressesError && addresses.length === 0) return <Screen><TopBar title="Addresses" /><Empty icon="info" title="Couldn’t load addresses" body={addressesError} action={<Btn label="Try again" icon="repeat" onPress={() => { void refreshAddresses(); }} />} /></Screen>;
 
   return (
     <Screen>
@@ -84,7 +101,7 @@ export default function Addresses() {
                   <Icon name="edit" size={15} color={c.muted} />
                 </View>
               </Press>
-              <Press scale={0.9} onPress={() => { removeAddress(a.id); toast('Address removed', 'x'); }} label={`Remove ${a.label} address`} hitSlop={8}>
+              <Press scale={0.9} onPress={() => { void remove(a.id); }} disabled={busy} label={`Remove ${a.label} address`} hitSlop={8}>
                 <View style={{ width: 34, height: 34, alignItems: 'center', justifyContent: 'center' }}>
                   <Icon name="x" size={16} color={c.muted} />
                 </View>
@@ -114,7 +131,7 @@ export default function Addresses() {
             <Field c={c} label="City, state ZIP" value={line2} onChange={setLine2} placeholder="City, state ZIP" autoComplete="postal-address-locality" textContentType="addressCityAndState" />
             <View style={{ flexDirection: 'row', gap: 10, marginTop: 2 }}>
               <Btn label="Cancel" variant="ghost" flex={1} onPress={reset} />
-              <Btn label={editId ? 'Save changes' : 'Save address'} icon="check" flex={1} onPress={save} />
+              <Btn label={editId ? 'Save changes' : 'Save address'} icon="check" flex={1} loading={busy} onPress={save} />
             </View>
           </View>
         ) : (

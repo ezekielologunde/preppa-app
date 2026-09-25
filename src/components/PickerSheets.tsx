@@ -1,5 +1,5 @@
 import React from 'react';
-import { View, Text } from 'react-native';
+import { View, Text, ActivityIndicator } from 'react-native';
 import { useRouter } from 'expo-router';
 import { useC } from '../theme/ThemeContext';
 import { type, radius } from '../theme/theme';
@@ -11,11 +11,18 @@ import { SavedCard } from '../lib/payments';
 export function AddressPickerSheet({ visible, onClose }: { visible: boolean; onClose: () => void }) {
   const c = useC();
   const router = useRouter();
-  const { addresses, addressId, selectAddress, toast } = useStore();
+  const { addresses, addressId, addressesLoading, addressesError, refreshAddresses, selectAddress, toast } = useStore();
   const pick = (id: string) => { selectAddress(id); toast('Delivery address updated', 'pin', true); onClose(); };
   return (
     <Sheet visible={visible} onClose={onClose} title="Delivery address" scroll>
-      {addresses.length === 0 ? (
+      {addressesLoading && addresses.length === 0 ? (
+        <ActivityIndicator color={c.primary} style={{ marginVertical: 18 }} />
+      ) : addressesError && addresses.length === 0 ? (
+        <View accessibilityRole="alert" style={{ paddingVertical: 10 }}>
+          <Text style={[type(13, 700), { color: c.red, marginBottom: 10 }]}>{addressesError}</Text>
+          <Btn label="Try again" icon="repeat" variant="ghost" onPress={() => { void refreshAddresses(); }} />
+        </View>
+      ) : addresses.length === 0 ? (
         <Text style={[type(14, 500), { color: c.soft, paddingHorizontal: 4, paddingVertical: 10 }]}>No saved addresses yet.</Text>
       ) : (
         addresses.map((a) => {

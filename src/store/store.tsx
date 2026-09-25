@@ -19,6 +19,7 @@ import { getMyKitchen, getKitchenAvailability, setKitchenAvailability } from '..
 import { registerForPushNotifications } from '../lib/push';
 import { setViewerCoords } from '../data/supabaseRepository';
 import { geocodeAddress, type LatLng } from '../lib/geo';
+import { createSavedAddress, deleteSavedAddress, fetchSavedAddresses, updateSavedAddress } from '../lib/addresses';
 export type { ApplicationFields };
 
 export type PrepperStatus = 'none' | 'pending' | 'approved';
@@ -68,11 +69,6 @@ export interface Address {
   line1: string;
   line2: string;
 }
-const SEED_ADDRESSES: Address[] = [
-  { id: 'home', label: 'Home', line1: '88 Highland Ave NE, Apt 4', line2: 'Atlanta, GA 30312' },
-  { id: 'work', label: 'Work', line1: '1100 Peachtree St NE', line2: 'Atlanta, GA 30309' },
-];
-
 export interface Toast {
   id: number;
   msg: string;
@@ -121,10 +117,13 @@ interface Store {
   addresses: Address[];
   address: Address | null; // currently selected
   addressId: string;
-  addAddress: (a: Omit<Address, 'id'>) => string; // returns the id (existing if a duplicate)
-  updateAddress: (id: string, patch: Omit<Address, 'id'>) => void;
+  addressesLoading: boolean;
+  addressesError: string;
+  refreshAddresses: () => Promise<void>;
+  addAddress: (a: Omit<Address, 'id'>) => Promise<string>;
+  updateAddress: (id: string, patch: Omit<Address, 'id'>) => Promise<void>;
   selectAddress: (id: string) => void;
-  removeAddress: (id: string) => void;
+  removeAddress: (id: string) => Promise<void>;
 
   // role / prepper lifecycle. Reconciled from the server for signed-in users;
   // approval is admin-driven (no client-side auto-approve).
@@ -222,8 +221,10 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
   const [isPrepPlus, setIsPrepPlus] = useState(false);
   const [prepplusUntil, setPrepplusUntil] = useState<string | null>(null);
   const [isAdmin, setIsAdmin] = useState(false);
-  const [addresses, setAddresses] = useState<Address[]>(SEED_ADDRESSES);
-  const [addressId, setAddressId] = useState('home');
+  const [addresses, setAddresses] = useState<Address[]>([]);
+  const [addressId, setAddressId] = useState('');
+  const [addressesLoading, setAddressesLoading] = useState(false);
+  const [addressesError, setAddressesError] = useState('');
   const [lastOrder, setLastOrder] = useState<OrderFlow | null>(null);
   const [orders, setOrders] = useState<CustomerOrder[]>([]);
   const [ordersLoading, setOrdersLoading] = useState(false);
@@ -266,8 +267,6 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
           // prepperStatus is deliberately NOT hydrated from storage — it's an access
           // gate (My Hub) and must reflect the live session, not a stale cached role.
           // reconcileAccount() sets it authoritatively from the server (see below).
-          if (Array.isArray(s.addresses)) setAddresses(s.addresses);
-          if (typeof s.addressId === 'string') setAddressId(s.addressId);
           if (s.lastOrder) setLastOrder(s.lastOrder);
           if (Array.isArray(s.subs)) setSubs(s.subs);
           else if (s.subscription) setSubs([s.subscription]); // migrate old single-object shape
@@ -284,9 +283,9 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
     if (!hydrated.current) return;
     AsyncStorage.setItem(
       LS,
-      JSON.stringify({ onboarded, darkMode, cart, tip, mode, location, coords, country, name, firstName, fav: [...fav], addresses, addressId, lastOrder, subs, avail }),
+      JSON.stringify({ onboarded, darkMode, cart, tip, mode, location, coords, country, name, firstName, fav: [...fav], lastOrder, subs, avail }),
     ).catch(() => {});
-  }, [onboarded, darkMode, cart, tip, mode, location, coords, country, name, firstName, fav, addresses, addressId, lastOrder, subs, avail]);
+  }, [onboarded, darkMode, cart, tip, mode, location, coords, country, name, firstName, fav, lastOrder, subs, avail]);
 
   const toast = useCallback((msg: string, icon = 'check', green = false) => {
     const id = toastSeq++;
@@ -332,6 +331,20 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
     }
   }, [uid]);
 
+  const refreshAddresses = useCallback(async () => {
+    setAddressesLoading(true);
+    setAddressesError('');
+    try {
+      const rows = await fetchSavedAddresses();
+      setAddresses(rows);
+      setAddressId((current) => rows.some((a) => a.id === current) ? current : rows[0]?.id ?? '');
+    } catch (e: any) {
+      setAddressesError(e?.message || 'Could not load your delivery addresses.');
+    } finally {
+      setAddressesLoading(false);
+    }
+  }, []);
+
   // --- role / prepper lifecycle -------------------------------------------
   // Reconcile the user's real role/status from the backend so admin gating and
   // prepper approval reflect server truth (not a local flag). Runs after hydrate
@@ -362,6 +375,7 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
         finally { setNotificationsLoading(false); }
         try { setThreadUnread(await threadUnreadCount()); } catch { /* keep last */ }
         await refreshOrders(sess.session?.user?.id);
+        await refreshAddresses();
         // Fire-and-forget: no-ops on web / before an EAS project is linked, and never
         // throws (see src/lib/push.ts) — safe to leave unawaited here.
         registerForPushNotifications();
@@ -374,11 +388,15 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
         setOrders([]);
         setOrdersError('');
         setOrdersLoading(false);
+        setAddresses([]);
+        setAddressId('');
+        setAddressesError('');
+        setAddressesLoading(false);
       }
     } catch {
       // transient network/permission issue — keep the last known state
     }
-  }, [refreshOrders]);
+  }, [refreshAddresses, refreshOrders]);
 
   // Refresh just the messaging unread count (called after opening/reading a thread).
   const refreshMessaging = useCallback(async () => {
@@ -485,24 +503,24 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
 
   // --- addresses ---
   const norm = (a: Omit<Address, 'id'>) => `${a.label.trim().toLowerCase()}|${a.line1.trim().toLowerCase()}|${a.line2.trim().toLowerCase()}`;
-  const addAddress = useCallback((a: Omit<Address, 'id'>): string => {
-    // Dedup: an identical (label/line1/line2) address returns the existing id
-    // instead of stacking a duplicate row.
+  const addAddress = useCallback(async (a: Omit<Address, 'id'>): Promise<string> => {
     const dup = addresses.find((x) => norm(x) === norm(a));
     if (dup) {
       setAddressId(dup.id);
       return dup.id;
     }
-    const id = 'addr-' + (Date.now().toString(36) + Math.floor(Math.random() * 1296).toString(36)).slice(-5);
-    setAddresses((xs) => [...xs, { ...a, id }]);
-    setAddressId(id); // newly added becomes the selected one
-    return id;
+    const created = await createSavedAddress(a);
+    setAddresses((xs) => [...xs, created]);
+    setAddressId(created.id);
+    return created.id;
   }, [addresses]);
-  const updateAddress = useCallback((id: string, patch: Omit<Address, 'id'>) => {
-    setAddresses((xs) => xs.map((a) => (a.id === id ? { ...a, ...patch } : a)));
+  const updateAddress = useCallback(async (id: string, patch: Omit<Address, 'id'>) => {
+    const updated = await updateSavedAddress(id, patch);
+    setAddresses((xs) => xs.map((a) => (a.id === id ? updated : a)));
   }, []);
   const selectAddress = useCallback((id: string) => setAddressId(id), []);
-  const removeAddress = useCallback((id: string) => {
+  const removeAddress = useCallback(async (id: string) => {
+    await deleteSavedAddress(id);
     setAddresses((xs) => {
       const n = xs.filter((a) => a.id !== id);
       setAddressId((cur) => (cur === id ? n[0]?.id ?? '' : cur));
@@ -579,7 +597,7 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
   }, [orders]);
 
   const resetOnboarding = useCallback(() => setOnboardedState(false), []);
-  const logout = useCallback(() => { signOutUser(); setPrepperStatus('none'); setIsAdmin(false); setIsPrepPlus(false); setPrepplusUntil(null); setOrders([]); setOrdersError(''); setOnboardedState(false); }, []);
+  const logout = useCallback(() => { signOutUser(); setPrepperStatus('none'); setIsAdmin(false); setIsPrepPlus(false); setPrepplusUntil(null); setOrders([]); setOrdersError(''); setAddresses([]); setAddressId(''); setOnboardedState(false); }, []);
   const deleteAccount = useCallback(async () => {
     // Apple 5.1.1(v) / Google Play: account-deletion path. Calls the real delete-account edge
     // function FIRST (anonymizes the profile, soft-deletes the auth user so sign-in is
@@ -591,8 +609,8 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
     AsyncStorage.removeItem(LS).catch(() => {});
     setCart([]);
     setFav(new Set());
-    setAddresses(SEED_ADDRESSES);
-    setAddressId('home');
+    setAddresses([]);
+    setAddressId('');
     setSubs([]);
     setOrders([]);
     setLastOrder(null);
@@ -719,6 +737,9 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
     addresses,
     address,
     addressId,
+    addressesLoading,
+    addressesError,
+    refreshAddresses,
     addAddress,
     updateAddress,
     selectAddress,
