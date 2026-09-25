@@ -10,6 +10,7 @@ import * as admin from '../../src/lib/admin';
 import { AdminHeader } from '../../src/components/admin/AdminHeader';
 import { ErrorRetry } from '../../src/components/admin/states';
 import { money } from '../../src/data/data';
+import { confirmAction } from '../../src/lib/confirm';
 
 const FILTERS: { label: string; value: admin.AdminPayoutStatus | undefined }[] = [
   { label: 'Needs review', value: 'needs_review' },
@@ -45,6 +46,7 @@ function ResolveRow({ payout, onChanged }: { payout: admin.AdminPayout; onChange
   const [busy, setBusy] = useState(false);
 
   const resolve = async (outcome: 'paid' | 'failed') => {
+    if (busy) return;
     if (outcome === 'paid' && !/^tr_[A-Za-z0-9]+$/.test(transferId.trim())) {
       toast('Enter a valid Stripe transfer id beginning with tr_', 'info');
       return;
@@ -61,6 +63,27 @@ function ResolveRow({ payout, onChanged }: { payout: admin.AdminPayout; onChange
     } catch (e: any) {
       toast(e?.message ?? 'Could not resolve this payout', 'info');
     } finally { setBusy(false); }
+  };
+  const requestResolve = (outcome: 'paid' | 'failed') => {
+    const transfer = transferId.trim();
+    const reason = note.trim();
+    if (outcome === 'paid' && !/^tr_[A-Za-z0-9]+$/.test(transfer)) {
+      toast('Enter a valid Stripe transfer id beginning with tr_', 'info');
+      return;
+    }
+    if (outcome === 'failed' && reason.length < 4) {
+      toast('Add a note explaining why no transfer should be marked paid', 'info');
+      return;
+    }
+    const kitchen = payout.kitchen_name ?? 'this kitchen';
+    confirmAction(
+      outcome === 'paid' ? 'Confirm payout as paid?' : 'Confirm payout as failed?',
+      outcome === 'paid'
+        ? `Record ${money(payout.amount_cents / 100)} for ${kitchen} as paid using Stripe transfer ${transfer}.`
+        : `Record ${money(payout.amount_cents / 100)} for ${kitchen} as failed. Reconciliation note: ${reason}`,
+      () => void resolve(outcome),
+      outcome === 'paid' ? 'Mark paid' : 'Mark failed',
+    );
   };
 
   return (
@@ -83,8 +106,8 @@ function ResolveRow({ payout, onChanged }: { payout: admin.AdminPayout; onChange
         style={{ height: 42, borderWidth: 1, borderColor: c.border, borderRadius: radius.md, paddingHorizontal: 12, color: c.ink, backgroundColor: c.bg2, ...(type(13.5, 600) as object) }}
       />
       <View style={{ flexDirection: 'row', gap: 10 }}>
-        <Btn label="Mark paid" icon="check" loading={busy} onPress={() => resolve('paid')} height={40} />
-        <Btn label="Mark failed" variant="ghost" loading={busy} disabled={busy || note.trim().length < 4} onPress={() => resolve('failed')} height={40} />
+        <Btn label="Mark paid" icon="check" loading={busy} disabled={busy} onPress={() => requestResolve('paid')} height={40} />
+        <Btn label="Mark failed" variant="ghost" loading={busy} disabled={busy || note.trim().length < 4} onPress={() => requestResolve('failed')} height={40} />
       </View>
     </View>
   );
