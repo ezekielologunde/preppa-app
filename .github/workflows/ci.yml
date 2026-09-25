@@ -37,7 +37,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
-      - uses: supabase/setup-cli@1dedf2c611547ede7232d26866dd3c56ab903bbb # v1
+      - uses: supabase/setup-cli@adc7f6c42cdd496c1c01bd3d49bd1c9f7da9630d # main, Node 24 compatible, pinned 2026-09-25
         with:
           version: 2.118.0
       - run: supabase --version
