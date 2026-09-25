@@ -40,7 +40,7 @@ export default function RateExperience() {
     reviewInFlight.current = true;
     setBusy(true);
     try { await reviewExperience(bookingId!, stars, text); toast('Thanks for your review!', 'star', true); router.replace('/orders'); }
-    catch (e: any) { toast(e?.message || 'Could not submit your review', 'info'); }
+    catch { toast('Could not submit your review. It may already be recorded, so refresh your bookings before trying again.', 'info'); }
     finally { reviewInFlight.current = false; setBusy(false); }
   };
 

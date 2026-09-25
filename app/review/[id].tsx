@@ -35,7 +35,7 @@ export default function Review() {
         <Empty
           icon="star"
           title={loadFailed ? 'Could not load order' : o?.reviewed ? 'Review already submitted' : o ? 'Review not available yet' : 'Order not found'}
-          body={loadFailed ? ordersError : o?.reviewed ? 'You already reviewed this order.' : o ? 'You can leave a review after the order is completed.' : 'We couldn’t find that order.'}
+          body={loadFailed ? 'Check your connection and try loading this order again.' : o?.reviewed ? 'You already reviewed this order.' : o ? 'You can leave a review after the order is completed.' : 'We couldn’t find that order.'}
           action={loadFailed ? <Btn label="Try again" icon="repeat" onPress={() => void refreshOrders()} /> : <Btn label="Your orders" onPress={() => router.replace('/orders')} />}
         />
       </Screen>
@@ -60,8 +60,8 @@ export default function Review() {
       await submitReview(orderDbId, stars, note);
       toast('Thanks for your review!', 'star', true);
       router.back();
-    } catch (e: any) {
-      toast(e?.message || 'Could not submit your review.', 'info');
+    } catch {
+      toast('Could not submit your review. It may already be recorded, so refresh your orders before trying again.', 'info');
     } finally {
       reviewInFlight.current = false;
       setBusy(false);

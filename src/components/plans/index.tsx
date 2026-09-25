@@ -1,4 +1,4 @@
-import React, { useCallback, useState } from 'react';
+import React, { useCallback, useRef, useState } from 'react';
 import { View, Text, ScrollView, ActivityIndicator, Modal, Pressable } from 'react-native';
 import { useRouter, useFocusEffect } from 'expo-router';
 import { useC } from '../../theme/ThemeContext';
@@ -43,21 +43,27 @@ export function BrowsePlansSection() {
   const [subs, setSubs] = useState<MySubscription[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
+  const loadSequence = useRef(0);
 
   const load = useCallback(async () => {
+    const sequence = ++loadSequence.current;
     setLoading(true);
     setError('');
     try {
       const [p, s] = await Promise.all([fetchActivePlans(), listMySubscriptions()]);
+      if (sequence !== loadSequence.current) return;
       setPlans(p);
       setSubs(s);
     } catch {
-      setError('Check your connection and try loading meal plans again.');
+      if (sequence === loadSequence.current) setError('Check your connection and try loading meal plans again.');
     } finally {
-      setLoading(false);
+      if (sequence === loadSequence.current) setLoading(false);
     }
   }, []);
-  useFocusEffect(useCallback(() => { void load(); }, [load]));
+  useFocusEffect(useCallback(() => {
+    void load();
+    return () => { loadSequence.current += 1; };
+  }, [load]));
 
   const subscribedPlanIds = new Set(subs.map((s) => s.planId));
   const available = plans.filter((p) => !subscribedPlanIds.has(p.id));
@@ -125,22 +131,30 @@ export function MyPlansSection({ onBrowse }: { onBrowse: () => void }) {
   const [editSub, setEditSub] = useState<MySubscription | null>(null);
   const [boxPicker, setBoxPicker] = useState<MySubscription | null>(null);
   const [addressSub, setAddressSub] = useState<MySubscription | null>(null);
+  const loadSequence = useRef(0);
+  const mutationInFlight = useRef(false);
 
   const load = useCallback(async () => {
+    const sequence = ++loadSequence.current;
     setLoading(true);
     setError('');
     try {
-      setSubs(await listMySubscriptions());
+      const next = await listMySubscriptions();
+      if (sequence === loadSequence.current) setSubs(next);
     } catch {
-      setError('Check your connection and try loading your plans again.');
+      if (sequence === loadSequence.current) setError('Check your connection and try loading your plans again.');
     } finally {
-      setLoading(false);
+      if (sequence === loadSequence.current) setLoading(false);
     }
   }, []);
-  useFocusEffect(useCallback(() => { void load(); }, [load]));
+  useFocusEffect(useCallback(() => {
+    void load();
+    return () => { loadSequence.current += 1; };
+  }, [load]));
 
   const act = async (sub: MySubscription, action: 'pause' | 'resume' | 'cancel' | 'skip') => {
-    if (busy) return;
+    if (mutationInFlight.current) return;
+    mutationInFlight.current = true;
     setBusy(sub.id);
     try {
       if (action === 'pause') { await pauseSubscription(sub.id); toast('Plan paused', 'check', true); }
@@ -150,7 +164,7 @@ export function MyPlansSection({ onBrowse }: { onBrowse: () => void }) {
       await load();
     } catch {
       toast(`Could not ${action} this plan. Please try again.`, 'info');
-    } finally { setBusy(null); }
+    } finally { mutationInFlight.current = false; setBusy(null); }
   };
 
   const message = async (sub: MySubscription) => {
@@ -163,6 +177,7 @@ export function MyPlansSection({ onBrowse }: { onBrowse: () => void }) {
   };
 
   const requestAction = (sub: MySubscription, action: 'pause' | 'resume' | 'cancel' | 'skip') => {
+    if (mutationInFlight.current) return;
     if (action !== 'cancel') {
       void act(sub, action);
       return;
@@ -176,9 +191,11 @@ export function MyPlansSection({ onBrowse }: { onBrowse: () => void }) {
   };
 
   const changeDeliveryAddress = async (addressId: string) => {
+    if (mutationInFlight.current) return;
     const sub = addressSub;
     setAddressSub(null);
     if (!sub) return;
+    mutationInFlight.current = true;
     setBusy(sub.id);
     try {
       await updateSubscriptionDeliveryAddress(sub.id, addressId);
@@ -186,7 +203,7 @@ export function MyPlansSection({ onBrowse }: { onBrowse: () => void }) {
       toast('Delivery address updated', 'check', true);
     } catch {
       toast('Could not update the delivery address. Please try again.', 'info');
-    } finally { setBusy(null); }
+    } finally { mutationInFlight.current = false; setBusy(null); }
   };
 
   return (
@@ -246,26 +263,37 @@ export function BoxCookPicker({ sub, onClose }: { sub: MySubscription | null; on
   const [kitchens, setKitchens] = useState<BoxKitchen[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
+  const loadSequence = useRef(0);
+  const messageInFlight = useRef(false);
 
   const load = React.useCallback(async () => {
     if (!sub) return;
+    const sequence = ++loadSequence.current;
     setLoading(true);
     setError('');
     try {
-      setKitchens(await fetchBoxKitchens(sub.id));
-    } catch (e: any) {
+      const next = await fetchBoxKitchens(sub.id);
+      if (sequence === loadSequence.current) setKitchens(next);
+    } catch {
+      if (sequence !== loadSequence.current) return;
       setKitchens([]);
-      setError(e?.message || 'The kitchens in this box could not be loaded.');
+      setError('Check your connection and try loading the kitchens in this box again.');
     } finally {
-      setLoading(false);
+      if (sequence === loadSequence.current) setLoading(false);
     }
   }, [sub?.id]);
-  React.useEffect(() => { void load(); }, [load]);
+  React.useEffect(() => {
+    void load();
+    return () => { loadSequence.current += 1; messageInFlight.current = false; };
+  }, [load]);
 
   if (!sub) return null;
   const pick = async (k: BoxKitchen) => {
+    if (messageInFlight.current) return;
+    messageInFlight.current = true;
     try { const tid = await openThread(k.kitchenId, 'box', sub.id); onClose(); router.push(`/messages/${tid}`); }
-    catch (e: any) { toast(e?.message || 'Could not open chat', 'info'); }
+    catch { toast('Could not open chat. Check your connection and try again.', 'info'); }
+    finally { messageInFlight.current = false; }
   };
 
   return (
@@ -417,6 +445,7 @@ export function EditMealsModal({ sub, onClose, onSaved }: { sub: MySubscription 
   const { toast } = useStore();
   const [sel, setSel] = useState<Record<string, number>>({});
   const [busy, setBusy] = useState(false);
+  const saveInFlight = useRef(false);
 
   React.useEffect(() => {
     if (!sub) return;
@@ -433,12 +462,14 @@ export function EditMealsModal({ sub, onClose, onSaved }: { sub: MySubscription 
   });
 
   const save = async () => {
+    if (saveInFlight.current) return;
+    saveInFlight.current = true;
     setBusy(true);
     try {
       await selectCycleMeals(sub.nextCycle!.id, Object.entries(sel).filter(([, q]) => q > 0).map(([mealId, qty]) => ({ mealId, qty })));
       onSaved();
-    } catch (e: any) { toast(e?.message || 'Could not save your meals', 'info'); }
-    finally { setBusy(false); }
+    } catch { toast('Could not save your meals. The selection window may have changed, so refresh your plan and try again.', 'info'); }
+    finally { saveInFlight.current = false; setBusy(false); }
   };
 
   return (

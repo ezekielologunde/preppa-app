@@ -22,6 +22,8 @@ tags: [project/preppa, type/tasks]
 
 - [x] Harden customer service-request handling: keep loaded quotes visible during refreshes, sequence detail loads, replace backend errors with stable guidance, confirm request cancellation and its effect on quotes, and block overlapping location lookups (2026-09-25)
 
+- [x] Harden customer plan and review actions: sequence plan refreshes, synchronously lock subscription, address, meal-selection, and box-message writes, and replace backend review and plan errors with stable recovery guidance (2026-09-25)
+
 - [x] Keep cook meal plans usable through refresh failures: sequence focus loads, retain the current plan list with accessible recovery, and add complete spoken labels to plan rows (2026-09-25)
 
 - [x] Preserve cook prep and allergy information through subscriber refresh failures: sequence loads, retain current prep with accessible recovery, and synchronously lock direct and broadcast message actions (2026-09-25)
