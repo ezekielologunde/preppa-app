@@ -26,10 +26,19 @@ export default function PostReelFlow() {
   const [tag, setTag] = useState('Reel');
   const [mealId, setMealId] = useState<string>('');
   const [meals, setMeals] = useState<{ id: string; name: string }[]>([]);
+  const [mealsLoading, setMealsLoading] = useState(true);
+  const [mealsError, setMealsError] = useState(false);
   const [busy, setBusy] = useState(false);
   const [done, setDone] = useState(false);
 
-  useEffect(() => { fetchMyMenuMeals().then(setMeals).catch(() => {}); }, []);
+  const loadMeals = React.useCallback(async () => {
+    setMealsLoading(true);
+    setMealsError(false);
+    try { setMeals(await fetchMyMenuMeals()); }
+    catch { setMealsError(true); }
+    finally { setMealsLoading(false); }
+  }, []);
+  useEffect(() => { void loadMeals(); }, [loadMeals]);
 
   const valid = !!coverUrl && !!caption.trim();
 
@@ -125,7 +134,14 @@ export default function PostReelFlow() {
             {TAGS.map((t) => <KChoice key={t} label={t} on={tag === t} onPress={() => setTag(t)} />)}
           </View>
         </KField>
-        {meals.length > 0 ? (
+        {mealsLoading ? (
+          <View style={{ paddingVertical: 18, alignItems: 'center' }}><ActivityIndicator color={c.primary} /></View>
+        ) : mealsError ? (
+          <View style={{ marginTop: 18, padding: 14, borderRadius: radius.lg, backgroundColor: c.bg2, gap: 10 }}>
+            <Text style={[type(13, 600), { color: c.soft, textAlign: 'center' }]}>Your menu could not be loaded. You can still post without featuring a dish.</Text>
+            <KBtn label="Try menu again" variant="ghost" block onPress={() => void loadMeals()} />
+          </View>
+        ) : meals.length > 0 ? (
           <KField label="Feature a dish (optional)">
             <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 9 }}>
               <KChoice label="None" on={!mealId} onPress={() => setMealId('')} />
