@@ -159,9 +159,6 @@ interface Store {
   availError: string;
   refreshAvail: () => Promise<void>;
   toggleAvail: () => void;
-  acted: string[];
-  acceptOrder: (id: string) => void;
-
   toasts: Toast[];
   toast: (msg: string, icon?: string, green?: boolean) => void;
 
@@ -233,7 +230,6 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
   const [avail, setAvail] = useState(true);
   const [availLoading, setAvailLoading] = useState(true);
   const [availError, setAvailError] = useState('');
-  const [acted, setActed] = useState<string[]>([]);
   const [notifs, setNotifs] = useState<AppNotification[]>([]); // real notifications from the DB
   const [notificationsLoading, setNotificationsLoading] = useState(false);
   const [notificationsError, setNotificationsError] = useState('');
@@ -660,7 +656,6 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
     setAvail(true);
     setAvailLoading(false);
     setAvailError('');
-    setActed([]);
     setPrepperStatus('none');
     setOwnKitchenId(null);
     setIsAdmin(false);
@@ -715,8 +710,6 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
     if (prepperStatus === 'approved') void refreshAvail();
     else { setAvailLoading(false); setAvailError(''); }
   }, [prepperStatus, refreshAvail]);
-  const acceptOrder = useCallback((id: string) => setActed((a) => [...a, id]), []);
-
   const showFlash = useCallback((item: { name: string; grad: GradKey }) => {
     setFlash(item);
     if (flashTimer.current) clearTimeout(flashTimer.current);
@@ -807,8 +800,6 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
     availError,
     refreshAvail,
     toggleAvail,
-    acted,
-    acceptOrder,
     toasts,
     toast,
     flash,
