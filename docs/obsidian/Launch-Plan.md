@@ -51,6 +51,7 @@ tags: [project/preppa, type/launch-plan]
 - Service requests, bookings, experience review status, message threads, unread counts, and broadcast audience counts now propagate backend failures instead of appearing empty or complete.
 - Editing a customer service request now waits for saved data and provides a retry state instead of exposing a blank form during a failed prefill.
 - Kitchen directory and profile ratings now surface query failures instead of showing verified cooks as unrated.
+- Checkout now clears stale saved-card selections when payment methods cannot be refreshed, and the web card sheet reports Stripe or mount failures instead of remaining indefinitely disabled.
 
 ### Customer acceptance evidence still needed
 

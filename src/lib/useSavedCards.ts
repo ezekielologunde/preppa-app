@@ -24,6 +24,10 @@ export function useSavedCards() {
       setMethods(res.methods);
       setDefaultId(res.defaultId);
     } catch (e) {
+      // Do not leave a previously loaded card selectable after its current state could not
+      // be verified. Checkout can still continue through the new-card flow.
+      setMethods([]);
+      setDefaultId(null);
       setError(e as Error);
     } finally {
       setLoading(false);

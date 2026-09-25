@@ -56,10 +56,17 @@ export function CardPaymentSheet({
     const t = setTimeout(async () => {
       try {
         const stripe = await getStripe();
-        if (cancelled || !stripe) return;
+        if (cancelled) return;
+        if (!stripe) {
+          setErr('Couldn’t load the card form. Close this window and try again.');
+          return;
+        }
         stripeRef.current = stripe;
         const node = mountRef.current as unknown as HTMLElement | null;
-        if (!node) return;
+        if (!node) {
+          setErr('Couldn’t open the card form. Close this window and try again.');
+          return;
+        }
         const elements = stripe.elements();
         const card = elements.create('card', {
           style: { base: { fontSize: '16px', color: c.ink, '::placeholder': { color: c.muted } } },
@@ -183,7 +190,7 @@ export function CardPaymentSheet({
           <Text style={[type(11.5, 600), { color: c.muted, marginTop: 8 }]}>
             {STRIPE_PK.startsWith('pk_live_') ? 'Your card is charged securely via Stripe.' : 'Test mode — use 4242 4242 4242 4242, any future date, any CVC.'}
           </Text>
-          {err ? <Text style={[type(13, 700), { color: c.red, marginTop: 8 }]}>{err}</Text> : null}
+          {err ? <Text accessibilityRole="alert" style={[type(13, 700), { color: c.red, marginTop: 8 }]}>{err}</Text> : null}
           <View style={{ marginTop: 14 }}>
             <Btn label={mode === 'save' ? 'Save card' : `Pay ${amountLabel}`} icon="lock" block loading={busy} disabled={!ready} onPress={pay} />
           </View>
