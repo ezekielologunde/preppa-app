@@ -484,11 +484,23 @@ begin
   if v_result !~ 'delivery_instructions text' then
     raise exception 'REGRESSION: kitchen_order_detail() no longer returns customer delivery instructions';
   end if;
+  if v_result !~ 'pay_status text' then
+    raise exception 'REGRESSION: kitchen_order_detail() no longer returns authoritative payment status';
+  end if;
   if has_function_privilege('anon', 'public.kitchen_order_detail(uuid)', 'execute') then
     raise exception 'REGRESSION: anon can call kitchen_order_detail() directly';
   end if;
   if not has_function_privilege('authenticated', 'public.kitchen_order_detail(uuid)', 'execute') then
     raise exception 'REGRESSION: authenticated lost access to kitchen_order_detail()';
+  end if;
+end $$;
+
+do $$
+declare v_src text;
+begin
+  select pg_get_functiondef('public.update_order_status(uuid,text)'::regprocedure) into v_src;
+  if v_src !~ 'pay_status.*paid' then
+    raise exception 'REGRESSION: update_order_status() no longer blocks unpaid fulfillment';
   end if;
 end $$;
 

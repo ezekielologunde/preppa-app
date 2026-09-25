@@ -79,6 +79,7 @@ tags: [project/preppa, type/launch-plan]
 - Checkout idempotency now changes when the customer changes the kitchen cart, fulfillment method, address, delivery instructions, tip, or payment path, while unchanged retries keep the same key. The order function also verifies fulfillment, subtotal, tip, instructions, and exact persisted meal quantities before returning an existing PaymentIntent, preventing a reused key from resuming stale checkout terms.
 - Live meal cards now carry the kitchen's current delivery and pickup capabilities into cart and reorder state. Checkout disables unavailable fulfillment choices, automatically moves a stale global selection to the kitchen's valid option, and the order function independently rejects disabled methods.
 - Cook order detail now reads the authoritative payment status from its owner-scoped RPC. Unpaid deep links show a prominent wait-for-payment warning and cannot expose preparation, completion, or refund actions until payment is confirmed.
+- The owner-scoped `update_order_status` RPC now independently requires `pay_status = paid` before any preparation, ready, delivery, pickup, or completion transition. SQL regressions pin both the payment-status detail field and the server-side fulfillment guard.
 
 ### Customer acceptance evidence still needed
 
