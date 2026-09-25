@@ -31,7 +31,7 @@ export default function AdminInHomeVetting() {
 
   const load = () => {
     setLoading(true); setError(null);
-    admin.listInHomeVetting().then((r) => { setData(r); setLoading(false); }).catch((e) => { setError(e); setLoading(false); });
+    admin.listInHomeVetting().then((r) => { setData(r); setLoading(false); }).catch(() => { setError(new Error('Check your connection and try loading in-home reviews again.')); setLoading(false); });
   };
   useEffect(load, []);
 
@@ -46,7 +46,7 @@ export default function AdminInHomeVetting() {
       toast(`Approved ${name} for in-home cooking`, 'check', true);
       close(); load();
     } catch (e: any) {
-      toast(e?.message ?? 'Approve failed', 'info');
+      toast('Could not approve this in-home review. Refresh it and try again.', 'info');
       setBusy(null);
     } finally { reviewInFlight.current = false; }
   };
@@ -60,7 +60,7 @@ export default function AdminInHomeVetting() {
       toast(`Rejected ${name}`, 'x');
       close(); load();
     } catch (e: any) {
-      toast(e?.message ?? 'Reject failed', 'info');
+      toast('Could not reject this in-home review. Refresh it and try again.', 'info');
       setBusy(null);
     } finally { reviewInFlight.current = false; }
   };
@@ -102,9 +102,11 @@ export default function AdminInHomeVetting() {
             const open = openId === v.kitchen_id;
             const bgDocs = v.docs?.backgroundCheck ?? [];
             const insDocs = v.docs?.insurance ?? [];
+            const insuranceCurrent = !!v.insurance_expires_at && v.insurance_expires_at >= new Date().toISOString().slice(0, 10);
+            const approvalReady = bgDocs.length > 0 && insDocs.length > 0 && insuranceCurrent;
             return (
               <Block key={v.kitchen_id}>
-                <Press scale={0.995} onPress={() => { setOpenId(open ? null : v.kitchen_id); setReason(''); }}>
+                <Press scale={0.995} onPress={() => { setOpenId(open ? null : v.kitchen_id); setReason(''); }} label={`${open ? 'Hide' : 'Show'} in-home review: ${v.kitchen_name}`} expanded={open}>
                   <View style={{ flexDirection: 'row', alignItems: 'center', gap: 12 }}>
                     <View style={{ flex: 1 }}>
                       <Text style={[type(16, 900), { color: c.ink, letterSpacing: -0.3 }]}>{v.kitchen_name}</Text>
@@ -126,10 +128,16 @@ export default function AdminInHomeVetting() {
                       <PhotoStrip label="Background check" paths={bgDocs} onOpen={setViewUri} />
                       <PhotoStrip label="Insurance" paths={insDocs} onOpen={setViewUri} />
                     </View>
+                    {!approvalReady ? (
+                      <View accessibilityRole="alert" style={{ backgroundColor: c.redL, borderWidth: 1, borderColor: c.red, borderRadius: radius.md, padding: 12 }}>
+                        <Text style={[type(12.5, 800), { color: c.red }]}>Approval requirements are incomplete</Text>
+                        <Text style={[type(12, 600), { color: c.red, marginTop: 4, lineHeight: 18 }]}>A background-check document, insurance document, and current insurance expiration date are required.</Text>
+                      </View>
+                    ) : null}
                     <View style={{ flexDirection: 'row', gap: 10 }}>
                       <Btn
                         label="Approve" icon="check" flex={1}
-                        loading={busy === 'approve'} disabled={busy !== null}
+                        loading={busy === 'approve'} disabled={busy !== null || !approvalReady}
                         onPress={() => requestApprove(v.kitchen_id, v.kitchen_name)}
                       />
                     </View>
@@ -141,13 +149,15 @@ export default function AdminInHomeVetting() {
                         value={reason} onChangeText={setReason}
                         placeholder="e.g. Background-check report is expired"
                         placeholderTextColor={c.muted} multiline
-                        accessibilityLabel="Reason required to reject"
+                        maxLength={1000}
+                        accessibilityLabel="Reason required to reject, 1,000 characters maximum"
                         style={{
                           minHeight: 64, borderWidth: 1, borderColor: c.border, borderRadius: radius.md,
                           padding: 12, color: c.ink, backgroundColor: c.bg2, textAlignVertical: 'top',
                           ...(type(14, 600) as object),
                         }}
                       />
+                      <Text style={[type(11.5, 600), { color: c.muted, textAlign: 'right', marginTop: 4 }]}>{reason.length}/1000</Text>
                       <View style={{ marginTop: 10 }}>
                         <Btn
                           label="Reject" variant="ghost" icon="x"

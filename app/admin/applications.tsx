@@ -27,6 +27,7 @@ export default function AdminApplications() {
   const [openId, setOpenId] = useState<string | null>(null);
   const [reason, setReason] = useState('');
   const [busy, setBusy] = useState<null | 'approve' | 'reject'>(null);
+  const [detailReady, setDetailReady] = useState(false);
   const reviewInFlight = useRef(false);
 
   const refetch = () => setNonce((n) => n + 1);
@@ -42,7 +43,7 @@ export default function AdminApplications() {
       close();
       refetch();
     } catch (e: any) {
-      toast(e?.message ?? 'Approve failed', 'info');
+      toast('Could not approve this application. Refresh it and try again.', 'info');
       setBusy(null);
     } finally { reviewInFlight.current = false; }
   };
@@ -58,7 +59,7 @@ export default function AdminApplications() {
       close();
       refetch();
     } catch (e: any) {
-      toast(e?.message ?? 'Reject failed', 'info');
+      toast('Could not reject this application. Refresh it and try again.', 'info');
       setBusy(null);
     } finally { reviewInFlight.current = false; }
   };
@@ -90,7 +91,7 @@ export default function AdminApplications() {
         {loading ? (
           <Block><Text style={[type(14, 600), { color: c.soft }]}>Loading…</Text></Block>
         ) : error ? (
-          <ErrorRetry message={error.message} onRetry={refetch} />
+          <ErrorRetry message="Check your connection and try loading applications again." onRetry={refetch} />
         ) : !data || data.length === 0 ? (
           <Empty icon="chefhat" title="Queue is clear" body="No prepper applications are waiting for review." />
         ) : (
@@ -98,7 +99,7 @@ export default function AdminApplications() {
             const open = openId === app.kitchen_id;
             return (
               <Block key={app.kitchen_id}>
-                <Press scale={0.995} onPress={() => { setOpenId(open ? null : app.kitchen_id); setReason(''); }}>
+                <Press scale={0.995} onPress={() => { setOpenId(open ? null : app.kitchen_id); setReason(''); setDetailReady(false); }} label={`${open ? 'Hide' : 'Show'} application: ${app.kitchen_name}`} expanded={open}>
                   <View style={{ flexDirection: 'row', alignItems: 'center', gap: 12 }}>
                     <View style={{ flex: 1 }}>
                       <Text style={[type(16, 900), { color: c.ink, letterSpacing: -0.3 }]}>{app.kitchen_name}</Text>
@@ -116,14 +117,14 @@ export default function AdminApplications() {
 
                 {open ? (
                   <View style={{ marginTop: 14, borderTopWidth: 1, borderTopColor: c.border2, paddingTop: 14, gap: 12 }}>
-                    <AppDetail kitchenId={app.kitchen_id} />
+                    <AppDetail kitchenId={app.kitchen_id} onReady={setDetailReady} />
                     <View style={{ flexDirection: 'row', gap: 10 }}>
                       <Btn
                         label="Approve"
                         icon="check"
                         flex={1}
                         loading={busy === 'approve'}
-                        disabled={busy !== null}
+                        disabled={busy !== null || !detailReady}
                         onPress={() => requestApprove(app.kitchen_id, app.kitchen_name)}
                       />
                     </View>
@@ -158,7 +159,7 @@ export default function AdminApplications() {
                           variant="ghost"
                           icon="x"
                           loading={busy === 'reject'}
-                          disabled={busy !== null}
+                          disabled={busy !== null || !detailReady}
                           onPress={() => requestReject(app.kitchen_id, app.kitchen_name)}
                         />
                       </View>
@@ -175,7 +176,7 @@ export default function AdminApplications() {
 }
 
 /** Lazy-loads and shows the private application detail for review. */
-function AppDetail({ kitchenId }: { kitchenId: string }) {
+function AppDetail({ kitchenId, onReady }: { kitchenId: string; onReady: (ready: boolean) => void }) {
   const c = useC();
   const [d, setD] = useState<admin.AdminApplicationDetail | null>(null);
   const [state, setState] = useState<'loading' | 'ok' | 'error'>('loading');
@@ -183,12 +184,13 @@ function AppDetail({ kitchenId }: { kitchenId: string }) {
   const [viewUri, setViewUri] = useState<string | null>(null);
   useEffect(() => {
     let cancelled = false;
+    onReady(false);
     admin
       .applicationDetail(kitchenId)
-      .then((r) => { if (!cancelled) { setD(r); setState('ok'); } })
-      .catch((e) => { if (!cancelled) { setErr(e?.message || 'Failed to load'); setState('error'); } });
+      .then((r) => { if (!cancelled) { setD(r); setState('ok'); onReady(!!r); } })
+      .catch(() => { if (!cancelled) { setErr('Check your connection and reopen this application to try again.'); setState('error'); onReady(false); } });
     return () => { cancelled = true; };
-  }, [kitchenId]);
+  }, [kitchenId, onReady]);
   if (state === 'loading') return <Text style={[type(13, 600), { color: c.soft }]}>Loading details…</Text>;
   if (state === 'error' || !d) return <Text style={[type(13, 600), { color: c.red }]}>{err || 'No detail'}</Text>;
   const fs = d.food_safety || {};
@@ -371,7 +373,7 @@ function CertStatusRow({ c, kitchenId, status, expiresAt }: { c: any; kitchenId:
       if (draft === 'unverified') setExpires('');
       toast('Certificate review saved', 'check', true);
     } catch (e: any) {
-      toast(e?.message ?? 'Could not update cert status', 'info');
+      toast('Could not update the certificate review. Try again.', 'info');
     } finally { setBusy(false); }
   };
   const requestSave = () => {

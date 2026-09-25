@@ -576,6 +576,15 @@ end $$;
 do $$
 declare v_src text;
 begin
+  select pg_get_functiondef('public.admin_set_in_home_vetting(uuid,boolean,text)'::regprocedure) into v_src;
+  if v_src !~ 'backgroundCheck' or v_src !~ 'insuranceExpiresAt' or v_src !~ 'current_date' then
+    raise exception 'REGRESSION: in-home approval no longer requires background-check and current insurance evidence';
+  end if;
+end $$;
+
+do $$
+declare v_src text;
+begin
   if to_regprocedure('public.finalize_order_cancel(uuid,boolean,text)') is null then
     raise exception 'REGRESSION: reason-aware finalize_order_cancel() is missing';
   end if;
