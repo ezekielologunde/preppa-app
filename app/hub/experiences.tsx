@@ -32,8 +32,14 @@ export default function HubExperiences() {
   const router = useRouter();
   const [items, setItems] = useState<Experience[]>([]);
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState('');
 
-  const load = useCallback(async () => { setLoading(true); setItems(await fetchMyExperiences()); setLoading(false); }, []);
+  const load = useCallback(async () => {
+    setLoading(true); setError('');
+    try { setItems(await fetchMyExperiences()); }
+    catch (e: any) { setError(e?.message ?? 'Couldn’t load your experiences.'); }
+    finally { setLoading(false); }
+  }, []);
   useFocusEffect(useCallback(() => { load(); }, [load]));
 
   return (
@@ -48,6 +54,11 @@ export default function HubExperiences() {
         <KSec title="Your experiences" />
         {loading ? (
           <View style={{ paddingVertical: 40, alignItems: 'center' }}><ActivityIndicator color={c.primary} /></View>
+        ) : error ? (
+          <View style={{ marginHorizontal: 20, alignItems: 'center', padding: 22, borderRadius: radius.card, backgroundColor: c.surface, borderWidth: 1, borderColor: c.border2 }}>
+            <Text style={[type(13.5, 700), { color: c.red, textAlign: 'center', marginBottom: 12 }]}>{error}</Text>
+            <KBtn label="Try again" variant="ghost" icon="repeat" onPress={load} />
+          </View>
         ) : items.length === 0 ? (
           <View style={{ alignItems: 'center', paddingVertical: 30, paddingHorizontal: 24 }}>
             <View style={{ width: 54, height: 54, borderRadius: 17, backgroundColor: c.bg2, alignItems: 'center', justifyContent: 'center' }}><Icon name="spark" size={25} color={c.muted} /></View>

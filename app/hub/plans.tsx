@@ -18,11 +18,14 @@ export default function PlansScreen() {
   const router = useRouter();
   const [plans, setPlans] = useState<Plan[]>([]);
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState('');
 
   const load = useCallback(async () => {
     setLoading(true);
-    setPlans(await fetchMyPlans());
-    setLoading(false);
+    setError('');
+    try { setPlans(await fetchMyPlans()); }
+    catch (e: any) { setError(e?.message ?? 'Couldn’t load your meal plans.'); }
+    finally { setLoading(false); }
   }, []);
   useFocusEffect(useCallback(() => { load(); }, [load]));
 
@@ -38,6 +41,11 @@ export default function PlansScreen() {
         <KSec title="Your plans" />
         {loading ? (
           <View style={{ paddingVertical: 40, alignItems: 'center' }}><ActivityIndicator color={c.primary} /></View>
+        ) : error ? (
+          <View style={{ marginHorizontal: 20, alignItems: 'center', padding: 22, borderRadius: radius.card, backgroundColor: c.surface, borderWidth: 1, borderColor: c.border2 }}>
+            <Text style={[type(13.5, 700), { color: c.red, textAlign: 'center', marginBottom: 12 }]}>{error}</Text>
+            <KBtn label="Try again" variant="ghost" icon="repeat" onPress={load} />
+          </View>
         ) : plans.length === 0 ? (
           <View style={{ alignItems: 'center', paddingVertical: 30, paddingHorizontal: 24 }}>
             <View style={{ width: 54, height: 54, borderRadius: 17, backgroundColor: c.bg2, alignItems: 'center', justifyContent: 'center' }}><Icon name="repeat" size={25} color={c.muted} /></View>

@@ -3,7 +3,7 @@ import { View, Text, ScrollView, ActivityIndicator, Image } from 'react-native';
 import { useRouter, useFocusEffect } from 'expo-router';
 import { useC } from '../../src/theme/ThemeContext';
 import { type, radius } from '../../src/theme/theme';
-import { Icon, Press } from '../../src/ui';
+import { Btn, Icon, Press } from '../../src/ui';
 import { Screen, TopBar, Empty } from '../../src/ui/layout';
 import { listThreads, type Thread } from '../../src/lib/messages';
 
@@ -29,9 +29,14 @@ export default function MessagesList() {
   const router = useRouter();
   const [threads, setThreads] = useState<Thread[]>([]);
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState('');
 
   const load = useCallback(async () => {
-    try { setThreads(await listThreads()); } finally { setLoading(false); }
+    setLoading(true);
+    setError('');
+    try { setThreads(await listThreads()); }
+    catch (e: any) { setError(e?.message ?? 'Couldn’t load your conversations.'); }
+    finally { setLoading(false); }
   }, []);
   useFocusEffect(useCallback(() => { load(); }, [load]));
 
@@ -40,6 +45,8 @@ export default function MessagesList() {
       <TopBar title="Messages" sub={loading ? '' : `${threads.length} conversation${threads.length !== 1 ? 's' : ''}`} onBack={() => router.back()} />
       {loading ? (
         <View style={{ paddingVertical: 60, alignItems: 'center' }}><ActivityIndicator color={c.primary} /></View>
+      ) : error ? (
+        <Empty icon="info" title="Couldn’t load messages" body={error} action={<Btn label="Try again" icon="repeat" onPress={load} />} />
       ) : threads.length === 0 ? (
         <Empty icon="chat" title="No messages yet" body="Message a cook from their kitchen, an order, or a plan and the conversation shows up here." />
       ) : (

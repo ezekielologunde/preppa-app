@@ -8,6 +8,7 @@ import { Icon, Press, Btn } from '../../src/ui';
 import { Screen, TopBar, Dock, Block } from '../../src/ui/layout';
 import { listMyBookings, type BookingView } from '../../src/lib/services';
 import { reviewExperience } from '../../src/lib/experiences';
+import { NotFound } from '../../src/components/NotFound';
 
 export default function RateExperience() {
   const c = useC();
@@ -16,13 +17,22 @@ export default function RateExperience() {
   const { toast } = useStore();
   const [b, setB] = useState<BookingView | null>(null);
   const [loading, setLoading] = useState(true);
+  const [loadError, setLoadError] = useState('');
+  const [retryNonce, setRetryNonce] = useState(0);
   const [stars, setStars] = useState(0);
   const [text, setText] = useState('');
   const [busy, setBusy] = useState(false);
 
   useEffect(() => {
-    listMyBookings().then((list) => { setB(list.find((x) => x.id === bookingId) ?? null); setLoading(false); });
-  }, [bookingId]);
+    let alive = true;
+    setLoading(true);
+    setLoadError('');
+    listMyBookings()
+      .then((list) => { if (alive) setB(list.find((x) => x.id === bookingId) ?? null); })
+      .catch((e) => { if (alive) setLoadError(e?.message ?? 'Couldn’t load this booking.'); })
+      .finally(() => { if (alive) setLoading(false); });
+    return () => { alive = false; };
+  }, [bookingId, retryNonce]);
 
   const submit = async () => {
     if (stars === 0 || busy) return;
@@ -33,6 +43,18 @@ export default function RateExperience() {
   };
 
   if (loading) return <Screen><TopBar title="Rate experience" onBack={() => router.back()} /><View style={{ flex: 1, alignItems: 'center', justifyContent: 'center' }}><ActivityIndicator color={c.primary} /></View></Screen>;
+  if (loadError) return (
+    <Screen>
+      <TopBar title="Rate experience" onBack={() => router.back()} />
+      <View style={{ flex: 1, alignItems: 'center', justifyContent: 'center', padding: 28 }}>
+        <Icon name="info" size={38} color={c.red} />
+        <Text style={[type(18, 900), { color: c.ink, marginTop: 14 }]}>Couldn’t load this booking</Text>
+        <Text style={[type(13.5, 500), { color: c.soft, textAlign: 'center', marginTop: 7, marginBottom: 18 }]}>{loadError}</Text>
+        <Btn label="Try again" icon="repeat" onPress={() => setRetryNonce((n) => n + 1)} />
+      </View>
+    </Screen>
+  );
+  if (!b) return <NotFound title="Booking" />;
 
   return (
     <Screen>

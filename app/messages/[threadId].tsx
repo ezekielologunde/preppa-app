@@ -5,7 +5,7 @@ import { useLocalSearchParams, useRouter } from 'expo-router';
 import { useC } from '../../src/theme/ThemeContext';
 import { type, radius, shadow } from '../../src/theme/theme';
 import { useStore } from '../../src/store/store';
-import { Icon, Press } from '../../src/ui';
+import { Btn, Icon, Press } from '../../src/ui';
 import { Screen } from '../../src/ui/layout';
 import { NotFound } from '../../src/components/NotFound';
 import { ThreadAvatar } from './index';
@@ -46,6 +46,8 @@ export default function ThreadView() {
   const [header, setHeader] = useState<ThreadHeader | null>(null);
   const [msgs, setMsgs] = useState<Message[]>([]);
   const [loading, setLoading] = useState(true);
+  const [loadError, setLoadError] = useState('');
+  const [retryNonce, setRetryNonce] = useState(0);
   const [notFound, setNotFound] = useState(false);
   const [text, setText] = useState('');
   const [sending, setSending] = useState(false);
@@ -67,21 +69,29 @@ export default function ThreadView() {
   // initial load
   useEffect(() => {
     let alive = true;
+    setLoading(true);
+    setLoadError('');
+    setNotFound(false);
     (async () => {
-      const h = await fetchThreadHeader(threadId);
-      if (!alive) return;
-      if (!h) { setNotFound(true); setLoading(false); return; }
-      setHeader(h);
-      const m = await fetchMessages(threadId);
-      if (!alive) return;
-      meIdRef.current = m.find((x) => x.mine)?.senderId ?? meIdRef.current;
-      setMsgs(m);
-      setLoading(false);
-      markThreadRead(threadId).catch(() => {});
-      scrollDown();
+      try {
+        const h = await fetchThreadHeader(threadId);
+        if (!alive) return;
+        if (!h) { setNotFound(true); return; }
+        setHeader(h);
+        const m = await fetchMessages(threadId);
+        if (!alive) return;
+        meIdRef.current = m.find((x) => x.mine)?.senderId ?? meIdRef.current;
+        setMsgs(m);
+        markThreadRead(threadId).catch(() => {});
+        scrollDown();
+      } catch (e: any) {
+        if (alive) setLoadError(e?.message ?? 'Couldn’t load this conversation.');
+      } finally {
+        if (alive) setLoading(false);
+      }
     })();
     return () => { alive = false; };
-  }, [threadId]);
+  }, [threadId, retryNonce]);
 
   // live stream — append inbound messages, mark read as they arrive
   useEffect(() => {
@@ -240,6 +250,13 @@ export default function ThreadView() {
 
       {loading ? (
         <View style={{ flex: 1, alignItems: 'center', justifyContent: 'center' }}><ActivityIndicator color={c.primary} /></View>
+      ) : loadError ? (
+        <View style={{ flex: 1, alignItems: 'center', justifyContent: 'center', padding: 28 }}>
+          <Icon name="info" size={38} color={c.red} />
+          <Text style={[type(18, 900), { color: c.ink, marginTop: 14 }]}>Couldn’t load this conversation</Text>
+          <Text style={[type(13.5, 500), { color: c.soft, textAlign: 'center', marginTop: 7, marginBottom: 18 }]}>{loadError}</Text>
+          <Btn label="Try again" icon="repeat" onPress={() => setRetryNonce((n) => n + 1)} />
+        </View>
       ) : (
         <KeyboardAvoidingView style={{ flex: 1 }} behavior={Platform.OS === 'ios' ? 'padding' : undefined} keyboardVerticalOffset={insets.top + 60}>
           <ScrollView ref={scroller} style={{ flex: 1 }} contentContainerStyle={{ padding: 16, gap: 8 }} onContentSizeChange={scrollDown}>

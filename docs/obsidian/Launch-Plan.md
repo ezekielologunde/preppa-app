@@ -25,6 +25,7 @@ tags: [project/preppa, type/launch-plan]
 - Admin order, service-request, booking, plan, and subscription detail sheets now show load failures and a retry action instead of remaining on a false loading state. The public safety/support queue can open a pre-addressed email draft to the reporter while retaining audited status tracking.
 - Customer feed, saved-post, experience-detail, and live order-tracking screens now distinguish request failures from empty or loading states and provide recovery. Cook dashboard totals and the needs-prep queue no longer fall back to misleading zero or "all caught up" states when their requests fail; analytics and shared support threads now expose errors and retry actions.
 - OTP resend now shows success and starts its cooldown only after the resend request succeeds; failures remain retryable and visible instead of being reported as a sent code.
+- Customer experience browsing, kitchen feeds, message lists and threads, support history, and experience review loading now recover from request failures. Cook experience, meal-plan, service-request, subscriber/prep, and admin experience-review queues also distinguish load failures from legitimate empty queues.
 
 ### Customer acceptance evidence still needed
 

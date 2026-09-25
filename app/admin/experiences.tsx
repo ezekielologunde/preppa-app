@@ -8,6 +8,7 @@ import { money } from '../../src/data/data';
 import { useStore } from '../../src/store/store';
 import { AdminHeader } from '../../src/components/admin/AdminHeader';
 import { fetchPendingExperiences, adminSetExperienceStatus, type Experience } from '../../src/lib/experiences';
+import { ErrorRetry } from '../../src/components/admin/states';
 
 const WD = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
 const MO = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
@@ -18,9 +19,15 @@ export default function AdminExperiences() {
   const { toast } = useStore();
   const [items, setItems] = useState<Experience[]>([]);
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState('');
   const [busy, setBusy] = useState<string | null>(null);
 
-  const load = useCallback(async () => { setLoading(true); setItems(await fetchPendingExperiences()); setLoading(false); }, []);
+  const load = useCallback(async () => {
+    setLoading(true); setError('');
+    try { setItems(await fetchPendingExperiences()); }
+    catch (e: any) { setError(e?.message ?? 'Couldn’t load experiences awaiting review.'); }
+    finally { setLoading(false); }
+  }, []);
   useFocusEffect(useCallback(() => { load(); }, [load]));
 
   const act = async (e: Experience, status: 'published' | 'archived') => {
@@ -37,6 +44,8 @@ export default function AdminExperiences() {
       <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={{ padding: 16, paddingBottom: 44, gap: 14 }}>
         {loading ? (
           <View style={{ paddingVertical: 50, alignItems: 'center' }}><ActivityIndicator color={c.primary} /></View>
+        ) : error ? (
+          <ErrorRetry message={error} onRetry={load} />
         ) : items.length === 0 ? (
           <View style={{ alignItems: 'center', paddingVertical: 44 }}>
             <View style={{ width: 54, height: 54, borderRadius: 17, backgroundColor: c.bg2, alignItems: 'center', justifyContent: 'center' }}><Icon name="check" size={24} color={c.green} /></View>

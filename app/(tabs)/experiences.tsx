@@ -5,7 +5,7 @@ import { useRouter, useFocusEffect, useLocalSearchParams } from 'expo-router';
 import { useC } from '../../src/theme/ThemeContext';
 import { Palette, type, radius, shadow, EXPERIENCE_GRAD } from '../../src/theme/theme';
 import { useStore } from '../../src/store/store';
-import { Icon, Press, GradBox } from '../../src/ui';
+import { Btn, Icon, Press, GradBox } from '../../src/ui';
 import { SectionHeader, useColumns } from '../../src/components/cards';
 import { ModeTabs } from '../../src/components/ModeTabs';
 import { BrowsePlansSection, MyPlansSection, money2 } from '../../src/components/plans';
@@ -152,15 +152,36 @@ function ExperiencesBody() {
   const [exps, setExps] = useState<Experience[]>([]);
   const [reqs, setReqs] = useState<RequestView[]>([]);
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState('');
+  const [retryNonce, setRetryNonce] = useState(0);
   useFocusEffect(useCallback(() => {
     let alive = true;
-    Promise.all([fetchExperiences(), listMyRequests()]).then(([e, r]) => { if (!alive) return; setExps(e); setReqs(r); setLoading(false); });
+    setLoading(true);
+    setError('');
+    Promise.allSettled([fetchExperiences(), listMyRequests()])
+      .then(([experienceResult, requestResult]) => {
+        if (!alive) return;
+        if (experienceResult.status === 'rejected') {
+          setError(experienceResult.reason?.message ?? 'Couldn’t load experiences.');
+          return;
+        }
+        setExps(experienceResult.value);
+        setReqs(requestResult.status === 'fulfilled' ? requestResult.value : []);
+      })
+      .finally(() => { if (alive) setLoading(false); });
     return () => { alive = false; };
-  }, []));
+  }, [retryNonce]));
   return (
     <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={{ paddingBottom: 40, maxWidth: 1040, alignSelf: 'center', width: '100%' }}>
       {loading ? (
         <View style={{ paddingVertical: 40, alignItems: 'center' }}><ActivityIndicator color={c.primary} /></View>
+      ) : error ? (
+        <View style={{ margin: 16, padding: 22, borderRadius: radius.card, backgroundColor: c.surface, borderWidth: 1, borderColor: c.border2, alignItems: 'center' }}>
+          <Icon name="info" size={30} color={c.red} />
+          <Text style={[type(16, 900), { color: c.ink, marginTop: 10 }]}>Couldn’t load experiences</Text>
+          <Text style={[type(13, 500), { color: c.soft, textAlign: 'center', marginTop: 5, marginBottom: 14 }]}>{error}</Text>
+          <Btn label="Try again" icon="repeat" onPress={() => setRetryNonce((n) => n + 1)} />
+        </View>
       ) : exps.length > 0 ? (
         <>
           <SectionHeader title="Book an experience" />
@@ -168,10 +189,9 @@ function ExperiencesBody() {
         </>
       ) : null}
 
-      <SectionHeader title={exps.length > 0 ? 'Or request something custom' : 'What do you need?'} />
-      <NeedGrid />
+      {!error ? <><SectionHeader title={exps.length > 0 ? 'Or request something custom' : 'What do you need?'} /><NeedGrid /></> : null}
 
-      {reqs.length > 0 ? (
+      {!error && reqs.length > 0 ? (
         <>
           <SectionHeader title="Your requests" />
           {reqs.map((r) => <RealReqCard key={r.id} r={r} onPress={() => router.push(`/request/${r.id}`)} />)}

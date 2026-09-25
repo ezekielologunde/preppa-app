@@ -17,9 +17,13 @@ export default function HubRequests() {
   const [items, setItems] = useState<IncomingRequest[]>([]);
   const [bookings, setBookings] = useState<KitchenBookingView[]>([]);
   const [loading, setLoading] = useState(true);
-  const load = useCallback(() => {
+  const [error, setError] = useState('');
+  const load = useCallback(async () => {
     setLoading(true);
-    Promise.all([listIncomingRequests(), listMyKitchenBookings()]).then(([r, b]) => { setItems(r); setBookings(b); setLoading(false); });
+    setError('');
+    try { const [r, b] = await Promise.all([listIncomingRequests(), listMyKitchenBookings()]); setItems(r); setBookings(b); }
+    catch (e: any) { setError(e?.message ?? 'Couldn’t load service requests.'); }
+    finally { setLoading(false); }
   }, []);
   useFocusEffect(useCallback(() => { load(); }, [load]));
 
@@ -28,6 +32,13 @@ export default function HubRequests() {
       <TopBar title="Service requests" sub={loading ? '' : `${items.length} incoming`} onBack={() => router.back()} />
       {loading ? (
         <View style={{ flex: 1, alignItems: 'center', justifyContent: 'center' }}><ActivityIndicator color={c.primary} /></View>
+      ) : error ? (
+        <View style={{ flex: 1, alignItems: 'center', justifyContent: 'center', padding: 28 }}>
+          <Icon name="info" size={38} color={c.red} />
+          <Text style={[type(16, 900), { color: c.ink, marginTop: 12 }]}>Couldn’t load requests</Text>
+          <Text style={[type(13, 600), { color: c.soft, textAlign: 'center', marginTop: 6, marginBottom: 14 }]}>{error}</Text>
+          <KBtn label="Try again" variant="ghost" icon="repeat" onPress={load} />
+        </View>
       ) : items.length === 0 && bookings.length === 0 ? (
         <View style={{ alignItems: 'center', paddingVertical: 50, paddingHorizontal: 24 }}>
           <View style={{ width: 56, height: 56, borderRadius: 18, backgroundColor: c.bg2, alignItems: 'center', justifyContent: 'center' }}><Icon name="chefhat" size={26} color={c.muted} /></View>

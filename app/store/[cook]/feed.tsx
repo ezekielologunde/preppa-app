@@ -6,7 +6,7 @@ import { COOKS, CookId } from '../../../src/data/data';
 import { KITCHEN_ID } from '../../../src/lib/supabase';
 import { FLAGS } from '../../../src/config/flags';
 import { type } from '../../../src/theme/theme';
-import { Icon, Press } from '../../../src/ui';
+import { Btn, Icon, Press } from '../../../src/ui';
 import { fetchKitchenFeed, FeedPost } from '../../../src/lib/feed';
 import { FeedReel } from '../../../src/components/FeedReel';
 
@@ -22,6 +22,8 @@ export default function KitchenFeed() {
   const [items, setItems] = useState<FeedPost[]>([]);
   const [cursor, setCursor] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState('');
+  const [retryNonce, setRetryNonce] = useState(0);
   const [loadingMore, setLoadingMore] = useState(false);
   const [refreshing, setRefreshing] = useState(false);
   const [activeId, setActiveId] = useState<string | null>(null);
@@ -34,9 +36,13 @@ export default function KitchenFeed() {
   useFocusEffect(useCallback(() => {
     let alive = true;
     if (!kitchenId) { setLoading(false); return; }
-    fetchKitchenFeed(kitchenId).then((r) => { if (alive) { setItems(r.posts); setCursor(r.nextCursor); setActiveId(r.posts[0]?.id ?? null); setLoading(false); } });
+    setError('');
+    fetchKitchenFeed(kitchenId)
+      .then((r) => { if (alive) { setItems(r.posts); setCursor(r.nextCursor); setActiveId(r.posts[0]?.id ?? null); } })
+      .catch((e) => { if (alive) setError(e?.message ?? 'Couldn’t load this kitchen’s posts.'); })
+      .finally(() => { if (alive) setLoading(false); });
     return () => { alive = false; setActiveId(null); };
-  }, [kitchenId]));
+  }, [kitchenId, retryNonce]));
 
   const onRefresh = useCallback(async () => {
     if (!kitchenId) return;
@@ -66,6 +72,13 @@ export default function KitchenFeed() {
       </View>
       {loading ? (
         <View style={{ flex: 1, alignItems: 'center', justifyContent: 'center' }}><ActivityIndicator color="#fff" /></View>
+      ) : error && items.length === 0 ? (
+        <View style={{ flex: 1, alignItems: 'center', justifyContent: 'center', padding: 40 }}>
+          <Icon name="info" size={40} color="rgba(255,255,255,.65)" />
+          <Text style={[type(16, 900), { color: '#fff', marginTop: 14 }]}>Couldn’t load posts</Text>
+          <Text style={[type(13, 500), { color: 'rgba(255,255,255,.65)', textAlign: 'center', marginTop: 6, marginBottom: 16 }]}>{error}</Text>
+          <Btn label="Try again" icon="repeat" onPress={() => { setLoading(true); setRetryNonce((n) => n + 1); }} />
+        </View>
       ) : items.length === 0 ? (
         <View style={{ flex: 1, alignItems: 'center', justifyContent: 'center', padding: 40 }}>
           <Icon name="video" size={40} color="rgba(255,255,255,.5)" />

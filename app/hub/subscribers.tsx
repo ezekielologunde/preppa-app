@@ -30,6 +30,7 @@ export default function SubscribersScreen() {
   const [prep, setPrep] = useState<PrepDay[]>([]);
   const [subs, setSubs] = useState<CookSubscriber[]>([]);
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState('');
   const [broadcastOpen, setBroadcastOpen] = useState(false);
   const [messaging, setMessaging] = useState<string | null>(null);
 
@@ -46,8 +47,10 @@ export default function SubscribersScreen() {
 
   const load = useCallback(async () => {
     setLoading(true);
-    const [p, s] = await Promise.all([fetchPrepRollup(), fetchCookSubscribers()]);
-    setPrep(p); setSubs(s); setLoading(false);
+    setError('');
+    try { const [p, s] = await Promise.all([fetchPrepRollup(), fetchCookSubscribers()]); setPrep(p); setSubs(s); }
+    catch (e: any) { setError(e?.message ?? 'Couldn’t load subscribers and prep.'); }
+    finally { setLoading(false); }
   }, []);
   useFocusEffect(useCallback(() => { load(); }, [load]));
 
@@ -60,6 +63,13 @@ export default function SubscribersScreen() {
       <TopBar title="Subscribers" sub={loading ? '' : `${active.length} active`} onBack={() => router.back()} />
       {loading ? (
         <View style={{ flex: 1, alignItems: 'center', justifyContent: 'center' }}><ActivityIndicator color={c.primary} /></View>
+      ) : error ? (
+        <View style={{ flex: 1, alignItems: 'center', justifyContent: 'center', padding: 28 }}>
+          <Icon name="info" size={38} color={c.red} />
+          <Text style={[type(16, 900), { color: c.ink, marginTop: 12 }]}>Couldn’t load subscribers</Text>
+          <Text style={[type(13, 600), { color: c.soft, textAlign: 'center', marginTop: 6, marginBottom: 14 }]}>{error}</Text>
+          <KBtn label="Try again" variant="ghost" icon="repeat" onPress={load} />
+        </View>
       ) : subs.length === 0 && prep.length === 0 ? (
         <View style={{ alignItems: 'center', paddingVertical: 56, paddingHorizontal: 24 }}>
           <View style={{ width: 56, height: 56, borderRadius: 18, backgroundColor: c.primaryL, alignItems: 'center', justifyContent: 'center' }}><Icon name="repeat" size={26} color={c.primary} /></View>

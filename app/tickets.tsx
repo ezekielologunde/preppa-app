@@ -2,7 +2,7 @@ import React, { useEffect, useState } from 'react';
 import { View, Text, ScrollView } from 'react-native';
 import { useC } from '../src/theme/ThemeContext';
 import { type } from '../src/theme/theme';
-import { Screen, TopBar, Block, Empty, MiniTag } from '../src/ui';
+import { Screen, TopBar, Block, Empty, MiniTag, Btn } from '../src/ui';
 import { supabase } from '../src/lib/supabase';
 
 interface MyTicket { id: string; subject: string; status: string; category: string; created_at: string }
@@ -16,9 +16,12 @@ export default function MyTickets() {
   const c = useC();
   const [tickets, setTickets] = useState<MyTicket[] | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [nonce, setNonce] = useState(0);
 
   useEffect(() => {
     let alive = true;
+    setTickets(null);
+    setError(null);
     (async () => {
       const { data, error } = await supabase
         .from('tickets')
@@ -29,14 +32,17 @@ export default function MyTickets() {
       else setTickets((data as MyTicket[]) ?? []);
     })();
     return () => { alive = false; };
-  }, []);
+  }, [nonce]);
 
   return (
     <Screen>
       <TopBar title="Your support requests" />
       <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={{ paddingBottom: 40 }}>
         {error ? (
-          <Block title="Error"><Text style={[type(13.5, 600), { color: c.red }]}>{error}</Text></Block>
+          <Block title="Couldn’t load support requests">
+            <Text style={[type(13.5, 600), { color: c.red, marginBottom: 12 }]}>{error}</Text>
+            <View style={{ alignSelf: 'flex-start' }}><Btn label="Try again" icon="repeat" variant="ghost" onPress={() => setNonce((n) => n + 1)} /></View>
+          </Block>
         ) : tickets === null ? (
           <Block><Text style={[type(14, 600), { color: c.soft }]}>Loading…</Text></Block>
         ) : tickets.length === 0 ? (
