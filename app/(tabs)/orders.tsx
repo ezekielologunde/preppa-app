@@ -146,12 +146,19 @@ export default function Orders() {
                   const isExp = b.kind === 'experience';
                   const isPast = b.eventDate < new Date().toISOString().slice(0, 10);
                   const statusLabel = b.status === 'confirmed' ? (isExp ? (isPast ? 'Attended' : 'Booked') : 'Confirmed') : b.status === 'completed' ? 'Completed' : b.status === 'pending_deposit' ? 'Payment pending' : b.status;
+                  const balanceLabel = isExp || b.balanceCents <= 0
+                    ? ''
+                    : b.balanceChargeStatus === 'paid'
+                    ? ' · Balance paid'
+                    : b.balanceChargeStatus === 'ambiguous' || b.balanceChargeStatus === 'charging'
+                    ? ' · Payment confirmation pending'
+                    : ` · ${money(b.balanceCents / 100)} due`;
                   return (
                     <View key={b.id} style={{ flexDirection: 'row', alignItems: 'center', gap: 12, backgroundColor: c.surface, borderRadius: radius.card, borderWidth: 1, borderColor: c.border2, padding: 14, ...shadow.card }}>
                       <View style={{ width: 46, height: 46, borderRadius: 14, backgroundColor: c.primaryL, alignItems: 'center', justifyContent: 'center' }}><Icon name={isExp ? 'spark' : 'chefhat'} size={21} color={c.primary} /></View>
                       <View style={{ flex: 1, minWidth: 0 }}>
                         <Text numberOfLines={1} style={[type(15, 900), { color: c.ink }]}>{isExp && b.title ? b.title : b.kitchenName}</Text>
-                        <Text numberOfLines={1} style={[type(12.5, 600), { color: c.soft, marginTop: 2 }]}>{isExp ? `${b.kitchenName} · ` : ''}{b.eventDate} · {money(b.amountCents / 100)} · {statusLabel}{!isExp && b.status === 'confirmed' && b.balanceCents > 0 ? ` · ${money(b.balanceCents / 100)} due` : ''}</Text>
+                        <Text numberOfLines={2} style={[type(12.5, 600), { color: c.soft, marginTop: 2 }]}>{isExp ? `${b.kitchenName} · ` : ''}{b.eventDate} · {money(b.amountCents / 100)} · {statusLabel}{balanceLabel}</Text>
                       </View>
                       {isExp && b.status === 'confirmed' && b.locationType === 'virtual' && !isPast ? (
                         <Press scale={0.95} onPress={() => joinLink(b)} label="Join online session"><Text style={[type(12, 800), { color: c.accentText }]}>Join</Text></Press>

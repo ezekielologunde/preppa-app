@@ -304,6 +304,7 @@ The two auth-hardening gaps found in that pass were closed 2026-09-17: native se
 - [x] RFQ balance reservation now persists a charge state before Stripe is called, so concurrent completion requests cannot start separate attempts.
 - [x] Stripe connection, timeout, and API errors after charge creation begins remain `ambiguous`. Customer and cook messaging says confirmation is pending and explicitly prevents collecting again.
 - [x] `reconcile-booking-balances` finds the original PaymentIntent by booking metadata without creating a charge, validates amount and currency, settles authoritative outcomes, and routes mismatches to admin review. Production migration, function deployment with JWT verification disabled, and a controlled ambiguity test remain launch gates.
+- [x] Customer history persists the balance outcome after the completion toast, including paid, due, and confirmation-pending states. Admin booking detail shows the same state instead of labeling every original balance as still due.
 
 ### 16. Apple App Store
 An `ascAppId` is already configured (`6802527112`) — **verify what that actually points to** before assuming setup starts from zero. Then: distribution cert, push entitlement, associated domains/deep links, production EAS build, TestFlight, screenshots/description/privacy disclosures, support/privacy URLs, account deletion, review notes.

@@ -643,6 +643,12 @@ begin
   ) then
     raise exception 'REGRESSION: booking balance charge states are no longer constrained';
   end if;
+  if not exists (
+    select 1 from pg_proc p, unnest(p.proargnames) n
+    where p.oid = 'public.admin_booking_detail(uuid)'::regprocedure and n = 'balance_charge_status'
+  ) then
+    raise exception 'REGRESSION: admin booking detail no longer exposes balance charge status';
+  end if;
 end $$;
 
 rollback;

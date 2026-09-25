@@ -634,6 +634,7 @@ export interface AdminBookingDetail {
   deposit_cents: number;
   service_fee_cents: number;
   balance_cents: number | null;
+  balance_charge_status: string;
   event_date: string;
   address_text: string | null;
   guests: number | null;

@@ -296,7 +296,7 @@ function BookingDetailBody({ d }: { d: admin.AdminBookingDetail }) {
       <View style={{ gap: 6, marginTop: 2 }}>
         <Amount c={c} k="Total" v={m(d.amount_cents)} />
         <Amount c={c} k="Deposit" v={m(d.deposit_cents)} />
-        {d.balance_cents != null ? <Amount c={c} k="Balance due" v={m(d.balance_cents)} /> : null}
+        {d.balance_cents != null ? <Amount c={c} k="Balance" v={`${m(d.balance_cents)} · ${humanize(d.balance_charge_status)}`} /> : null}
         <Amount c={c} k="Service fee" v={m(d.service_fee_cents)} />
       </View>
 
