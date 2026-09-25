@@ -7,6 +7,7 @@ import { useStore } from '../src/store/store';
 import { Icon, Press, Btn } from '../src/ui';
 import { Screen, TopBar, MiniTag, Empty } from '../src/ui/layout';
 import { addressLocality, type SavedAddress } from '../src/lib/addresses';
+import { confirmAction } from '../src/lib/confirm';
 
 export default function Addresses() {
   const c = useC();
@@ -74,6 +75,15 @@ export default function Addresses() {
     finally { addressActionInFlight.current = false; setBusy(false); }
   };
 
+  const requestRemove = (address: SavedAddress) => {
+    confirmAction(
+      `Remove ${address.label}?`,
+      `${address.line1}${addressLocality(address) ? `, ${addressLocality(address)}` : ''} will no longer be available at checkout.`,
+      () => { void remove(address.id); },
+      'Remove address',
+    );
+  };
+
   if (addressesLoading && addresses.length === 0) return <Screen><TopBar title="Addresses" /><View style={{ flex: 1, alignItems: 'center', justifyContent: 'center' }}><ActivityIndicator color={c.primary} /></View></Screen>;
   if (addressesError && addresses.length === 0) return <Screen><TopBar title="Addresses" /><Empty icon="info" title="Couldn’t load addresses" body={addressesError} action={<Btn label="Try again" icon="repeat" onPress={() => { void refreshAddresses(); }} />} /></Screen>;
 
@@ -89,7 +99,7 @@ export default function Addresses() {
           const on = a.id === addressId;
           return (
             <View key={a.id} style={{ flexDirection: 'row', alignItems: 'center', gap: 4, padding: 14, borderWidth: 1.5, borderColor: on ? c.primary : c.border, backgroundColor: on ? c.primaryL : c.surface, borderRadius: radius.card }}>
-              <Press scale={0.99} onPress={() => pick(a.id)} label={`Use ${a.label} address`} style={{ flex: 1, flexDirection: 'row', alignItems: 'center', gap: 12 }}>
+              <Press scale={0.99} onPress={() => pick(a.id)} label={`Use ${a.label} address`} role="radio" checked={on} disabled={busy} style={{ flex: 1, flexDirection: 'row', alignItems: 'center', gap: 12 }}>
                 <View style={{ width: 40, height: 40, borderRadius: 12, backgroundColor: on ? c.surface : c.bg2, alignItems: 'center', justifyContent: 'center' }}>
                   <Icon name="pin" size={20} color={on ? c.primary : c.ink} />
                 </View>
@@ -106,12 +116,12 @@ export default function Addresses() {
                   {on ? <View style={{ width: 11, height: 11, borderRadius: 6, backgroundColor: c.primary }} /> : null}
                 </View>
               </Press>
-              <Press scale={0.9} onPress={() => openEdit(a)} label={`Edit ${a.label} address`} hitSlop={8}>
+              <Press scale={0.9} onPress={() => openEdit(a)} label={`Edit ${a.label} address`} hitSlop={8} disabled={busy}>
                 <View style={{ width: 34, height: 34, alignItems: 'center', justifyContent: 'center' }}>
                   <Icon name="edit" size={15} color={c.muted} />
                 </View>
               </Press>
-              <Press scale={0.9} onPress={() => { void remove(a.id); }} disabled={busy} label={`Remove ${a.label} address`} hitSlop={8}>
+              <Press scale={0.9} onPress={() => requestRemove(a)} disabled={busy} label={`Remove ${a.label} address`} hitSlop={8}>
                 <View style={{ width: 34, height: 34, alignItems: 'center', justifyContent: 'center' }}>
                   <Icon name="x" size={16} color={c.muted} />
                 </View>

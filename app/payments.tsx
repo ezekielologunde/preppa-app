@@ -112,7 +112,7 @@ export default function Payments() {
                 const rowBusy = busyId === card.id;
                 return (
                   <View key={card.id} style={{ flexDirection: 'row', alignItems: 'center', gap: 4, padding: 14, borderWidth: 1.5, borderColor: on ? c.primary : c.border, backgroundColor: on ? c.primaryL : c.surface, borderRadius: radius.card, opacity: rowBusy ? 0.6 : 1, ...shadow.soft }}>
-                    <Press scale={0.99} onPress={() => makeDefault(card)} label={`Make ${brandName(card.brand)} ending ${card.last4} the default`} disabled={rowBusy} style={{ flex: 1, flexDirection: 'row', alignItems: 'center', gap: 12 }}>
+                    <Press scale={0.99} onPress={() => makeDefault(card)} label={`${brandName(card.brand)} ending ${card.last4}${on ? ', default card' : ', make default'}`} role="radio" checked={on} disabled={!!busyId} style={{ flex: 1, flexDirection: 'row', alignItems: 'center', gap: 12 }}>
                       <View style={{ width: 40, height: 40, borderRadius: 12, backgroundColor: on ? c.surface : c.bg2, alignItems: 'center', justifyContent: 'center' }}>
                         <Icon name="card" size={20} color={on ? c.primary : c.ink} />
                       </View>
@@ -127,7 +127,7 @@ export default function Payments() {
                         {on ? <View style={{ width: 11, height: 11, borderRadius: 6, backgroundColor: c.primary }} /> : null}
                       </View>
                     </Press>
-                    <Press scale={0.9} onPress={() => requestRemove(card)} label={`Remove ${brandName(card.brand)} ending ${card.last4}`} hitSlop={8} disabled={rowBusy}>
+                    <Press scale={0.9} onPress={() => requestRemove(card)} label={`Remove ${brandName(card.brand)} ending ${card.last4}`} hitSlop={8} disabled={!!busyId}>
                       <View style={{ width: 34, height: 34, alignItems: 'center', justifyContent: 'center' }}>
                         <Icon name="x" size={16} color={c.muted} />
                       </View>
