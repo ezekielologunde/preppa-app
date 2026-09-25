@@ -521,7 +521,7 @@ export async function getMyKitchenId(): Promise<string | null> {
 }
 
 /** Upload a public meal photo; returns its public URL. Server-side (upload-media) re-checks
- *  kitchen ownership. Web-first (native has no file picker). */
+ *  kitchen ownership. */
 export async function uploadMealPhoto(file: Blob, _ext: string, kitchenId: string): Promise<string> {
   const { url } = await uploadViaProxy('meal-photos', 'meal', file, { kitchenId });
   return url!;

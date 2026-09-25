@@ -1,5 +1,6 @@
 import React, { useRef, useState } from 'react';
 import { View, Text, ScrollView, Image, Platform } from 'react-native';
+import * as ImagePicker from 'expo-image-picker';
 import { useRouter } from 'expo-router';
 import { useC } from '../../src/theme/ThemeContext';
 import { type, radius, GradKey } from '../../src/theme/theme';
@@ -23,19 +24,37 @@ export default function CreateMealFlow() {
   const [grad, setGrad] = useState<GradKey | null>(null);
   const [photoFile, setPhotoFile] = useState<Blob | null>(null);
   const [photoPreview, setPhotoPreview] = useState<string | null>(null);
-  const pickPhoto = () => {
-    if (Platform.OS !== 'web' || typeof document === 'undefined') return;
-    const input = document.createElement('input');
-    input.type = 'file';
-    input.accept = 'image/*';
-    (input as any).capture = 'environment';
-    input.onchange = () => {
-      const f = input.files?.[0];
-      if (!f) return;
-      setPhotoFile(f);
-      setPhotoPreview(URL.createObjectURL(f)); // preview only — never stored; the public URL is saved
-    };
-    input.click();
+  const pickPhoto = async () => {
+    if (Platform.OS === 'web' && typeof document !== 'undefined') {
+      const input = document.createElement('input');
+      input.type = 'file';
+      input.accept = 'image/*';
+      (input as any).capture = 'environment';
+      input.onchange = () => {
+        const f = input.files?.[0];
+        if (!f) return;
+        setPhotoFile(f);
+        setPhotoPreview(URL.createObjectURL(f)); // preview only; the public URL is saved
+      };
+      input.click();
+      return;
+    }
+
+    try {
+      const result = await ImagePicker.launchImageLibraryAsync({
+        mediaTypes: ['images'],
+        allowsEditing: true,
+        aspect: [4, 3],
+        quality: 0.85,
+      });
+      if (result.canceled || !result.assets[0]) return;
+      const asset = result.assets[0];
+      const blob = await (await fetch(asset.uri)).blob();
+      setPhotoFile(blob);
+      setPhotoPreview(asset.uri);
+    } catch {
+      toast('Couldn’t open or read that photo. Please try another.', 'info');
+    }
   };
   const [name, setName] = useState('');
   const [desc, setDesc] = useState('');
@@ -72,7 +91,7 @@ export default function CreateMealFlow() {
         allergenReviewed,
       });
       // Photo is a booster, not a blocker: upload best-effort, never fail the publish over it.
-      if (photoFile && Platform.OS === 'web') {
+      if (photoFile) {
         try {
           const kid = await getMyKitchenId();
           if (!kid) throw new Error('Kitchen not found for photo upload.');
@@ -133,7 +152,7 @@ export default function CreateMealFlow() {
                 <View style={{ paddingHorizontal: 12, height: 34, borderRadius: 17, backgroundColor: 'rgba(14,14,16,.72)', alignItems: 'center', justifyContent: 'center' }}><Text style={[type(12.5, 800), { color: '#fff' }]}>Change</Text></View>
               </Press>
             </View>
-          ) : Platform.OS === 'web' ? (
+          ) : (
             <Press scale={0.98} onPress={pickPhoto} label="Add a meal photo">
               <View style={{ height: 150, borderRadius: radius.lg, borderWidth: 1.5, borderColor: c.border, borderStyle: 'dashed', backgroundColor: c.bg2, alignItems: 'center', justifyContent: 'center', gap: 6 }}>
                 <Icon name="plus" size={24} color={c.primary} />
@@ -141,10 +160,6 @@ export default function CreateMealFlow() {
                 <Text style={[type(11.5, 500), { color: c.muted }]}>A clear, well-lit shot of the finished dish</Text>
               </View>
             </Press>
-          ) : (
-            <View style={{ padding: 14, borderRadius: radius.lg, backgroundColor: c.bg2, borderWidth: 1, borderColor: c.border }}>
-              <Text style={[type(12.5, 700), { color: c.soft, lineHeight: 18 }]}>Add a meal photo from the web app at app.preppa.live — photo upload isn’t available in the mobile app yet.</Text>
-            </View>
           )}
           <Text style={[type(12, 700), { color: c.soft, marginTop: 16, marginBottom: 8 }]}>Fallback color <Text style={[type(12, 500), { color: c.muted }]}>· shown until a photo is added</Text></Text>
           <PhotoPick grad={grad} setGrad={setGrad} />
@@ -185,8 +200,8 @@ export default function CreateMealFlow() {
         <Press
           scale={0.98}
           onPress={() => setAllergenReviewed((v) => !v)}
-          accessibilityRole="checkbox"
-          accessibilityState={{ checked: allergenReviewed }}
+          role="checkbox"
+          checked={allergenReviewed}
           label="I reviewed the full recipe and disclosed every applicable major allergen"
         >
           <View style={{ flexDirection: 'row', alignItems: 'flex-start', gap: 11, padding: 14, borderRadius: radius.md, backgroundColor: c.bg2, borderWidth: 1, borderColor: allergenReviewed ? c.primary : c.border }}>
