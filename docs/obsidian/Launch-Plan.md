@@ -62,6 +62,7 @@ tags: [project/preppa, type/launch-plan]
 - Expo SDK 57 patch dependencies are aligned, vulnerable transitive URI-decoding and UUID packages are pinned to patched releases, Expo Doctor passes all 21 checks, and `npm audit` reports zero known vulnerabilities.
 - Delivery addresses now preserve separate unit, city, state or region, postal code, and ISO country fields. Checkout rejects incomplete legacy rows and Stripe Tax receives the owner-verified saved delivery address instead of a broad client location.
 - Pickup checkout now requires a geocoded country before order creation, and failed area geocoding clears any stale prior country instead of silently reusing the wrong tax jurisdiction.
+- Payment and service clients now extract the JSON reason from failed Edge Function responses, preserving actionable checkout, saved-card, request, quote, booking, and refund messages instead of replacing them with a generic SDK failure.
 
 ### Customer acceptance evidence still needed
 

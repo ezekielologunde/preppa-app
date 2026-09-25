@@ -51,6 +51,17 @@ export const supabase = createClient(SUPABASE_URL, SUPABASE_ANON, {
   auth: { storage: authStorage as any, autoRefreshToken: true, persistSession: true, detectSessionInUrl: false },
 });
 
+/** Preserve the JSON error returned by an Edge Function on non-2xx responses. */
+export async function assertFunctionSuccess(data: any, error: any, fallback: string): Promise<void> {
+  if (!error && !data?.error) return;
+  let payload = data;
+  const context = error?.context;
+  if (context && typeof context.json === 'function') {
+    try { payload = await context.json(); } catch { /* fall back to the SDK message */ }
+  }
+  throw new Error(payload?.error || error?.message || fallback);
+}
+
 /**
  * Ensure there's a signed-in Supabase user before a payment/account action. Real
  * users always hold a session from onboarding (OTP/Google) — the onboarding gate

@@ -1,7 +1,7 @@
 import { Platform } from 'react-native';
 import type { Stripe } from '@stripe/stripe-js';
 import { confirmPayment, initPaymentSheet, presentPaymentSheet } from './nativeStripe';
-import { supabase, ensureAuth, KITCHEN_ID, MEAL_ID, STRIPE_PK, APPLE_PAY_MERCHANT_ID, assertLiveMoneyAllowed } from './supabase';
+import { supabase, ensureAuth, KITCHEN_ID, MEAL_ID, STRIPE_PK, APPLE_PAY_MERCHANT_ID, assertLiveMoneyAllowed, assertFunctionSuccess } from './supabase';
 import type { CartLine } from '../store/store';
 
 export interface OrderOpts {
@@ -65,7 +65,7 @@ export async function createRealOrder(opts: OrderOpts): Promise<{ orderId: strin
       ...(opts.addressId ? { addressId: opts.addressId } : {}),
     },
   });
-  if (error) throw error;
+  await assertFunctionSuccess(data, error, 'Could not start your payment.');
   if (!data?.clientSecret) throw new Error(data?.error || 'no client secret from create-order');
   return { orderId: data.orderId as string, clientSecret: data.clientSecret as string, taxCents: (data.taxCents as number) ?? 0 };
 }
@@ -78,8 +78,7 @@ async function pmAction<T>(action: string, extra: Record<string, unknown> = {}):
   assertLiveMoneyAllowed();
   await ensureAuth();
   const { data, error } = await supabase.functions.invoke('payment-methods', { body: { action, ...extra } });
-  if (error) throw error;
-  if (data?.error) throw new Error(data.error);
+  await assertFunctionSuccess(data, error, 'Could not update your payment methods.');
   return data as T;
 }
 

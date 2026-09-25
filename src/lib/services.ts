@@ -1,4 +1,4 @@
-import { supabase, assertLiveMoneyAllowed } from './supabase';
+import { supabase, assertLiveMoneyAllowed, assertFunctionSuccess } from './supabase';
 
 /**
  * Food-Services marketplace client: request → quote → book → deposit. Preppa is the hub —
@@ -65,7 +65,7 @@ function rowToRequest(r: any): RequestView {
 /** A cook links a published plan to a customer's meal-plan brief (notifies the customer). */
 export async function fulfillPlanRequest(requestId: string, planId: string): Promise<void> {
   const { data, error } = await supabase.functions.invoke('fulfill-plan-request', { body: { requestId, planId } });
-  if (error || data?.error) throw new Error(data?.error || error?.message || 'Could not link the plan.');
+  await assertFunctionSuccess(data, error, 'Could not link the plan.');
 }
 
 /** A single request (owner-scoped by RLS), with its quotes. */
@@ -87,14 +87,14 @@ export interface ServiceRequestBody {
 /** Edit an OPEN request (server enforces status='open' + re-routes on category/location change). */
 export async function editServiceRequest(requestId: string, patch: Partial<ServiceRequestBody>): Promise<{ newTargets: number }> {
   const { data, error } = await supabase.functions.invoke('edit-service-request', { body: { requestId, action: 'edit', ...patch } });
-  if (error || data?.error) throw new Error(data?.error || error?.message || 'Could not update your request.');
+  await assertFunctionSuccess(data, error, 'Could not update your request.');
   return { newTargets: data.newTargets ?? 0 };
 }
 
 /** Cancel a request that isn't already booked/cancelled. */
 export async function cancelServiceRequest(requestId: string): Promise<void> {
   const { data, error } = await supabase.functions.invoke('edit-service-request', { body: { requestId, action: 'cancel' } });
-  if (error || data?.error) throw new Error(data?.error || error?.message || 'Could not cancel your request.');
+  await assertFunctionSuccess(data, error, 'Could not cancel your request.');
 }
 
 /** The customer's service bookings. */
@@ -148,32 +148,32 @@ export async function listIncomingRequests(): Promise<IncomingRequest[]> {
 
 export async function createServiceRequest(body: ServiceRequestBody): Promise<{ requestId: string; targets: number }> {
   const { data, error } = await supabase.functions.invoke('create-service-request', { body });
-  if (error || data?.error) throw new Error(data?.error || error?.message || 'Could not post your request.');
+  await assertFunctionSuccess(data, error, 'Could not post your request.');
   return { requestId: data.requestId, targets: data.targets };
 }
 
 export async function submitQuote(body: { requestId: string; amountCents: number; depositCents: number; note?: string }): Promise<string> {
   const { data, error } = await supabase.functions.invoke('submit-quote', { body });
-  if (error || data?.error) throw new Error(data?.error || error?.message || 'Could not submit your quote.');
+  await assertFunctionSuccess(data, error, 'Could not submit your quote.');
   return data.quoteId;
 }
 
 export async function acceptQuoteAndDeposit(quoteId: string): Promise<{ bookingId: string; clientSecret: string | null; depositCents?: number }> {
   assertLiveMoneyAllowed();
   const { data, error } = await supabase.functions.invoke('accept-quote-and-deposit', { body: { quoteId } });
-  if (error || data?.error) throw new Error(data?.error || error?.message || 'Could not start your booking.');
+  await assertFunctionSuccess(data, error, 'Could not start your booking.');
   return { bookingId: data.bookingId, clientSecret: data.clientSecret, depositCents: data.depositCents };
 }
 
 export async function completeBooking(bookingId: string): Promise<{ balanceCharged: boolean; balanceChargeError: string | null }> {
   assertLiveMoneyAllowed();
   const { data, error } = await supabase.functions.invoke('complete-booking', { body: { bookingId } });
-  if (error || data?.error) throw new Error(data?.error || error?.message || 'Could not update the booking.');
+  await assertFunctionSuccess(data, error, 'Could not update the booking.');
   return { balanceCharged: !!data?.balanceCharged, balanceChargeError: data?.balanceChargeError ?? null };
 }
 export async function cancelBooking(bookingId: string): Promise<{ refunded: boolean }> {
   assertLiveMoneyAllowed();
   const { data, error } = await supabase.functions.invoke('cancel-booking', { body: { bookingId } });
-  if (error || data?.error) throw new Error(data?.error || error?.message || 'Could not cancel the booking.');
+  await assertFunctionSuccess(data, error, 'Could not cancel the booking.');
   return { refunded: !!data?.refunded };
 }
