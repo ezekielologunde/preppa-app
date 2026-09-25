@@ -25,6 +25,20 @@ const POLICIES: { key: 'flexible' | 'standard' | 'strict'; label: string; sub: s
   { key: 'standard', label: 'Standard', sub: 'Free cancellation up to 48h before' },
   { key: 'strict', label: 'Strict', sub: 'Non-refundable' },
 ];
+const MAX_EXPERIENCE_PRICE_CENTS = 500_000;
+
+function cents(value: string): number | null {
+  if (!/^\d+(?:\.\d{0,2})?$/.test(value.trim())) return null;
+  const result = Math.round(Number(value) * 100);
+  return Number.isSafeInteger(result) ? result : null;
+}
+function boundedInt(value: string, min: number, max: number): number | null {
+  const result = Number(value);
+  return Number.isInteger(result) && result >= min && result <= max ? result : null;
+}
+function isHttpUrl(value: string): boolean {
+  try { const url = new URL(value); return url.protocol === 'https:' || url.protocol === 'http:'; } catch { return false; }
+}
 
 interface SessRow { id?: string; date: string; time: string; seats: string; seatsTaken: number; status: string }
 function toISO(date: string, time: string): string | null {
@@ -52,6 +66,7 @@ export default function CreateExperienceFlow() {
   const [etype, setEtype] = useState<ExperienceType>('class');
   const [photos, setPhotos] = useState<string[]>([]);  // first = cover
   const [photoBusy, setPhotoBusy] = useState(false);
+  const photoInFlight = useRef(false);
   const [address, setAddress] = useState('');
   const [locationType, setLocationType] = useState<'prepper_place' | 'venue' | 'virtual'>('prepper_place');
   const [meetingUrl, setMeetingUrl] = useState('');
@@ -70,14 +85,18 @@ export default function CreateExperienceFlow() {
   const [status, setStatus] = useState<string>('draft');
   const [busy, setBusy] = useState(false);
   const mutationInFlight = useRef(false);
+  const loadSequence = useRef(0);
+  const mounted = useRef(true);
   const [done, setDone] = useState<{ status: string } | null>(null);
 
   const load = async () => {
+    const request = ++loadSequence.current;
     setLoading(true);
     setLoadError('');
     try {
       if (editing) {
         const e = await fetchExperience(experienceId!);
+        if (!mounted.current || request !== loadSequence.current) return;
         if (!e) throw new Error('This experience is no longer available.');
         {
           setTitle(e.title); setDesc(e.description ?? ''); setEtype(e.experienceType);
@@ -92,38 +111,52 @@ export default function CreateExperienceFlow() {
         }
       }
     } catch (e: any) {
-      setLoadError(e?.message || 'Could not load this experience.');
+      if (mounted.current && request === loadSequence.current) setLoadError('Check your connection and try again. Your experience has not changed.');
     } finally {
-      setLoading(false);
+      if (mounted.current && request === loadSequence.current) setLoading(false);
     }
   };
-  useEffect(() => { void load(); }, []);
+  useEffect(() => {
+    mounted.current = true;
+    void load();
+    return () => { mounted.current = false; loadSequence.current += 1; };
+  }, []);
 
   const pickPhotos = () => {
-    if (Platform.OS !== 'web' || typeof document === 'undefined') return;
+    if (photoInFlight.current || Platform.OS !== 'web' || typeof document === 'undefined') return;
     const input = document.createElement('input');
     input.type = 'file'; input.accept = 'image/*'; input.multiple = true;
     input.onchange = async () => {
       const slots = 6 - photos.length;
       const files = Array.from(input.files || []).slice(0, Math.max(0, slots));
       if (!files.length) return;
+      photoInFlight.current = true;
       setPhotoBusy(true);
       try {
         for (const f of files) {
           const ext = (f.name.split('.').pop() || 'jpg').toLowerCase();
           const url = await uploadPlanCover(f, ext);              // public avatars bucket → public URL
-          setPhotos((p) => (p.length >= 6 ? p : [...p, url]));
+          if (mounted.current) setPhotos((p) => (p.length >= 6 ? p : [...p, url]));
         }
       } catch (e: any) { toast(e?.message || 'Could not upload a photo', 'info'); }
-      finally { setPhotoBusy(false); }
+      finally { photoInFlight.current = false; if (mounted.current) setPhotoBusy(false); }
     };
     input.click();
   };
 
-  const perPersonCents = Math.round((Number(price) || 0) * 100);
-  const validSessions = sessions.filter((s) => toISO(s.date, s.time) && Number(s.seats) > 0);
-  const canSubmit = !!title.trim() && perPersonCents >= 100 && Number(maxG) >= Number(minG) && validSessions.length > 0
-    && (locationType !== 'virtual' || !!meetingUrl.trim());
+  const parsedPriceCents = cents(price);
+  const perPersonCents = parsedPriceCents ?? 0;
+  const minGuests = boundedInt(minG, 1, 200);
+  const maxGuests = boundedInt(maxG, 1, 200);
+  const durationMin = duration.trim() ? boundedInt(duration, 15, 1440) : null;
+  const validSessions = sessions.filter((s) => toISO(s.date, s.time) && boundedInt(s.seats, 1, 200) != null);
+  const fieldsValid = title.trim().length >= 2 && title.trim().length <= 120 && desc.trim().length <= 4000
+    && requirements.trim().length <= 2000 && address.trim().length <= 300 && meetingUrl.trim().length <= 600
+    && (!price.trim() || (parsedPriceCents != null && perPersonCents <= MAX_EXPERIENCE_PRICE_CENTS))
+    && minGuests != null && maxGuests != null && maxGuests >= minGuests && (!duration.trim() || durationMin != null)
+    && sessions.length <= 60 && validSessions.length === sessions.length;
+  const canSubmit = fieldsValid && parsedPriceCents != null && perPersonCents >= 100 && validSessions.length > 0
+    && (locationType !== 'virtual' || isHttpUrl(meetingUrl.trim()));
 
   const addSession = () => setSessions((s) => [...s, { date: '', time: '18:00', seats: maxG || '8', seatsTaken: 0, status: 'open' }]);
   const setSess = (i: number, patch: Partial<SessRow>) => setSessions((s) => s.map((r, j) => (j === i ? { ...r, ...patch } : r)));
@@ -151,7 +184,6 @@ export default function CreateExperienceFlow() {
     if (!s.id) { removeSess(i); return; }
     if (mutationInFlight.current) return;
     mutationInFlight.current = true;
-    mutationInFlight.current = true;
     setBusy(true);
     try { const r = await cancelExperienceSession(s.id); toast(`Session cancelled — ${r.refunded} booking${r.refunded !== 1 ? 's' : ''} refunded`, 'check', true); removeSess(i); }
     catch (e: any) { toast(e?.message || 'Could not cancel the session', 'info'); }
@@ -170,11 +202,15 @@ export default function CreateExperienceFlow() {
 
   const save = async (submit: boolean) => {
     if (mutationInFlight.current) return;
+    if (!fieldsValid) {
+      toast(title.trim().length < 2 ? 'Use at least 2 characters for the title' : title.trim().length > 120 ? 'Keep the title to 120 characters' : desc.trim().length > 4000 ? 'Keep the description to 4,000 characters' : requirements.trim().length > 2000 ? 'Keep requirements to 2,000 characters' : price.trim() && parsedPriceCents == null ? 'Enter a valid price with no more than two decimal places' : perPersonCents > MAX_EXPERIENCE_PRICE_CENTS ? 'Keep the price at $5,000 or less' : sessions.length > 60 ? 'Keep the schedule to 60 sessions' : 'Check duration, guest limits, and session capacity', 'info');
+      return;
+    }
     if (submit && !canSubmit) {
       toast(!title.trim() ? 'Add a title' : perPersonCents < 100 ? 'Set a price per person (at least $1)' : validSessions.length === 0 ? 'Add at least one session' : (locationType === 'virtual' && !meetingUrl.trim()) ? 'Add a meeting link for the online session' : 'Check your guest limits', 'info');
       return;
     }
-    if (!title.trim()) { toast('Add a title', 'info'); return; }
+    mutationInFlight.current = true;
     setBusy(true);
     try {
       const sess = sessions
@@ -187,8 +223,8 @@ export default function CreateExperienceFlow() {
         locationType,
         addressText: locationType !== 'virtual' ? (address.trim() || undefined) : undefined,
         meetingUrl: locationType === 'virtual' ? (meetingUrl.trim() || undefined) : undefined,
-        durationMin: duration.trim() ? Math.max(15, parseInt(duration, 10) || 120) : undefined,
-        minGuests: Math.max(1, parseInt(minG, 10) || 1), maxGuests: Math.max(1, parseInt(maxG, 10) || 8),
+        durationMin: durationMin ?? undefined,
+        minGuests: minGuests!, maxGuests: maxGuests!,
         priceModel,
         ...(priceModel === 'flat' ? { priceCents: perPersonCents } : { perPersonCents }),
         whatsIncluded: included.length ? included : undefined, requirements: requirements.trim() || undefined,
@@ -243,7 +279,7 @@ export default function CreateExperienceFlow() {
               </View>
             ))}
             {photos.length < 6 ? (
-              <Press scale={0.97} onPress={pickPhotos}>
+              <Press scale={0.97} onPress={pickPhotos} disabled={photoBusy} label="Add experience photos">
                 <View style={{ width: 96, height: 96, borderRadius: 12, borderWidth: 2, borderStyle: 'dashed', borderColor: c.border, backgroundColor: c.bg2, alignItems: 'center', justifyContent: 'center', gap: 4 }}>
                   {photoBusy ? <ActivityIndicator color={c.primary} /> : <><Icon name="camera" size={20} color={c.muted} /><Text style={[type(10.5, 700), { color: c.soft }]}>Add</Text></>}
                 </View>
@@ -251,8 +287,8 @@ export default function CreateExperienceFlow() {
             ) : null}
           </View>
         </KField>
-        <KField label="Title"><KInput value={title} onChange={setTitle} placeholder="e.g. Hands-on Pasta Night" /></KField>
-        <KField label="Description"><KInput value={desc} onChange={setDesc} placeholder="What you'll cook and eat together…" multiline /></KField>
+        <KField label="Title"><KInput value={title} onChange={setTitle} placeholder="e.g. Hands-on Pasta Night" maxLength={120} /></KField>
+        <KField label="Description"><KInput value={desc} onChange={setDesc} placeholder="What you'll cook and eat together…" multiline maxLength={4000} /></KField>
 
         <KField label="Format"><KSeg options={TYPES} value={etype} onChange={(v) => setEtype(v as ExperienceType)} /></KField>
 
@@ -262,22 +298,22 @@ export default function CreateExperienceFlow() {
         </KField>
         <View style={{ flexDirection: 'row', gap: 12 }}>
           <View style={{ flex: 1 }}><KField label={priceModel === 'flat' ? 'Price (whole session)' : 'Price per person'}><MoneyInput value={price} onChange={setPrice} /></KField></View>
-          <View style={{ flex: 1 }}><KField label="Duration (min)"><KInput value={duration} onChange={setDuration} placeholder="120" /></KField></View>
+          <View style={{ flex: 1 }}><KField label="Duration (min)"><KInput value={duration} onChange={(v) => setDuration(v.replace(/\D/g, ''))} placeholder="15 to 1440" maxLength={4} /></KField></View>
         </View>
         <View style={{ flexDirection: 'row', gap: 12 }}>
-          <View style={{ flex: 1 }}><KField label="Min guests"><KInput value={minG} onChange={setMinG} placeholder="1" /></KField></View>
-          <View style={{ flex: 1 }}><KField label="Max guests"><KInput value={maxG} onChange={setMaxG} placeholder="8" /></KField></View>
+          <View style={{ flex: 1 }}><KField label="Min guests"><KInput value={minG} onChange={(v) => setMinG(v.replace(/\D/g, ''))} placeholder="1 to 200" maxLength={3} /></KField></View>
+          <View style={{ flex: 1 }}><KField label="Max guests"><KInput value={maxG} onChange={(v) => setMaxG(v.replace(/\D/g, ''))} placeholder="1 to 200" maxLength={3} /></KField></View>
         </View>
 
         <KField label="Location">
           <KSeg options={[{ key: 'prepper_place', label: "Host's kitchen" }, { key: 'venue', label: 'Venue' }, { key: 'virtual', label: 'Online' }]} value={locationType} onChange={(v) => setLocationType(v as any)} />
         </KField>
-        {locationType === 'prepper_place' ? <KField label="Neighborhood (optional)"><KInput value={address} onChange={setAddress} placeholder="Shown to guests after they book" /></KField> : null}
-        {locationType === 'venue' ? <KField label="Venue"><KInput value={address} onChange={setAddress} placeholder="Venue name / address" /></KField> : null}
-        {locationType === 'virtual' ? <KField label="Meeting link" hint="Sent to guests after they book — keep it private"><KInput value={meetingUrl} onChange={setMeetingUrl} placeholder="https://…" /></KField> : null}
+        {locationType === 'prepper_place' ? <KField label="Neighborhood (optional)"><KInput value={address} onChange={setAddress} placeholder="Shown to guests after they book" maxLength={300} /></KField> : null}
+        {locationType === 'venue' ? <KField label="Venue"><KInput value={address} onChange={setAddress} placeholder="Venue name / address" maxLength={300} /></KField> : null}
+        {locationType === 'virtual' ? <KField label="Meeting link" hint="Sent to guests after they book — keep it private"><KInput value={meetingUrl} onChange={setMeetingUrl} placeholder="https://…" maxLength={600} /></KField> : null}
 
         <KField label="What's included"><Chips options={INCLUDED} value={included} onToggle={(t) => setIncluded((x) => x.includes(t) ? x.filter((y) => y !== t) : [...x, t])} /></KField>
-        <KField label="Good to know / requirements"><KInput value={requirements} onChange={setRequirements} placeholder="Skill level, what to bring, accessibility…" multiline /></KField>
+        <KField label="Good to know / requirements"><KInput value={requirements} onChange={setRequirements} placeholder="Skill level, what to bring, accessibility…" multiline maxLength={2000} /></KField>
         <KField label="Dietary options"><Chips options={DIETARY} value={dietary} onToggle={(t) => setDietary((x) => x.includes(t) ? x.filter((y) => y !== t) : [...x, t])} /></KField>
         <KField label="Contains allergens"><Chips options={ALLERGENS} value={allergens} onToggle={(t) => setAllergens((x) => x.includes(t) ? x.filter((y) => y !== t) : [...x, t])} danger /></KField>
 
@@ -300,7 +336,7 @@ export default function CreateExperienceFlow() {
         {sessions.length > 0 ? (
           <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8, marginBottom: 10, flexWrap: 'wrap' }}>
             <Text style={[type(12.5, 700), { color: c.soft }]}>Repeat weekly for</Text>
-            <View style={{ width: 52 }}><KInput value={repeatN} onChange={setRepeatN} placeholder="4" accessibilityLabel="Number of weekly sessions" /></View>
+            <View style={{ width: 52 }}><KInput value={repeatN} onChange={(v) => setRepeatN(v.replace(/\D/g, ''))} placeholder="4" accessibilityLabel="Number of weekly sessions" maxLength={1} /></View>
             <Text style={[type(12.5, 700), { color: c.soft }]}>weeks</Text>
             <Press scale={0.96} onPress={repeatWeekly}>
               <View style={{ height: 36, paddingHorizontal: 14, borderRadius: radius.pill, backgroundColor: c.primaryL, alignItems: 'center', justifyContent: 'center' }}><Text style={[type(12.5, 800), { color: c.primaryD }]}>Add weeks</Text></View>
@@ -315,7 +351,7 @@ export default function CreateExperienceFlow() {
                 <View style={{ flexDirection: 'row', gap: 8 }}>
               <View style={{ flex: 1.4 }}><KInput value={s.date} onChange={(v) => setSess(i, { date: v })} placeholder="YYYY-MM-DD" accessibilityLabel={`Session ${i + 1} date`} /></View>
               <View style={{ flex: 1 }}><KInput value={s.time} onChange={(v) => setSess(i, { time: v })} placeholder="18:00" accessibilityLabel={`Session ${i + 1} time`} /></View>
-              <View style={{ width: 74 }}><KInput value={s.seats} onChange={(v) => setSess(i, { seats: v })} placeholder="Seats" accessibilityLabel={`Session ${i + 1} seats`} /></View>
+               <View style={{ width: 74 }}><KInput value={s.seats} onChange={(v) => setSess(i, { seats: v.replace(/\D/g, '') })} placeholder="Seats" accessibilityLabel={`Session ${i + 1} seats`} maxLength={3} /></View>
                 </View>
                 <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }}>
                   <Text style={[type(11.5, 700), { color: locked ? c.primary : c.muted }]}>{locked ? `${s.seatsTaken} of ${s.seats} booked` : 'No bookings yet'}</Text>
@@ -328,7 +364,7 @@ export default function CreateExperienceFlow() {
               </View>
             );
           })}
-          <Press scale={0.98} onPress={addSession}>
+          <Press scale={0.98} onPress={addSession} disabled={sessions.length >= 60} label="Add session">
             <View style={{ height: 46, borderRadius: 12, borderWidth: 1.5, borderStyle: 'dashed', borderColor: c.border, alignItems: 'center', justifyContent: 'center', flexDirection: 'row', gap: 7 }}>
               <Icon name="plus" size={16} color={c.primary} /><Text style={[type(13.5, 800), { color: c.accentText }]}>Add session</Text>
             </View>
@@ -341,14 +377,14 @@ export default function CreateExperienceFlow() {
         </View>
 
         {editing || status === 'draft' ? (
-          <Press scale={0.98} onPress={() => save(false)} style={{ marginTop: 14 }}>
+          <Press scale={0.98} onPress={() => save(false)} disabled={busy || !fieldsValid} style={{ marginTop: 14, opacity: busy || !fieldsValid ? 0.5 : 1 }} label="Save as draft">
             <View style={{ height: 46, borderRadius: 12, backgroundColor: c.bg2, alignItems: 'center', justifyContent: 'center' }}><Text style={[type(14, 800), { color: c.ink2 }]}>Save as draft</Text></View>
           </Press>
         ) : null}
       </ScrollView>
       <Dock>
         <DockTotal label="Per person" value={money(perPersonCents / 100)} />
-        <KBtn label={busy ? 'Saving…' : editing && status === 'published' ? 'Save changes' : 'Submit for review'} variant="pri" flex={1} height={48} onPress={() => save(true)} style={{ opacity: canSubmit && !busy ? 1 : 0.5 }} />
+        <KBtn label={busy ? 'Saving…' : editing && status === 'published' ? 'Save changes' : 'Submit for review'} variant="pri" flex={1} height={48} onPress={() => save(true)} disabled={!canSubmit || busy} />
       </Dock>
     </Screen>
   );
@@ -363,7 +399,7 @@ function Chips({ options, value, onToggle, danger }: { options: string[]; value:
       {options.map((t) => {
         const on = value.includes(t);
         return (
-          <Press key={t} scale={0.95} onPress={() => onToggle(t)}>
+          <Press key={t} scale={0.95} onPress={() => onToggle(t)} label={t} selected={on}>
             <View style={{ height: 34, paddingHorizontal: 13, borderRadius: radius.pill, backgroundColor: on ? onBg : c.bg2, borderWidth: 1, borderColor: on ? onBg : c.border, alignItems: 'center', justifyContent: 'center' }}>
               <Text style={[type(12.5, 800), { color: on ? onFg : c.soft }]}>{t}</Text>
             </View>
