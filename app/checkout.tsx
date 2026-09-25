@@ -83,7 +83,7 @@ export default function Checkout() {
         customerMessage = 'Please sign in again to place your order.';
         toast('Please sign in again to place your order.', 'info');
         resetOnboarding(); // re-show the sign-in gate
-      } else if (/no longer available|are unavailable|taking orders|payouts are set up|delivery address|pickup address|valid area|tax|too many attempts|already been paid|could not be recovered|could not be resumed|no longer payable|different kitchen/i.test(msg)) {
+      } else if (/no longer available|are unavailable|taking orders|payouts are set up|own kitchen|delivery address|pickup address|valid area|tax|too many attempts|already been paid|could not be recovered|could not be resumed|no longer payable|different kitchen/i.test(msg)) {
         // Server rejected on live availability (item sold out / kitchen paused / not payout-ready).
         // These messages are already customer-friendly — surface them instead of a generic error
         // so a paused kitchen or sold-out item doesn't read as a payment bug.

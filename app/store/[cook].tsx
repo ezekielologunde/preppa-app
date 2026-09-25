@@ -213,7 +213,7 @@ export default function CookStoreScreen() {
           </View>
 
           <View style={{ flexDirection: 'row', gap: 10, marginTop: 14 }}>
-            {isMine(id) ? (
+            {isMine(id, isSeed ? KITCHEN_ID[id] : cook) ? (
               <Btn label="Manage kitchen" icon="chefhat" variant="dark" block height={46} onPress={() => router.push('/my-hub')} />
             ) : (
               <>
@@ -285,7 +285,7 @@ export default function CookStoreScreen() {
         {reviewsError ? <DataNotice text={revCount > 0 ? "Reviews may be out of date." : "Reviews could not be loaded."} onRetry={() => invalidate('reviews:' + KITCHEN_ID[id])} compact /> : null}
         {!reviewsError || revCount > 0 ? <ReviewsBlock kitchenId={KITCHEN_ID[id]} /> : null}
 
-        {FLAGS.services && !isMine(id) ? (
+        {FLAGS.services && !isMine(id, isSeed ? KITCHEN_ID[id] : cook) ? (
         <Press scale={0.985} onPress={() => router.push(`/service-request?category=cook_at_home&kitchen=${KITCHEN_ID[id]}`)} style={{ marginHorizontal: 16, marginTop: 14 }}>
           <View style={{ flexDirection: 'row', alignItems: 'center', gap: 14, backgroundColor: c.surface, borderWidth: 1, borderColor: c.border2, borderRadius: radius.xl, padding: 16 }}>
             <View style={{ width: 46, height: 46, borderRadius: 14, backgroundColor: c.primaryD, alignItems: 'center', justifyContent: 'center', ...shadow.brand }}>

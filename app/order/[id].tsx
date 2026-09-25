@@ -22,6 +22,7 @@ export default function OrderDetail() {
   const { orders, reorder, toast, refreshOrderStatus } = useStore();
   const o = orders.find((x) => x.id === id);
   const [refreshError, setRefreshError] = useState(false);
+  const [reordering, setReordering] = useState(false);
 
   const refresh = useCallback(async () => {
     if (!id) return;
@@ -132,7 +133,13 @@ export default function OrderDetail() {
         <Text style={[type(11.5, 600), { color: c.muted, textAlign: 'center' }]}>Payments and messages are kept on Preppa for your safety.</Text>
 
         <View style={{ flexDirection: 'row', gap: 10 }}>
-          <Btn variant="ghost" icon="repeat" label="Reorder" flex={1} onPress={() => { reorder(o.id); router.push('/cart'); }} />
+          <Btn variant="ghost" icon="repeat" label="Reorder" flex={1} loading={reordering} onPress={async () => {
+            if (reordering) return;
+            setReordering(true);
+            const added = await reorder(o.id);
+            setReordering(false);
+            if (added) router.push('/cart');
+          }} />
           {o.status === 'completed' ? <Btn icon="star" label="Rate your cook" flex={1} onPress={() => router.push(`/review/${o.id}`)} /> : o.status === 'cancelled' ? null : <Btn label="Track order" flex={1} onPress={() => router.push(`/track?flow=${o.flow}&cook=${encodeURIComponent(o.cook)}${o.dbId ? `&orderId=${encodeURIComponent(o.dbId)}` : ''}`)} />}
         </View>
 

@@ -201,6 +201,7 @@ export interface AccountState {
   signedIn: boolean;
   isAdmin: boolean;
   prepperStatus: PrepperStatusValue;
+  ownKitchenId: string | null;
   displayName: string | null;
   firstName: string | null;
   avatarUrl: string | null;
@@ -221,7 +222,7 @@ export interface AccountState {
 export async function fetchAccountState(): Promise<AccountState> {
   const { data: sess } = await supabase.auth.getSession();
   const uid = sess.session?.user?.id;
-  if (!uid) return { signedIn: false, isAdmin: false, prepperStatus: 'none', displayName: null, firstName: null, avatarUrl: null, isPrepPlus: false, prepplusUntil: null, payoutsEnabled: false, approvalNoticePending: false };
+  if (!uid) return { signedIn: false, isAdmin: false, prepperStatus: 'none', ownKitchenId: null, displayName: null, firstName: null, avatarUrl: null, isPrepPlus: false, prepplusUntil: null, payoutsEnabled: false, approvalNoticePending: false };
 
   const { data: prof } = await supabase.from('profiles').select('role, display_name, first_name, avatar_url').eq('id', uid).maybeSingle();
   const role = (prof?.role as string) ?? 'customer';
@@ -270,7 +271,7 @@ export async function fetchAccountState(): Promise<AccountState> {
     isPrepPlus = ((mem.status === 'active' || mem.status === 'trialing') && periodOk) || !!graceOk;
   }
 
-  return { signedIn: true, isAdmin, prepperStatus, displayName, firstName, avatarUrl, isPrepPlus, prepplusUntil, payoutsEnabled, approvalNoticePending };
+  return { signedIn: true, isAdmin, prepperStatus, ownKitchenId: kitchenRow?.id ?? null, displayName, firstName, avatarUrl, isPrepPlus, prepplusUntil, payoutsEnabled, approvalNoticePending };
 }
 
 /** Acknowledge the one-time "you're approved" welcome overlay (never shows again after this). */

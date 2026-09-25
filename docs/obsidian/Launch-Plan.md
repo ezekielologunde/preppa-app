@@ -66,6 +66,7 @@ tags: [project/preppa, type/launch-plan]
 - The same Edge Function error handling now covers cook onboarding, payouts, order refunds, experiences, subscriptions, plan publishing, and livestream controls. Admin experience review and live-feed reads no longer convert backend failures into false empty states.
 - Checkout retries now recover an order that was saved before its Stripe PaymentIntent row, but only after matching the customer, kitchen, unpaid state, total, and exact persisted cart. Concurrent retries cannot attach one Stripe intent to another order, finalized orders are not charged again, and unrecoverable states give the customer a clear path back to a fresh checkout.
 - Cook applications now collect and privately store a structured pickup address. Pickup checkout uses that kitchen address for Stripe Tax and blocks kitchens with incomplete legacy address data instead of calculating tax from the buyer's rough location.
+- Reorder now checks current meal availability, kitchen status, fulfillment support, prices, and images before adding historical items to the cart. Cook ownership UI now compares the authenticated cook's real kitchen UUID instead of a legacy presentation persona. Checkout rejects self-orders server-side and revalidates kitchen, payout, and meal eligibility before resuming an interrupted payment.
 
 ### Customer acceptance evidence still needed
 

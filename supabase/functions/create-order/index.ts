@@ -119,6 +119,34 @@ Deno.serve(async (req) => {
 
     if (input.method === 'cod') return json(400, { error: 'Cash on delivery isn\'t available yet.' });
 
+    // Re-check the kitchen before both new orders and idempotent payment recovery. An
+    // interrupted checkout must not resume after suspension, pause, or payout loss.
+    const { data: kitchen, error: kitchenError } = await db
+      .from('kitchens').select('id, owner_id, verification_status, availability').eq('id', input.kitchenId).single();
+    if (kitchenError) throw kitchenError;
+    if (!kitchen || kitchen.verification_status !== 'verified' || kitchen.availability !== 'open') {
+      return json(409, { error: 'This kitchen isn\'t taking orders right now.' });
+    }
+    if (kitchen.owner_id === customerId) {
+      return json(409, { error: 'You can\'t place an order from your own kitchen.' });
+    }
+    const { data: acct, error: acctError } = await db
+      .from('stripe_accounts').select('payouts_enabled').eq('kitchen_id', input.kitchenId).maybeSingle();
+    if (acctError) throw acctError;
+    if (!acct?.payouts_enabled) {
+      return json(409, { error: 'This kitchen can\'t accept paid orders until payouts are set up.' });
+    }
+
+    const mealIds = [...new Set(input.items.map((i) => i.mealId))];
+    const { data: meals, error: mErr } = await db
+      .from('meals').select('id, name, price_cents, kitchen_id, status').in('id', mealIds);
+    if (mErr) throw mErr;
+    if (!meals || meals.length !== mealIds.length) return json(400, { error: 'Some items are unavailable.' });
+    for (const m of meals as any[]) {
+      if (m.kitchen_id !== input.kitchenId) return json(400, { error: 'All items must be from one kitchen.' });
+      if (m.status !== 'live') return json(409, { error: `${m.name} is no longer available.` });
+    }
+
     const { data: existing, error: existingError } = await db
       .from('orders')
       .select('id, kitchen_id, pay_status, subtotal_cents, tax_cents, tip_cents, total_cents')
@@ -202,30 +230,6 @@ Deno.serve(async (req) => {
       }
       deliveryAddressText = [address.line1, address.line2, address.city, address.region, address.postal_code].filter(Boolean).join(', ');
       deliveryTaxAddress = { line1: address.line1, line2: address.line2 || undefined, city: address.city, state: address.region, postal_code: address.postal_code, country: address.country };
-    }
-
-    const mealIds = [...new Set(input.items.map((i) => i.mealId))];
-    const { data: meals, error: mErr } = await db
-      .from('meals').select('id, name, price_cents, kitchen_id, status').in('id', mealIds);
-    if (mErr) throw mErr;
-    if (!meals || meals.length !== mealIds.length) return json(400, { error: 'Some items are unavailable.' });
-    for (const m of meals as any[]) {
-      if (m.kitchen_id !== input.kitchenId) return json(400, { error: 'All items must be from one kitchen.' });
-      if (m.status !== 'live') return json(409, { error: `${m.name} is no longer available.` });
-    }
-
-    const { data: kitchen } = await db
-      .from('kitchens').select('id, owner_id, verification_status, availability').eq('id', input.kitchenId).single();
-    if (!kitchen || kitchen.verification_status !== 'verified' || kitchen.availability !== 'open') {
-      return json(409, { error: 'This kitchen isn\'t taking orders right now.' });
-    }
-
-    // Defense-in-depth: a meal can only be flipped to 'live' while payouts are enabled (DB
-    // trigger), but Stripe can restrict an account afterward — re-check at order time too.
-    const { data: acct } = await db
-      .from('stripe_accounts').select('payouts_enabled').eq('kitchen_id', input.kitchenId).maybeSingle();
-    if (!acct?.payouts_enabled) {
-      return json(409, { error: 'This kitchen can\'t accept paid orders until payouts are set up.' });
     }
 
     if (input.fulfillment === 'pickup') {

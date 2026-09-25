@@ -123,7 +123,7 @@ export default function MealDetail() {
       </ScrollView>
 
       <Dock>
-        {isMine(m.cook) ? (
+        {isMine(m.cook, m.kitchenUuid) ? (
           <Btn label="Manage in My Hub" icon="chefhat" variant="ghost" block onPress={() => router.push('/hub/menu')} />
         ) : (
           <>

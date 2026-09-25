@@ -4,17 +4,16 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import {
   GradKey, CookId, Subscription, lineKey,
 } from '../data/data';
-import { ME } from '../data/cook';
 import { computeTotals } from '../data/totals';
 import {
   signOutUser, fetchAccountState, submitPrepperApplication, updateDisplayName,
   fetchNotifications, markNotificationRead, markAllNotificationsRead, setKitchenGeo,
-  ackApprovalNotice as ackApprovalNoticeApi, deleteAccountServerSide,
+  ackApprovalNotice as ackApprovalNoticeApi, deleteAccountServerSide, KITCHEN_ID,
   type ApplicationFields, type AppNotification,
 } from '../lib/supabase';
 import { supabase } from '../lib/supabase';
 import { threadUnreadCount, subscribeMyNotifications } from '../lib/messages';
-import { fetchCustomerOrders, fetchOrderStatus, timeAgo } from '../lib/orders';
+import { fetchCustomerOrders, fetchOrderStatus, fetchReorderMeals, timeAgo } from '../lib/orders';
 import { getMyKitchen, getKitchenAvailability, setKitchenAvailability } from '../lib/connect';
 import { registerForPushNotifications } from '../lib/push';
 import { setViewerCoords } from '../data/supabaseRepository';
@@ -140,7 +139,7 @@ interface Store {
   approvalNoticePending: boolean; // one-time "you're approved" welcome not yet acknowledged
   ackApprovalNotice: () => Promise<void>;
   submitApplication: (f: ApplicationFields) => Promise<string>;
-  isMine: (cook: CookId) => boolean; // true only for an approved prepper viewing their own listing
+  isMine: (cook: CookId, kitchenUuid?: string) => boolean; // server-derived kitchen UUID comparison
 
   fav: Set<string>;
   toggleFav: (id: string) => void;
@@ -151,7 +150,7 @@ interface Store {
   ordersLoading: boolean;
   ordersError: string;
   refreshOrders: (userId?: string) => Promise<void>;
-  reorder: (id: string) => void;
+  reorder: (id: string) => Promise<boolean>;
   refreshOrderStatus: (id: string) => Promise<boolean>;
 
   subscription: Subscription | null;
@@ -220,6 +219,7 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
   const [avatarUrl, setAvatarUrl] = useState<string | null>(null);
   const [fav, setFav] = useState<Set<string>>(new Set());
   const [prepperStatus, setPrepperStatus] = useState<PrepperStatus>('none');
+  const [ownKitchenId, setOwnKitchenId] = useState<string | null>(null);
   const [payoutsEnabled, setPayoutsEnabled] = useState(false);
   const [approvalNoticePending, setApprovalNoticePending] = useState(false);
   const [isPrepPlus, setIsPrepPlus] = useState(false);
@@ -361,6 +361,7 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
       // out, fetchAccountState returns 'none', so a stale cached role can never keep
       // My Hub visible to a guest/customer on a browser a prepper once used.
       setPrepperStatus(s.prepperStatus);
+      setOwnKitchenId(s.ownKitchenId);
       setPayoutsEnabled(s.payoutsEnabled);
       setApprovalNoticePending(s.approvalNoticePending);
       // PrepPlus entitlement, same never-cached discipline as prepperStatus.
@@ -464,13 +465,17 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
   }, [uid]);
 
   const role: 'customer' | 'prepper' = prepperStatus === 'approved' ? 'prepper' : 'customer';
-  const isMine = useCallback((cook: CookId) => prepperStatus === 'approved' && cook === ME.id, [prepperStatus]);
+  const isMine = useCallback((cook: CookId, kitchenUuid?: string) => {
+    if (prepperStatus !== 'approved' || !ownKitchenId) return false;
+    return (kitchenUuid ?? KITCHEN_ID[cook]) === ownKitchenId;
+  }, [prepperStatus, ownKitchenId]);
   // Full cook application (identity + kitchen + food-safety + agreement). Admin-driven
   // approval — no client-side auto-approve. Throws on failure so the form can show it.
   const submitApplication = useCallback(async (f: ApplicationFields) => {
     const kitchenId = await submitPrepperApplication(f);
     if (f.legalName && f.legalName !== name) { try { await saveName(f.legalName); } catch {} }
     setPrepperStatus('pending');
+    setOwnKitchenId(kitchenId);
     // Best-effort: geocode the kitchen's location so buyers can sort it by proximity.
     try {
       const geo = await geocodeAddress([f.addressLine1, f.addressCity, f.addressRegion, f.addressPostalCode, f.addressCountry].filter(Boolean).join(', ') || f.neighborhood);
@@ -480,7 +485,7 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
   }, [name, saveName]);
 
   const addToCart = useCallback((line: Omit<CartLine, 'qty'>, qty = 1) => {
-    if (isMine(line.cook)) { toast('You can’t order from your own kitchen', 'info'); return; }
+    if (isMine(line.cook, line.kitchenUuid)) { toast('You can’t order from your own kitchen', 'info'); return; }
     setCart((c) => {
       const i = c.findIndex((l) => l.key === line.key);
       if (i >= 0) {
@@ -574,14 +579,43 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
     setLastOrder(flow);
     setTip(2);
   }, [cart, tip, mode, uid]);
-  const reorder = useCallback((id: string) => {
+  const reorder = useCallback(async (id: string): Promise<boolean> => {
     const o = orders.find((x) => x.id === id);
-    if (!o) return;
-    const lines = o.lines.filter((l) => !isMine(l.cook)); // never re-buy your own listing
-    if (lines.length === 0) { toast('That order is from your own kitchen', 'info'); return; }
-    lines.forEach((l) => addToCart({ key: l.key, name: l.name, cook: l.cook, price: l.price, grad: l.grad, img: l.img, kitchenUuid: l.kitchenUuid, kitchenName: l.kitchenName }, l.qty));
-    toast(`Added to cart · ${lines.length} item${lines.length !== 1 ? 's' : ''}`, 'cart', true);
-  }, [orders, addToCart, toast, isMine]);
+    if (!o?.dbId || !o.cook) { toast('That order can’t be reordered.', 'info'); return false; }
+    try {
+      const requestedIds = [...new Set(o.lines.map((l) => l.mealUuid).filter((id): id is string => !!id))];
+      const liveMeals = await fetchReorderMeals(requestedIds, o.cook);
+      if (liveMeals.length === 0) { toast('Those meals are no longer available.', 'info'); return false; }
+      if (!liveMeals[0].kitchenOpen) { toast('This kitchen isn’t taking orders right now.', 'info'); return false; }
+      if (o.mode === 'delivery' && !liveMeals[0].supportsDelivery) { toast('This kitchen no longer offers delivery.', 'info'); return false; }
+      if (o.mode === 'pickup' && !liveMeals[0].supportsPickup) { toast('This kitchen no longer offers pickup.', 'info'); return false; }
+
+      const qtyByMeal = new Map<string, number>();
+      for (const line of o.lines) {
+        if (line.mealUuid) qtyByMeal.set(line.mealUuid, (qtyByMeal.get(line.mealUuid) ?? 0) + line.qty);
+      }
+      for (const meal of liveMeals) {
+        addToCart({
+          key: meal.slug,
+          name: meal.name,
+          cook: 'maria',
+          price: meal.priceCents / 100,
+          grad: meal.grad as GradKey,
+          img: meal.imageUrl ?? undefined,
+          mealUuid: meal.id,
+          kitchenUuid: meal.kitchenId,
+          kitchenName: meal.kitchenName,
+        }, qtyByMeal.get(meal.id) ?? 1);
+      }
+      setMode(o.mode);
+      const unavailable = requestedIds.length - liveMeals.length;
+      toast(unavailable > 0 ? `Added ${liveMeals.length} available item${liveMeals.length === 1 ? '' : 's'} · ${unavailable} unavailable` : `Added to cart · ${liveMeals.length} item${liveMeals.length === 1 ? '' : 's'}`, 'cart', true);
+      return true;
+    } catch {
+      toast('Couldn’t check current availability. Please try again.', 'info');
+      return false;
+    }
+  }, [orders, addToCart, toast]);
   // Pulls the real fulfillment status for a real (dbId-backed) order and patches it into local state.
   const refreshOrderStatus = useCallback(async (id: string) => {
     const o = orders.find((x) => x.id === id);
@@ -601,7 +635,7 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
   }, [orders]);
 
   const resetOnboarding = useCallback(() => setOnboardedState(false), []);
-  const logout = useCallback(() => { signOutUser(); setPrepperStatus('none'); setIsAdmin(false); setIsPrepPlus(false); setPrepplusUntil(null); setOrders([]); setOrdersError(''); setAddresses([]); setAddressId(''); setOnboardedState(false); }, []);
+  const logout = useCallback(() => { signOutUser(); setPrepperStatus('none'); setOwnKitchenId(null); setIsAdmin(false); setIsPrepPlus(false); setPrepplusUntil(null); setOrders([]); setOrdersError(''); setAddresses([]); setAddressId(''); setOnboardedState(false); }, []);
   const deleteAccount = useCallback(async () => {
     // Apple 5.1.1(v) / Google Play: account-deletion path. Calls the real delete-account edge
     // function FIRST (anonymizes the profile, soft-deletes the auth user so sign-in is
@@ -632,6 +666,7 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
     setAvailError('');
     setActed([]);
     setPrepperStatus('none');
+    setOwnKitchenId(null);
     setIsAdmin(false);
     setIsPrepPlus(false);
     setPrepplusUntil(null);

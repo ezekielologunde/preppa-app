@@ -161,6 +161,46 @@ export async function fetchCustomerOrders(): Promise<CustomerOrderRecord[]> {
   }));
 }
 
+export interface ReorderMealRecord {
+  id: string;
+  slug: string;
+  name: string;
+  priceCents: number;
+  grad: string;
+  imageUrl: string | null;
+  kitchenId: string;
+  kitchenName: string;
+  kitchenOpen: boolean;
+  supportsDelivery: boolean;
+  supportsPickup: boolean;
+}
+
+/** Resolve historical order items against the current, RLS-visible catalog before
+ * adding them back to a cart. Archived meals disappear from this result. */
+export async function fetchReorderMeals(mealIds: string[], kitchenId: string): Promise<ReorderMealRecord[]> {
+  if (mealIds.length === 0) return [];
+  const { data, error } = await supabase
+    .from('meals')
+    .select('id,slug,name,price_cents,grad,image_url,kitchen_id,status,kitchens(name,verification_status,availability,supports_delivery,supports_pickup)')
+    .eq('kitchen_id', kitchenId)
+    .eq('status', 'live')
+    .in('id', [...new Set(mealIds)]);
+  if (error) throw error;
+  return ((data ?? []) as any[]).map((r) => ({
+    id: r.id,
+    slug: r.slug,
+    name: r.name,
+    priceCents: Number(r.price_cents ?? 0),
+    grad: r.grad ?? 'g1',
+    imageUrl: r.image_url ?? null,
+    kitchenId: r.kitchen_id,
+    kitchenName: r.kitchens?.name ?? 'Kitchen',
+    kitchenOpen: r.kitchens?.verification_status === 'verified' && r.kitchens?.availability === 'open',
+    supportsDelivery: r.kitchens?.supports_delivery !== false,
+    supportsPickup: r.kitchens?.supports_pickup !== false,
+  }));
+}
+
 /** Customer-side: leave a review on a completed order. RLS (reviews_insert_own_completed_order)
  * independently re-checks the order is the caller's own and status='completed' — the `reviews`
  * table also has a UNIQUE(order_id) constraint, so this can never double-insert for one order.
