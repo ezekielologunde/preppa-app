@@ -42,8 +42,8 @@ export default function AdminUsers() {
       await admin.setUserRole(roleTarget.user_id, role);
       toast(`${roleTarget.display_name ?? 'User'} is now ${role}`, 'check', true);
       setRoleTarget(null); setRoleChoice(null); setRoleConfirm(''); refetch();
-    } catch (e: any) {
-      toast(e?.message ?? 'Role change failed', 'info');
+    } catch {
+      toast('Could not change this role. Refresh the account and try again.', 'info');
     } finally { userActionInFlight.current = false; setBusy(false); }
   };
 
@@ -59,8 +59,8 @@ export default function AdminUsers() {
       await admin.suspendKitchen(target.kitchen_id, reason.trim());
       toast(`Suspended ${target.kitchen_name ?? 'kitchen'}`, 'x');
       setTarget(null); setReason(''); refetch();
-    } catch (e: any) {
-      toast(e?.message ?? 'Suspend failed', 'info');
+    } catch {
+      toast('Could not suspend this kitchen. Refresh the account and try again.', 'info');
     } finally { userActionInFlight.current = false; setBusy(false); }
   };
   const doReinstate = async (u: admin.AdminUser) => {
@@ -71,8 +71,8 @@ export default function AdminUsers() {
       await admin.reinstateKitchen(u.kitchen_id);
       toast(`Reinstated ${u.kitchen_name ?? 'kitchen'}`, 'check', true);
       refetch();
-    } catch (e: any) {
-      toast(e?.message ?? 'Reinstate failed', 'info');
+    } catch {
+      toast('Could not reinstate this kitchen. Refresh the account and try again.', 'info');
     } finally { userActionInFlight.current = false; setBusy(false); }
   };
   const requestReinstate = (u: admin.AdminUser) => {
@@ -107,11 +107,11 @@ export default function AdminUsers() {
       key: 'action', header: '', width: 170, render: (u) => (
         <View style={{ flexDirection: 'row', alignItems: 'center', gap: 14 }}>
           {u.kitchen_id && u.verification_status === 'verified' ? (
-            <Press scale={0.95} disabled={busy} onPress={() => { setTarget(u); setReason(''); }}><Text style={[type(12.5, 800), { color: c.red }]}>Suspend</Text></Press>
+            <Press scale={0.95} disabled={busy} onPress={() => { setTarget(u); setReason(''); }} label={`Suspend ${u.kitchen_name ?? 'kitchen'}`}><Text style={[type(12.5, 800), { color: c.red }]}>Suspend</Text></Press>
           ) : u.kitchen_id && u.verification_status === 'suspended' ? (
-            <Press scale={0.95} disabled={busy} onPress={() => requestReinstate(u)}><Text style={[type(12.5, 800), { color: c.green }]}>Reinstate</Text></Press>
+            <Press scale={0.95} disabled={busy} onPress={() => requestReinstate(u)} label={`Reinstate ${u.kitchen_name ?? 'kitchen'}`}><Text style={[type(12.5, 800), { color: c.green }]}>Reinstate</Text></Press>
           ) : null}
-          <Press scale={0.95} disabled={busy} onPress={() => { setRoleTarget(u); setRoleChoice(null); setRoleConfirm(''); }}><Text style={[type(12.5, 800), { color: c.accentText }]}>Role</Text></Press>
+          <Press scale={0.95} disabled={busy} onPress={() => { setRoleTarget(u); setRoleChoice(null); setRoleConfirm(''); }} label={`Change role for ${u.display_name ?? 'user'}`}><Text style={[type(12.5, 800), { color: c.accentText }]}>Role</Text></Press>
         </View>
       ),
     },
@@ -122,7 +122,7 @@ export default function AdminUsers() {
       <AdminHeader title="Users" sub={loading ? 'Loading…' : `${data?.length ?? 0} accounts`} back={true} />
       <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={{ paddingBottom: 44 }}>
         {error ? (
-          <ErrorRetry message={error.message} onRetry={() => setNonce((n) => n + 1)} />
+          <ErrorRetry message="Check your connection and try loading user accounts again." onRetry={() => setNonce((n) => n + 1)} />
         ) : (
           <DataTable
             columns={columns}
@@ -139,7 +139,7 @@ export default function AdminUsers() {
         </Text>
       </ScrollView>
 
-      <Sheet visible={!!target} onClose={() => setTarget(null)} title={`Suspend ${target?.kitchen_name ?? 'kitchen'}`}>
+      <Sheet visible={!!target} onClose={busy ? () => {} : () => { setTarget(null); setReason(''); }} title={`Suspend ${target?.kitchen_name ?? 'kitchen'}`}>
         <Text style={[type(13, 600), { color: c.soft, marginBottom: 10 }]}>
           This immediately removes the kitchen from search/checkout and blocks new orders. The
           owner keeps read access to their own history and can be reinstated anytime.
@@ -160,7 +160,7 @@ export default function AdminUsers() {
         </View>
       </Sheet>
 
-      <Sheet visible={!!roleTarget} onClose={busy ? () => {} : () => { setRoleTarget(null); setRoleChoice(null); setRoleConfirm(''); }} title={`Change role — ${roleTarget?.display_name ?? 'User'}`}>
+      <Sheet visible={!!roleTarget} onClose={busy ? () => {} : () => { setRoleTarget(null); setRoleChoice(null); setRoleConfirm(''); }} title={`Change role: ${roleTarget?.display_name ?? 'User'}`}>
         <Text style={[type(13, 600), { color: c.soft, marginBottom: 12 }]}>
           Current role: {roleTarget?.role}. This writes to the audit log.
         </Text>

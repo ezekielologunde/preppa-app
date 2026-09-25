@@ -62,8 +62,8 @@ function ResolveRow({ payout, onChanged }: { payout: admin.AdminPayout; onChange
       await admin.resolvePayout(payout.id, outcome, transferId.trim() || undefined, note.trim() || undefined);
       toast(outcome === 'paid' ? 'Marked paid' : 'Marked failed', 'check', true);
       onChanged();
-    } catch (e: any) {
-      toast(e?.message ?? 'Could not resolve this payout', 'info');
+    } catch {
+      toast('Could not update this payout. Refresh it and check Stripe before trying again.', 'info');
     } finally { resolutionInFlight.current = false; setBusy(false); }
   };
   const requestResolve = (outcome: 'paid' | 'failed') => {
@@ -99,6 +99,8 @@ function ResolveRow({ payout, onChanged }: { payout: admin.AdminPayout; onChange
         placeholder="tr_… (required to mark paid)"
         placeholderTextColor={c.muted}
         accessibilityLabel="Stripe transfer ID required to mark paid"
+        autoCapitalize="none"
+        autoCorrect={false}
         style={{ height: 42, borderWidth: 1, borderColor: c.border, borderRadius: radius.md, paddingHorizontal: 12, color: c.ink, backgroundColor: c.bg2, ...(type(13.5, 600) as object) }}
       />
       <TextInput
@@ -107,6 +109,7 @@ function ResolveRow({ payout, onChanged }: { payout: admin.AdminPayout; onChange
         placeholder="Reconciliation note (required when marking failed)"
         placeholderTextColor={c.muted}
         accessibilityLabel="Reconciliation note required when marking failed"
+        maxLength={1000}
         style={{ height: 42, borderWidth: 1, borderColor: c.border, borderRadius: radius.md, paddingHorizontal: 12, color: c.ink, backgroundColor: c.bg2, ...(type(13.5, 600) as object) }}
       />
       <View style={{ flexDirection: 'row', gap: 10 }}>
@@ -133,8 +136,8 @@ export default function AdminPayouts() {
         {FILTERS.map((f) => {
           const on = f.value === filter;
           return (
-            <Press key={f.label} scale={0.96} onPress={() => setFilter(f.value)}>
-              <View style={{ paddingHorizontal: 13, height: 34, borderRadius: radius.pill, alignItems: 'center', justifyContent: 'center', backgroundColor: on ? c.primary : c.bg2, borderWidth: 1, borderColor: on ? c.primary : c.border }}>
+            <Press key={f.label} scale={0.96} onPress={() => setFilter(f.value)} label={`${f.label} payout filter${on ? ', selected' : ''}`} selected={on}>
+              <View style={{ paddingHorizontal: 13, minHeight: 44, borderRadius: radius.pill, alignItems: 'center', justifyContent: 'center', backgroundColor: on ? c.primary : c.bg2, borderWidth: 1, borderColor: on ? c.primary : c.border }}>
                 <Text style={[type(12.5, 800), { color: on ? '#fff' : c.ink }]}>{f.label}</Text>
               </View>
             </Press>
@@ -145,7 +148,7 @@ export default function AdminPayouts() {
         {loading ? (
           <Block><Text style={[type(14, 600), { color: c.soft }]}>Loading…</Text></Block>
         ) : error ? (
-          <ErrorRetry message={error.message} onRetry={refetch} />
+          <ErrorRetry message="Check your connection and try loading payouts again." onRetry={refetch} />
         ) : !data || data.length === 0 ? (
           <Empty icon="bank" title="No payouts here" body="Nothing matches this filter right now." />
         ) : (
@@ -153,7 +156,7 @@ export default function AdminPayouts() {
             const open = openId === p.id;
             return (
               <Block key={p.id}>
-                <Press scale={0.995} onPress={() => setOpenId(open ? null : p.id)}>
+                <Press scale={0.995} onPress={() => setOpenId(open ? null : p.id)} label={`${open ? 'Hide' : 'Show'} payout details for ${p.kitchen_name ?? 'unknown kitchen'}`} expanded={open}>
                   <View style={{ flexDirection: 'row', alignItems: 'center', gap: 12 }}>
                     <View style={{ flex: 1 }}>
                       <Text style={[type(16, 900), { color: c.ink, letterSpacing: -0.3 }]}>{money(p.amount_cents / 100)}</Text>
