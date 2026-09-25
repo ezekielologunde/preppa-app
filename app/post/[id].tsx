@@ -2,7 +2,7 @@ import React, { useCallback, useState } from 'react';
 import { View, ActivityIndicator, useWindowDimensions } from 'react-native';
 import { useLocalSearchParams, useRouter, useFocusEffect } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { Icon, Press } from '../../src/ui';
+import { Icon, Press, Btn } from '../../src/ui';
 import { fetchPost, FeedPost } from '../../src/lib/feed';
 import { FeedReel } from '../../src/components/FeedReel';
 import { NotFound } from '../../src/components/NotFound';
@@ -15,17 +15,24 @@ export default function PostDetail() {
   const insets = useSafeAreaInsets();
   const { height } = useWindowDimensions();
   const [post, setPost] = useState<FeedPost | null | undefined>(undefined);
+  const [loadError, setLoadError] = useState('');
+  const [retryNonce, setRetryNonce] = useState(0);
 
   useFocusEffect(useCallback(() => {
     let alive = true;
     if (!id) return;
-    fetchPost(id).then((p) => { if (alive) setPost(p); });
+    setPost(undefined);
+    setLoadError('');
+    fetchPost(id)
+      .then((p) => { if (alive) setPost(p); })
+      .catch((e: any) => { if (alive) { setLoadError(e?.message || 'Could not load this post.'); setPost(null); } });
     return () => { alive = false; };
-  }, [id]));
+  }, [id, retryNonce]));
 
   if (post === undefined) {
     return <View style={{ flex: 1, backgroundColor: '#000', alignItems: 'center', justifyContent: 'center' }}><ActivityIndicator color="#fff" /></View>;
   }
+  if (loadError) return <View style={{ flex: 1, backgroundColor: '#000', alignItems: 'center', justifyContent: 'center', padding: 24 }}><Btn label="Try loading again" icon="repeat" onPress={() => setRetryNonce((n) => n + 1)} /></View>;
   if (!post) return <NotFound title="Post" />;
 
   return (

@@ -21,6 +21,7 @@ export default function OrderDetail() {
   const { id } = useLocalSearchParams<{ id: string }>();
   const { toast } = useStore();
   const [o, setO] = useState<KitchenOrderDetail | null | undefined>(undefined);
+  const [loadError, setLoadError] = useState('');
   const [busy, setBusy] = useState(false);
   const [confirmCancel, setConfirmCancel] = useState(false);
   const [cancelling, setCancelling] = useState(false);
@@ -29,7 +30,14 @@ export default function OrderDetail() {
 
   const load = useCallback(() => {
     if (!id) return;
-    fetchKitchenOrderDetail(id).then(setO).catch(() => setO(null));
+    setO(undefined);
+    setLoadError('');
+    fetchKitchenOrderDetail(id)
+      .then(setO)
+      .catch((e: any) => {
+        setLoadError(e?.message || 'Could not load this order.');
+        setO(null);
+      });
   }, [id]);
   useFocusEffect(useCallback(() => { load(); }, [load]));
 
@@ -38,6 +46,14 @@ export default function OrderDetail() {
       <Screen>
         <TopBar title="Order" onBack={() => router.back()} />
         <ActivityIndicator style={{ marginTop: 60 }} color={c.primary} />
+      </Screen>
+    );
+  }
+  if (loadError) {
+    return (
+      <Screen>
+        <TopBar title="Order" onBack={() => router.back()} />
+        <Empty icon="info" title="Could not load order" body={loadError} action={<KBtn label="Try again" variant="pri" onPress={load} />} />
       </Screen>
     );
   }

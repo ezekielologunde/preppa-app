@@ -5,7 +5,7 @@ import { useC } from '../../src/theme/ThemeContext';
 import { type, radius, shadow } from '../../src/theme/theme';
 import { useStore } from '../../src/store/store';
 import { Icon, Press, Btn } from '../../src/ui';
-import { Screen, TopBar, Block } from '../../src/ui/layout';
+import { Screen, TopBar, Block, Empty } from '../../src/ui/layout';
 import { NotFound } from '../../src/components/NotFound';
 import { CardPaymentSheet } from '../../src/components/CardPaymentSheet';
 import { money } from '../../src/data/data';
@@ -23,14 +23,26 @@ export default function RequestDetailScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
   const { toast } = useStore();
   const [req, setReq] = useState<RequestView | null | undefined>(undefined);
+  const [loadError, setLoadError] = useState('');
   const [busyQ, setBusyQ] = useState<string | null>(null);
   const [canceling, setCanceling] = useState(false);
   const [pay, setPay] = useState<{ clientSecret: string; label: string } | null>(null);
 
-  const load = useCallback(() => { fetchServiceRequest(id!).then(setReq); }, [id]);
+  const load = useCallback(() => {
+    if (!id) return;
+    setReq(undefined);
+    setLoadError('');
+    fetchServiceRequest(id)
+      .then(setReq)
+      .catch((e: any) => {
+        setLoadError(e?.message || 'Could not load this request.');
+        setReq(null);
+      });
+  }, [id]);
   useFocusEffect(useCallback(() => { load(); }, [load]));
 
   if (req === undefined) return <Screen><View style={{ flex: 1, alignItems: 'center', justifyContent: 'center' }}><ActivityIndicator color={c.primary} /></View></Screen>;
+  if (loadError) return <Screen><TopBar title="Request" onBack={() => router.back()} /><Empty icon="info" title="Could not load request" body={loadError} action={<Btn label="Try again" icon="repeat" onPress={load} />} /></Screen>;
   if (req === null) return <NotFound title="Request" />;
 
   const answers = req.answers ?? {};

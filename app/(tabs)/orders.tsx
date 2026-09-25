@@ -1,5 +1,5 @@
 import React, { useCallback, useState } from 'react';
-import { View, Text, ScrollView } from 'react-native';
+import { View, Text, ScrollView, ActivityIndicator } from 'react-native';
 import { useRouter, useFocusEffect } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { cookOfLine, money, thumb } from '../../src/data/data';
@@ -24,8 +24,17 @@ export default function Orders() {
   const insets = useSafeAreaInsets();
   const { orders, toast, refreshOrderStatus } = useStore();
   const [bookings, setBookings] = useState<BookingView[]>([]);
+  const [bookingsLoading, setBookingsLoading] = useState(true);
+  const [bookingsError, setBookingsError] = useState('');
   const [busy, setBusy] = useState<string | null>(null);
-  const load = useCallback(() => { listMyBookings().then(setBookings); }, []);
+  const load = useCallback(() => {
+    setBookingsLoading(true);
+    setBookingsError('');
+    listMyBookings()
+      .then(setBookings)
+      .catch((e: any) => setBookingsError(e?.message || 'Could not load your bookings.'))
+      .finally(() => setBookingsLoading(false));
+  }, []);
   useFocusEffect(useCallback(() => { load(); }, [load]));
   useFocusEffect(useCallback(() => {
     orders.filter((o) => o.dbId && o.status !== 'completed').forEach((o) => refreshOrderStatus(o.id));
@@ -85,7 +94,11 @@ export default function Orders() {
         <Text style={[type(13.5, 500), { color: c.soft, marginTop: 6 }]}>Your meals and bookings. Manage weekly plans in Experiences → My Plans.</Text>
       </View>
 
-      {empty ? (
+      {bookingsLoading && orders.length === 0 ? (
+        <View style={{ flex: 1, alignItems: 'center', justifyContent: 'center' }}><ActivityIndicator color={c.primary} /></View>
+      ) : bookingsError && orders.length === 0 ? (
+        <Empty icon="info" title="Could not load your activity" body={bookingsError} action={<Btn label="Try again" icon="repeat" onPress={load} />} />
+      ) : empty ? (
         <Empty icon="ticket" title="Nothing yet" body="Your meals and bookings will show up here once you order or book a cook." action={<Btn label="Browse meals" onPress={() => router.push('/discover')} />} />
       ) : (
         <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={{ padding: 16, paddingBottom: 40, maxWidth: 760, alignSelf: 'center', width: '100%' }}>
@@ -122,6 +135,13 @@ export default function Orders() {
                 })}
               </View>
             </>
+          ) : null}
+
+          {bookingsError ? (
+            <View style={{ marginBottom: 18, padding: 14, borderWidth: 1, borderColor: c.border, borderRadius: radius.md, backgroundColor: c.surface }}>
+              <Text style={[type(13, 700), { color: c.soft, marginBottom: 10 }]}>Bookings could not be refreshed. Your meal orders are still available.</Text>
+              <Btn label="Retry bookings" icon="repeat" variant="ghost" onPress={load} />
+            </View>
           ) : null}
 
           {orders.length > 0 ? (
