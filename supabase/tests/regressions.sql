@@ -148,6 +148,27 @@ begin
 end $$;
 
 do $$
+declare v_ticket_src text; v_message_src text;
+begin
+  select prosrc into v_ticket_src from pg_proc where oid = 'public.on_order_ticket_created()'::regprocedure;
+  select prosrc into v_message_src from pg_proc where oid = 'public.on_order_ticket_message_created()'::regprocedure;
+  if v_ticket_src !~ 'Cancellation request' or v_ticket_src !~ 'role = ''admin''' then
+    raise exception 'REGRESSION: new order tickets no longer notify admins';
+  end if;
+  if v_message_src !~ 'Support replied' or v_message_src !~ 'New support reply' or v_message_src !~ 'Cook replied' then
+    raise exception 'REGRESSION: order support replies no longer notify participants';
+  end if;
+  if not exists (select 1 from pg_trigger where tgname = 'order_ticket_created_notify' and not tgisinternal)
+    or not exists (select 1 from pg_trigger where tgname = 'order_ticket_message_created_notify' and not tgisinternal) then
+    raise exception 'REGRESSION: order support notification triggers are missing';
+  end if;
+  if has_function_privilege('authenticated', 'public.on_order_ticket_created()', 'execute')
+    or has_function_privilege('authenticated', 'public.on_order_ticket_message_created()', 'execute') then
+    raise exception 'REGRESSION: authenticated can execute order support trigger functions directly';
+  end if;
+end $$;
+
+do $$
 begin
   if has_function_privilege('authenticated', 'public.kitchen_broadcast_audience(uuid)', 'execute') then
     raise exception 'REGRESSION: authenticated can call kitchen_broadcast_audience() directly -- subscriber-list enumeration leak reopened';
