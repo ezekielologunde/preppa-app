@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import { View, Text, ScrollView, Platform, ActivityIndicator } from 'react-native';
 import { useC } from '../../src/theme/ThemeContext';
 import { type, radius, shadow, COOKPRO_GRAD } from '../../src/theme/theme';
@@ -8,6 +8,7 @@ import { Screen, TopBar, Dock, DockTotal } from '../../src/ui/layout';
 import { CardPaymentSheet } from '../../src/components/CardPaymentSheet';
 import { createSetupIntent } from '../../src/lib/payments';
 import { getMyKitchen } from '../../src/lib/connect';
+import { confirmAction } from '../../src/lib/confirm';
 import {
   fetchCookMembership, subscribeToCookPro, manageCookPro, cookMembershipActive,
   fetchCookProSalesSummary, CookMembership, CookProSalesSummary,
@@ -38,6 +39,7 @@ export default function CookPro() {
   const [summary, setSummary] = useState<CookProSalesSummary | null>(null);
   const [interval, setInterval] = useState<'month' | 'year'>('month');
   const [busy, setBusy] = useState(false);
+  const membershipActionInFlight = useRef(false);
   const [addCard, setAddCard] = useState<string | null>(null);
 
   const refresh = async (kid: string) => {
@@ -76,8 +78,9 @@ export default function CookPro() {
   }, [kitchenId, isMember]);
 
   const doSubscribe = async () => {
-    if (busy || !kitchenId) return;
+    if (membershipActionInFlight.current || !kitchenId) return;
     if (Platform.OS !== 'web') { toast('Preppa Pro is available on the web app for now.', 'info'); return; }
+    membershipActionInFlight.current = true;
     setBusy(true);
     try {
       const res = await subscribeToCookPro(kitchenId, interval);
@@ -91,12 +94,13 @@ export default function CookPro() {
       } else {
         toast(e?.message || 'Could not start your membership. Please try again.', 'info');
       }
-    } finally { setBusy(false); }
+    } finally { membershipActionInFlight.current = false; setBusy(false); }
   };
   const onCardSaved = async () => { setAddCard(null); await doSubscribe(); };
 
   const doManage = async (action: 'cancel' | 'resume' | 'switch', iv?: 'month' | 'year') => {
-    if (busy || !kitchenId) return;
+    if (membershipActionInFlight.current || !kitchenId) return;
+    membershipActionInFlight.current = true;
     setBusy(true);
     try {
       await manageCookPro(kitchenId, action, iv);
@@ -105,7 +109,29 @@ export default function CookPro() {
       toast(action === 'cancel' ? 'Membership will end at the period close' : action === 'resume' ? 'Membership resumed' : 'Plan switched', 'check', true);
     } catch (e: any) {
       toast(e?.message || 'Could not update your membership.', 'info');
-    } finally { setBusy(false); }
+    } finally { membershipActionInFlight.current = false; setBusy(false); }
+  };
+
+  const requestSwitch = () => {
+    if (busy) return;
+    const nextInterval = mem?.planInterval === 'year' ? 'month' : 'year';
+    const nextPrice = nextInterval === 'year' ? COOK_PRO_ANNUAL_CENTS : COOK_PRO_MONTHLY_CENTS;
+    confirmAction(
+      `Switch to ${nextInterval === 'year' ? 'annual' : 'monthly'} billing?`,
+      `Your Preppa Pro plan will change to ${money(nextPrice)} per ${nextInterval}. Stripe will prorate the price difference for the current billing period and apply the adjustment to your next invoice.`,
+      () => void doManage('switch', nextInterval),
+      'Switch plan',
+    );
+  };
+
+  const requestCancel = () => {
+    if (busy) return;
+    confirmAction(
+      'Cancel Preppa Pro?',
+      'Your membership will stay active until the current paid period ends. Lower processing fees, priority placement, and Pro benefits will then stop.',
+      () => void doManage('cancel'),
+      'Cancel membership',
+    );
   };
 
   if (loading) {
@@ -199,8 +225,8 @@ export default function CookPro() {
             ) : (
               <>
                 <Btn label={`Switch to ${mem?.planInterval === 'year' ? 'monthly' : 'annual'}`} variant="ghost"
-                  onPress={() => doManage('switch', mem?.planInterval === 'year' ? 'month' : 'year')} disabled={busy} />
-                <Press scale={0.98} onPress={() => doManage('cancel')} disabled={busy} label="Cancel membership"
+                  onPress={requestSwitch} disabled={busy} />
+                <Press scale={0.98} onPress={requestCancel} disabled={busy} label="Cancel membership"
                   style={{ alignItems: 'center', paddingVertical: 12 }}>
                   <Text style={[type(13.5, 800), { color: c.red }]}>Cancel membership</Text>
                 </Press>
