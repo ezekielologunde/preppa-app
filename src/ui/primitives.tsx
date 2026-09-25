@@ -170,19 +170,21 @@ export function Skeleton({ w, h = 14, r = 8, style }: { w?: number | `${number}%
   );
 }
 
-export function Stepper({ value, onDec, onInc, sm }: { value: number; onDec: () => void; onInc: () => void; sm?: boolean }) {
+export function Stepper({ value, onDec, onInc, sm, min, max }: { value: number; onDec: () => void; onInc: () => void; sm?: boolean; min?: number; max?: number }) {
   const c = useC();
   const btn = sm ? 30 : 38;
+  const atMin = min !== undefined && value <= min;
+  const atMax = max !== undefined && value >= max;
   return (
     <View style={{ flexDirection: 'row', alignItems: 'center', backgroundColor: c.bg2, borderRadius: radius.pill, padding: 4 }}>
-      <Press scale={0.9} onPress={onDec} label="Decrease" hitSlop={10}>
-        <View style={[st.stepBtn, { width: btn, height: btn, backgroundColor: c.surface }, shadow.soft]}>
+      <Press scale={0.9} onPress={onDec} label="Decrease quantity" hitSlop={10} disabled={atMin}>
+        <View style={[st.stepBtn, { width: btn, height: btn, backgroundColor: c.surface, opacity: atMin ? 0.4 : 1 }, shadow.soft]}>
           <Icon name="minus" size={sm ? 15 : 18} color={c.ink} />
         </View>
       </Press>
-      <Text style={[type(sm ? 15 : 17, 700), { color: c.ink, minWidth: 40, textAlign: 'center' }, tnum]}>{value}</Text>
-      <Press scale={0.9} onPress={onInc} label="Increase" hitSlop={10}>
-        <View style={[st.stepBtn, { width: btn, height: btn, backgroundColor: c.surface }, shadow.soft]}>
+      <Text accessibilityLabel={`Quantity ${value}`} style={[type(sm ? 15 : 17, 700), { color: c.ink, minWidth: 40, textAlign: 'center' }, tnum]}>{value}</Text>
+      <Press scale={0.9} onPress={onInc} label={atMax ? `Maximum quantity ${max}` : 'Increase quantity'} hitSlop={10} disabled={atMax}>
+        <View style={[st.stepBtn, { width: btn, height: btn, backgroundColor: c.surface, opacity: atMax ? 0.4 : 1 }, shadow.soft]}>
           <Icon name="plus" size={sm ? 15 : 18} color={c.ink} />
         </View>
       </Press>

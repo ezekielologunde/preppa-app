@@ -17,6 +17,7 @@ import { registerForPushNotifications } from '../lib/push';
 import { setViewerCoords } from '../data/supabaseRepository';
 import { geocodeAddress, type LatLng } from '../lib/geo';
 import { createSavedAddress, deleteSavedAddress, fetchSavedAddresses, updateSavedAddress } from '../lib/addresses';
+import { MAX_ORDER_ITEM_QUANTITY, normalizeOrderQuantity } from '../config/limits';
 export type { ApplicationFields };
 
 export type PrepperStatus = 'none' | 'pending' | 'approved';
@@ -242,7 +243,9 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
           if (s.onboarded) setOnboardedState(true);
           if (s.darkMode) setDarkModeState(true);
           if (Array.isArray(s.cart)) {
-            setCart(s.cart.filter((line: CartLine) => !!line?.mealUuid && !!line?.kitchenUuid));
+            setCart(s.cart
+              .filter((line: CartLine) => !!line?.mealUuid && !!line?.kitchenUuid && Number.isFinite(line?.qty) && line.qty > 0)
+              .map((line: CartLine) => ({ ...line, qty: normalizeOrderQuantity(line.qty) })));
           }
           if (typeof s.tip === 'number') setTip(s.tip);
           if (s.mode) setMode(s.mode);
@@ -470,18 +473,20 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
 
   const addToCart = useCallback((line: Omit<CartLine, 'qty'>, qty = 1) => {
     if (isMine(line.cook, line.kitchenUuid)) { toast('You can’t order from your own kitchen', 'info'); return; }
+    const safeQty = normalizeOrderQuantity(qty);
+    if (qty > MAX_ORDER_ITEM_QUANTITY) toast(`Maximum ${MAX_ORDER_ITEM_QUANTITY} of one meal per order`, 'info');
     setCart((c) => {
       const i = c.findIndex((l) => l.key === line.key);
       if (i >= 0) {
         const n = [...c];
-        n[i] = { ...n[i], qty: n[i].qty + qty };
+        n[i] = { ...n[i], qty: Math.min(MAX_ORDER_ITEM_QUANTITY, n[i].qty + safeQty) };
         return n;
       }
-      return [...c, { ...line, qty }];
+      return [...c, { ...line, qty: safeQty }];
     });
   }, [isMine, toast]);
   const setQtyFn = useCallback((key: string, q: number) => {
-    setCart((c) => (q <= 0 ? c.filter((l) => l.key !== key) : c.map((l) => (l.key === key ? { ...l, qty: q } : l))));
+    setCart((c) => (q <= 0 ? c.filter((l) => l.key !== key) : c.map((l) => (l.key === key ? { ...l, qty: normalizeOrderQuantity(q) } : l))));
   }, []);
   const removeLine = useCallback((key: string) => setCart((c) => c.filter((l) => l.key !== key)), []);
   const cartCount = cart.reduce((s, l) => s + l.qty, 0);

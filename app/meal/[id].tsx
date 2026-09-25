@@ -3,6 +3,7 @@ import { View, Text, ScrollView, ActivityIndicator } from 'react-native';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { mealPhotos, money, cookOf } from '../../src/data/data';
+import { MAX_ORDER_ITEM_QUANTITY } from '../../src/config/limits';
 import { useMeal, useKitchenReviews } from '../../src/data/hooks';
 import { useC } from '../../src/theme/ThemeContext';
 import { type, radius } from '../../src/theme/theme';
@@ -91,7 +92,7 @@ export default function MealDetail() {
           <SectionLabel>Portion</SectionLabel>
           <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }}>
             <Text style={[type(14.5, 700), { color: c.soft }]}>How many servings?</Text>
-            <Stepper value={qty} onDec={() => setQty(Math.max(1, qty - 1))} onInc={() => setQty(qty + 1)} />
+            <Stepper value={qty} min={1} max={MAX_ORDER_ITEM_QUANTITY} onDec={() => setQty(Math.max(1, qty - 1))} onInc={() => setQty(Math.min(MAX_ORDER_ITEM_QUANTITY, qty + 1))} />
           </View>
         </View>
 

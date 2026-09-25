@@ -298,7 +298,7 @@ export default function Checkout() {
                 </View>
               </Press>
               {selectedCard === null ? (
-                <Press scale={0.99} onPress={() => setSaveNewCard((v) => !v)} label="Save this card for next time" style={{ marginTop: 12 }}>
+                <Press scale={0.99} onPress={() => setSaveNewCard((v) => !v)} label="Save this card for next time" role="checkbox" checked={saveNewCard} style={{ marginTop: 12 }}>
                   <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10 }}>
                     <View style={{ width: 22, height: 22, borderRadius: 6, borderWidth: 2, borderColor: saveNewCard ? c.primary : c.border, backgroundColor: saveNewCard ? c.primaryD : 'transparent', alignItems: 'center', justifyContent: 'center' }}>
                       {saveNewCard ? <Icon name="check" size={13} color="#fff" /> : null}

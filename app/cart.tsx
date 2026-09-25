@@ -8,6 +8,7 @@ import { useStore } from '../src/store/store';
 import { Press, GradBox, Avatar, Stepper, Btn } from '../src/ui';
 import { Screen, TopBar, Empty, Dock, DockTotal } from '../src/ui/layout';
 import { ModeToggle } from '../src/components/ModeToggle';
+import { MAX_ORDER_ITEM_QUANTITY } from '../src/config/limits';
 
 export default function Cart() {
   const c = useC();
@@ -56,7 +57,7 @@ export default function Cart() {
                     <Text numberOfLines={1} style={[type(14, 800), { color: c.ink }]}>{l.name}</Text>
                     <Text style={[type(14, 900), { color: c.accentText, marginTop: 4 }]}>{money(l.price * l.qty)}</Text>
                   </View>
-                  <Stepper sm value={l.qty} onDec={() => setQty(l.key, l.qty - 1)} onInc={() => setQty(l.key, l.qty + 1)} />
+                  <Stepper sm value={l.qty} max={MAX_ORDER_ITEM_QUANTITY} onDec={() => setQty(l.key, l.qty - 1)} onInc={() => setQty(l.key, l.qty + 1)} />
                 </View>
               ))}
               <View style={{ flexDirection: 'row', alignItems: 'center', gap: 12, padding: 14 }}>

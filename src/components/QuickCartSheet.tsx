@@ -5,6 +5,7 @@ import { useC } from '../theme/ThemeContext';
 import { type, radius } from '../theme/theme';
 import { useStore } from '../store/store';
 import { money, thumb, lineKey } from '../data/data';
+import { MAX_ORDER_ITEM_QUANTITY } from '../config/limits';
 import { Icon, Press, Btn, Sheet, GradBox, Stepper } from '../ui';
 
 /**
@@ -49,7 +50,7 @@ export function QuickCartSheet({ visible, onClose }: { visible: boolean; onClose
                   </View>
                 </Press>
               ) : (
-                <Stepper sm value={l.qty} onDec={() => setQty(l.key, l.qty - 1)} onInc={() => setQty(l.key, l.qty + 1)} />
+                <Stepper sm value={l.qty} max={MAX_ORDER_ITEM_QUANTITY} onDec={() => setQty(l.key, l.qty - 1)} onInc={() => setQty(l.key, l.qty + 1)} />
               )}
             </View>
           ))}
