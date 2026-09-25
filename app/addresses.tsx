@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useRef, useState } from 'react';
 import { View, Text, ScrollView, TextInput, ActivityIndicator } from 'react-native';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { useC } from '../src/theme/ThemeContext';
@@ -25,6 +25,7 @@ export default function Addresses() {
   const [postalCode, setPostalCode] = useState('');
   const [country, setCountry] = useState('US');
   const [busy, setBusy] = useState(false);
+  const addressActionInFlight = useRef(false);
 
   const reset = () => { setAdding(false); setEditId(null); setLabel(''); setLine1(''); setLine2(''); setCity(''); setRegion(''); setPostalCode(''); setCountry('US'); };
   const openNew = () => { reset(); setAdding(true); };
@@ -41,10 +42,12 @@ export default function Addresses() {
   };
 
   const save = async () => {
+    if (addressActionInFlight.current) return;
     if (!label.trim() || !line1.trim() || !city.trim() || !region.trim() || !postalCode.trim() || !/^[A-Za-z]{2}$/.test(country.trim())) {
       toast('Add a complete address with a two-letter country code', 'info');
       return;
     }
+    addressActionInFlight.current = true;
     const patch = { label: label.trim(), line1: line1.trim(), line2: line2.trim(), city: city.trim(), region: region.trim(), postalCode: postalCode.trim(), country: country.trim().toUpperCase() };
     setBusy(true);
     try {
@@ -59,15 +62,16 @@ export default function Addresses() {
       reset();
     } catch (e: any) {
       toast(e?.message === 'AUTH_REQUIRED' ? 'Sign in to save an address.' : (e?.message || 'Could not save this address.'), 'info');
-    } finally { setBusy(false); }
+    } finally { addressActionInFlight.current = false; setBusy(false); }
   };
 
   const remove = async (id: string) => {
-    if (busy) return;
+    if (addressActionInFlight.current) return;
+    addressActionInFlight.current = true;
     setBusy(true);
     try { await removeAddress(id); toast('Address removed', 'x'); }
     catch (e: any) { toast(e?.message || 'Could not remove this address.', 'info'); }
-    finally { setBusy(false); }
+    finally { addressActionInFlight.current = false; setBusy(false); }
   };
 
   if (addressesLoading && addresses.length === 0) return <Screen><TopBar title="Addresses" /><View style={{ flex: 1, alignItems: 'center', justifyContent: 'center' }}><ActivityIndicator color={c.primary} /></View></Screen>;

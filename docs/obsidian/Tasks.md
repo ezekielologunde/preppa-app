@@ -17,6 +17,7 @@ Part of [[Project]]. Outstanding work discovered during the audit — not a spri
 - [x] Guard Cook Pro billing actions and confirm plan switches and cancellation with clear proration and benefit-loss disclosure (2026-09-25).
 - [x] Serialize admin ticket, urgent support, and payout-reconciliation mutations before UI rerender to prevent conflicting rapid operator actions (2026-09-25).
 - [x] Serialize admin application, vetting, experience-review, role, suspension, and reinstatement decisions before UI rerender (2026-09-25).
+- [x] Serialize customer booking, service-request, and address mutations before UI rerender, including refund and balance-collection actions (2026-09-25).
 
 ## Competitive gap analysis: Shef (2026-09-09)
 

@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import { View, Text, ScrollView, TextInput, ActivityIndicator } from 'react-native';
 import { useRouter, useLocalSearchParams } from 'expo-router';
 import { useC } from '../src/theme/ThemeContext';
@@ -101,6 +101,7 @@ export default function ServiceRequestScreen() {
   const [dateSheet, setDateSheet] = useState(false);
   const [timeSheet, setTimeSheet] = useState(false);
   const [busy, setBusy] = useState(false);
+  const submissionInFlight = useRef(false);
   const [done, setDone] = useState<{ targets: number; edited: boolean } | null>(null);
   const [editLoading, setEditLoading] = useState(editing);
   const [editLoadError, setEditLoadError] = useState('');
@@ -141,8 +142,9 @@ export default function ServiceRequestScreen() {
   });
 
   const submit = async () => {
-    if (busy) return;
+    if (submissionInFlight.current) return;
     if (!dateValid) { setStage('details'); toast('Choose a date', 'info'); return; }
+    submissionInFlight.current = true;
     setBusy(true);
     const body = {
       category, eventDate: eventDate.trim(),
@@ -165,7 +167,7 @@ export default function ServiceRequestScreen() {
       }
     } catch (e: any) {
       toast(e?.message || 'Could not post your request', 'info');
-    } finally { setBusy(false); }
+    } finally { submissionInFlight.current = false; setBusy(false); }
   };
 
   if (editLoading) {

@@ -94,6 +94,7 @@ tags: [project/preppa, type/launch-plan]
 - Cook Pro subscription and billing actions now use the same synchronous lock. Switching billing cadence discloses Stripe proration before confirmation, and cancellation requires confirmation with the benefit end-state explained.
 - Admin ticket status, replies, cook sharing, urgent support status changes, and payout reconciliation now use synchronous shared mutation locks. Conflicting rapid operator actions cannot race before the disabled state renders.
 - Admin kitchen applications, in-home vetting, experience review, user-role changes, suspension, and reinstatement now use the same synchronous review lock, preventing duplicate or conflicting approval and access decisions.
+- Customer booking completion and cancellation, service-request creation or editing, and address save or removal now use synchronous shared action locks. Refund, balance-collection, request, and address mutations cannot be duplicated before loading state renders.
 
 ### Customer acceptance evidence still needed
 

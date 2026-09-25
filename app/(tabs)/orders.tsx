@@ -1,4 +1,4 @@
-import React, { useCallback, useState } from 'react';
+import React, { useCallback, useRef, useState } from 'react';
 import { View, Text, ScrollView, ActivityIndicator } from 'react-native';
 import { useRouter, useFocusEffect } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -31,6 +31,7 @@ export default function Orders() {
   const [bookingsLoading, setBookingsLoading] = useState(true);
   const [bookingsError, setBookingsError] = useState('');
   const [busy, setBusy] = useState<string | null>(null);
+  const bookingActionInFlight = useRef(false);
   const load = useCallback(() => {
     setBookingsLoading(true);
     setBookingsError('');
@@ -46,17 +47,18 @@ export default function Orders() {
   }, [orders, refreshOrderStatus]));
 
   const cancelExp = async (b: BookingView) => {
-    if (busy) return;
+    if (bookingActionInFlight.current) return;
+    bookingActionInFlight.current = true;
     setBusy(b.id);
     try {
       const res = await cancelExperienceBooking(b.id);
       toast(res.refundedCents > 0 ? `Cancelled — ${money(res.refundedCents / 100)} refunded` : 'Booking cancelled', res.refundedCents > 0 ? 'check' : 'x', res.refundedCents > 0);
       load();
     } catch (e: any) { toast(e?.message || 'Could not cancel', 'info'); }
-    finally { setBusy(null); }
+    finally { bookingActionInFlight.current = false; setBusy(null); }
   };
   const requestCancelExp = (b: BookingView) => {
-    if (busy) return;
+    if (bookingActionInFlight.current) return;
     confirmAction(
       `Cancel ${b.title ?? 'this booking'}?`,
       "Your refund follows the host's cancellation policy. The booking stays active if an eligible refund cannot be confirmed.",
@@ -66,7 +68,8 @@ export default function Orders() {
   };
 
   const completeRfq = async (b: BookingView) => {
-    if (busy) return;
+    if (bookingActionInFlight.current) return;
+    bookingActionInFlight.current = true;
     setBusy(b.id);
     try {
       const res = await completeBooking(b.id);
@@ -78,10 +81,10 @@ export default function Orders() {
       toast(message, res.balanceChargePending || res.balanceChargeError ? 'info' : 'check', !res.balanceChargePending && !res.balanceChargeError);
       load();
     } catch (e: any) { toast(e?.message || 'Could not complete the booking', 'info'); }
-    finally { setBusy(null); }
+    finally { bookingActionInFlight.current = false; setBusy(null); }
   };
   const requestCompleteRfq = (b: BookingView) => {
-    if (busy) return;
+    if (bookingActionInFlight.current) return;
     confirmAction(
       'Mark this booking complete?',
       b.balanceCents > 0
@@ -93,17 +96,18 @@ export default function Orders() {
   };
 
   const cancelRfq = async (b: BookingView) => {
-    if (busy) return;
+    if (bookingActionInFlight.current) return;
+    bookingActionInFlight.current = true;
     setBusy(b.id);
     try {
       const res = await cancelBooking(b.id);
       toast(res.refunded ? 'Booking cancelled and refunded' : 'Booking cancelled', res.refunded ? 'check' : 'x', res.refunded);
       load();
     } catch (e: any) { toast(e?.message || 'Could not cancel the booking', 'info'); }
-    finally { setBusy(null); }
+    finally { bookingActionInFlight.current = false; setBusy(null); }
   };
   const requestCancelRfq = (b: BookingView) => {
-    if (busy) return;
+    if (bookingActionInFlight.current) return;
     confirmAction(
       `Cancel this booking with ${b.kitchenName}?`,
       'Any paid deposit must be confirmed as refunded before the cancellation completes.',
