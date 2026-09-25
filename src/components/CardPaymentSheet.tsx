@@ -93,22 +93,30 @@ export function CardPaymentSheet({
                 prButtonRef.current = prButton;
                 prRef.current = pr;
                 pr.on('paymentmethod', async (ev) => {
-                  const { paymentIntent, error } = await stripe.confirmCardPayment(
-                    clientSecret,
-                    { payment_method: ev.paymentMethod.id },
-                    { handleActions: false },
-                  );
-                  if (error) {
-                    ev.complete('fail');
-                    setErr(error.message || 'Payment failed');
-                    return;
+                  let eventCompleted = false;
+                  try {
+                    const { paymentIntent, error } = await stripe.confirmCardPayment(
+                      clientSecret,
+                      { payment_method: ev.paymentMethod.id },
+                      { handleActions: false },
+                    );
+                    if (error) {
+                      ev.complete('fail');
+                      eventCompleted = true;
+                      setErr(error.message || 'Payment failed');
+                      return;
+                    }
+                    ev.complete('success');
+                    eventCompleted = true;
+                    if (paymentIntent?.status === 'requires_action') {
+                      const { error: actionError } = await stripe.confirmCardPayment(clientSecret);
+                      if (actionError) { setErr(actionError.message || 'Payment failed'); return; }
+                    }
+                    onPaid();
+                  } catch {
+                    if (!eventCompleted) ev.complete('fail');
+                    setErr('Payment could not be completed. Check your connection and try again.');
                   }
-                  ev.complete('success');
-                  if (paymentIntent?.status === 'requires_action') {
-                    const { error: actionError } = await stripe.confirmCardPayment(clientSecret);
-                    if (actionError) { setErr(actionError.message || 'Payment failed'); return; }
-                  }
-                  onPaid();
                 });
                 if (!cancelled) setWalletReady(true);
               }
@@ -138,13 +146,18 @@ export function CardPaymentSheet({
     if (busy || !stripeRef.current || !cardRef.current || !clientSecret) return;
     setBusy(true);
     setErr(null);
-    const res =
-      mode === 'save'
-        ? await stripeRef.current.confirmCardSetup(clientSecret, { payment_method: { card: cardRef.current } })
-        : await stripeRef.current.confirmCardPayment(clientSecret, { payment_method: { card: cardRef.current } });
-    setBusy(false);
-    if (res.error) { setErr(res.error.message || (mode === 'save' ? 'Could not save the card' : 'Payment failed')); return; }
-    onPaid();
+    try {
+      const res =
+        mode === 'save'
+          ? await stripeRef.current.confirmCardSetup(clientSecret, { payment_method: { card: cardRef.current } })
+          : await stripeRef.current.confirmCardPayment(clientSecret, { payment_method: { card: cardRef.current } });
+      if (res.error) { setErr(res.error.message || (mode === 'save' ? 'Could not save the card' : 'Payment failed')); return; }
+      onPaid();
+    } catch {
+      setErr(mode === 'save' ? 'Could not save the card. Check your connection and try again.' : 'Payment could not be completed. Check your connection and try again.');
+    } finally {
+      setBusy(false);
+    }
   };
 
   return (

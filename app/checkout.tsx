@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { View, Text, ScrollView, Platform } from 'react-native';
+import { View, Text, ScrollView, Platform, ActivityIndicator } from 'react-native';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { createRealOrder, confirmSavedCardPayment, payWithCard } from '../src/lib/payments';
 import { useSavedCards } from '../src/lib/useSavedCards';
@@ -27,7 +27,7 @@ export default function Checkout() {
   const { cart, tip, setTip, mode, placeOrder, address, orders, toast, resetOnboarding, country } = useStore();
   const lines = ck ? cart.filter((l) => lineKey(l) === ck) : cart;
   const t = useTotals(lines, tip, mode);
-  const { methods, defaultId } = useSavedCards();
+  const { methods, defaultId, loading: cardsLoading, error: cardsError, refetch: refetchCards } = useSavedCards();
   const [busy, setBusy] = useState(false);
   const [addrSheet, setAddrSheet] = useState(false);
   const [cardSheet, setCardSheet] = useState(false);
@@ -197,16 +197,26 @@ export default function Checkout() {
         </Block>
 
         <Block title="Payment">
-          <PayOption
-            icon="card"
-            title="Pay online"
-            tag="Stripe"
-            tagTone="green"
-            body={Platform.OS === 'web' && selectedCard ? `${brandName(selectedCard.brand)} •••• ${selectedCard.last4} · secure checkout` : 'Enter a card securely at payment'}
-          />
+          {Platform.OS === 'web' && cardsLoading ? (
+            <View style={{ minHeight: 74, alignItems: 'center', justifyContent: 'center' }}><ActivityIndicator color={c.primary} /></View>
+          ) : (
+            <PayOption
+              icon="card"
+              title="Pay online"
+              tag="Stripe"
+              tagTone="green"
+              body={Platform.OS === 'web' && selectedCard ? `${brandName(selectedCard.brand)} •••• ${selectedCard.last4} · secure checkout` : 'Enter a card securely at payment'}
+            />
+          )}
+          {Platform.OS === 'web' && cardsError ? (
+            <View accessibilityRole="alert" style={{ marginTop: 10, padding: 12, borderRadius: radius.md, backgroundColor: c.redL, borderWidth: 1, borderColor: c.red }}>
+              <Text style={[type(12.5, 700), { color: c.red, lineHeight: 18 }]}>Saved cards could not be loaded. You can retry or continue with a new card.</Text>
+              <View style={{ marginTop: 8, alignSelf: 'flex-start' }}><Btn label="Retry saved cards" icon="repeat" variant="ghost" onPress={refetchCards} /></View>
+            </View>
+          ) : null}
           {Platform.OS === 'web' ? (
             <>
-              <Press scale={0.98} onPress={() => setCardSheet(true)} label="Change payment card">
+              <Press scale={0.98} onPress={() => setCardSheet(true)} label="Change payment card" disabled={cardsLoading}>
                 <View style={{ flexDirection: 'row', alignItems: 'center', gap: 5, alignSelf: 'flex-start', marginTop: 8, marginLeft: 2 }}>
                   <Text style={[type(13, 800), { color: c.accentText }]}>{methods.length > 0 ? 'Change card' : 'Add a card'}</Text>
                   <Icon name="chevRight" size={14} color={c.primary} />
@@ -252,9 +262,10 @@ export default function Checkout() {
       <Dock>
         <DockTotal label="Before tax" value={money(t.total)} />
         <Btn
-          label={deliveryAddressMissing ? 'Add delivery address' : selectedCard ? 'Review and pay' : 'Continue to secure payment'}
+          label={cardsLoading && Platform.OS === 'web' ? 'Loading payment methods…' : deliveryAddressMissing ? 'Add delivery address' : selectedCard ? 'Review and pay' : 'Continue to secure payment'}
           flex={1}
           loading={busy}
+          disabled={cardsLoading && Platform.OS === 'web'}
           onPress={place}
         />
       </Dock>
