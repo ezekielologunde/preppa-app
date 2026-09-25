@@ -17,6 +17,25 @@ const GOALS = [{ key: '', label: 'None' }, { key: 'cut', label: 'Cut' }, { key: 
 const DOW = [{ key: 'monday', label: 'Mon' }, { key: 'tuesday', label: 'Tue' }, { key: 'wednesday', label: 'Wed' }, { key: 'thursday', label: 'Thu' }, { key: 'friday', label: 'Fri' }, { key: 'saturday', label: 'Sat' }, { key: 'sunday', label: 'Sun' }];
 const DIETARY = ['Vegetarian', 'Vegan', 'Halal', 'Gluten-free', 'Dairy-free', 'Keto', 'High-protein', 'Low-carb', 'Pescatarian'];
 const ALLERGENS = ['Nuts', 'Peanuts', 'Dairy', 'Gluten', 'Shellfish', 'Eggs', 'Soy', 'Fish', 'Sesame'];
+const MAX_PLAN_PRICE_CENTS = 500_000;
+const MAX_CAPACITY = 1_000_000;
+
+function moneyCents(value: string): number | null {
+  const normalized = value.trim();
+  if (!/^\d+(?:\.\d{0,2})?$/.test(normalized)) return null;
+  const amount = Number(normalized);
+  if (!Number.isFinite(amount)) return null;
+  const cents = Math.round(amount * 100);
+  return Number.isSafeInteger(cents) ? cents : null;
+}
+
+function optionalInt(value: string, min: number, max: number): number | undefined {
+  if (!value.trim()) return undefined;
+  const parsed = Number(value);
+  return Number.isInteger(parsed) && parsed >= min && parsed <= max ? parsed : undefined;
+}
+
+const digitsOnly = (value: string) => value.replace(/\D/g, '');
 
 export default function CreatePlanFlow() {
   const c = useC();
@@ -28,7 +47,6 @@ export default function CreatePlanFlow() {
   const [loadError, setLoadError] = useState('');
   const [meals, setMeals] = useState<CookMeal[]>([]);
   const [hasKitchen, setHasKitchen] = useState(true);
-  const [kitchenId, setKitchenId] = useState<string | null>(null);
   const [name, setName] = useState('');
   const [desc, setDesc] = useState('');
   const [price, setPrice] = useState('');
@@ -53,28 +71,35 @@ export default function CreatePlanFlow() {
   const [rotationWeeks, setRotationWeeks] = useState(1);
   const [cover, setCover] = useState('');        // public cover URL
   const [coverBusy, setCoverBusy] = useState(false);
+  const coverInFlight = useRef(false);
   const [days, setDays] = useState<string[]>([]); // delivery days (lowercase)
   const [capacity, setCapacity] = useState('');   // max meal portions per delivery day ('' = unlimited)
   const [cadenceWeeks, setCadenceWeeks] = useState<1 | 2>(1); // NEW: 1=weekly, 2=biweekly
   const [rotating, setRotating] = useState(false); // NEW: meals rotate weekly
   const [busy, setBusy] = useState(false);
   const saveInFlight = useRef(false);
+  const loadSequence = useRef(0);
+  const mounted = useRef(true);
   const [savingDraft, setSavingDraft] = useState(false);
   const [existingStatus, setExistingStatus] = useState<'draft' | 'active' | 'archived' | null>(null);
   const [done, setDone] = useState(false);
 
   const load = async () => {
+    const request = ++loadSequence.current;
     setLoading(true);
     setLoadError('');
     try {
       const { kitchenId: kid, meals } = await fetchMyKitchenMeals();
-      setHasKitchen(!!kid); setKitchenId(kid); setMeals(meals);
+      if (!mounted.current || request !== loadSequence.current) return;
+      setHasKitchen(!!kid); setMeals(meals);
       if (kid) {
         const cap = await fetchKitchenCapacity(kid);
+        if (!mounted.current || request !== loadSequence.current) return;
         setCapacity(cap == null ? '' : String(cap));
       }
       if (editing) {
         const pl = await fetchPlan(planId!);
+        if (!mounted.current || request !== loadSequence.current) return;
         if (!pl) throw new Error('This meal plan is no longer available.');
         {
           setName(pl.name); setDesc(pl.description ?? ''); setPrice(pl.priceCents ? String(pl.priceCents / 100) : '');
@@ -98,7 +123,7 @@ export default function CreatePlanFlow() {
           const byWeek: Record<number, Record<string, number>> = {};
           (pl.itemsByWeek ?? [pl.items]).forEach((weekItems, w) => {
             const q: Record<string, number> = {};
-            for (const it of weekItems) if (it.mealId) q[it.mealId] = it.qty;
+            for (const it of weekItems) if (it.mealId) q[it.mealId] = Math.min(20, Math.max(0, it.qty));
             byWeek[w] = q;
           });
           setQtyByWeek(byWeek);
@@ -107,23 +132,33 @@ export default function CreatePlanFlow() {
         }
       }
     } catch (e: any) {
-      setLoadError(e?.message || 'Could not load this meal plan.');
+      if (mounted.current && request === loadSequence.current) setLoadError('Check your connection and try again. Your meal plan has not changed.');
     } finally {
-      setLoading(false);
+      if (mounted.current && request === loadSequence.current) setLoading(false);
     }
   };
-  useEffect(() => { void load(); }, []);
+  useEffect(() => {
+    mounted.current = true;
+    void load();
+    return () => { mounted.current = false; loadSequence.current += 1; };
+  }, []);
 
   const pickCover = () => {
-    if (Platform.OS !== 'web' || typeof document === 'undefined') return;
+    if (coverInFlight.current || Platform.OS !== 'web' || typeof document === 'undefined') return;
     const input = document.createElement('input');
     input.type = 'file'; input.accept = 'image/*';
     input.onchange = async () => {
       const f = (input.files || [])[0]; if (!f) return;
+      if (coverInFlight.current) return;
+      coverInFlight.current = true;
       setCoverBusy(true);
-      try { const ext = (f.name.split('.').pop() || 'jpg').toLowerCase(); setCover(await uploadPlanCover(f, ext)); }
+      try {
+        const ext = (f.name.split('.').pop() || 'jpg').toLowerCase();
+        const nextCover = await uploadPlanCover(f, ext);
+        if (mounted.current) setCover(nextCover);
+      }
       catch (e: any) { toast(e?.message || 'Could not upload the photo', 'info'); }
-      finally { setCoverBusy(false); }
+      finally { coverInFlight.current = false; if (mounted.current) setCoverBusy(false); }
     };
     input.click();
   };
@@ -143,22 +178,37 @@ export default function CreatePlanFlow() {
     ? Array.from({ length: rotationWeeks }, (_, w) => w).flatMap((w) =>
         Object.entries(qtyByWeek[w] ?? {}).filter(([, q]) => q > 0).map(([mealId, q]) => ({ mealId, qty: q, weekIndex: w })))
     : items;
-  const priceCents = Math.round((Number(price) || 0) * 100);
-  const perMealCents = Math.round((Number(perMeal) || 0) * 100);
-  const mpd = Math.max(0, parseInt(mealsPerDelivery, 10) || 0);
+  const parsedPriceCents = moneyCents(price);
+  const parsedPerMealCents = moneyCents(perMeal);
+  const priceCents = parsedPriceCents ?? 0;
+  const perMealCents = parsedPerMealCents ?? 0;
+  const mpd = optionalInt(mealsPerDelivery, 1, 30) ?? 0;
+  const servingCount = optionalInt(servings, 1, 20);
   // Weekly price shown to the cook: fixed = the bundle price; customer-choice ≈ per-meal × picks.
   const weeklyCents = choice ? perMealCents * mpd : priceCents;
-  const valid = !!name.trim() && week0Items.length > 0 && (choice ? perMealCents >= 100 && mpd > 0 : priceCents > 0);
+  const nameValid = name.trim().length >= 2 && name.trim().length <= 80;
+  const priceValid = choice
+    ? parsedPerMealCents != null && perMealCents >= 100 && perMealCents <= MAX_PLAN_PRICE_CENTS && mpd >= 1 && mpd <= 30 && weeklyCents <= MAX_PLAN_PRICE_CENTS
+    : parsedPriceCents != null && priceCents > 0 && priceCents <= MAX_PLAN_PRICE_CENTS;
+  const settingsValid = (!servings.trim() || servingCount != null)
+    && (!capacity.trim() || optionalInt(capacity, 0, MAX_CAPACITY) != null)
+    && (!cutoff.trim() || optionalInt(cutoff, 0, 336) != null)
+    && (!lead.trim() || optionalInt(lead, 0, 336) != null)
+    && (!minCommit.trim() || optionalInt(minCommit, 1, 52) != null)
+    && (!trialOn || ((moneyCents(trialPrice) ?? -1) >= 0 && (moneyCents(trialPrice) ?? MAX_PLAN_PRICE_CENTS + 1) <= MAX_PLAN_PRICE_CENTS && optionalInt(trialWeeks || '1', 1, 12) != null));
+  const valid = nameValid && desc.trim().length <= 600 && week0Items.length > 0 && allWeekItems.length <= 60 && priceValid && settingsValid;
   const advancedSummary = [cadenceWeeks === 2 ? 'Biweekly' : null, rotating ? 'Rotating' : null, trialOn ? 'Trial' : null, `${cutoff || '48'}h cutoff`, minCommit && minCommit !== '1' ? `${minCommit}wk min` : null].filter(Boolean).join(' · ');
-  const clampInt = (s: string, lo: number, hi: number) => Math.min(hi, Math.max(lo, parseInt(s, 10) || lo));
-
   const submit = async (asDraft = false) => {
     if (saveInFlight.current) return;
     if (!valid) {
-      toast(!name.trim() ? 'Add a plan name'
+      toast(name.trim().length < 2 ? 'Use at least 2 characters for the plan name'
+        : name.trim().length > 80 ? 'Keep the plan name to 80 characters'
+        : desc.trim().length > 600 ? 'Keep the description to 600 characters'
         : week0Items.length === 0 ? (choice ? 'Add meals to the menu' : 'Add at least one meal to the box')
-        : choice ? (perMealCents < 100 ? 'Set a price per meal (at least $1)' : 'Set how many meals per delivery')
-        : 'Set a price above $0', 'info');
+        : allWeekItems.length > 60 ? 'Keep the plan to 60 meal entries across all rotation weeks'
+        : !priceValid ? (choice ? (parsedPerMealCents == null || perMealCents < 100 ? 'Set a valid price per meal of at least $1' : weeklyCents > MAX_PLAN_PRICE_CENTS ? 'Keep the full delivery price at $5,000 or less' : 'Choose 1 to 30 meals per delivery')
+          : parsedPriceCents == null || priceCents <= 0 ? 'Set a valid weekly price above $0' : 'Keep the weekly price at $5,000 or less')
+        : 'Check the serving, capacity, cutoff, commitment, and trial limits', 'info');
       return;
     }
     saveInFlight.current = true;
@@ -171,18 +221,18 @@ export default function CreatePlanFlow() {
         fulfillment: fulfillment as any, goal: goal || undefined, items: allWeekItems,
         coverUrl: cover || undefined, deliveryDays: days.length ? days : undefined,
         selectionModel,
-        servings: servings.trim() ? Math.max(1, parseInt(servings, 10) || 1) : undefined,
+        servings: servingCount,
         dietaryTags: dietary.length ? dietary : undefined,
         allergens: allergens.length ? allergens : undefined,
         cadenceWeeks, // NEW
         rotating: isRotating, // NEW
         rotationWeeks: isRotating ? rotationWeeks : 1,
-        cutoffHours: cutoff.trim() ? clampInt(cutoff, 0, 336) : undefined,
-        leadTimeHours: lead.trim() ? clampInt(lead, 0, 336) : undefined,
-        minCommitment: minCommit.trim() ? clampInt(minCommit, 1, 52) : undefined,
+        cutoffHours: optionalInt(cutoff, 0, 336),
+        leadTimeHours: optionalInt(lead, 0, 336),
+        minCommitment: optionalInt(minCommit, 1, 52),
         asDraft,
         ...(trialOn
-          ? { trialPriceCents: Math.max(0, Math.round((Number(trialPrice) || 0) * 100)), trialCycles: clampInt(trialWeeks || '1', 1, 12) }
+          ? { trialPriceCents: moneyCents(trialPrice) ?? 0, trialCycles: optionalInt(trialWeeks || '1', 1, 12) }
           : { trialCycles: 0 }),
         ...(choice
           ? { perMealCents, mealsPerDelivery: mpd, priceCents: perMealCents * mpd }
@@ -190,7 +240,7 @@ export default function CreatePlanFlow() {
       });
       // Capacity protects the kitchen from overselling. Do not report full success if it was not saved.
       try {
-        await setKitchenCapacity(capacity.trim() ? Math.max(0, parseInt(capacity, 10) || 0) : null);
+        await setKitchenCapacity(capacity.trim() ? optionalInt(capacity, 0, MAX_CAPACITY)! : null);
       } catch {
         throw new Error('The plan was saved, but weekly capacity could not update. Try saving again.');
       }
@@ -252,7 +302,7 @@ export default function CreatePlanFlow() {
       <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={{ paddingHorizontal: 20, paddingBottom: 130 }}>
         <View style={{ marginTop: 16 }} />
         <KField label="Cover photo">
-          <Press scale={0.98} onPress={pickCover}>
+          <Press scale={0.98} onPress={pickCover} disabled={coverBusy} label={cover ? 'Change plan cover photo' : 'Add plan cover photo'}>
             <View style={{ height: 150, borderRadius: radius.card, overflow: 'hidden', backgroundColor: c.bg2, borderWidth: 1, borderColor: c.border2, alignItems: 'center', justifyContent: 'center' }}>
               {cover ? <Image source={{ uri: cover }} style={{ width: '100%', height: '100%' }} resizeMode="cover" /> : coverBusy ? <ActivityIndicator color={c.primary} /> : (
                 <View style={{ alignItems: 'center', gap: 6 }}>
@@ -264,8 +314,11 @@ export default function CreatePlanFlow() {
             </View>
           </Press>
         </KField>
-        <KField label="Plan name"><KInput value={name} onChange={setName} placeholder="e.g. Weeknight Dinner Box" /></KField>
-        <KField label="What’s in the box (short description)"><KInput value={desc} onChange={setDesc} placeholder="Three chef-cooked dinners, rotating each week…" multiline /></KField>
+        <KField label="Plan name"><KInput value={name} onChange={setName} placeholder="e.g. Weeknight Dinner Box" maxLength={80} /></KField>
+        <KField label="What’s in the box (short description)">
+          <KInput value={desc} onChange={setDesc} placeholder="Three chef-cooked dinners, rotating each week…" multiline maxLength={600} />
+          <Text style={[type(11.5, 600), { color: c.muted, marginTop: 6, textAlign: 'right' }]}>{desc.length}/600</Text>
+        </KField>
 
         <KField label="How it works">
           <KSeg options={[{ key: 'fixed', label: 'Fixed box' }, { key: 'customer_choice', label: 'Customer picks' }]} value={selectionModel} onChange={(v) => setSelectionModel(v as any)} />
@@ -277,15 +330,15 @@ export default function CreatePlanFlow() {
         {choice ? (
           <View style={{ flexDirection: 'row', gap: 12 }}>
             <View style={{ flex: 1 }}><KField label="Price per meal"><MoneyInput value={perMeal} onChange={setPerMeal} /></KField></View>
-            <View style={{ flex: 1 }}><KField label="Meals per delivery"><KInput value={mealsPerDelivery} onChange={setMealsPerDelivery} placeholder="e.g. 3" /></KField></View>
+            <View style={{ flex: 1 }}><KField label="Meals per delivery"><KInput value={mealsPerDelivery} onChange={(v) => setMealsPerDelivery(digitsOnly(v))} placeholder="1 to 30" maxLength={2} /></KField></View>
           </View>
         ) : (
           <View style={{ flexDirection: 'row', gap: 12 }}>
             <View style={{ flex: 1 }}><KField label="Weekly price"><MoneyInput value={price} onChange={setPrice} /></KField></View>
-            <View style={{ flex: 1 }}><KField label="Servings per meal"><KInput value={servings} onChange={setServings} placeholder="e.g. 1" /></KField></View>
+            <View style={{ flex: 1 }}><KField label="Servings per meal"><KInput value={servings} onChange={(v) => setServings(digitsOnly(v))} placeholder="1 to 20" maxLength={2} /></KField></View>
           </View>
         )}
-        {choice ? <KField label="Servings per meal"><KInput value={servings} onChange={setServings} placeholder="e.g. 1" /></KField> : null}
+        {choice ? <KField label="Servings per meal"><KInput value={servings} onChange={(v) => setServings(digitsOnly(v))} placeholder="1 to 20" maxLength={2} /></KField> : null}
 
         <KField label="Fulfillment">
           <KSeg options={[{ key: 'delivery', label: 'Delivery' }, { key: 'pickup', label: 'Pickup' }]} value={fulfillment} onChange={setFulfillment} />
@@ -308,7 +361,7 @@ export default function CreatePlanFlow() {
           </View>
         </KField>
         <KField label="Weekly capacity (optional)">
-          <KInput value={capacity} onChange={setCapacity} placeholder="Max meals per delivery day" accessibilityLabel="Kitchen capacity per delivery day" />
+          <KInput value={capacity} onChange={(v) => setCapacity(digitsOnly(v))} placeholder="Max meals per delivery day" accessibilityLabel="Kitchen capacity per delivery day" maxLength={7} />
           <Text style={[type(11.5, 600), { color: c.muted, marginTop: 6, lineHeight: 16 }]}>We won’t sell past this — leave blank for unlimited. E.g. a 3-meal box → 30 means up to ~10 subscribers.</Text>
         </KField>
         <KField label="Dietary tags (optional)">
@@ -365,7 +418,7 @@ export default function CreatePlanFlow() {
                   <Text style={[type(14.5, 700), { color: c.ink }]}>{m.name}</Text>
                   <Text style={[type(12, 600), { color: c.muted, marginTop: 1 }]}>{money(m.priceCents / 100)}</Text>
                 </View>
-                {!choice && q > 0 ? <Stepper sm value={q} onDec={() => setQty((s) => ({ ...s, [m.id]: Math.max(0, q - 1) }))} onInc={() => setQty((s) => ({ ...s, [m.id]: q + 1 }))} /> : null}
+                {!choice && q > 0 ? <Stepper sm value={q} onDec={() => setQty((s) => ({ ...s, [m.id]: Math.max(0, q - 1) }))} onInc={() => setQty((s) => ({ ...s, [m.id]: Math.min(20, q + 1) }))} /> : null}
               </View>
             );
           })}
@@ -382,10 +435,10 @@ export default function CreatePlanFlow() {
         {advanced ? (
           <View>
             <View style={{ flexDirection: 'row', gap: 12 }}>
-              <View style={{ flex: 1 }}><KField label="Order cutoff (hrs)"><KInput value={cutoff} onChange={setCutoff} placeholder="48" /></KField></View>
-              <View style={{ flex: 1 }}><KField label="Lead time (hrs)"><KInput value={lead} onChange={setLead} placeholder="48" /></KField></View>
+              <View style={{ flex: 1 }}><KField label="Order cutoff (hrs)"><KInput value={cutoff} onChange={(v) => setCutoff(digitsOnly(v))} placeholder="0 to 336" maxLength={3} /></KField></View>
+              <View style={{ flex: 1 }}><KField label="Lead time (hrs)"><KInput value={lead} onChange={(v) => setLead(digitsOnly(v))} placeholder="0 to 336" maxLength={3} /></KField></View>
             </View>
-            <KField label="Minimum commitment (weeks)"><KInput value={minCommit} onChange={setMinCommit} placeholder="1" /></KField>
+            <KField label="Minimum commitment (weeks)"><KInput value={minCommit} onChange={(v) => setMinCommit(digitsOnly(v))} placeholder="1 to 52" maxLength={2} /></KField>
             <KField label="Cadence">
               <KSeg options={[{ key: '1', label: 'Weekly' }, { key: '2', label: 'Biweekly' }]} value={String(cadenceWeeks)} onChange={(v) => setCadenceWeeks(parseInt(v) as 1 | 2)} />
               <Text style={[type(11.5, 600), { color: c.muted, marginTop: 6, lineHeight: 16 }]}>
@@ -405,7 +458,7 @@ export default function CreatePlanFlow() {
             {trialOn ? (
               <View style={{ flexDirection: 'row', gap: 12 }}>
                 <View style={{ flex: 1 }}><KField label="Trial price / week"><MoneyInput value={trialPrice} onChange={setTrialPrice} /></KField></View>
-                <View style={{ flex: 1 }}><KField label="Trial weeks"><KInput value={trialWeeks} onChange={setTrialWeeks} placeholder="1" /></KField></View>
+                <View style={{ flex: 1 }}><KField label="Trial weeks"><KInput value={trialWeeks} onChange={(v) => setTrialWeeks(digitsOnly(v))} placeholder="1 to 12" maxLength={2} /></KField></View>
               </View>
             ) : null}
           </View>
@@ -419,9 +472,9 @@ export default function CreatePlanFlow() {
       <Dock>
         <DockTotal label={choice ? 'Per meal' : 'Per week'} value={money((choice ? perMealCents : priceCents) / 100)} />
         {existingStatus !== 'active' ? (
-          <KBtn label={busy && savingDraft ? 'Saving…' : 'Save draft'} variant="ghost" height={48} onPress={() => submit(true)} style={{ opacity: valid && !busy ? 1 : 0.5 }} />
+          <KBtn label={busy && savingDraft ? 'Saving…' : 'Save draft'} variant="ghost" height={48} onPress={() => submit(true)} disabled={!valid || busy} />
         ) : null}
-        <KBtn label={busy && !savingDraft ? 'Publishing…' : existingStatus === 'active' ? 'Save changes' : 'Publish plan'} variant="pri" flex={1} height={48} onPress={() => submit(false)} style={{ opacity: valid && !busy ? 1 : 0.5 }} />
+        <KBtn label={busy && !savingDraft ? 'Publishing…' : existingStatus === 'active' ? 'Save changes' : 'Publish plan'} variant="pri" flex={1} height={48} onPress={() => submit(false)} disabled={!valid || busy} />
       </Dock>
     </Screen>
   );
@@ -437,7 +490,7 @@ function TagChips({ options, value, onToggle, danger }: { options: string[]; val
       {options.map((t) => {
         const on = value.includes(t);
         return (
-          <Press key={t} scale={0.95} onPress={() => onToggle(t)}>
+          <Press key={t} scale={0.95} onPress={() => onToggle(t)} label={t} selected={on}>
             <View style={{ height: 34, paddingHorizontal: 13, borderRadius: radius.pill, backgroundColor: on ? onBg : c.bg2, borderWidth: 1, borderColor: on ? onBg : c.border, alignItems: 'center', justifyContent: 'center' }}>
               <Text style={[type(12.5, 800), { color: on ? onFg : c.soft }]}>{t}</Text>
             </View>
