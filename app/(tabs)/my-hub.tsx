@@ -307,20 +307,20 @@ export function PhotoPick({ grad, setGrad }: { grad: GradKey | null; setGrad: (g
   const c = useC();
   if (grad) {
     return (
-      <Press scale={0.98} onPress={() => setGrad(PHOTO_GRADS[(PHOTO_GRADS.indexOf(grad) + 1) % PHOTO_GRADS.length])} label="Change photo placeholder color">
+      <Press scale={0.98} onPress={() => setGrad(PHOTO_GRADS[(PHOTO_GRADS.indexOf(grad) + 1) % PHOTO_GRADS.length])} label="Change fallback color">
         <GradBox grad={grad} style={{ height: 150, borderRadius: 16, justifyContent: 'flex-end', alignItems: 'flex-end', padding: 12 }}>
           <View style={{ width: 38, height: 38, borderRadius: 12, backgroundColor: 'rgba(0,0,0,.45)', alignItems: 'center', justifyContent: 'center' }}>
-            <Icon name="camera" size={18} color="#fff" />
+            <Icon name="spark" size={18} color="#fff" />
           </View>
         </GradBox>
       </Press>
     );
   }
   return (
-    <Press scale={0.98} onPress={() => setGrad(PHOTO_GRADS[0])} label="Add a dish photo placeholder">
+    <Press scale={0.98} onPress={() => setGrad(PHOTO_GRADS[0])} label="Choose a fallback color">
       <View style={{ height: 150, borderRadius: 16, borderWidth: 2, borderStyle: 'dashed', borderColor: c.border, backgroundColor: c.bg2, alignItems: 'center', justifyContent: 'center', gap: 9 }}>
-        <Icon name="camera" size={26} color={c.muted} />
-        <Text style={[type(13.5, 700), { color: c.muted }]}>Add a photo of your dish</Text>
+        <Icon name="spark" size={26} color={c.muted} />
+        <Text style={[type(13.5, 700), { color: c.muted }]}>Choose a fallback color</Text>
       </View>
     </Press>
   );

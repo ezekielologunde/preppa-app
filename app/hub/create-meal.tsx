@@ -182,7 +182,13 @@ export default function CreateMealFlow() {
             {ALLERGENS.map((x) => <KChoice key={x} label={x} on={allergens.includes(x)} onPress={() => toggleAllergen(x)} check />)}
           </View>
         </KField>
-        <Press scale={0.98} onPress={() => setAllergenReviewed((v) => !v)}>
+        <Press
+          scale={0.98}
+          onPress={() => setAllergenReviewed((v) => !v)}
+          accessibilityRole="checkbox"
+          accessibilityState={{ checked: allergenReviewed }}
+          label="I reviewed the full recipe and disclosed every applicable major allergen"
+        >
           <View style={{ flexDirection: 'row', alignItems: 'flex-start', gap: 11, padding: 14, borderRadius: radius.md, backgroundColor: c.bg2, borderWidth: 1, borderColor: allergenReviewed ? c.primary : c.border }}>
             <View style={{ width: 22, height: 22, borderRadius: 7, borderWidth: 2, borderColor: allergenReviewed ? c.primary : c.border, backgroundColor: allergenReviewed ? c.primary : 'transparent', alignItems: 'center', justifyContent: 'center' }}>{allergenReviewed ? <Icon name="check" size={13} color="#fff" /> : null}</View>
             <Text style={[type(12.5, 700), { color: c.soft, lineHeight: 18, flex: 1 }]}>I reviewed the full recipe and disclosed every applicable major allergen.</Text>
