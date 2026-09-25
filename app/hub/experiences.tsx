@@ -1,4 +1,4 @@
-import React, { useCallback, useState } from 'react';
+import React, { useCallback, useRef, useState } from 'react';
 import { View, Text, ScrollView, ActivityIndicator } from 'react-native';
 import { useRouter, useFocusEffect } from 'expo-router';
 import { useC } from '../../src/theme/ThemeContext';
@@ -33,14 +33,24 @@ export default function HubExperiences() {
   const [items, setItems] = useState<Experience[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
+  const loadSequence = useRef(0);
 
   const load = useCallback(async () => {
+    const sequence = ++loadSequence.current;
     setLoading(true); setError('');
-    try { setItems(await fetchMyExperiences()); }
-    catch (e: any) { setError(e?.message ?? 'Couldn’t load your experiences.'); }
-    finally { setLoading(false); }
+    try {
+      const nextItems = await fetchMyExperiences();
+      if (sequence === loadSequence.current) setItems(nextItems);
+    } catch {
+      if (sequence === loadSequence.current) setError('Check your connection and try loading your experiences again.');
+    } finally {
+      if (sequence === loadSequence.current) setLoading(false);
+    }
   }, []);
-  useFocusEffect(useCallback(() => { load(); }, [load]));
+  useFocusEffect(useCallback(() => {
+    void load();
+    return () => { loadSequence.current += 1; };
+  }, [load]));
 
   return (
     <Screen>
@@ -52,10 +62,10 @@ export default function HubExperiences() {
         </View>
 
         <KSec title="Your experiences" />
-        {loading ? (
+        {loading && items.length === 0 ? (
           <View style={{ paddingVertical: 40, alignItems: 'center' }}><ActivityIndicator color={c.primary} /></View>
-        ) : error ? (
-          <View style={{ marginHorizontal: 20, alignItems: 'center', padding: 22, borderRadius: radius.card, backgroundColor: c.surface, borderWidth: 1, borderColor: c.border2 }}>
+        ) : error && items.length === 0 ? (
+          <View accessibilityRole="alert" style={{ marginHorizontal: 20, alignItems: 'center', padding: 22, borderRadius: radius.card, backgroundColor: c.surface, borderWidth: 1, borderColor: c.border2 }}>
             <Text style={[type(13.5, 700), { color: c.red, textAlign: 'center', marginBottom: 12 }]}>{error}</Text>
             <KBtn label="Try again" variant="ghost" icon="repeat" onPress={load} />
           </View>
@@ -66,16 +76,25 @@ export default function HubExperiences() {
             <Text style={[type(13, 600), { color: c.soft, textAlign: 'center', marginTop: 6, maxWidth: 280, lineHeight: 19 }]}>Publish a class or supper club with dated sessions customers can book.</Text>
           </View>
         ) : (
-          items.map((e) => {
+          <>
+          {error ? (
+            <View accessibilityRole="alert" style={{ marginHorizontal: 20, marginBottom: 14, borderWidth: 1, borderColor: c.red, backgroundColor: c.redL, borderRadius: radius.lg, padding: 14 }}>
+              <Text style={[type(13.5, 900), { color: c.ink }]}>Couldn’t refresh experiences</Text>
+              <Text style={[type(12.5, 600), { color: c.soft, marginTop: 4, lineHeight: 18 }]}>{error} Your current listings are still shown.</Text>
+              <View style={{ marginTop: 10, alignSelf: 'flex-start' }}><KBtn label="Try again" variant="ghost" icon="repeat" onPress={load} disabled={loading} /></View>
+            </View>
+          ) : null}
+          {items.map((e) => {
             const st = STATUS[e.status] ?? STATUS.draft;
+            const sessionLabel = nextSessionLabel(e);
             return (
-              <Press key={e.id} scale={0.99} onPress={() => router.push(`/hub/create-experience?experienceId=${e.id}`)} style={{ marginHorizontal: 20, marginBottom: 14 }}>
+              <Press key={e.id} scale={0.99} onPress={() => router.push(`/hub/create-experience?experienceId=${e.id}`)} label={`${e.title}, ${sessionLabel}, ${money((e.perPersonCents ?? 0) / 100)} per person, ${st.label}, edit experience`} style={{ marginHorizontal: 20, marginBottom: 14 }}>
                 <View style={{ backgroundColor: c.surface, borderWidth: 1, borderColor: c.border2, borderRadius: 20, padding: 16, ...shadow.card }}>
                   <View style={{ flexDirection: 'row', alignItems: 'center', gap: 13 }}>
                     <GradBox grad={EXPERIENCE_GRAD} style={{ width: 48, height: 48, borderRadius: 14, alignItems: 'center', justifyContent: 'center' }}><Icon name="spark" size={20} color="#fff" /></GradBox>
                     <View style={{ flex: 1, minWidth: 0 }}>
                       <Text numberOfLines={1} style={[type(15, 900), { color: c.ink, letterSpacing: -0.2 }]}>{e.title}</Text>
-                      <Text style={[type(12.5, 600), { color: c.soft, marginTop: 2 }]}>{nextSessionLabel(e)}</Text>
+                      <Text style={[type(12.5, 600), { color: c.soft, marginTop: 2 }]}>{sessionLabel}</Text>
                     </View>
                     <View style={{ alignItems: 'flex-end', gap: 6 }}>
                       <Text style={[type(15, 900), { color: c.ink }]}>{money((e.perPersonCents ?? 0) / 100)}</Text>
@@ -88,7 +107,8 @@ export default function HubExperiences() {
                 </View>
               </Press>
             );
-          })
+          })}
+          </>
         )}
         <View style={{ paddingHorizontal: 20, paddingTop: 2 }}>
           <KBtn label="New experience" variant="pri" block icon="plus" onPress={() => router.push('/hub/create-experience')} />
