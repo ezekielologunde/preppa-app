@@ -2,7 +2,6 @@ import React from 'react';
 import { View, Text, ScrollView, ActivityIndicator, useWindowDimensions } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
-import { dailyDropId } from '../../src/data/data';
 import { useMeals, useKitchens } from '../../src/data/hooks';
 import { useC } from '../../src/theme/ThemeContext';
 import { type, serif, radius, shadow } from '../../src/theme/theme';
@@ -35,11 +34,11 @@ export default function HomeScreen() {
   const [cartOpen, setCartOpen] = React.useState(false);
   const [locPicker, setLocPicker] = React.useState(false);
   const [locBusy, setLocBusy] = React.useState(false);
-  const dropId = dailyDropId();
   const { data: allMeals, loading: mealsLoading } = useMeals({ mode });
   const meals = allMeals ?? [];
-  const drop = meals.find((m) => m.id === dropId) ?? null;
-  const picks = meals.filter((m) => m.id !== dropId).slice(0, 4);
+  const dayNumber = Math.floor(Date.now() / 86_400_000);
+  const drop = meals.length ? meals[dayNumber % meals.length] : null;
+  const picks = meals.filter((m) => m.id !== drop?.id).slice(0, 4);
   const { data: kitchens } = useKitchens({ mode: mode === 'pickup' ? 'pickup' : mode === 'delivery' ? 'delivery' : undefined });
 
   const useMyLocation = async () => {

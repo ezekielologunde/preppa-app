@@ -142,7 +142,7 @@ Went end-to-end through Shef's actual ordering flow (add to cart → cross-sell 
 
 - [x] ~~Update `README.md` and `LAUNCH-ACCOUNTS.md`~~ — done 2026-09-25. The README now distinguishes production configuration from launch approval and documents the current CI gates. The account tracker now separates checked-in identifiers from provider verification and lists the external evidence still required.
 - [x] ~~Resolve the two divergent `GRAD` palette exports~~ — done 2026-09-25. Removed the obsolete prototype palette from `src/data/data.ts`; gradient keys now come from the canonical Warm Trust theme while tuple gradients remain supported for explicit feature artwork.
-- [ ] Reduce the 39-route reliance on `src/data/data.ts` mock data; audit which persisted-store seed data is still reachable.
+- [ ] Reduce reliance on `src/data/data.ts` mock data; audit which persisted-store seed data is still reachable. Progress 2026-09-25: removed the dormant mock catalog repository, dead meal and notification fixtures, and the seed-slug daily-drop selector. Home now rotates its featured item through the live catalog. Seed cook presentation metadata and persisted subscription/cart compatibility still require a deliberate migration.
 
 ## Related
 
