@@ -8,8 +8,9 @@ import { money, GradKey } from '../../src/data/data';
 import { fetchKitchenOrders, timeAgo, type KitchenOrderRow } from '../../src/lib/orders';
 import { HubHeader, KSeg, KPill } from '../(tabs)/my-hub';
 
-type UiStatus = 'confirmed' | 'preparing' | 'ready' | 'completed' | 'cancelled';
+type UiStatus = 'pending' | 'confirmed' | 'preparing' | 'ready' | 'completed' | 'cancelled';
 const STATUS: Record<UiStatus, { label: string; bg: (c: any) => string; fg: (c: any) => string }> = {
+  pending: { label: 'Awaiting payment', bg: (c) => c.bg2, fg: (c) => c.soft },
   confirmed: { label: 'New', bg: (c) => c.primaryL, fg: (c) => c.primaryD },
   preparing: { label: 'Preparing', bg: (c) => c.amberL, fg: (c) => c.amber },
   ready: { label: 'Ready', bg: (c) => c.blueL, fg: (c) => c.blue },
@@ -21,7 +22,7 @@ const gradFor = (id: string) => GRADS[[...id].reduce((h, ch) => h + ch.charCodeA
 
 function OrderRow({ o, onPress }: { o: KitchenOrderRow; onPress: () => void }) {
   const c = useC();
-  const s = STATUS[o.status as UiStatus] ?? STATUS.confirmed;
+  const s = STATUS[o.status as UiStatus] ?? STATUS.pending;
   const title = o.first_item_name ? `${o.first_item_name}${o.item_count > 1 ? ` +${o.item_count - 1} more` : ''}` : `${o.item_count} item${o.item_count === 1 ? '' : 's'}`;
   return (
     <Press scale={0.99} onPress={onPress}>
