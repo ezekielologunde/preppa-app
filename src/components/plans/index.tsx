@@ -13,9 +13,10 @@ import { openThread } from '../../lib/messages';
 import { confirmAction } from '../../lib/confirm';
 import {
   fetchActivePlans, listMySubscriptions, pauseSubscription, resumeSubscription, cancelSubscription,
-  skipCycle, selectCycleMeals, customerWeeklyCents, fetchBoxKitchens,
+  skipCycle, selectCycleMeals, customerWeeklyCents, fetchBoxKitchens, updateSubscriptionDeliveryAddress,
   type Plan, type MySubscription, type CycleSummary, type BoxKitchen,
 } from '../../lib/subscriptions';
+import { AddressPickerSheet } from '../PickerSheets';
 
 export const money2 = (cents: number) => money(cents / 100);
 const WD = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
@@ -113,6 +114,7 @@ export function MyPlansSection({ onBrowse }: { onBrowse: () => void }) {
   const [busy, setBusy] = useState<string | null>(null);
   const [editSub, setEditSub] = useState<MySubscription | null>(null);
   const [boxPicker, setBoxPicker] = useState<MySubscription | null>(null);
+  const [addressSub, setAddressSub] = useState<MySubscription | null>(null);
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -163,6 +165,20 @@ export function MyPlansSection({ onBrowse }: { onBrowse: () => void }) {
     );
   };
 
+  const changeDeliveryAddress = async (addressId: string) => {
+    const sub = addressSub;
+    setAddressSub(null);
+    if (!sub) return;
+    setBusy(sub.id);
+    try {
+      await updateSubscriptionDeliveryAddress(sub.id, addressId);
+      await load();
+      toast('Delivery address updated', 'check', true);
+    } catch {
+      toast('Could not update the delivery address. Please try again.', 'info');
+    } finally { setBusy(null); }
+  };
+
   return (
     <View style={{ flex: 1 }}>
       <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={{ paddingBottom: 40, maxWidth: 760, alignSelf: 'center', width: '100%' }}>
@@ -189,7 +205,7 @@ export function MyPlansSection({ onBrowse }: { onBrowse: () => void }) {
         ) : (
           <View style={{ paddingHorizontal: 16, paddingTop: 16, gap: 12 }}>
             {subs.map((s) => (
-              <SubCard key={s.id} s={s} busy={busy === s.id} onAct={(a) => requestAction(s, a)} onEditMeals={() => setEditSub(s)} onMessage={() => void message(s)} />
+              <SubCard key={s.id} s={s} busy={busy === s.id} onAct={(a) => requestAction(s, a)} onEditMeals={() => setEditSub(s)} onMessage={() => void message(s)} onAddress={() => setAddressSub(s)} />
             ))}
           </View>
         )}
@@ -197,6 +213,7 @@ export function MyPlansSection({ onBrowse }: { onBrowse: () => void }) {
 
       <EditMealsModal sub={editSub} onClose={() => setEditSub(null)} onSaved={async () => { setEditSub(null); await load(); toast('Meals updated', 'check', true); }} />
       <BoxCookPicker sub={boxPicker} onClose={() => setBoxPicker(null)} />
+      <AddressPickerSheet visible={!!addressSub} onClose={() => setAddressSub(null)} onSelectAddress={(id) => { void changeDeliveryAddress(id); }} showSelectionToast={false} />
     </View>
   );
 }
@@ -283,9 +300,9 @@ export function cycleStatus(cy: CycleSummary | null, lifecycle: string): { label
   return { label: 'Active', tint: (c) => c.green };
 }
 
-export function SubCard({ s, busy, onAct, onEditMeals, onMessage }: {
+export function SubCard({ s, busy, onAct, onEditMeals, onMessage, onAddress }: {
   s: MySubscription; busy: boolean;
-  onAct: (a: 'pause' | 'resume' | 'cancel' | 'skip') => void; onEditMeals: () => void; onMessage: () => void;
+  onAct: (a: 'pause' | 'resume' | 'cancel' | 'skip') => void; onEditMeals: () => void; onMessage: () => void; onAddress: () => void;
 }) {
   const c = useC();
   const cy = s.nextCycle;
@@ -342,6 +359,13 @@ export function SubCard({ s, busy, onAct, onEditMeals, onMessage }: {
           {canEditMeals ? (
             <Press scale={0.97} onPress={onEditMeals} style={{ marginTop: 8, alignSelf: 'flex-start' }}>
               <Text style={[type(12.5, 800), { color: c.accentText }]}>Choose meals ›</Text>
+            </Press>
+          ) : null}
+          {s.fulfillment === 'delivery' ? (
+            <Press scale={0.98} onPress={busy ? undefined : onAddress} label="Change subscription delivery address" style={{ marginTop: 8 }}>
+              <Text numberOfLines={2} style={[type(12, 700), { color: s.deliveryAddressText ? c.accentText : c.red, lineHeight: 17 }]}>
+                {s.deliveryAddressText ? `Deliver to ${s.deliveryAddressText} · Change` : 'Add a delivery address before resuming'}
+              </Text>
             </Press>
           ) : null}
         </View>

@@ -82,6 +82,7 @@ export interface MySubscription {
   items: PlanItem[];          // the plan box/menu (for compact display)
   photos: string[];           // NEW: gallery photos for the management card (item meals, else cover)
   nextCycle: CycleSummary | null;
+  deliveryAddressText: string | null;
 }
 
 const SERVICE_FEE_BPS_DEFAULT = 1000;
@@ -206,7 +207,7 @@ export async function listMySubscriptions(): Promise<MySubscription[]> {
   if (!uid) return [];
   const { data, error } = await supabase
     .from('subscriptions')
-    .select('id, lifecycle, kind, preferred_day, plan_id, fulfillment, plans(name, price_cents, fulfillment, selection_model, service_fee_bps, kitchen_id, cover_url, kitchens(name), plan_items(qty, meal_id, meals(id, name, price_cents, image_url)))')
+    .select('id, lifecycle, kind, preferred_day, plan_id, fulfillment, delivery_address_text, plans(name, price_cents, fulfillment, selection_model, service_fee_bps, kitchen_id, cover_url, kitchens(name), plan_items(qty, meal_id, meals(id, name, price_cents, image_url)))')
     .eq('customer_id', uid)
     .not('lifecycle', 'in', '(cancelled,completed)')
     .order('created_at', { ascending: false });
@@ -251,6 +252,7 @@ export async function listMySubscriptions(): Promise<MySubscription[]> {
       items: isBox ? (cyc?.items ?? []) : planItems(s.plans?.plan_items),
       photos: isBox ? [] : planPhotos(s.plans?.plan_items, s.plans?.cover_url),
       nextCycle: cyc,
+      deliveryAddressText: s.delivery_address_text ?? null,
     };
   });
 }
@@ -354,6 +356,10 @@ export async function updatePreferences(subscriptionId: string, p: SubscribePref
     p_serving: p.servingSize ?? null, p_spice: p.spiceLevel ?? null, p_preferred_day: null,
     p_household: p.householdSize ?? null, p_notes: p.notes ?? null,
   });
+  if (error) throw new Error(error.message);
+}
+export async function updateSubscriptionDeliveryAddress(subscriptionId: string, addressId: string): Promise<void> {
+  const { error } = await supabase.rpc('update_subscription_delivery_address', { p_subscription: subscriptionId, p_address: addressId });
   if (error) throw new Error(error.message);
 }
 

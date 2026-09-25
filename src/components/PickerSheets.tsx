@@ -9,14 +9,14 @@ import { SavedCard } from '../lib/payments';
 import { addressLocality, isCompleteDeliveryAddress } from '../lib/addresses';
 
 /** Quick delivery-address picker (bottom sheet) — stays in checkout context. */
-export function AddressPickerSheet({ visible, onClose }: { visible: boolean; onClose: () => void }) {
+export function AddressPickerSheet({ visible, onClose, onSelectAddress, showSelectionToast = true }: { visible: boolean; onClose: () => void; onSelectAddress?: (id: string) => void; showSelectionToast?: boolean }) {
   const c = useC();
   const router = useRouter();
   const { addresses, addressId, addressesLoading, addressesError, refreshAddresses, selectAddress, toast } = useStore();
   const pick = (id: string) => {
     const selected = addresses.find((address) => address.id === id);
     if (!isCompleteDeliveryAddress(selected)) { toast('Edit this address and add city, state, postal code, and country first.', 'info'); return; }
-    selectAddress(id); toast('Delivery address updated', 'pin', true); onClose();
+    selectAddress(id); onSelectAddress?.(id); if (showSelectionToast) toast('Delivery address updated', 'pin', true); onClose();
   };
   return (
     <Sheet visible={visible} onClose={onClose} title="Delivery address" scroll>

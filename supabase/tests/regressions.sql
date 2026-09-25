@@ -126,6 +126,24 @@ begin
   end if;
 end $$;
 
+do $$
+declare v_src text;
+begin
+  select prosrc into v_src from pg_proc where oid = 'public.update_subscription_delivery_address(uuid,uuid)'::regprocedure;
+  if v_src !~ 'customer_id = v_uid' or v_src !~ 'customer_delivery' or v_src !~ 'delivery_address_text' then
+    raise exception 'REGRESSION: customers can no longer safely update their subscription delivery address';
+  end if;
+  if has_function_privilege('anon', 'public.update_subscription_delivery_address(uuid,uuid)', 'execute') then
+    raise exception 'REGRESSION: anonymous users can update subscription delivery addresses';
+  end if;
+  if not exists (
+    select 1 from pg_trigger where tgrelid = 'public.subscriptions'::regclass
+      and tgname = 'subscriptions_require_delivery_address' and not tgisinternal
+  ) then
+    raise exception 'REGRESSION: addressless delivery subscriptions can become active';
+  end if;
+end $$;
+
 -- Ambiguous off-session charges must stay frozen. Resetting one to pending allows the
 -- next charge worker run to use a fresh attempt key and can double-charge the customer.
 do $$
