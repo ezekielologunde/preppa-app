@@ -148,6 +148,33 @@ begin
   end if;
 end $$;
 
+do $$
+declare v_claim text;
+begin
+  if to_regprocedure('public.claim_ambiguous_cycle_charges(interval,integer)') is null then
+    raise exception 'REGRESSION: ambiguous cycle reconciliation claim RPC is missing';
+  end if;
+  select prosrc into v_claim from pg_proc
+  where oid = 'public.claim_ambiguous_cycle_charges(interval,integer)'::regprocedure;
+  if v_claim !~ 'for update skip locked' or v_claim !~ 'charge_reconcile_attempts' then
+    raise exception 'REGRESSION: ambiguous cycle reconciliation is no longer concurrency-safe';
+  end if;
+  if has_function_privilege('authenticated', 'public.claim_ambiguous_cycle_charges(interval,integer)', 'execute')
+     or has_function_privilege('anon', 'public.claim_ambiguous_cycle_charges(interval,integer)', 'execute') then
+    raise exception 'REGRESSION: ambiguous cycle reconciliation claim is exposed outside service_role';
+  end if;
+  if has_function_privilege('authenticated', 'public.flag_ambiguous_cycle_charge(uuid,text)', 'execute') then
+    raise exception 'REGRESSION: ambiguous cycle admin-review marker is exposed to authenticated users';
+  end if;
+  if not exists (
+    select 1 from information_schema.columns
+    where table_schema = 'public' and table_name = 'subscription_cycles'
+      and column_name = 'charge_ambiguous_at' and data_type = 'timestamp with time zone'
+  ) then
+    raise exception 'REGRESSION: subscription charge ambiguity timestamp is missing';
+  end if;
+end $$;
+
 -- Order support input remains bounded at the trusted database boundary and cancellation
 -- requests retain a dedicated operational category.
 do $$

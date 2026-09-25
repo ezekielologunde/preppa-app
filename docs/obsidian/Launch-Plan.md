@@ -293,7 +293,7 @@ The two auth-hardening gaps found in that pass were closed 2026-09-17: native se
 
 ### Subscription charge ambiguity — duplicate-charge risk closed locally 2026-09-25
 - [x] Ambiguous Stripe responses now mark the cycle while preserving `payment_status='charging'`. `advance_cycles()` only releases a stale claim when Stripe was never contacted, so the cycle cannot be charged again under a fresh attempt key.
-- [ ] Automated reconciliation of frozen ambiguous cycles remains a repository-scoped follow-up. Until its worker and production schedule are deployed, operations must resolve any `ambiguous_stripe_outcome` against Stripe before changing the cycle.
+- [x] Automated reconciliation is implemented locally. The worker searches the original PaymentIntent by cycle metadata without creating a new charge, applies authoritative Stripe states, sends term mismatches to admin review, and waits 24 hours before treating an exhaustive no-match as a failed attempt. Production migration, function deployment with JWT verification disabled, and a controlled ambiguity test remain launch gates.
 
 ### 16. Apple App Store
 An `ascAppId` is already configured (`6802527112`) — **verify what that actually points to** before assuming setup starts from zero. Then: distribution cert, push entitlement, associated domains/deep links, production EAS build, TestFlight, screenshots/description/privacy disclosures, support/privacy URLs, account deletion, review notes.

@@ -71,7 +71,7 @@ Went end-to-end through Shef's actual ordering flow (add to cart → cross-sell 
 - [x] ~~Rotate the Resend API key found exposed in `api-keys-*.csv`~~ — **done 2026-09-08**, see [[Launch-Plan]] item 4.
 - [ ] Recruit real cooks — the app is technically launch-ready end-to-end (onboarding, payments, payouts, reconciliation all proven), but zero real cooks means an empty marketplace on day one. This is manual business work, not an engineering task.
 - [ ] Revisit instant payouts (debit card, ~1.5% Stripe fee) once the auto-sweep + reconciliation have run in production for a while — deliberately deferred, see [[Payments]] and [[Decisions]].
-- [ ] Add a reconciliation worker for `charge-due-cycles`. The duplicate-charge path is closed locally: ambiguous responses remain frozen in `charging` with `last_payment_error='ambiguous_stripe_outcome'`, and `advance_cycles()` no longer releases them to a fresh idempotency key. Automated Stripe lookup and production scheduling remain open.
+- [x] ~~Add a reconciliation worker for `charge-due-cycles`~~ — completed locally 2026-09-25. `reconcile-cycle-charges` searches the customer's original PaymentIntents by cycle metadata, applies the authoritative status, rejects amount/currency mismatches into admin review, and releases a no-match only after 24 hours. Production migration and function deployment remain launch gates.
 
 ## Security / ops hardening (from AUDIT.md's own recommended next steps)
 
