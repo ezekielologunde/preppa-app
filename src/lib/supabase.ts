@@ -412,7 +412,12 @@ export interface ApplicationFields {
   phone: string;
   kitchenName: string;
   cuisine: string;
-  address: string; // private
+  addressLine1: string; // private pickup/tax address
+  addressLine2?: string;
+  addressCity: string;
+  addressRegion: string;
+  addressPostalCode: string;
+  addressCountry: string;
   neighborhood: string; // public
   serviceArea?: string; // home-chef: how far they'll travel
   experience?: string; // home-chef: cooking experience
@@ -437,14 +442,21 @@ export interface ApplicationFields {
  * judge or ask the applicant to correct it.
  */
 export async function submitPrepperApplication(f: ApplicationFields): Promise<string> {
-  const coords = await geocodeAddress(f.address).catch(() => null);
+  const address = [f.addressLine1, f.addressLine2, f.addressCity, f.addressRegion, f.addressPostalCode, f.addressCountry].filter(Boolean).join(', ');
+  const coords = await geocodeAddress(address).catch(() => null);
   const { data, error } = await supabase.rpc('request_prepper_application', {
     p_kitchen_name: f.kitchenName,
     p_cuisine: f.cuisine,
     p_approx_area: f.neighborhood,
     p_bio: f.story,
     p_phone: f.phone,
-    p_address: f.address,
+    p_address: address,
+    p_address_line1: f.addressLine1,
+    p_address_line2: f.addressLine2 ?? null,
+    p_address_city: f.addressCity,
+    p_address_region: f.addressRegion,
+    p_address_postal_code: f.addressPostalCode,
+    p_address_country: f.addressCountry.toUpperCase(),
     p_food_safety: f.foodSafety,
     p_food_handler_cert: f.foodHandlerCert,
     p_agreement_version: f.agreementVersion,

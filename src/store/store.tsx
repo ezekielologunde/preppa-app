@@ -473,7 +473,7 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
     setPrepperStatus('pending');
     // Best-effort: geocode the kitchen's location so buyers can sort it by proximity.
     try {
-      const geo = await geocodeAddress(f.address || f.neighborhood);
+      const geo = await geocodeAddress([f.addressLine1, f.addressCity, f.addressRegion, f.addressPostalCode, f.addressCountry].filter(Boolean).join(', ') || f.neighborhood);
       if (geo && kitchenId) await setKitchenGeo(kitchenId, geo.lat, geo.lng);
     } catch { /* non-blocking — proximity is a nice-to-have, not a gate */ }
     return kitchenId; // caller uses it to start Stripe Connect onboarding

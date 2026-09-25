@@ -79,6 +79,31 @@ begin
   end if;
 
   if not exists (
+    select 1 from information_schema.parameters
+    where specific_schema = 'public'
+      and specific_name like 'request_prepper_application_%'
+      and parameter_name = 'p_address_postal_code'
+  ) then
+    raise exception 'REGRESSION: prepper applications no longer accept a structured pickup address';
+  end if;
+
+  if has_function_privilege(
+    'anon',
+    'public.request_prepper_application(text,text,text,text,text,text,jsonb,text,text,text[],text,text,numeric,numeric,text,text,text,text,text,text)',
+    'execute'
+  ) then
+    raise exception 'REGRESSION: anon can submit prepper applications';
+  end if;
+
+  if not has_function_privilege(
+    'authenticated',
+    'public.request_prepper_application(text,text,text,text,text,text,jsonb,text,text,text[],text,text,numeric,numeric,text,text,text,text,text,text)',
+    'execute'
+  ) then
+    raise exception 'REGRESSION: authenticated users cannot submit prepper applications';
+  end if;
+
+  if not exists (
     select 1 from information_schema.columns
     where table_schema = 'public' and table_name = 'meals' and column_name = 'ingredients'
   ) or not exists (

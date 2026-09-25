@@ -36,9 +36,6 @@ const createOrderInput = z.object({
   tipCents: z.number().int().min(0).max(100_000).default(0),
   idempotencyKey: z.string().min(8).max(200),
   savePaymentMethod: z.boolean().optional(),
-  /** ISO-2 country of the buyer's confirmed area. Optional — omitted means $0 tax rather
-   *  than a guessed rate. Drives a real Stripe Tax calculation, not a hardcoded rate. */
-  country: z.string().length(2).optional(),
   addressId: z.string().uuid().optional(),
 });
 
@@ -121,7 +118,6 @@ Deno.serve(async (req) => {
     const input = parsed.data;
 
     if (input.method === 'cod') return json(400, { error: 'Cash on delivery isn\'t available yet.' });
-    if (input.fulfillment === 'pickup' && !input.country) return json(400, { error: 'Choose a valid area before checkout so tax can be calculated.' });
 
     const { data: existing, error: existingError } = await db
       .from('orders')
@@ -189,6 +185,7 @@ Deno.serve(async (req) => {
 
     let deliveryAddressText: string | null = null;
     let deliveryTaxAddress: TaxAddress | null = null;
+    let pickupTaxAddress: TaxAddress | null = null;
     if (input.fulfillment === 'delivery') {
       if (!input.addressId) return json(400, { error: 'Add a delivery address before checkout.' });
       const { data: address, error: addressErr } = await db
@@ -218,7 +215,7 @@ Deno.serve(async (req) => {
     }
 
     const { data: kitchen } = await db
-      .from('kitchens').select('id, verification_status, availability').eq('id', input.kitchenId).single();
+      .from('kitchens').select('id, owner_id, verification_status, availability').eq('id', input.kitchenId).single();
     if (!kitchen || kitchen.verification_status !== 'verified' || kitchen.availability !== 'open') {
       return json(409, { error: 'This kitchen isn\'t taking orders right now.' });
     }
@@ -231,6 +228,29 @@ Deno.serve(async (req) => {
       return json(409, { error: 'This kitchen can\'t accept paid orders until payouts are set up.' });
     }
 
+    if (input.fulfillment === 'pickup') {
+      const { data: pickupAddress, error: pickupAddressError } = await db
+        .from('addresses')
+        .select('line1,line2,city,region,postal_code,country')
+        .eq('owner_id', kitchen.owner_id)
+        .eq('kind', 'kitchen_pickup')
+        .order('created_at', { ascending: false })
+        .limit(1)
+        .maybeSingle();
+      if (pickupAddressError) throw pickupAddressError;
+      if (!pickupAddress?.line1 || !pickupAddress.city || !pickupAddress.region || !pickupAddress.postal_code || !/^[A-Z]{2}$/.test(pickupAddress.country || '')) {
+        return json(409, { error: 'This kitchen needs a complete pickup address before it can accept pickup orders.' });
+      }
+      pickupTaxAddress = {
+        line1: pickupAddress.line1,
+        line2: pickupAddress.line2 || undefined,
+        city: pickupAddress.city,
+        state: pickupAddress.region,
+        postal_code: pickupAddress.postal_code,
+        country: pickupAddress.country,
+      };
+    }
+
     const priceById = new Map((meals as any[]).map((m) => [m.id, m.price_cents as number]));
     const nameById = new Map((meals as any[]).map((m) => [m.id, m.name as string]));
     let subtotal = 0;
@@ -239,7 +259,7 @@ Deno.serve(async (req) => {
     const tip = clampTipCents(input.tipCents);
     const taxAddress = input.fulfillment === 'delivery'
       ? deliveryTaxAddress
-      : { country: input.country!.toUpperCase() };
+      : pickupTaxAddress;
     const { cents: tax, calculationId: taxCalculationId } = await calculateTaxCents(subtotal, taxAddress);
     const total = subtotal + serviceFee + tax + tip;
 

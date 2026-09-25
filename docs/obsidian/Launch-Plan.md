@@ -65,6 +65,7 @@ tags: [project/preppa, type/launch-plan]
 - Payment and service clients now extract the JSON reason from failed Edge Function responses, preserving actionable checkout, saved-card, request, quote, booking, and refund messages instead of replacing them with a generic SDK failure.
 - The same Edge Function error handling now covers cook onboarding, payouts, order refunds, experiences, subscriptions, plan publishing, and livestream controls. Admin experience review and live-feed reads no longer convert backend failures into false empty states.
 - Checkout retries now recover an order that was saved before its Stripe PaymentIntent row, but only after matching the customer, kitchen, unpaid state, total, and exact persisted cart. Concurrent retries cannot attach one Stripe intent to another order, finalized orders are not charged again, and unrecoverable states give the customer a clear path back to a fresh checkout.
+- Cook applications now collect and privately store a structured pickup address. Pickup checkout uses that kitchen address for Stripe Tax and blocks kitchens with incomplete legacy address data instead of calculating tax from the buyer's rough location.
 
 ### Customer acceptance evidence still needed
 

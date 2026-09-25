@@ -15,7 +15,6 @@ import { AddressPickerSheet, CardPickerSheet } from '../src/components/PickerShe
 import { CardPaymentSheet } from '../src/components/CardPaymentSheet';
 import { Dialog } from '../src/ui/overlay';
 import { addressLocality, isCompleteDeliveryAddress } from '../src/lib/addresses';
-import { LocationPicker } from '../src/components/LocationPicker';
 
 const brandName = (b: string) => (b ? b.charAt(0).toUpperCase() + b.slice(1) : 'Card');
 
@@ -26,13 +25,12 @@ export default function Checkout() {
   const router = useRouter();
   const { cook } = useLocalSearchParams<{ cook?: string }>();
   const ck = cook || undefined;
-  const { cart, tip, setTip, mode, placeOrder, address, orders, toast, resetOnboarding, country } = useStore();
+  const { cart, tip, setTip, mode, placeOrder, address, orders, toast, resetOnboarding } = useStore();
   const lines = ck ? cart.filter((l) => lineKey(l) === ck) : cart;
   const t = useTotals(lines, tip, mode);
   const { methods, defaultId, loading: cardsLoading, error: cardsError, refetch: refetchCards } = useSavedCards();
   const [busy, setBusy] = useState(false);
   const [addrSheet, setAddrSheet] = useState(false);
-  const [locSheet, setLocSheet] = useState(false);
   const [cardSheet, setCardSheet] = useState(false);
   const [cardPayOpen, setCardPayOpen] = useState(false);
   const [cardSecret, setCardSecret] = useState<string | null>(null);
@@ -74,11 +72,6 @@ export default function Checkout() {
       setAddrSheet(true);
       return;
     }
-    if (mode === 'pickup' && !country) {
-      setPaymentError('Choose a valid area before payment so tax can be calculated.');
-      setLocSheet(true);
-      return;
-    }
     const cookId = ck ?? lineKey(lines[0]);
     setPaymentError(null);
     setBusy(true);
@@ -90,7 +83,7 @@ export default function Checkout() {
         customerMessage = 'Please sign in again to place your order.';
         toast('Please sign in again to place your order.', 'info');
         resetOnboarding(); // re-show the sign-in gate
-      } else if (/no longer available|are unavailable|taking orders|payouts are set up|delivery address|valid area|tax|too many attempts|already been paid|could not be recovered|could not be resumed|no longer payable|different kitchen/i.test(msg)) {
+      } else if (/no longer available|are unavailable|taking orders|payouts are set up|delivery address|pickup address|valid area|tax|too many attempts|already been paid|could not be recovered|could not be resumed|no longer payable|different kitchen/i.test(msg)) {
         // Server rejected on live availability (item sold out / kitchen paused / not payout-ready).
         // These messages are already customer-friendly — surface them instead of a generic error
         // so a paused kitchen or sold-out item doesn't read as a payment bug.
@@ -113,7 +106,6 @@ export default function Checkout() {
           cook: cookId, lines, mode, tipDollars: tip,
           idempotencyKey: idemKey,
           savePaymentMethod: useSaved ? false : saveNewCard,
-          taxCountry: country,
           addressId: mode === 'delivery' ? address?.id : undefined,
         });
         if (useSaved) {
@@ -141,7 +133,7 @@ export default function Checkout() {
     // Native: real order + Stripe's native PaymentSheet (real card entry, real charge).
     try {
       const { orderId, taxCents } = await payWithCard({
-        cook: cookId, lines, mode, tipDollars: tip, idempotencyKey: idemKey, savePaymentMethod: false, taxCountry: country,
+        cook: cookId, lines, mode, tipDollars: tip, idempotencyKey: idemKey, savePaymentMethod: false,
         addressId: mode === 'delivery' ? address?.id : undefined,
       });
       setBusy(false);
@@ -281,7 +273,6 @@ export default function Checkout() {
       </Dock>
 
       <AddressPickerSheet visible={addrSheet} onClose={() => setAddrSheet(false)} />
-      <LocationPicker visible={locSheet} onClose={() => setLocSheet(false)} />
       <CardPickerSheet
         visible={cardSheet}
         onClose={() => setCardSheet(false)}

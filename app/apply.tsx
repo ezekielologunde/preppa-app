@@ -39,7 +39,12 @@ export default function Apply() {
   const [phone, setPhone] = useState('');
   const [kitchenName, setKitchenName] = useState('');
   const [cuisine, setCuisine] = useState('');
-  const [address, setAddress] = useState('');
+  const [addressLine1, setAddressLine1] = useState('');
+  const [addressLine2, setAddressLine2] = useState('');
+  const [addressCity, setAddressCity] = useState('');
+  const [addressRegion, setAddressRegion] = useState('');
+  const [addressPostalCode, setAddressPostalCode] = useState('');
+  const [addressCountry, setAddressCountry] = useState('US');
   const [neighborhood, setNeighborhood] = useState('');
   const [serviceArea, setServiceArea] = useState('');
   const [experience, setExperience] = useState('');
@@ -174,7 +179,11 @@ export default function Apply() {
     if (key === 'kitchen') {
       if (kitchenName.trim().length < 2) return meals ? 'Give your kitchen a name.' : 'Give your cooking a name.';
       if (!cuisine) return 'Pick your primary cuisine.';
-      if (address.trim().length < 4) return 'Enter your address (private — only Preppa sees it).';
+      if (addressLine1.trim().length < 3) return 'Enter your street address. Only Preppa sees it.';
+      if (addressCity.trim().length < 2) return 'Enter your city.';
+      if (addressRegion.trim().length < 2) return 'Enter your state or region.';
+      if (addressPostalCode.trim().length < 3) return 'Enter your postal code.';
+      if (!/^[A-Za-z]{2}$/.test(addressCountry.trim())) return 'Enter a two-letter country code.';
       if (neighborhood.trim().length < 2) return 'Enter the neighborhood buyers will see.';
       if (story.trim().length < 2) return 'Add one line about what you love to cook.';
     }
@@ -223,7 +232,12 @@ export default function Apply() {
         phone: phone.trim(),
         kitchenName: kitchenName.trim(),
         cuisine,
-        address: address.trim(),
+        addressLine1: addressLine1.trim(),
+        addressLine2: addressLine2.trim() || undefined,
+        addressCity: addressCity.trim(),
+        addressRegion: addressRegion.trim(),
+        addressPostalCode: addressPostalCode.trim(),
+        addressCountry: addressCountry.trim().toUpperCase(),
         neighborhood: neighborhood.trim(),
         serviceArea: homeChef && serviceArea ? `Within ${serviceArea}` : undefined,
         experience: homeChef ? experience.trim() : undefined,
@@ -288,7 +302,16 @@ export default function Apply() {
                 })}
               </View>
             </View>
-            <Field c={c} label="Street address (private)" value={address} onChange={setAddress} placeholder="123 Main St, Apt 4" autoCapitalize="words" />
+            <Field c={c} label="Street address (private)" value={addressLine1} onChange={setAddressLine1} placeholder="123 Main St" autoCapitalize="words" />
+            <Field c={c} label="Unit or suite (optional)" value={addressLine2} onChange={setAddressLine2} placeholder="Apt 4" autoCapitalize="words" />
+            <View style={{ flexDirection: 'row', gap: 10 }}>
+              <View style={{ flex: 1 }}><Field c={c} label="City" value={addressCity} onChange={setAddressCity} placeholder="Atlanta" autoCapitalize="words" /></View>
+              <View style={{ flex: 1 }}><Field c={c} label="State / region" value={addressRegion} onChange={setAddressRegion} placeholder="GA" autoCapitalize="characters" /></View>
+            </View>
+            <View style={{ flexDirection: 'row', gap: 10 }}>
+              <View style={{ flex: 1 }}><Field c={c} label="Postal code" value={addressPostalCode} onChange={setAddressPostalCode} placeholder="30303" autoCapitalize="characters" /></View>
+              <View style={{ width: 110 }}><Field c={c} label="Country" value={addressCountry} onChange={setAddressCountry} placeholder="US" autoCapitalize="characters" /></View>
+            </View>
             <View>
               <Field c={c} label="Neighborhood (shown to buyers)" value={neighborhood} onChange={setNeighborhood} placeholder="e.g. Old Fourth Ward" autoCapitalize="words" />
               <Press scale={0.98} onPress={detectNeighborhood} style={{ marginTop: 8 }}>
@@ -367,6 +390,7 @@ export default function Apply() {
               <Row c={c} k="Phone" v={phone} onEdit={() => goStep('about')} />
               <Row c={c} k={meals ? 'Kitchen' : 'Cook name'} v={kitchenName} onEdit={() => goStep('kitchen')} />
               <Row c={c} k="Cuisine" v={cuisine} onEdit={() => goStep('kitchen')} />
+              <Row c={c} k="Private address" v={[addressLine1, addressLine2, addressCity, addressRegion, addressPostalCode, addressCountry].filter(Boolean).join(', ')} onEdit={() => goStep('kitchen')} />
               <Row c={c} k="Neighborhood" v={neighborhood} onEdit={() => goStep('kitchen')} />
               <Row c={c} k="What you cook" v={story} onEdit={() => goStep('kitchen')} />
               {homeChef ? <Row c={c} k="Travels" v={serviceArea ? `Within ${serviceArea}` : ''} onEdit={() => goStep('homechef')} /> : null}

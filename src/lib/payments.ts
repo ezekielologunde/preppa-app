@@ -12,9 +12,6 @@ export interface OrderOpts {
   idempotencyKey: string;
   /** Save the card used for this order to the buyer's Stripe Customer (new-card path). */
   savePaymentMethod?: boolean;
-  /** ISO-2 country of the buyer's confirmed area — drives real Stripe Tax calculation
-   *  server-side. Omitted/null → server charges $0 tax rather than guessing a rate. */
-  taxCountry?: string | null;
   /** Required for delivery. The server verifies ownership and snapshots the address on the order. */
   addressId?: string;
 }
@@ -61,7 +58,6 @@ export async function createRealOrder(opts: OrderOpts): Promise<{ orderId: strin
       tipCents: Math.round(opts.tipDollars * 100),
       idempotencyKey: opts.idempotencyKey,
       savePaymentMethod: opts.savePaymentMethod ?? false,
-      ...(opts.taxCountry ? { country: opts.taxCountry } : {}),
       ...(opts.addressId ? { addressId: opts.addressId } : {}),
     },
   });
