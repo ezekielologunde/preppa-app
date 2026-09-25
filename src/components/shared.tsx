@@ -10,7 +10,6 @@ export type { Totals } from '../data/totals';
 import { useC } from '../theme/ThemeContext';
 import { type, radius, shadow, tnum } from '../theme/theme';
 import { Icon, Press, Avatar, GradBox } from '../ui';
-import { MiniTag } from '../ui/layout';
 
 export function useTotals(cart: CartLine[], tip: number, mode: 'delivery' | 'pickup'): Totals {
   return computeTotals(cart, tip, mode);
@@ -23,24 +22,11 @@ export function Summary({ t, mode }: { t: Totals; mode: 'delivery' | 'pickup' })
       <Row label="Subtotal" value={money(t.subtotal)} strong />
       <View style={{ flexDirection: 'row', justifyContent: 'space-between', paddingVertical: 6 }}>
         <Text style={[type(14, 600), { color: c.soft }]}>{mode === 'pickup' ? 'Pickup' : 'Delivery'}</Text>
-        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
-          {t.deliveryFull > 0 ? <Text style={[type(13, 600), { color: c.muted, textDecorationLine: 'line-through' }]}>{money(t.deliveryFull)}</Text> : null}
-          <Text style={[type(14, 800), { color: c.green }]}>Free</Text>
-        </View>
+        <Text style={[type(14, 800), { color: c.ink }]}>{money(t.delivery)}</Text>
       </View>
       <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', paddingVertical: 6 }}>
-        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
-          <Text style={[type(14, 600), { color: c.soft }]}>Service fee</Text>
-          {t.hasFounder ? <MiniTag label="Founding cook" /> : null}
-        </View>
-        {t.hasFounder ? (
-          <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
-            <Text style={[type(13, 600), { color: c.muted, textDecorationLine: 'line-through' }]}>{money(t.serviceFull)}</Text>
-            <Text style={[type(14, 800), { color: c.green }]}>$0.00</Text>
-          </View>
-        ) : (
-          <Text style={[type(14, 800), { color: c.ink }]}>{money(t.service)}</Text>
-        )}
+        <Text style={[type(14, 600), { color: c.soft }]}>Service fee</Text>
+        <Text style={[type(14, 800), { color: c.ink }]}>{money(t.service)}</Text>
       </View>
       <Row label="Sales tax" value={t.tax > 0 ? money(t.tax) : 'Calculated at checkout'} />
       {t.tip > 0 ? <Row label="Tip · 100% to cook" value={money(t.tip)} strong /> : null}

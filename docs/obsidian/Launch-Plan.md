@@ -75,6 +75,7 @@ tags: [project/preppa, type/launch-plan]
 - Customers receive an in-app and push notification when admins move an order support request to in progress, resolved, closed, or reopened, completing the support lifecycle feedback loop.
 - Removed the remaining cash-on-delivery presentation branches and cook preference field. Tracking now requires a real order ID instead of falling back to a static "live" timeline. The decorative pickup QR and random backup code were also removed because no server verification or cook scanner existed, so old or malformed links cannot present fabricated fulfillment or handoff controls.
 - The latest UI and workflow hardening removed obsolete seeded-kitchen deep links, requires live catalog IDs at checkout, adds recovery for empty or failed custom-box and subscription-plan loads, confirms customer booking financial actions, protects cook menu mutations, and confirms high-impact admin payout, kitchen-application, support-ticket, and safety-request decisions. These safeguards have local typecheck, web-build, bundle-security, and audit evidence; provider and real-device acceptance remain separate launch gates.
+- Checkout preview now mirrors the order function's 10% service fee for every live kitchen and shows the actual zero delivery fee directly. Obsolete seed-cook waivers and an invented crossed-out delivery price were removed, so customers no longer see promotions the server does not model.
 
 ### Customer acceptance evidence still needed
 

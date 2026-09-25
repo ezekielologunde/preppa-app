@@ -133,8 +133,6 @@ export const mealPhotos = (m: Meal): string[] => (m.photos && m.photos.length ? 
 export const thumb = (url?: string): string | undefined =>
   url && url.includes('themealdb.com') ? url + '/preview' : url;
 
-export const FOUNDING = new Set<CookId>(['maria', 'amara']);
-
 export interface Experience {
   id: string; title: string; sub: string; cook: CookId; price: number;
   grad: GradKey | Grad; when: string; spots: string; tag: string; ico: string; img?: string;
