@@ -126,8 +126,9 @@ export default function ExperienceDetail() {
     setBusy(true);
     try {
       const res = await bookExperience(exp.id, sel.sessionId, guests);
-      if (res.clientSecret) setPay({ clientSecret: res.clientSecret, label: money(res.amountCents / 100) });
-      else { toast('You’re booked!', 'check', true); router.replace('/orders'); }
+      if (res.alreadyPaid) { toast('Payment confirmed. Opening your bookings.', 'check', true); router.replace('/orders'); }
+      else if (res.clientSecret) setPay({ clientSecret: res.clientSecret, label: money(res.amountCents / 100) });
+      else throw new Error('Could not resume the payment. Please try again.');
     } catch (e: any) {
       const msg = String(e?.message || '');
       if (/unauthorized|auth/i.test(msg)) toast('Sign in to book this experience', 'info');

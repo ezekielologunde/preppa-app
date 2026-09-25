@@ -68,6 +68,17 @@ Deno.serve(async (req) => {
     const amountCents = res?.amountCents as number;
     if (!bookingId || !amountCents) return json(500, { error: 'Could not start your booking.' });
 
+    if (res?.alreadyPaid === true) return json(200, { bookingId, clientSecret: null, amountCents, alreadyPaid: true, reused: true });
+    const admin = createClient(requireEnv('SUPABASE_URL'), requireEnv('SUPABASE_SERVICE_ROLE_KEY'), { auth: { persistSession: false } });
+    const { data: existing, error: existingError } = await admin.from('bookings').select('deposit_pi_id').eq('id', bookingId).maybeSingle();
+    if (existingError) throw existingError;
+    if (existing?.deposit_pi_id) {
+      const prior = await stripe.paymentIntents.retrieve(existing.deposit_pi_id);
+      if (prior.status === 'succeeded') return json(200, { bookingId, clientSecret: null, amountCents, alreadyPaid: true, reused: true });
+      if (!prior.client_secret) throw new Error('payment_intent_missing_client_secret');
+      return json(200, { bookingId, clientSecret: prior.client_secret, amountCents, alreadyPaid: false, reused: true });
+    }
+
     // mint the PaymentIntent (customer confirms with their card in CardPaymentSheet)
     const pi = await stripe.paymentIntents.create(
       {
@@ -80,7 +91,10 @@ Deno.serve(async (req) => {
       { idempotencyKey: 'expbk_' + bookingId },
     );
 
-    return json(200, { bookingId, clientSecret: pi.client_secret, amountCents });
+    const { error: saveError } = await admin.from('bookings').update({ deposit_pi_id: pi.id }).eq('id', bookingId);
+    if (saveError) throw saveError;
+
+    return json(200, { bookingId, clientSecret: pi.client_secret, amountCents, alreadyPaid: pi.status === 'succeeded', reused: !!res?.deduped });
   } catch (_e) {
     return json(500, { error: 'Could not start your booking. Please try again.' });
   }

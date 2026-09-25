@@ -651,6 +651,15 @@ begin
   end if;
 end $$;
 
+do $$
+declare v_src text;
+begin
+  select prosrc into v_src from pg_proc where oid = 'public.create_experience_booking(uuid,uuid,integer)'::regprocedure;
+  if v_src !~ 'confirmed.*in_progress.*completed' or v_src !~ 'alreadyPaid' then
+    raise exception 'REGRESSION: experience booking no longer reuses an existing active customer booking';
+  end if;
+end $$;
+
 rollback;
 
 select 'all regression checks passed' as result;

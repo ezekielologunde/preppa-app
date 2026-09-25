@@ -159,11 +159,11 @@ export async function submitQuote(body: { requestId: string; amountCents: number
   return data.quoteId;
 }
 
-export async function acceptQuoteAndDeposit(quoteId: string): Promise<{ bookingId: string; clientSecret: string | null; depositCents?: number }> {
+export async function acceptQuoteAndDeposit(quoteId: string): Promise<{ bookingId: string; clientSecret: string | null; depositCents?: number; alreadyPaid: boolean }> {
   assertLiveMoneyAllowed();
   const { data, error } = await supabase.functions.invoke('accept-quote-and-deposit', { body: { quoteId } });
   await assertFunctionSuccess(data, error, 'Could not start your booking.');
-  return { bookingId: data.bookingId, clientSecret: data.clientSecret, depositCents: data.depositCents };
+  return { bookingId: data.bookingId, clientSecret: data.clientSecret, depositCents: data.depositCents, alreadyPaid: data.alreadyPaid === true };
 }
 
 export async function completeBooking(bookingId: string): Promise<{ balanceCharged: boolean; balanceChargeError: string | null; balanceChargePending: boolean }> {

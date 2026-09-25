@@ -81,15 +81,22 @@ Deno.serve(async (req) => {
     }
     const bk = accepted as any;
 
-    if (bk.reused) {
-      const { data: existing } = await dbAsUser.from('bookings').select('deposit_pi_id').eq('id', bk.booking_id).maybeSingle();
-      let clientSecret: string | null = null;
-      if (existing?.deposit_pi_id) clientSecret = (await stripe.paymentIntents.retrieve(existing.deposit_pi_id)).client_secret;
-      return json(200, { bookingId: bk.booking_id, clientSecret, reused: true });
-    }
-
     const stripeCustomerId = await getOrCreateCustomer(db, uid, email);
     const idem = 'bk_' + quoteId;
+    if (bk.reused) {
+      const { data: existing, error: existingError } = await dbAsUser.from('bookings').select('deposit_pi_id, status').eq('id', bk.booking_id).maybeSingle();
+      if (existingError || !existing) throw existingError ?? new Error('booking_not_found');
+      if (['confirmed', 'in_progress', 'completed'].includes(existing.status)) {
+        return json(200, { bookingId: bk.booking_id, clientSecret: null, depositCents: bk.deposit_cents, totalCents: bk.amount_cents, alreadyPaid: true, reused: true });
+      }
+      if (existing.status !== 'pending_deposit') return json(409, { error: 'This booking is no longer payable.' });
+      if (existing.deposit_pi_id) {
+        const prior = await stripe.paymentIntents.retrieve(existing.deposit_pi_id);
+        if (prior.status === 'succeeded') return json(200, { bookingId: bk.booking_id, clientSecret: null, depositCents: bk.deposit_cents, totalCents: bk.amount_cents, alreadyPaid: true, reused: true });
+        if (!prior.client_secret) throw new Error('payment_intent_missing_client_secret');
+        return json(200, { bookingId: bk.booking_id, clientSecret: prior.client_secret, depositCents: bk.deposit_cents, totalCents: bk.amount_cents, alreadyPaid: false, reused: true });
+      }
+    }
     const pi = await stripe.paymentIntents.create({
       amount: bk.deposit_cents, currency: 'usd', customer: stripeCustomerId,
       automatic_payment_methods: { enabled: true },
@@ -97,7 +104,7 @@ Deno.serve(async (req) => {
     }, { idempotencyKey: idem });
     await db.from('bookings').update({ deposit_pi_id: pi.id }).eq('id', bk.booking_id);
 
-    return json(200, { bookingId: bk.booking_id, clientSecret: pi.client_secret, depositCents: bk.deposit_cents, totalCents: bk.amount_cents });
+    return json(200, { bookingId: bk.booking_id, clientSecret: pi.client_secret, depositCents: bk.deposit_cents, totalCents: bk.amount_cents, alreadyPaid: pi.status === 'succeeded', reused: !!bk.reused });
   } catch (_e) {
     return json(500, { error: 'Could not start your booking. Please try again.' });
   }

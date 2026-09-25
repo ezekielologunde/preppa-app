@@ -180,11 +180,11 @@ export async function fetchAvailability(experienceId: string): Promise<Availabil
   return (data as any[] ?? []).map((r) => ({ sessionId: r.session_id, startsAt: r.starts_at, capacity: r.capacity, seatsLeft: r.seats_left, status: r.status }));
 }
 /** Instant-book a session: atomic seat claim + full-payment PaymentIntent. Confirm the clientSecret in CardPaymentSheet. */
-export async function bookExperience(experienceId: string, sessionId: string, guests: number): Promise<{ bookingId: string; clientSecret: string | null; amountCents: number }> {
+export async function bookExperience(experienceId: string, sessionId: string, guests: number): Promise<{ bookingId: string; clientSecret: string | null; amountCents: number; alreadyPaid: boolean }> {
   assertLiveMoneyAllowed();
   const { data, error } = await supabase.functions.invoke('book-experience', { body: { experienceId, sessionId, guests } });
   await assertFunctionSuccess(data, error, 'Could not start your booking.');
-  return { bookingId: data.bookingId, clientSecret: data.clientSecret, amountCents: data.amountCents };
+  return { bookingId: data.bookingId, clientSecret: data.clientSecret, amountCents: data.amountCents, alreadyPaid: data.alreadyPaid === true };
 }
 
 // ---- Reviews (E4) ----------------------------------------------------------------------

@@ -58,9 +58,10 @@ export default function RequestDetailScreen() {
     if (busyQ) return;
     setBusyQ(q.id);
     try {
-      const { clientSecret, depositCents } = await acceptQuoteAndDeposit(q.id);
-      if (clientSecret) setPay({ clientSecret, label: money2(depositCents ?? q.depositCents) });
-      else { toast('Booking confirmed', 'check', true); load(); }
+      const { clientSecret, depositCents, alreadyPaid } = await acceptQuoteAndDeposit(q.id);
+      if (alreadyPaid) { toast('Deposit confirmed. Opening your bookings.', 'check', true); router.replace('/orders'); }
+      else if (clientSecret) setPay({ clientSecret, label: money2(depositCents ?? q.depositCents) });
+      else throw new Error('Could not resume the deposit payment. Please try again.');
     } catch (e: any) { toast(e?.message || 'Could not start your booking', 'info'); }
     finally { setBusyQ(null); }
   };
