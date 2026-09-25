@@ -13,6 +13,7 @@ import { PhotoPick, KField, KInput, MoneyInput, KChoice, KBtn } from '../(tabs)/
 
 const CATS = ['Comfort', 'Pasta', 'Healthy', 'Soul food', 'Halal', 'Dessert', 'Seafood'];
 const DIETS = ['Vegetarian', 'Gluten-free', 'Halal', 'Dairy-free', 'Nut-free'];
+const ALLERGENS = ['Milk', 'Eggs', 'Fish', 'Shellfish', 'Tree nuts', 'Peanuts', 'Wheat', 'Soy', 'Sesame'];
 
 export default function CreateMealFlow() {
   const c = useC();
@@ -41,12 +42,16 @@ export default function CreateMealFlow() {
   const [serves, setServes] = useState(2);
   const [cat, setCat] = useState('Comfort');
   const [diet, setDiet] = useState<string[]>([]);
+  const [ingredients, setIngredients] = useState('');
+  const [allergens, setAllergens] = useState<string[]>([]);
+  const [allergenReviewed, setAllergenReviewed] = useState(false);
   const [qty, setQty] = useState('');
   const [done, setDone] = useState(false);
   const [busy, setBusy] = useState(false);
   const toggleD = (d: string) => setDiet((p) => (p.includes(d) ? p.filter((x) => x !== d) : [...p, d]));
-  const valid = !!name.trim() && Number(price) > 0;
-  const reason = !name.trim() ? 'Add a dish name' : 'Set a price above $0';
+  const toggleAllergen = (a: string) => setAllergens((p) => (p.includes(a) ? p.filter((x) => x !== a) : [...p, a]));
+  const valid = !!name.trim() && Number(price) > 0 && ingredients.trim().length >= 3 && allergenReviewed;
+  const reason = !name.trim() ? 'Add a dish name' : Number(price) <= 0 ? 'Set a price above $0' : ingredients.trim().length < 3 ? 'List the ingredients customers should know about' : 'Confirm you reviewed the allergen disclosure';
   const submit = async () => {
     if (busy) return;
     if (!valid) { toast(reason, 'info'); return; }
@@ -59,6 +64,9 @@ export default function CreateMealFlow() {
         serves,
         tags: [cat, ...diet],
         grad: grad ?? undefined,
+        ingredients: ingredients.trim(),
+        allergens,
+        allergenReviewed,
       });
       // Photo is a booster, not a blocker: upload best-effort, never fail the publish over it.
       if (photoFile && Platform.OS === 'web') {
@@ -155,6 +163,20 @@ export default function CreateMealFlow() {
             {DIETS.map((x) => <KChoice key={x} label={x} on={diet.includes(x)} onPress={() => toggleD(x)} check />)}
           </View>
         </KField>
+        <KField label="Ingredients" hint="required · list every ingredient">
+          <KInput value={ingredients} onChange={setIngredients} placeholder="Chicken, rice, onion, garlic, olive oil, spices…" multiline />
+        </KField>
+        <KField label="Contains allergens" hint="select every allergen that applies">
+          <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 9 }}>
+            {ALLERGENS.map((x) => <KChoice key={x} label={x} on={allergens.includes(x)} onPress={() => toggleAllergen(x)} check />)}
+          </View>
+        </KField>
+        <Press scale={0.98} onPress={() => setAllergenReviewed((v) => !v)}>
+          <View style={{ flexDirection: 'row', alignItems: 'flex-start', gap: 11, padding: 14, borderRadius: radius.md, backgroundColor: c.bg2, borderWidth: 1, borderColor: allergenReviewed ? c.primary : c.border }}>
+            <View style={{ width: 22, height: 22, borderRadius: 7, borderWidth: 2, borderColor: allergenReviewed ? c.primary : c.border, backgroundColor: allergenReviewed ? c.primary : 'transparent', alignItems: 'center', justifyContent: 'center' }}>{allergenReviewed ? <Icon name="check" size={13} color="#fff" /> : null}</View>
+            <Text style={[type(12.5, 700), { color: c.soft, lineHeight: 18, flex: 1 }]}>I reviewed the full recipe and disclosed every applicable major allergen.</Text>
+          </View>
+        </Press>
         <KField label="Daily quantity" hint="how many you can make"><KInput value={qty} onChange={setQty} placeholder="e.g. 12 trays per day" /></KField>
       </ScrollView>
       <Dock>

@@ -82,6 +82,15 @@ export default function MealDetail() {
           <SectionLabel>About this meal</SectionLabel>
           <Text style={[type(14.5, 500), { color: c.soft, lineHeight: 23 }]}>{m.desc}</Text>
 
+          <SectionLabel>Ingredients & allergens</SectionLabel>
+          <Text style={[type(13, 800), { color: c.ink, marginBottom: 5 }]}>Ingredients</Text>
+          <Text style={[type(14, 500), { color: c.soft, lineHeight: 21 }]}>{m.ingredients || 'Ingredients have not been provided for this meal yet.'}</Text>
+          <Text style={[type(13, 800), { color: c.ink, marginTop: 13, marginBottom: 5 }]}>Allergen disclosure</Text>
+          <Text style={[type(14, 600), { color: m.allergenReviewed ? c.soft : c.red, lineHeight: 21 }]}>
+            {m.allergenReviewed ? (m.allergens?.length ? `Contains: ${m.allergens.join(', ')}.` : 'The cook reviewed this recipe and declared no major allergens.') : 'This meal has not completed the allergen disclosure review. Contact the cook before ordering.'}
+          </Text>
+          <Text style={[type(11.5, 500), { color: c.muted, lineHeight: 17, marginTop: 8 }]}>Prepared in a home kitchen where cross-contact may occur. Ask the cook before ordering if you have a food allergy.</Text>
+
           <View style={{ flexDirection: 'row', gap: 10, marginTop: 14 }}>
             <Fact b={`${m.protein}g`} s="protein" />
             <Fact b={String(m.kcal)} s="calories" />

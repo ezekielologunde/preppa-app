@@ -23,6 +23,65 @@ begin
   end if;
 end $$;
 
+-- Customer isolation: these policies are the boundary preventing one signed-in buyer from
+-- reading another buyer's orders, payment records, support tickets, or private messages.
+do $$
+declare v_qual text;
+begin
+  if exists (
+    select 1 from pg_class c join pg_namespace n on n.oid = c.relnamespace
+    where n.nspname = 'public' and c.relname in ('orders','order_items','payment_intents','tickets','ticket_messages','message_threads','messages')
+      and not c.relrowsecurity
+  ) then
+    raise exception 'REGRESSION: a customer-data table lost RLS';
+  end if;
+
+  select qual into v_qual from pg_policies
+  where schemaname = 'public' and tablename = 'orders' and policyname = 'orders_select_party';
+  if v_qual is null or v_qual !~ 'customer_id.*auth.uid' or v_qual !~ 'is_kitchen_owner' then
+    raise exception 'REGRESSION: orders_select_party no longer restricts reads to the buyer or kitchen owner';
+  end if;
+
+  select qual into v_qual from pg_policies
+  where schemaname = 'public' and tablename = 'tickets' and policyname = 'tickets_select_own';
+  if v_qual is null or v_qual !~ 'reporter_id.*auth.uid' then
+    raise exception 'REGRESSION: ticket reads no longer include reporter ownership';
+  end if;
+
+  if (select prosrc from pg_proc where oid = 'public.create_ticket(uuid,ticket_category,text,text)'::regprocedure)
+     !~ 'customer_id = v_uid or public.is_kitchen_owner' then
+    raise exception 'REGRESSION: create_ticket() no longer verifies the caller is an order party';
+  end if;
+end $$;
+
+-- Food-safety disclosure: new meal publishing must keep ingredients mandatory and require
+-- an explicit allergen review; catalog columns must remain public-readable through meals RLS.
+do $$
+declare v_src text;
+begin
+  if not exists (
+    select 1 from information_schema.columns
+    where table_schema = 'public' and table_name = 'meals' and column_name = 'ingredients'
+  ) or not exists (
+    select 1 from information_schema.columns
+    where table_schema = 'public' and table_name = 'meals' and column_name = 'allergens'
+  ) or not exists (
+    select 1 from information_schema.columns
+    where table_schema = 'public' and table_name = 'meals' and column_name = 'allergen_reviewed_at'
+  ) then
+    raise exception 'REGRESSION: meal ingredient/allergen disclosure columns are missing';
+  end if;
+
+  select prosrc into v_src from pg_proc
+  where oid = 'public.create_meal(text,text,integer,integer,text[],text,text,text[],boolean)'::regprocedure;
+  if v_src !~ 'list the meal ingredients' or v_src !~ 'confirm the allergen review' then
+    raise exception 'REGRESSION: create_meal() no longer requires ingredient and allergen review';
+  end if;
+  if has_function_privilege('anon', 'public.create_meal(text,text,integer,integer,text[],text,text,text[],boolean)', 'execute') then
+    raise exception 'REGRESSION: anonymous users can publish meals';
+  end if;
+end $$;
+
 do $$
 begin
   if has_function_privilege('authenticated', 'public.kitchen_broadcast_audience(uuid)', 'execute') then

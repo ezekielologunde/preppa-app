@@ -56,6 +56,9 @@ export interface Meal {
   protein: number; // grams — illustrative seed data (real per-batch macros are REQUIRES-SERVER)
   serves: number;
   desc: string;
+  ingredients?: string;
+  allergens?: string[];
+  allergenReviewed?: boolean;
   img?: string; // cover photo; the grad is the loading/error fallback
   photos?: string[]; // extra gallery photos (illustrative seed); the carousel shows these when present, else [img]
   mealUuid?: string; // real DB meals.id (present when sourced from Supabase) — carried to checkout

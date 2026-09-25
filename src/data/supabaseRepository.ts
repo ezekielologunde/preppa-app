@@ -30,7 +30,7 @@ export function setViewerCoords(c: LatLng | null) { viewerCoords = c; }
 // Embeds the parent kitchen (to-one) so real kitchens can render under their own
 // identity + coordinates instead of a seed cook.
 const MEAL_COLS =
-  'id,slug,name,kitchen_id,price_cents,grad,rating,review_count,prep_label,tags,is_match,kcal,protein_g,serves,description,image_url,photos,kitchens(name,cuisine,approx_area,approx_lat,approx_lng,is_pro,supports_delivery,supports_pickup)';
+  'id,slug,name,kitchen_id,price_cents,grad,rating,review_count,prep_label,tags,is_match,kcal,protein_g,serves,description,ingredients,allergens,allergen_reviewed_at,image_url,photos,kitchens(name,cuisine,approx_area,approx_lat,approx_lng,is_pro,supports_delivery,supports_pickup)';
 
 function rowToMeal(r: any): Meal {
   const seedCook = KITCHEN_TO_COOK[r.kitchen_id]; // defined only for the 6 seed kitchens
@@ -58,6 +58,9 @@ function rowToMeal(r: any): Meal {
     protein: r.protein_g ?? 0,
     serves: r.serves ?? 1,
     desc: r.description ?? '',
+    ingredients: r.ingredients || undefined,
+    allergens: (r.allergens as string[]) ?? [],
+    allergenReviewed: !!r.allergen_reviewed_at,
     img: r.image_url ?? undefined,
     photos: r.photos && r.photos.length ? (r.photos as string[]) : undefined,
     mealUuid: r.id,
