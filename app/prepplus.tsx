@@ -31,20 +31,33 @@ export default function PrepPlus() {
   const [interval, setInterval] = useState<'month' | 'year'>('month');
   const [busy, setBusy] = useState(false);
   const membershipActionInFlight = useRef(false);
+  const loadSequence = useRef(0);
   const [addCard, setAddCard] = useState<string | null>(null);
 
   const refresh = async () => {
+    const sequence = ++loadSequence.current;
     setLoadError('');
     try {
-      setMem(await fetchMembership());
+      const nextMembership = await fetchMembership();
+      if (sequence !== loadSequence.current) return false;
+      setMem(nextMembership);
       return true;
-    } catch (e: any) {
-      setLoadError(e?.message || 'Could not load your membership.');
+    } catch {
+      if (sequence !== loadSequence.current) return false;
+      setLoadError('We couldn’t refresh your membership. Check your connection and try again.');
       return false;
     }
   };
-  const load = async () => { setLoading(true); await refresh(); setLoading(false); };
-  useEffect(() => { void load(); }, []);
+  const load = async () => {
+    setLoading(true);
+    const sequence = loadSequence.current + 1;
+    await refresh();
+    if (sequence === loadSequence.current) setLoading(false);
+  };
+  useEffect(() => {
+    void load();
+    return () => { loadSequence.current += 1; };
+  }, []);
 
   const isMember = membershipActive(mem);
   const trialAvailable = !mem?.trialConsumed;
@@ -63,15 +76,21 @@ export default function PrepPlus() {
     setBusy(true);
     try {
       const res = await subscribeToPrepPlus(interval);
-      await refresh();
+      const refreshed = await refresh();
       await reconcileAccount();
-      toast(res.trial ? '7-day free trial started 🎉' : 'Welcome to PrepPlus 🎉', 'bolt', true);
+      toast(
+        refreshed
+          ? res.trial ? '7-day free trial started 🎉' : 'Welcome to PrepPlus 🎉'
+          : 'Membership started. Refresh to see the latest details.',
+        refreshed ? 'bolt' : 'info',
+        refreshed,
+      );
     } catch (e: any) {
       if (e?.code === 'no_card') {
         try { const { clientSecret } = await createSetupIntent(); setAddCard(clientSecret); }
         catch { toast('Add a card to start your membership.', 'info'); }
       } else {
-        toast(e?.message || 'Could not start your membership. Please try again.', 'info');
+        toast('Could not start your membership. Please try again.', 'info');
       }
     } finally { membershipActionInFlight.current = false; setBusy(false); }
   };
@@ -83,11 +102,17 @@ export default function PrepPlus() {
     setBusy(true);
     try {
       await manageMembership(action, iv);
-      await refresh();
+      const refreshed = await refresh();
       await reconcileAccount();
-      toast(action === 'cancel' ? 'Membership will end at the period close' : action === 'resume' ? 'Membership resumed' : 'Plan switched', 'check', true);
-    } catch (e: any) {
-      toast(e?.message || 'Could not update your membership.', 'info');
+      toast(
+        refreshed
+          ? action === 'cancel' ? 'Membership will end at the period close' : action === 'resume' ? 'Membership resumed' : 'Plan switched'
+          : 'Membership updated. Refresh to see the latest details.',
+        refreshed ? 'check' : 'info',
+        refreshed,
+      );
+    } catch {
+      toast('Could not update your membership. Please try again.', 'info');
     } finally { membershipActionInFlight.current = false; setBusy(false); }
   };
 
@@ -131,6 +156,7 @@ export default function PrepPlus() {
       <Screen>
         <TopBar title="PrepPlus" />
         <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={{ paddingBottom: 40 }}>
+          {loadError ? <RefreshAlert message={loadError} onRetry={refresh} /> : null}
           <GradBox grad={PREPPLUS_GRAD} style={{ margin: 16, borderRadius: radius.xl, padding: 22, overflow: 'hidden', ...shadow.hero }}>
             <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10 }}>
               <View style={{ width: 44, height: 44, borderRadius: 14, backgroundColor: 'rgba(255,255,255,.18)', alignItems: 'center', justifyContent: 'center' }}>
@@ -188,6 +214,7 @@ export default function PrepPlus() {
     <Screen>
       <TopBar title="PrepPlus" />
       <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={{ paddingBottom: 130 }}>
+        {loadError ? <RefreshAlert message={loadError} onRetry={refresh} /> : null}
         <GradBox grad={PREPPLUS_GRAD} style={{ margin: 16, borderRadius: radius.xl, padding: 22, overflow: 'hidden', ...shadow.hero }}>
           <View style={{ width: 56, height: 56, borderRadius: 18, backgroundColor: 'rgba(255,255,255,.18)', alignItems: 'center', justifyContent: 'center' }}>
             <Icon name="bolt" size={28} color="#fff" />
@@ -227,6 +254,19 @@ export default function PrepPlus() {
 
       <CardPaymentSheet visible={!!addCard} clientSecret={addCard} amountLabel="" mode="save" onPaid={onCardSaved} onClose={() => setAddCard(null)} />
     </Screen>
+  );
+}
+
+function RefreshAlert({ message, onRetry }: { message: string; onRetry: () => Promise<boolean> }) {
+  const c = useC();
+  return (
+    <View accessibilityRole="alert" style={{ marginHorizontal: 16, marginTop: 12, padding: 14, borderRadius: radius.card, backgroundColor: c.primaryL, borderWidth: 1, borderColor: c.border2 }}>
+      <Text style={[type(13.5, 800), { color: c.ink }]}>Membership details may be out of date</Text>
+      <Text style={[type(12.5, 500), { color: c.soft, lineHeight: 18, marginTop: 3 }]}>{message}</Text>
+      <Press scale={0.98} onPress={() => void onRetry()} label="Retry membership refresh" style={{ alignSelf: 'flex-start', marginTop: 9, paddingVertical: 5 }}>
+        <Text style={[type(13, 900), { color: c.primary }]}>Try again</Text>
+      </Press>
+    </View>
   );
 }
 
