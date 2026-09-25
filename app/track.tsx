@@ -32,8 +32,7 @@ export default function Track() {
   const { cook, orderId } = useLocalSearchParams<{ cook?: string; orderId?: string }>();
   const { mode, orders } = useStore();
   // The freshest source for this order's real kitchen identity is the just-created
-  // CustomerOrder (matched by dbId/orderId, or by the same grouping key) — cookOfLine's
-  // COOKS fallback only covers the 6 seed kitchens.
+  // CustomerOrder (matched by dbId/orderId, or by the same grouping key).
   const matchedOrder = orders.find((o) => (orderId && o.dbId === orderId) || (!!cook && o.cook === cook));
   const ck = cook ?? matchedOrder?.cook ?? '';
   const theCook = cookOfLine({ cook: ck, kitchenName: matchedOrder?.kitchenName, grad: matchedOrder?.lines[0]?.grad ?? 'g1' });
@@ -125,7 +124,7 @@ export default function Track() {
           </View>
 
           <View style={{ flexDirection: 'row', alignItems: 'center', gap: 12, padding: 13, borderRadius: radius.lg, backgroundColor: c.bg, borderWidth: 1, borderColor: c.border }}>
-            <Avatar cook={ck} initial={theCook.initial} grad={theCook.grad} size={46} />
+          <Avatar initial={theCook.initial} grad={theCook.grad} size={46} />
             <View style={{ flex: 1 }}>
               <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}><Text style={[type(15, 900), { color: c.ink }]}>{theCook.name}</Text><Icon name="shield" size={15} color={c.green} /></View>
               <Text style={[type(12, 600), { color: c.soft, marginTop: 2 }]}>Your cook is preparing your order</Text>

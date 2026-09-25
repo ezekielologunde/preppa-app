@@ -1,15 +1,14 @@
 import React from 'react';
 import { View, Text } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
-import { useRouter } from 'expo-router';
 import { CartLine } from '../store/store';
-import { COOKS, CookId, money, thumb } from '../data/data';
+import { money, thumb } from '../data/data';
 import { computeTotals, Totals } from '../data/totals';
 export { computeTotals } from '../data/totals';
 export type { Totals } from '../data/totals';
 import { useC } from '../theme/ThemeContext';
 import { type, radius, shadow, tnum } from '../theme/theme';
-import { Icon, Press, Avatar, GradBox } from '../ui';
+import { Icon, Press, GradBox } from '../ui';
 
 export function useTotals(cart: CartLine[], tip: number, mode: 'delivery' | 'pickup'): Totals {
   return computeTotals(cart, tip, mode);
@@ -63,24 +62,17 @@ export function OrderLineRow({ line, first }: { line: CartLine; first?: boolean 
   );
 }
 
-/** .cookrow — tappable prepper/kitchen identity row that opens the storefront.
- *  Pass a seed `cook` for the six seeded kitchens, or `name`/`initial` (+ `onPress`)
- *  to render a real kitchen that has no seed CookId. */
-export function CookRow({ cook, name, initial, meta, goIcon = 'chevRight', onPress, isPro }: { cook?: CookId; name?: string; initial?: string; meta?: string; goIcon?: string; onPress?: () => void; isPro?: boolean }) {
+/** Tappable kitchen identity row. */
+export function CookRow({ name, initial, meta, goIcon = 'chevRight', onPress, isPro }: { name?: string; initial?: string; meta?: string; goIcon?: string; onPress?: () => void; isPro?: boolean }) {
   const c = useC();
-  const router = useRouter();
-  const cd = cook ? COOKS[cook] : null;
-  const displayName = name ?? cd?.name ?? 'Kitchen';
-  const metaText = meta ?? (cd ? `${cd.cuisine} · PrepScore ${cd.prepscore}` : '');
-  const go = onPress ?? (cook ? () => router.push(`/store/${cook}`) : undefined);
+  const displayName = name ?? 'Kitchen';
+  const metaText = meta ?? '';
   return (
-    <Press scale={0.98} onPress={go}>
+    <Press scale={0.98} onPress={onPress}>
       <View style={{ flexDirection: 'row', alignItems: 'center', gap: 12, marginTop: 18, padding: 13, borderRadius: radius.lg, backgroundColor: c.bg, borderWidth: 1, borderColor: c.border }}>
-        {cook ? <Avatar cook={cook} size={46} /> : (
-          <View style={{ width: 46, height: 46, borderRadius: 15, backgroundColor: c.primary, alignItems: 'center', justifyContent: 'center' }}>
-            <Text style={[type(19, 900), { color: '#fff' }]}>{initial ?? displayName.trim()[0]?.toUpperCase() ?? 'K'}</Text>
-          </View>
-        )}
+        <View style={{ width: 46, height: 46, borderRadius: 15, backgroundColor: c.primary, alignItems: 'center', justifyContent: 'center' }}>
+          <Text style={[type(19, 900), { color: '#fff' }]}>{initial ?? displayName.trim()[0]?.toUpperCase() ?? 'K'}</Text>
+        </View>
         <View style={{ flex: 1 }}>
           <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
             <Text style={[type(15, 900), { color: c.ink }]}>{displayName}</Text>

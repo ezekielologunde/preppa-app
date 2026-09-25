@@ -23,7 +23,7 @@ import { TextStyle } from 'react-native';
 
 /** Per-cook / fallback tint ramps. Recoloured from the old neon rainbow to a cohesive
  *  warm "spice-drawer" set (terracotta, clay, sage, plum, tan) — earthy, appetite-adjacent,
- *  never a rainbow. Kept as 8 keys because COOKS in data.ts are keyed to these. White
+ *  never a rainbow. Kept as 8 keys for consistent presentation options. White
  *  initials read AA-large on the deeper (second) stop, which is what Avatar fills with. */
 export const GRAD = {
   g1: ['#CF6B4C', '#B23A22'], // terracotta

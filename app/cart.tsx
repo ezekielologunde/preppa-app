@@ -44,7 +44,7 @@ export default function Cart() {
             <View key={ck} style={{ marginHorizontal: 16, marginTop: 14, borderWidth: 1, borderColor: c.border2, borderRadius: radius.card, backgroundColor: c.surface, ...shadow.card }}>
               <Press scale={0.99} onPress={() => router.push(`/store/${ck}`)} label={`${cook.name}'s kitchen`}>
                 <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10, padding: 14, borderBottomWidth: 1, borderBottomColor: c.border2 }}>
-                  <Avatar cook={ck} initial={cook.initial} grad={cook.grad} size={34} rad={11} />
+              <Avatar initial={cook.initial} grad={cook.grad} size={34} rad={11} />
                   <Text style={[type(14.5, 900), { color: c.ink, flex: 1, letterSpacing: -0.2 }]}>{cook.name}</Text>
                   <Text style={[type(13, 700), { color: c.soft }]}>{lines.length} item{lines.length !== 1 ? 's' : ''}</Text>
                 </View>

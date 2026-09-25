@@ -87,7 +87,7 @@ export default function OrderDetail() {
         {/* cook card */}
         <Press scale={0.99} onPress={() => router.push(`/store/${o.cook}`)}>
           <View style={{ flexDirection: 'row', alignItems: 'center', gap: 12, backgroundColor: c.surface, borderRadius: radius.card, borderWidth: 1, borderColor: c.border2, padding: 13 }}>
-            <Avatar cook={o.cook} initial={cook.initial} grad={cook.grad} size={46} />
+              <Avatar initial={cook.initial} grad={cook.grad} size={46} />
             <View style={{ flex: 1 }}>
               <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
                 <Text style={[type(15, 900), { color: c.ink }]}>{cook.kitchen}</Text>

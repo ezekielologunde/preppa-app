@@ -2,7 +2,7 @@ import React, { useState } from 'react';
 import { View, Text, ScrollView, ActivityIndicator } from 'react-native';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { mealPhotos, money, cookOf, type CookId } from '../../src/data/data';
+import { mealPhotos, money, cookOf } from '../../src/data/data';
 import { useMeal, useKitchenReviews } from '../../src/data/hooks';
 import { useC } from '../../src/theme/ThemeContext';
 import { type, radius } from '../../src/theme/theme';
@@ -31,8 +31,7 @@ export default function MealDetail() {
   if (!m) return <NotFound title="Meal" />;
   const photos = mealPhotos(m);
   const cook = cookOf(m); // real kitchen identity for non-seed kitchens (not a seed fallback)
-  const isSeedKitchen = !m.kitchenName; // real kitchens carry kitchenName; seeds don't
-  const kitchenLink = isSeedKitchen ? m.cook : m.kitchenUuid; // route to the real kitchen by UUID
+  const kitchenLink = m.kitchenUuid;
   const lineTotal = m.price * qty;
   const isFav = fav.has(m.id);
 
@@ -68,12 +67,8 @@ export default function MealDetail() {
             <Meta icon="walk" text={m.dist} tone={c.soft} />
           </View>
 
-          {isSeedKitchen ? (
-            <CookRow cook={m.cook as CookId} meta={`${cook.cuisine} · PrepScore ${cook.prepscore} · ${cook.reviews} reviews`} />
-          ) : (
-            <CookRow name={cook.name} initial={cook.initial} meta={cook.cuisine} isPro={cook.isPro}
-              onPress={() => kitchenLink && router.push(`/store/${kitchenLink}`)} />
-          )}
+          <CookRow name={cook.name} initial={cook.initial} meta={cook.cuisine} isPro={cook.isPro}
+            onPress={() => kitchenLink && router.push(`/store/${kitchenLink}`)} />
 
           <SectionLabel>About this meal</SectionLabel>
           <Text style={[type(14.5, 500), { color: c.soft, lineHeight: 23 }]}>{m.desc}</Text>

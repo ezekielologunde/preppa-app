@@ -70,7 +70,7 @@ export default function Review() {
       <TopBar title="Rate your cook" />
       <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={{ paddingBottom: 120 }}>
         <View style={{ alignItems: 'center', paddingVertical: 22, backgroundColor: c.surface, borderBottomWidth: 1, borderBottomColor: c.border2 }}>
-          <Avatar cook={o.cook} initial={cook.initial} grad={cook.grad} size={64} rad={20} />
+          <Avatar initial={cook.initial} grad={cook.grad} size={64} rad={20} />
           <Text style={[type(18, 900), { color: c.ink, marginTop: 12 }]}>{cook.name}</Text>
           <Text style={[type(13, 600), { color: c.soft, marginTop: 2 }]}>How was your order?</Text>
           <View style={{ flexDirection: 'row', gap: 8, marginTop: 16 }}>

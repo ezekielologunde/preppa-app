@@ -1,12 +1,12 @@
 import React, { useEffect, useRef, useState } from 'react';
-import { View, Text, ScrollView, Pressable, Animated, StyleSheet, LayoutChangeEvent, NativeSyntheticEvent, NativeScrollEvent, StyleProp, ViewStyle, ActivityIndicator } from 'react-native';
+import { View, Text, ScrollView, Pressable, Animated, StyleSheet, LayoutChangeEvent, NativeSyntheticEvent, NativeScrollEvent, ActivityIndicator } from 'react-native';
 import { useRouter } from 'expo-router';
-import { COOKS, CookId, Meal, Experience, PlanGoal, money, cookOf, thumb, mealPhotos } from '../data/data';
+import { Meal, PlanGoal, money, cookOf, thumb, mealPhotos } from '../data/data';
 import { useKitchenReviews, type KitchenCard } from '../data/hooks';
 import { useC } from '../theme/ThemeContext';
 import { type, radius, shadow, tnum } from '../theme/theme';
 import { useActions, useFav } from '../store/store';
-import { Press, GradBox, Icon, Avatar, Stars, GradAvatar, gradColors } from '../ui';
+import { Press, GradBox, Icon, Stars, GradAvatar, gradColors } from '../ui';
 import { useReducedMotion } from '../ui/useReducedMotion';
 
 /* Fixed inks for chrome that overlays photos (white pills / heart buttons). These sit on
@@ -41,32 +41,6 @@ function useCardScale(scale = 0.97) {
 export function VChk({ size = 13, color }: { size?: number; color?: string }) {
   const c = useC();
   return <Icon name="shield" size={size} color={color ?? c.green} />;
-}
-
-/** Horizontal rail of cook/kitchen cards — shared by Home and Experiences. */
-export function CookRail({ cooks }: { cooks: CookId[] }) {
-  const c = useC();
-  const router = useRouter();
-  return (
-    <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ gap: 12, paddingHorizontal: 20, paddingVertical: 4 }}>
-      {cooks.map((id) => {
-        const cook = COOKS[id];
-        return (
-          <Press key={id} scale={0.97} onPress={() => router.push(`/store/${id}`)} label={`${cook.name}'s kitchen`}>
-            <View style={{ width: 150, backgroundColor: c.surface, borderWidth: 1, borderColor: c.border2, borderRadius: radius.card, padding: 14, alignItems: 'center', ...shadow.card }}>
-              <Avatar cook={id} size={54} rad={17} />
-              <Text numberOfLines={1} style={[type(14, 900), { color: c.ink, marginTop: 10 }]}>{cook.name}</Text>
-              <Text numberOfLines={1} style={[type(11.5, 600), { color: c.soft, marginTop: 2 }]}>{cook.cuisine}</Text>
-              <View style={{ flexDirection: 'row', alignItems: 'center', gap: 4, marginTop: 6 }}>
-                <Icon name="star" size={12} color={c.star} />
-                <Text style={[type(11.5, 800), { color: c.ink }]}>New · {cook.dist}</Text>
-              </View>
-            </View>
-          </Press>
-        );
-      })}
-    </ScrollView>
-  );
 }
 
 /** Horizontal rail of verified kitchens from the live directory. */
@@ -470,55 +444,3 @@ function Meta({ icon, text, starColor }: { icon: string; text: string; starColor
     </View>
   );
 }
-
-/** Horizontal experience rail. */
-export function ExpRail({ exps, wrap }: { exps: Experience[]; wrap?: boolean }) {
-  if (wrap) {
-    return (
-      <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 13, paddingHorizontal: 20 }}>
-        {exps.map((e) => <ExpCard key={e.id} e={e} />)}
-      </View>
-    );
-  }
-  return (
-    <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ gap: 13, paddingHorizontal: 20, paddingVertical: 6 }}>
-      {exps.map((e) => <ExpCard key={e.id} e={e} />)}
-    </ScrollView>
-  );
-}
-
-export const ExpCard = React.memo(function ExpCard({ e, style }: { e: Experience; style?: StyleProp<ViewStyle> }) {
-  const c = useC();
-  const router = useRouter();
-  const cook = COOKS[e.cook];
-  return (
-    <Press scale={0.97} onPress={() => router.push(`/experience/${e.id}`)} style={[{ width: 236 }, style]}>
-      <View style={{ backgroundColor: c.surface, borderRadius: radius.card, borderWidth: 1, borderColor: c.border2, overflow: 'hidden', ...shadow.card }}>
-        <GradBox grad={e.grad} img={e.img} style={{ height: 132 }}>
-          <View style={{ position: 'absolute', top: 10, left: 10, height: 26, borderRadius: radius.pill, paddingHorizontal: 10, flexDirection: 'row', alignItems: 'center', gap: 5, backgroundColor: 'rgba(255,255,255,.92)' }}>
-            <Icon name={e.ico} size={13} color={c.primary} />
-            <Text style={[type(10.5, 900), { color: c.ink, textTransform: 'uppercase' }]}>{e.tag}</Text>
-          </View>
-          <View style={{ position: 'absolute', left: 12, bottom: 10, flexDirection: 'row', alignItems: 'center', gap: 7 }}>
-            <GradBox grad={cook.grad} style={{ width: 26, height: 26, borderRadius: 8, alignItems: 'center', justifyContent: 'center', borderWidth: 1.5, borderColor: '#fff' }}>
-              <Text style={[type(11, 900), { color: '#fff' }]}>{cook.initial}</Text>
-            </GradBox>
-            <Text style={[type(12, 800), { color: '#fff' }]}>{cook.name}</Text>
-          </View>
-        </GradBox>
-        <View style={{ padding: 13 }}>
-          <Text style={[type(15, 900), { color: c.ink }]}>{e.title}</Text>
-          <Text numberOfLines={1} style={[type(12, 600), { color: c.soft, marginTop: 2 }]}>{e.sub}</Text>
-          <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6, marginTop: 8 }}>
-            <Icon name="calendar" size={13} color={c.primary} />
-            <Text style={[type(11.5, 700), { color: c.ink2 }]}>{e.when}</Text>
-          </View>
-          <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginTop: 10 }}>
-            <Text style={[type(15, 900), { color: c.ink }]}>{money(e.price)}<Text style={type(11, 700)}> /seat</Text></Text>
-            <Text style={[type(11, 800), { color: c.accentText, backgroundColor: c.primaryL, paddingHorizontal: 9, paddingVertical: 4, borderRadius: radius.pill, overflow: 'hidden' }]}>{e.spots}</Text>
-          </View>
-        </View>
-      </View>
-    </Press>
-  );
-});

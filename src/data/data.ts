@@ -5,7 +5,6 @@ export type { GradKey } from '../theme/theme';
 
 export type Grad = readonly [string, string];
 
-export type CookId = 'maria' | 'david' | 'amara' | 'denise' | 'lucia' | 'sana';
 export interface Cook {
   name: string;
   kitchen: string;
@@ -17,22 +16,13 @@ export interface Cook {
   dist: string;
   verified: boolean;
   prepscore: number;
-  isPro?: boolean; // Preppa Pro member — real (non-seed) kitchens only; seed cooks never carry this
+  isPro?: boolean;
 }
-
-export const COOKS: Record<CookId, Cook> = {
-  maria: { name: 'Chef Maria', kitchen: "Maria's Kitchen", initial: 'M', grad: 'g4', cuisine: 'Italian comfort', rating: 4.9, reviews: 312, dist: '1.2 km', verified: true, prepscore: 98 },
-  david: { name: 'Chef David', kitchen: "David's Table", initial: 'D', grad: 'g3', cuisine: 'Healthy & seafood', rating: 4.8, reviews: 204, dist: '0.8 km', verified: true, prepscore: 95 },
-  amara: { name: 'Amara O.', kitchen: "Amara's Kitchen", initial: 'A', grad: 'g1', cuisine: 'West African', rating: 4.9, reviews: 412, dist: '0.6 km', verified: true, prepscore: 97 },
-  denise: { name: 'Denise R.', kitchen: "Denise's Soul Food", initial: 'D', grad: 'g6', cuisine: 'Soul food', rating: 4.9, reviews: 540, dist: '1.6 km', verified: true, prepscore: 99 },
-  lucia: { name: 'Lucia R.', kitchen: 'Cocina de Lucia', initial: 'L', grad: 'g7', cuisine: 'Oaxacan', rating: 4.7, reviews: 198, dist: '2.1 km', verified: true, prepscore: 94 },
-  sana: { name: 'Sana K.', kitchen: "Sana's Halal Home", initial: 'S', grad: 'g8', cuisine: 'Halal & Desi', rating: 4.8, reviews: 276, dist: '1.4 km', verified: true, prepscore: 96 },
-};
 
 export interface Meal {
   id: string;
   name: string;
-  /** Stable kitchen identity: a seed CookId for fixtures, or the real kitchen UUID. */
+  /** Stable kitchen identity from the server. */
   cook: string;
   price: number;
   grad: GradKey;
@@ -55,7 +45,6 @@ export interface Meal {
   kitchenUuid?: string; // real DB kitchens.id — carried to checkout
   // Real (non-seed) kitchen display identity, carried so an approved prepper's meal
   // renders under its own kitchen instead of being misattributed to a seed cook.
-  // Present only for kitchens outside the 6 seed cooks; `cookOf` prefers these.
   kitchenName?: string;
   kitchenCuisine?: string;
   kitchenArea?: string;
@@ -70,10 +59,7 @@ export interface Meal {
 }
 
 /**
- * Resolve a meal's cook for DISPLAY. For the 6 seed kitchens this returns the rich
- * seed `Cook`; for a real approved kitchen it synthesizes a Cook from the kitchen
- * identity carried on the meal — so real supply shows under its own name/avatar
- * rather than defaulting to a seed cook.
+ * Resolve the server kitchen identity carried on a meal for display.
  */
 export function cookOf(m: Meal): Cook {
   if (m.kitchenName) {
@@ -91,7 +77,7 @@ export function cookOf(m: Meal): Cook {
       isPro: !!m.kitchenIsPro,
     };
   }
-  return COOKS[m.cook as CookId] ?? {
+  return {
     name: 'Kitchen', kitchen: 'Kitchen', initial: 'K', grad: m.grad, cuisine: '',
     rating: m.rating, reviews: m.reviews, dist: m.dist, verified: true, prepscore: 0,
   };
@@ -115,14 +101,13 @@ export function cookOfLine(l: { cook: string; kitchenName?: string; grad: GradKe
       prepscore: 0,
     };
   }
-  return COOKS[l.cook as CookId] ?? {
+  return {
     name: 'Kitchen', kitchen: 'Kitchen', initial: 'K', grad: l.grad, cuisine: '',
     rating: 0, reviews: 0, dist: '', verified: false, prepscore: 0,
   };
 }
 
-/** The real grouping/routing key for a cart or order line: a real kitchen's UUID when
- *  present, else the seed CookId. */
+/** The grouping/routing key for a cart or order line. */
 export function lineKey(l: { cook: string; kitchenUuid?: string }): string {
   return l.kitchenUuid ?? l.cook;
 }
@@ -136,10 +121,6 @@ export const mealPhotos = (m: Meal): string[] => (m.photos && m.photos.length ? 
 export const thumb = (url?: string): string | undefined =>
   url && url.includes('themealdb.com') ? url + '/preview' : url;
 
-export interface Experience {
-  id: string; title: string; sub: string; cook: CookId; price: number;
-  grad: GradKey | Grad; when: string; spots: string; tag: string; ico: string; img?: string;
-}
 /* ---------------- meal plans / subscriptions ---------------- */
 export type PlanGoal = 'cut' | 'bulk' | 'maintain';
 

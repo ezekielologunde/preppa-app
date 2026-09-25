@@ -4,7 +4,7 @@ import { Image } from 'expo-image';
 import { LinearGradient } from 'expo-linear-gradient';
 import { GRAD, GradKey, radius, type, shadow, tnum, FILL } from '../theme/theme';
 import { useC } from '../theme/ThemeContext';
-import { COOKS, CookId, Grad } from '../data/data';
+import { Grad } from '../data/data';
 import { Icon } from './Icon';
 import { useReducedMotion } from './useReducedMotion';
 
@@ -117,17 +117,12 @@ export function GradBox({
   );
 }
 
-/** `cook` may be a seed CookId or a real kitchen's UUID (the `lineKey` grouping key) — for a
- *  real kitchen, pass `initial`/`grad` (from `cookOfLine`) to render its own identity;
- *  otherwise this falls back to a safe seed default rather than crashing on an unknown key. */
-export function Avatar({ cook, initial, grad, size = 46, rad = 14, fontSize }: { cook: string; initial?: string; grad?: GradKey; size?: number; rad?: number; fontSize?: number }) {
-  const c = COOKS[cook as CookId];
-  // Flat warm-neutral chip (deep end of the cook's spice-drawer tint) — no rainbow gradient.
-  // Per-cook hue is retained so cooks stay distinguishable; white initial reads AA-large.
-  const fill = gradColors(grad ?? c?.grad ?? 'g1')[1];
+/** Kitchen avatar. Callers provide the server-derived initial and presentation color. */
+export function Avatar({ initial, grad, size = 46, rad = 14, fontSize }: { initial?: string; grad?: GradKey; size?: number; rad?: number; fontSize?: number }) {
+  const fill = gradColors(grad ?? 'g1')[1];
   return (
     <View style={{ width: size, height: size, borderRadius: rad, backgroundColor: fill, alignItems: 'center', justifyContent: 'center' }}>
-      <Text style={[type(fontSize || size * 0.42, 700), { color: '#fff' }]}>{initial ?? c?.initial ?? 'K'}</Text>
+      <Text style={[type(fontSize || size * 0.42, 700), { color: '#fff' }]}>{initial ?? 'K'}</Text>
     </View>
   );
 }
