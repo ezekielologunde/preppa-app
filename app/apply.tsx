@@ -54,6 +54,8 @@ export default function Apply() {
   const [submittedKitchen, setSubmittedKitchen] = useState<string | null>(null);
   const [onboarding, setOnboarding] = useState(false);
   const [myKitchenId, setMyKitchenId] = useState<string | null>(null);
+  const [myKitchenLoading, setMyKitchenLoading] = useState(false);
+  const [myKitchenError, setMyKitchenError] = useState(false);
 
   const meals = types.includes('meals');
   const homeChef = types.includes('home_chef');
@@ -73,9 +75,15 @@ export default function Apply() {
   }, [key]);
 
   // A pending applicant re-opening this screen can still start Stripe onboarding.
-  useEffect(() => {
-    if (prepperStatus === 'pending') getMyKitchen().then((k) => setMyKitchenId(k?.id ?? null)).catch(() => {});
+  const loadMyKitchen = React.useCallback(async () => {
+    if (prepperStatus !== 'pending') return;
+    setMyKitchenLoading(true);
+    setMyKitchenError(false);
+    try { setMyKitchenId((await getMyKitchen())?.id ?? null); }
+    catch { setMyKitchenError(true); }
+    finally { setMyKitchenLoading(false); }
   }, [prepperStatus]);
+  useEffect(() => { void loadMyKitchen(); }, [loadMyKitchen]);
 
   // Detect the neighborhood on demand (captures location, then reverse-geocodes).
   const detectNeighborhood = async () => {
@@ -128,12 +136,27 @@ export default function Apply() {
           <View style={{ width: 64, height: 64, borderRadius: 20, backgroundColor: c.primaryL, alignItems: 'center', justifyContent: 'center' }}><Icon name={prepperStatus === 'approved' ? 'check' : 'clock'} size={30} color={c.primary} /></View>
           <Text style={[type(19, 900), { color: c.ink, marginTop: 16 }]}>{prepperStatus === 'approved' ? 'You’re already a Preppa' : 'Application under review'}</Text>
           <Text style={[type(14, 500), { color: c.soft, textAlign: 'center', marginTop: 6, maxWidth: 300 }]}>{prepperStatus === 'approved' ? 'Manage your kitchen in My Hub.' : 'We’re reviewing your application. Finish identity + payout setup to speed it up.'}</Text>
-          {prepperStatus === 'pending' && myKitchenId ? (
+          {prepperStatus === 'pending' && myKitchenLoading ? (
+            <View style={{ marginTop: 18, alignItems: 'center', gap: 8 }}>
+              <ActivityIndicator color={c.primary} />
+              <Text style={[type(12.5, 600), { color: c.soft }]}>Checking payout setup…</Text>
+            </View>
+          ) : prepperStatus === 'pending' && myKitchenError ? (
+            <View style={{ marginTop: 18, width: '100%', maxWidth: 340, padding: 14, borderRadius: radius.lg, backgroundColor: c.bg2, gap: 10 }}>
+              <Text style={[type(13, 600), { color: c.soft, textAlign: 'center' }]}>We couldn’t load your payout setup. Your application is still saved.</Text>
+              <Btn label="Try again" variant="ghost" block onPress={() => void loadMyKitchen()} />
+            </View>
+          ) : prepperStatus === 'pending' && myKitchenId ? (
             <View style={{ marginTop: 18, width: '100%', maxWidth: 340 }}>
               <Btn label="Verify & set up payouts" icon="card" block loading={onboarding} onPress={async () => {
                 setOnboarding(true);
                 try { await startConnectOnboarding(myKitchenId); } catch (e: any) { setOnboarding(false); toast(e?.message || 'Couldn’t start setup — please try again.', 'info'); }
               }} />
+            </View>
+          ) : prepperStatus === 'pending' ? (
+            <View style={{ marginTop: 18, width: '100%', maxWidth: 340, padding: 14, borderRadius: radius.lg, backgroundColor: c.bg2, gap: 10 }}>
+              <Text style={[type(13, 600), { color: c.soft, textAlign: 'center' }]}>We couldn’t find the kitchen linked to this application. Refresh before contacting support.</Text>
+              <Btn label="Refresh application" variant="ghost" block onPress={() => void loadMyKitchen()} />
             </View>
           ) : null}
           <View style={{ marginTop: 12 }}><Btn label="Back" variant="ghost" onPress={() => router.back()} /></View>

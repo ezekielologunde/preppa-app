@@ -38,6 +38,7 @@ tags: [project/preppa, type/launch-plan]
 - The notification center now distinguishes loading and request failures from a legitimate empty inbox, exposes failed mark-read persistence, and provides refresh recovery. Stale messaging-unavailable copy was removed because relationship messaging is live.
 - Public kitchen storefronts now distinguish failed profile, meal, review, and experience requests from missing or empty content, preserve stale meal and experience data when available, and provide retry actions.
 - Cook post creation now reports menu-loading failures, explains that posting can continue without a featured dish, and provides a menu retry action instead of silently hiding the selector.
+- Pending cook applications now show payout-setup loading, lookup failures, missing kitchen records, and retry actions instead of silently removing the Stripe onboarding path.
 
 ### Customer acceptance evidence still needed
 
