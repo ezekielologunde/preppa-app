@@ -9,6 +9,7 @@ import { Btn, Icon, Press, GradBox } from '../../src/ui';
 import { money } from '../../src/data/data';
 import { fetchDashboardSummary, fetchKitchenOrders, updateOrderStatus, KitchenDashboardSummary, KitchenOrderRow } from '../../src/lib/orders';
 import { getMyKitchen, refreshConnectStatus, startConnectOnboarding } from '../../src/lib/connect';
+import { FLAGS } from '../../src/config/flags';
 
 export type Tone = 'ic-amber' | 'ic-green' | 'ic-purple' | 'ic-blue' | 'ic-ink' | 'ic-red';
 export function well(c: Palette, t: Tone): [string, string] {
@@ -325,7 +326,7 @@ export function PhotoPick({ grad, setGrad }: { grad: GradKey | null; setGrad: (g
   );
 }
 
-const SHORTCUTS: { route: string; ic: string; tone: Tone; l: string }[] = [
+const SHORTCUTS: { route: string; ic: string; tone: Tone; l: string; enabled?: boolean }[] = [
   { route: '/hub/orders', ic: 'box', tone: 'ic-amber', l: 'Orders' },
   { route: '/messages', ic: 'comment', tone: 'ic-purple', l: 'Messages' },
   { route: '/hub/requests', ic: 'users', tone: 'ic-purple', l: 'Requests' },
@@ -339,7 +340,7 @@ const SHORTCUTS: { route: string; ic: string; tone: Tone; l: string }[] = [
   { route: '/hub/subscribers', ic: 'users', tone: 'ic-green', l: 'Subscribers' },
   { route: '/hub/analytics', ic: 'bars', tone: 'ic-blue', l: 'Analytics' },
   { route: '/hub/post-reel', ic: 'play', tone: 'ic-purple', l: 'Post reel' },
-  { route: '/hub/go-live', ic: 'video', tone: 'ic-red', l: 'Go live' },
+  { route: '/hub/go-live', ic: 'video', tone: 'ic-red', l: 'Go live', enabled: FLAGS.live },
   { route: '/hub/tickets', ic: 'info', tone: 'ic-blue', l: 'Support' },
 ];
 
@@ -355,7 +356,7 @@ function ShortcutsGrid() {
   return (
     <View style={{ paddingHorizontal: 20 }}>
       <View onLayout={(e: LayoutChangeEvent) => setW(e.nativeEvent.layout.width)} style={{ flexDirection: 'row', flexWrap: 'wrap', gap }}>
-        {w > 0 && SHORTCUTS.map((s) => {
+        {w > 0 && SHORTCUTS.filter((s) => s.enabled !== false).map((s) => {
           const [bg, fg] = well(c, s.tone);
           return (
             <Press key={s.route} scale={0.96} onPress={() => router.push(s.route as any)} style={{ width: cardW }} label={s.l}>

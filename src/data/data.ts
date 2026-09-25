@@ -1,4 +1,4 @@
-/* PREPPA — mock data, ported from the design prototype (app-core / exp-suite / plans-suite). */
+/* Shared catalog models and presentation helpers. Live inventory is loaded by service modules. */
 
 import type { GradKey } from '../theme/theme';
 export type { GradKey } from '../theme/theme';
@@ -33,18 +33,18 @@ export interface Meal {
   tags: string[];
   match: boolean;
   kcal: number;
-  protein: number; // grams — illustrative seed data (real per-batch macros are REQUIRES-SERVER)
+  protein: number; // grams supplied with the catalog meal
   serves: number;
   desc: string;
   ingredients?: string;
   allergens?: string[];
   allergenReviewed?: boolean;
   img?: string; // cover photo; the grad is the loading/error fallback
-  photos?: string[]; // extra gallery photos (illustrative seed); the carousel shows these when present, else [img]
+  photos?: string[]; // extra gallery photos; the carousel shows these when present, else [img]
   mealUuid?: string; // real DB meals.id (present when sourced from Supabase) — carried to checkout
   kitchenUuid?: string; // real DB kitchens.id — carried to checkout
-  // Real (non-seed) kitchen display identity, carried so an approved prepper's meal
-  // renders under its own kitchen instead of being misattributed to a seed cook.
+  // Kitchen display identity carried with the meal so catalog surfaces do not
+  // need a second lookup to render the owning kitchen.
   kitchenName?: string;
   kitchenCuisine?: string;
   kitchenArea?: string;
@@ -52,8 +52,7 @@ export interface Meal {
   kitchenLat?: number; // real kitchen coords (for proximity); present once geocoded
   kitchenLng?: number;
   distKm?: number; // computed distance from the viewer (present when both have coords)
-  // Real fulfillment capability (kitchens.supports_delivery/supports_pickup). Seed kitchens
-  // always support both; real kitchens default true/true too until a cook changes it.
+  // Fulfillment capability from kitchens.supports_delivery/supports_pickup.
   supportsDelivery?: boolean;
   supportsPickup?: boolean;
 }
