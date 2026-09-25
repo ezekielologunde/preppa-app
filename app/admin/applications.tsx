@@ -11,6 +11,7 @@ import { ImageViewer } from '../../src/components/ImageViewer';
 import * as admin from '../../src/lib/admin';
 import { AdminHeader } from '../../src/components/admin/AdminHeader';
 import { ErrorRetry } from '../../src/components/admin/states';
+import { confirmAction } from '../../src/lib/confirm';
 
 function when(iso: string): string {
   try { return new Date(iso).toLocaleDateString(); } catch { return ''; }
@@ -56,6 +57,24 @@ export default function AdminApplications() {
       setBusy(null);
     }
   };
+  const requestApprove = (id: string, name: string) => {
+    confirmAction(
+      `Approve ${name}?`,
+      'Approval makes this kitchen eligible for marketplace operations once its remaining payout and listing requirements are satisfied.',
+      () => void approve(id, name),
+      'Approve kitchen',
+    );
+  };
+  const requestReject = (id: string, name: string) => {
+    const trimmed = reason.trim();
+    if (trimmed.length < 3) { toast('Add a short reason to reject', 'info'); return; }
+    confirmAction(
+      `Reject ${name}?`,
+      `The applicant will see this reason: ${trimmed}`,
+      () => void reject(id, name),
+      'Reject application',
+    );
+  };
 
   return (
     <Screen max={900}>
@@ -98,7 +117,7 @@ export default function AdminApplications() {
                         flex={1}
                         loading={busy === 'approve'}
                         disabled={busy !== null}
-                        onPress={() => approve(app.kitchen_id, app.kitchen_name)}
+                        onPress={() => requestApprove(app.kitchen_id, app.kitchen_name)}
                       />
                     </View>
                     <View>
@@ -110,6 +129,8 @@ export default function AdminApplications() {
                         onChangeText={setReason}
                         placeholder="e.g. Kitchen photos don't meet food-safety guidelines"
                         placeholderTextColor={c.muted}
+                        maxLength={1000}
+                        accessibilityLabel="Application rejection reason, 1,000 characters maximum"
                         multiline
                         style={{
                           minHeight: 64,
@@ -123,6 +144,7 @@ export default function AdminApplications() {
                           ...(type(14, 600) as object),
                         }}
                       />
+                      <Text style={[type(11.5, 600), { color: c.muted, textAlign: 'right', marginTop: 4 }]}>{reason.length}/1000</Text>
                       <View style={{ marginTop: 10 }}>
                         <Btn
                           label="Reject application"
@@ -130,7 +152,7 @@ export default function AdminApplications() {
                           icon="x"
                           loading={busy === 'reject'}
                           disabled={busy !== null}
-                          onPress={() => reject(app.kitchen_id, app.kitchen_name)}
+                          onPress={() => requestReject(app.kitchen_id, app.kitchen_name)}
                         />
                       </View>
                     </View>

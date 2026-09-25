@@ -114,6 +114,7 @@ Went end-to-end through Shef's actual ordering flow (add to cart → cross-sell 
 - [x] ~~Confirm cook booking charges and refunds on every platform~~ — done 2026-09-25. Completing a service booking now discloses the exact remaining balance that will be charged, while cancellation explains the deposit refund. Both mutations use the shared web/native confirmation flow, closing the native path that previously cancelled immediately.
 - [x] ~~Protect cook menu recovery and archiving~~ — done 2026-09-25. Menu load failures now provide a real retry state, status mutations reject overlapping taps, and dish archiving requires a cross-platform confirmation that explains the effect on customer visibility and existing orders.
 - [x] ~~Confirm manual payout reconciliation outcomes~~ — done 2026-09-25. Admins now review the amount, kitchen, Stripe transfer ID, or failure note in a cross-platform confirmation before marking a payout paid or failed. Overlapping reconciliation submissions are blocked.
+- [x] ~~Confirm admin kitchen application decisions~~ — done 2026-09-25. Approval now explains when marketplace eligibility begins, rejection repeats the applicant-visible reason before submission, and rejection text is visibly bounded to 1,000 characters.
 - [ ] In-app camera broadcast for Go Live (currently external RTMP only — no official Mux RN SDK).
 - Cash on delivery is not offered. Any future version requires a separately approved held-card, deposit, and identity design before client work begins.
 
