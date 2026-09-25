@@ -171,6 +171,9 @@ interface Store {
   dismissFlash: () => void;
 
   notifs: AppNotification[];
+  notificationsLoading: boolean;
+  notificationsError: string;
+  refreshNotifications: () => Promise<void>;
   markNotifRead: (id: string) => void;
   markAllRead: () => void;
   notifCount: number;
@@ -227,6 +230,8 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
   const [avail, setAvail] = useState(true);
   const [acted, setActed] = useState<string[]>([]);
   const [notifs, setNotifs] = useState<AppNotification[]>([]); // real notifications from the DB
+  const [notificationsLoading, setNotificationsLoading] = useState(false);
+  const [notificationsError, setNotificationsError] = useState('');
   const [threadUnread, setThreadUnread] = useState(0); // unread DM threads (real messaging)
   const [uid, setUid] = useState<string | null>(null); // signed-in user id (drives Realtime subscriptions)
   const [flash, setFlash] = useState<{ name: string; grad: GradKey } | null>(null);
@@ -307,7 +312,11 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
         if (s.displayName) setName(s.displayName);
         if (s.firstName) setFirstName(s.firstName);
         setAvatarUrl(s.avatarUrl); // authoritative — set even when null so a removed photo clears
-        try { setNotifs(await fetchNotifications()); } catch { /* keep last */ }
+        setNotificationsLoading(true);
+        setNotificationsError('');
+        try { setNotifs(await fetchNotifications()); }
+        catch (e: any) { setNotificationsError(e?.message || 'Could not load notifications.'); }
+        finally { setNotificationsLoading(false); }
         try { setThreadUnread(await threadUnreadCount()); } catch { /* keep last */ }
         // Fire-and-forget: no-ops on web / before an EAS project is linked, and never
         // throws (see src/lib/push.ts) — safe to leave unawaited here.
@@ -315,6 +324,8 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
       } else {
         setAvatarUrl(null);
         setNotifs([]); // signed out — no notifications
+        setNotificationsLoading(false);
+        setNotificationsError('');
         setThreadUnread(0);
       }
     } catch {
@@ -325,6 +336,13 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
   // Refresh just the messaging unread count (called after opening/reading a thread).
   const refreshMessaging = useCallback(async () => {
     try { setThreadUnread(await threadUnreadCount()); } catch { /* keep last */ }
+  }, []);
+  const refreshNotifications = useCallback(async () => {
+    setNotificationsLoading(true);
+    setNotificationsError('');
+    try { setNotifs(await fetchNotifications()); }
+    catch (e: any) { setNotificationsError(e?.message || 'Could not load notifications.'); }
+    finally { setNotificationsLoading(false); }
   }, []);
 
   const saveName = useCallback(async (fullName: string) => {
@@ -370,7 +388,7 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
   useEffect(() => {
     if (!uid) return;
     const off = subscribeMyNotifications(uid, () => {
-      fetchNotifications().then(setNotifs).catch(() => {});
+      fetchNotifications().then((rows) => { setNotifs(rows); setNotificationsError(''); }).catch((e: any) => setNotificationsError(e?.message || 'Could not refresh notifications.'));
       threadUnreadCount().then(setThreadUnread).catch(() => {});
     });
     return off;
@@ -600,11 +618,11 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
 
   const markNotifRead = useCallback((id: string) => {
     setNotifs((ns) => ns.map((n) => (n.id === id ? { ...n, unread: false } : n))); // optimistic
-    markNotificationRead(id).catch(() => {});
+    markNotificationRead(id).catch((e: any) => setNotificationsError(e?.message || 'Could not save notification status. Refresh to try again.'));
   }, []);
   const markAllRead = useCallback(() => {
     setNotifs((ns) => ns.map((n) => ({ ...n, unread: false }))); // optimistic
-    markAllNotificationsRead().catch(() => {});
+    markAllNotificationsRead().catch((e: any) => setNotificationsError(e?.message || 'Could not save notification status. Refresh to try again.'));
   }, []);
   // Keep the repository's viewer coords in sync so the catalog can sort nearest-first.
   const setCoords = useCallback((cc: LatLng | null) => { setCoordsState(cc); setViewerCoords(cc); }, []);
@@ -678,6 +696,9 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
     showFlash,
     dismissFlash,
     notifs,
+    notificationsLoading,
+    notificationsError,
+    refreshNotifications,
     markNotifRead,
     markAllRead,
     notifCount,

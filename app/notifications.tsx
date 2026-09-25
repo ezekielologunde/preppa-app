@@ -5,7 +5,7 @@ import { useC } from '../src/theme/ThemeContext';
 import { type, radius } from '../src/theme/theme';
 import { useStore } from '../src/store/store';
 import type { AppNotification } from '../src/lib/supabase';
-import { Icon, Press } from '../src/ui';
+import { Icon, Press, Btn } from '../src/ui';
 import { Screen, TopBar, Empty } from '../src/ui/layout';
 
 type Tone = '' | 'amber' | 'purple' | 'blue' | 'pink' | 'green';
@@ -28,7 +28,7 @@ function relTime(iso: string): string {
 export default function Notifications() {
   const c = useC();
   const router = useRouter();
-  const { notifs, markNotifRead, markAllRead, notifCount, threadUnread } = useStore();
+  const { notifs, notificationsLoading, notificationsError, refreshNotifications, markNotifRead, markAllRead, notifCount, threadUnread } = useStore();
   const [tab, setTab] = useState<'alerts' | 'messages'>('alerts');
   const unreadAlerts = notifs.filter((n) => n.unread).length;
 
@@ -49,10 +49,21 @@ export default function Notifications() {
       </View>
       <ScrollView showsVerticalScrollIndicator={false}>
         {tab === 'alerts' ? (
-          notifs.length === 0 ? (
+          notificationsLoading && notifs.length === 0 ? (
+            <View style={{ padding: 28, alignItems: 'center' }}><Text style={[type(13.5, 700), { color: c.soft }]}>Loading alerts…</Text></View>
+          ) : notificationsError && notifs.length === 0 ? (
+            <Empty icon="info" title="Alerts couldn’t load" body={notificationsError} action={<Btn label="Try again" icon="repeat" onPress={refreshNotifications} />} />
+          ) : notifs.length === 0 ? (
             <Empty icon="bell" title="No alerts yet" body="Order updates and account activity show up here." />
           ) : (
-            notifs.map((n) => {
+            <>
+              {notificationsError ? (
+                <View accessibilityRole="alert" style={{ margin: 16, padding: 12, borderRadius: radius.md, backgroundColor: c.redL, borderWidth: 1, borderColor: c.red }}>
+                  <Text style={[type(12.5, 700), { color: c.red, lineHeight: 18, marginBottom: 8 }]}>{notificationsError}</Text>
+                  <View style={{ alignSelf: 'flex-start' }}><Btn label="Refresh alerts" icon="repeat" variant="ghost" onPress={refreshNotifications} /></View>
+                </View>
+              ) : null}
+              {notifs.map((n) => {
               const meta = metaFor(n.kind);
               return (
                 <Press key={n.id} scale={0.99} onPress={() => openAlert(n)} label={n.title}>
@@ -67,10 +78,11 @@ export default function Notifications() {
                   </View>
                 </Press>
               );
-            })
+              })}
+            </>
           )
         ) : (
-          <Empty icon="chat" title="Messaging is coming soon" body="Direct chat with your cook will live here. For now, use “Report an issue” on an order to reach support." />
+          <Empty icon="chat" title="Open messages" body="Your customer and cook conversations are available in Messages." />
         )}
       </ScrollView>
     </Screen>
