@@ -141,7 +141,7 @@ Went end-to-end through Shef's actual ordering flow (add to cart → cross-sell 
 ## Cleanup
 
 - [x] ~~Update `README.md` and `LAUNCH-ACCOUNTS.md`~~ — done 2026-09-25. The README now distinguishes production configuration from launch approval and documents the current CI gates. The account tracker now separates checked-in identifiers from provider verification and lists the external evidence still required.
-- [ ] Resolve the two divergent `GRAD` palette exports (`src/theme/theme.ts` vs `src/data/data.ts`).
+- [x] ~~Resolve the two divergent `GRAD` palette exports~~ — done 2026-09-25. Removed the obsolete prototype palette from `src/data/data.ts`; gradient keys now come from the canonical Warm Trust theme while tuple gradients remain supported for explicit feature artwork.
 - [ ] Reduce the 39-route reliance on `src/data/data.ts` mock data; audit which persisted-store seed data is still reachable.
 
 ## Related

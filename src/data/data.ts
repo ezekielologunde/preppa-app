@@ -1,19 +1,9 @@
 /* PREPPA — mock data, ported from the design prototype (app-core / exp-suite / plans-suite). */
 
-export type Grad = readonly [string, string];
+import type { GradKey } from '../theme/theme';
+export type { GradKey } from '../theme/theme';
 
-/** ListingImage placeholder gradients (--g1..--g8), from the canonical theme. */
-export const GRAD = {
-  g1: ['#FF6B35', '#F7931E'],
-  g2: ['#667EEA', '#764BA2'],
-  g3: ['#11998E', '#38EF7D'],
-  g4: ['#FF8A4C', '#F26B1D'],
-  g5: ['#A8E063', '#56AB2F'],
-  g6: ['#EF4444', '#F97316'],
-  g7: ['#7C3AED', '#A855F7'],
-  g8: ['#0EA5E9', '#6366F1'],
-} as const satisfies Record<string, Grad>;
-export type GradKey = keyof typeof GRAD;
+export type Grad = readonly [string, string];
 
 export type CookId = 'maria' | 'david' | 'amara' | 'denise' | 'lucia' | 'sana';
 export interface Cook {
