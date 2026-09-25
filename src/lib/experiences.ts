@@ -68,22 +68,24 @@ function rowToExperience(r: any, sessions: ExperienceSession[] = [], meetingUrl:
 /** Active (unreleased) held/booked seats per session, for a set of session ids. */
 async function seatsBySession(sessionIds: string[]): Promise<Record<string, number>> {
   if (!sessionIds.length) return {};
-  const { data } = await supabase
+  const { data, error } = await supabase
     .from('experience_seat_reservations')
     .select('session_id, guests')
     .in('session_id', sessionIds)
     .is('released_at', null);
+  if (error) throw error;
   const m: Record<string, number> = {};
   for (const r of (data as any[] ?? [])) m[r.session_id] = (m[r.session_id] ?? 0) + (r.guests ?? 0);
   return m;
 }
 
 async function sessionsFor(experienceId: string): Promise<ExperienceSession[]> {
-  const { data } = await supabase
+  const { data, error } = await supabase
     .from('experience_sessions')
     .select('id, starts_at, capacity, status')
     .eq('experience_id', experienceId)
     .order('starts_at', { ascending: true });
+  if (error) throw error;
   const rows = (data as any[]) ?? [];
   const taken = await seatsBySession(rows.map((s) => s.id));
   return rows.map((s) => ({ id: s.id, startsAt: s.starts_at, capacity: s.capacity, status: s.status, seatsTaken: taken[s.id] ?? 0 }));
@@ -91,13 +93,16 @@ async function sessionsFor(experienceId: string): Promise<ExperienceSession[]> {
 
 /** The signed-in cook's experiences (all statuses), each with its sessions. */
 export async function fetchMyExperiences(): Promise<Experience[]> {
-  const { data: sess } = await supabase.auth.getSession();
+  const { data: sess, error: sessionError } = await supabase.auth.getSession();
+  if (sessionError) throw sessionError;
   const uid = sess.session?.user?.id;
   if (!uid) return [];
-  const { data: k } = await supabase.from('kitchens').select('id').eq('owner_id', uid).limit(1).maybeSingle();
+  const { data: k, error: kitchenError } = await supabase.from('kitchens').select('id').eq('owner_id', uid).limit(1).maybeSingle();
+  if (kitchenError) throw kitchenError;
   if (!k) return [];
   const { data, error } = await supabase.from('experiences').select(SELECT).eq('kitchen_id', (k as any).id).order('created_at', { ascending: false });
-  if (error || !data) return [];
+  if (error) throw error;
+  if (!data) return [];
   const rows = data as any[];
   return Promise.all(rows.map(async (r) => rowToExperience(r, await sessionsFor(r.id))));
 }
@@ -105,29 +110,34 @@ export async function fetchMyExperiences(): Promise<Experience[]> {
 /** A single experience by id (+ sessions). Null if not visible (RLS) or not a real id. */
 export async function fetchExperience(id: string): Promise<Experience | null> {
   const { data, error } = await supabase.from('experiences').select(SELECT).eq('id', id).maybeSingle();
-  if (error || !data) return null;
+  if (error) throw error;
+  if (!data) return null;
   // meeting_url is owner-readable only (RLS) → null for public viewers; used for wizard edit prefill
-  const { data: priv } = await supabase.from('experience_private').select('meeting_url').eq('experience_id', id).maybeSingle();
+  const { data: priv, error: privateError } = await supabase.from('experience_private').select('meeting_url').eq('experience_id', id).maybeSingle();
+  if (privateError) throw privateError;
   return rowToExperience(data, await sessionsFor(id), (priv as any)?.meeting_url ?? null);
 }
 
 /** The join link for a virtual experience — only returned to a customer WITH a confirmed booking. */
 export async function fetchExperienceMeetingUrl(experienceId: string): Promise<string | null> {
-  const { data } = await supabase.rpc('experience_private_details', { p_experience: experienceId });
+  const { data, error } = await supabase.rpc('experience_private_details', { p_experience: experienceId });
+  if (error) throw error;
   return (data as any[])?.[0]?.meeting_url ?? null;
 }
 
 /** Published experiences for the customer browse (E2 surface). */
 export async function fetchExperiences(): Promise<Experience[]> {
   const { data, error } = await supabase.from('experiences').select(SELECT).eq('status', 'published').order('created_at', { ascending: false });
-  if (error || !data) return [];
+  if (error) throw error;
+  if (!data) return [];
   return Promise.all((data as any[]).map(async (r) => rowToExperience(r, await sessionsFor(r.id))));
 }
 
 /** A kitchen's published experiences — for its storefront. */
 export async function fetchExperiencesForKitchen(kitchenId: string): Promise<Experience[]> {
   const { data, error } = await supabase.from('experiences').select(SELECT).eq('status', 'published').eq('kitchen_id', kitchenId).order('created_at', { ascending: false });
-  if (error || !data) return [];
+  if (error) throw error;
+  if (!data) return [];
   return Promise.all((data as any[]).map(async (r) => rowToExperience(r, await sessionsFor(r.id))));
 }
 
@@ -165,7 +175,8 @@ export async function upsertExperience(input: UpsertExperienceInput): Promise<{ 
 export interface Availability { sessionId: string; startsAt: string; capacity: number; seatsLeft: number; status: string }
 /** Public seats-left per session for a published experience (SECURITY DEFINER RPC; anon-safe). */
 export async function fetchAvailability(experienceId: string): Promise<Availability[]> {
-  const { data } = await supabase.rpc('experience_availability', { p_experience: experienceId });
+  const { data, error } = await supabase.rpc('experience_availability', { p_experience: experienceId });
+  if (error) throw error;
   return (data as any[] ?? []).map((r) => ({ sessionId: r.session_id, startsAt: r.starts_at, capacity: r.capacity, seatsLeft: r.seats_left, status: r.status }));
 }
 /** Instant-book a session: atomic seat claim + full-payment PaymentIntent. Confirm the clientSecret in CardPaymentSheet. */
