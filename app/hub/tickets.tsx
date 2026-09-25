@@ -14,10 +14,16 @@ function Thread({ ticketId, myUid, onReplied }: { ticketId: string; myUid: strin
   const c = useC();
   const { toast } = useStore();
   const [msgs, setMsgs] = useState<tickets.ThreadMessage[] | null>(null);
+  const [loadError, setLoadError] = useState('');
   const [reply, setReply] = useState('');
   const [busy, setBusy] = useState(false);
 
-  const load = async () => { try { setMsgs(await tickets.ticketThread(ticketId)); } catch { setMsgs([]); } };
+  const load = async () => {
+    setMsgs(null);
+    setLoadError('');
+    try { setMsgs(await tickets.ticketThread(ticketId)); }
+    catch (e: any) { setLoadError(e?.message ?? 'Couldn’t load this conversation.'); }
+  };
   useEffect(() => { load(); /* eslint-disable-next-line react-hooks/exhaustive-deps */ }, [ticketId]);
 
   const send = async () => {
@@ -30,7 +36,12 @@ function Thread({ ticketId, myUid, onReplied }: { ticketId: string; myUid: strin
 
   return (
     <View style={{ marginTop: 12, borderTopWidth: 1, borderTopColor: c.border2, paddingTop: 12, gap: 10 }}>
-      {msgs === null ? (
+      {loadError ? (
+        <View style={{ padding: 12, borderRadius: radius.md, backgroundColor: c.redL, borderWidth: 1, borderColor: c.red }}>
+          <Text style={[type(12.5, 700), { color: c.red, marginBottom: 10 }]}>{loadError}</Text>
+          <View style={{ alignSelf: 'flex-start' }}><Btn label="Try again" icon="repeat" variant="ghost" onPress={load} /></View>
+        </View>
+      ) : msgs === null ? (
         <Text style={[type(13, 600), { color: c.soft }]}>Loading…</Text>
       ) : (
         msgs.map((m) => {
@@ -43,17 +54,17 @@ function Thread({ ticketId, myUid, onReplied }: { ticketId: string; myUid: strin
           );
         })
       )}
-      <TextInput
+      {!loadError ? <TextInput
         value={reply}
         onChangeText={setReply}
         placeholder="Reply to support…"
         placeholderTextColor={c.muted}
         multiline
         style={{ minHeight: 52, borderWidth: 1, borderColor: c.border, borderRadius: radius.md, padding: 12, color: c.ink, backgroundColor: c.surface, textAlignVertical: 'top', ...(type(14, 600) as object) }}
-      />
-      <View style={{ flexDirection: 'row', justifyContent: 'flex-end' }}>
+      /> : null}
+      {!loadError ? <View style={{ flexDirection: 'row', justifyContent: 'flex-end' }}>
         <Btn label="Send" icon="arrow" loading={busy} onPress={send} height={44} />
-      </View>
+      </View> : null}
     </View>
   );
 }
@@ -87,7 +98,10 @@ export default function HubTickets() {
       <TopBar title="Support" sub="Issues about your orders" onBack={() => router.push('/my-hub')} />
       <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={{ paddingBottom: 60 }}>
         {error ? (
-          <Block title="Error"><Text style={[type(13.5, 600), { color: c.red }]}>{error}</Text></Block>
+          <Block title="Couldn’t load support">
+            <Text style={[type(13.5, 600), { color: c.red, marginBottom: 12 }]}>{error}</Text>
+            <View style={{ alignSelf: 'flex-start' }}><Btn label="Try again" icon="repeat" variant="ghost" onPress={() => { setError(null); setItems(null); setNonce((n) => n + 1); }} /></View>
+          </Block>
         ) : items === null ? (
           <Block><Text style={[type(14, 600), { color: c.soft }]}>Loading…</Text></Block>
         ) : items.length === 0 ? (

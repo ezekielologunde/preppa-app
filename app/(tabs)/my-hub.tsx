@@ -5,7 +5,7 @@ import { useRouter, useLocalSearchParams, Redirect, useFocusEffect } from 'expo-
 import { useC } from '../../src/theme/ThemeContext';
 import { Palette, GradKey, type, radius, shadow } from '../../src/theme/theme';
 import { useStore } from '../../src/store/store';
-import { Icon, Press, GradBox } from '../../src/ui';
+import { Btn, Icon, Press, GradBox } from '../../src/ui';
 import { money } from '../../src/data/data';
 import { ME } from '../../src/data/cook';
 import { fetchDashboardSummary, fetchKitchenOrders, updateOrderStatus, KitchenDashboardSummary, KitchenOrderRow } from '../../src/lib/orders';
@@ -164,10 +164,10 @@ export function BalanceStrip({ summary }: { summary: KitchenDashboardSummary | n
       <View style={{ flexDirection: 'row', gap: 18, marginTop: 14 }}>
         <View>
           <Text style={[type(15, 900), { color: '#fff', letterSpacing: -0.3 }]}>{summary ? money(todayDollars) : '—'}</Text>
-          <Text style={[type(11.5, 700), { color: 'rgba(255,255,255,.6)', marginTop: 2 }]}>Today · {summary?.today_orders ?? 0} orders</Text>
+          <Text style={[type(11.5, 700), { color: 'rgba(255,255,255,.6)', marginTop: 2 }]}>Today · {summary ? summary.today_orders : '—'} orders</Text>
         </View>
         <View>
-          <Text style={[type(15, 900), { color: '#fff', letterSpacing: -0.3 }]}>{summary?.pending_orders ?? 0}</Text>
+          <Text style={[type(15, 900), { color: '#fff', letterSpacing: -0.3 }]}>{summary ? summary.pending_orders : '—'}</Text>
           <Text style={[type(11.5, 700), { color: 'rgba(255,255,255,.6)', marginTop: 2 }]}>Need prep</Text>
         </View>
       </View>
@@ -375,11 +375,21 @@ export default function MyHub() {
   const [dir, setDir] = useState<'focus' | 'brief'>('focus');
   const [summary, setSummary] = useState<KitchenDashboardSummary | null>(null);
   const [needsPrep, setNeedsPrep] = useState<KitchenOrderRow[]>([]);
+  const [queueLoading, setQueueLoading] = useState(true);
+  const [queueError, setQueueError] = useState('');
+  const [summaryError, setSummaryError] = useState('');
   const [actingOn, setActingOn] = useState<string | null>(null);
 
-  const load = React.useCallback(() => {
-    fetchDashboardSummary().then(setSummary).catch(() => {});
-    fetchKitchenOrders().then((rows) => setNeedsPrep(rows.filter((r) => r.status === 'confirmed'))).catch(() => {});
+  const load = React.useCallback(async () => {
+    setQueueLoading(true);
+    setQueueError('');
+    setSummaryError('');
+    const [summaryResult, ordersResult] = await Promise.allSettled([fetchDashboardSummary(), fetchKitchenOrders()]);
+    if (summaryResult.status === 'fulfilled') setSummary(summaryResult.value);
+    else setSummaryError(summaryResult.reason?.message ?? 'Couldn’t refresh earnings and order totals.');
+    if (ordersResult.status === 'fulfilled') setNeedsPrep(ordersResult.value.filter((r) => r.status === 'confirmed'));
+    else setQueueError(ordersResult.reason?.message ?? 'Couldn’t check for new orders.');
+    setQueueLoading(false);
   }, []);
   useFocusEffect(React.useCallback(() => { load(); }, [load]));
 
@@ -388,7 +398,10 @@ export default function MyHub() {
     if (!connect) return;
     router.setParams({ connect: undefined });
     (async () => {
-      const kitchen = await getMyKitchen().catch(() => null);
+      const kitchen = await getMyKitchen().catch(() => {
+        toast('Couldn’t check your payout setup. Open Earnings and try again.', 'info');
+        return null;
+      });
       if (!kitchen) return;
       if (connect === 'return') {
         const status = await refreshConnectStatus(kitchen.id).catch(() => null);
@@ -402,7 +415,7 @@ export default function MyHub() {
         }
       } else if (connect === 'refresh') {
         // Stripe's onboarding link expired mid-flow — just start a fresh one.
-        startConnectOnboarding(kitchen.id).catch(() => {});
+        startConnectOnboarding(kitchen.id).catch((e) => toast(e?.message || 'Couldn’t restart payout setup. Open Earnings and try again.', 'info'));
       }
       // eslint-disable-next-line react-hooks/exhaustive-deps
     })();
@@ -445,7 +458,17 @@ export default function MyHub() {
     <>
       <KSec title="Needs your attention" count={queue.length} />
       <View style={{ paddingHorizontal: 20, gap: 11 }}>
-        {queue.length > 0 ? (
+        {queueLoading ? (
+          <View style={{ backgroundColor: c.surface, borderWidth: 1, borderColor: c.border2, borderRadius: 18, padding: 22, alignItems: 'center' }}>
+            <Text style={[type(13.5, 700), { color: c.soft }]}>Checking for new orders…</Text>
+          </View>
+        ) : queueError ? (
+          <View style={{ backgroundColor: c.surface, borderWidth: 1, borderColor: c.red, borderRadius: 18, padding: 20, alignItems: 'center' }}>
+            <Text style={[type(14, 800), { color: c.ink }]}>Couldn’t check your queue</Text>
+            <Text style={[type(12.5, 600), { color: c.soft, textAlign: 'center', marginTop: 5, marginBottom: 12 }]}>{queueError}</Text>
+            <Btn label="Try again" icon="repeat" variant="ghost" onPress={load} />
+          </View>
+        ) : queue.length > 0 ? (
           queue.map((it) => <ActionCard key={it.k} it={it} />)
         ) : (
           <View style={{ backgroundColor: c.surface, borderWidth: 1, borderColor: c.border2, borderRadius: 18, paddingVertical: 34, paddingHorizontal: 24, alignItems: 'center' }}>
@@ -472,6 +495,11 @@ export default function MyHub() {
       <HubHeader name={name || firstName || 'Your kitchen'} showBell below={<KSeg options={[{ key: 'focus', label: 'Focus' }, { key: 'brief', label: 'Dashboard' }]} value={dir} onChange={(k) => setDir(k as 'focus' | 'brief')} />} />
       <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={{ paddingBottom: 40, maxWidth: 1040, alignSelf: 'center', width: '100%' }}>
         <BalanceStrip summary={summary} />
+        {summaryError ? (
+          <View style={{ marginHorizontal: 20, marginTop: 10, padding: 12, borderRadius: radius.md, backgroundColor: c.redL, borderWidth: 1, borderColor: c.red }}>
+            <Text style={[type(12.5, 700), { color: c.red, lineHeight: 18 }]}>{summaryError}</Text>
+          </View>
+        ) : null}
 
         {dir === 'focus' ? (
           <>
@@ -479,7 +507,7 @@ export default function MyHub() {
             <KSec title="This week" link="Analytics" onLink={() => router.push('/hub/analytics')} />
             <View style={{ flexDirection: 'row', gap: 12, paddingHorizontal: 20 }}>
               <StatTile ic="wallet" tone="ic-green" value={summary ? money(summary.week_cents / 100) : '—'} label="Earnings" onPress={() => router.push('/hub/money')} />
-              <StatTile ic="box" tone="ic-amber" value={String(summary?.pending_orders ?? 0)} label="Need prep" onPress={() => router.push('/hub/orders')} />
+              <StatTile ic="box" tone="ic-amber" value={summary ? String(summary.pending_orders) : '—'} label="Need prep" onPress={() => router.push('/hub/orders')} />
             </View>
             {shortcutsBlock}
           </>
@@ -489,11 +517,11 @@ export default function MyHub() {
             <View style={{ paddingHorizontal: 20, gap: 12 }}>
               <View style={{ flexDirection: 'row', gap: 12 }}>
                 <StatTile ic="wallet" tone="ic-green" value={summary ? money(summary.today_cents / 100) : '—'} label="Earnings today" onPress={() => router.push('/hub/money')} />
-                <StatTile ic="box" tone="ic-amber" value={String(summary?.today_orders ?? 0)} label="Orders today" onPress={() => router.push('/hub/orders')} />
+                <StatTile ic="box" tone="ic-amber" value={summary ? String(summary.today_orders) : '—'} label="Orders today" onPress={() => router.push('/hub/orders')} />
               </View>
               <View style={{ flexDirection: 'row', gap: 12 }}>
                 <StatTile ic="star" tone="ic-blue" value="—" label="No reviews yet" onPress={() => router.push('/hub/analytics')} />
-                <StatTile ic="users" tone="ic-purple" value={String(summary?.pending_orders ?? 0)} label="Need prep" onPress={() => router.push('/hub/orders')} />
+                <StatTile ic="users" tone="ic-purple" value={summary ? String(summary.pending_orders) : '—'} label="Need prep" onPress={() => router.push('/hub/orders')} />
               </View>
             </View>
             {queueBlock}

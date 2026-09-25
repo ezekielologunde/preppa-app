@@ -40,10 +40,15 @@ export default function Track() {
   const matchedOrder = orders.find((o) => (orderId && o.dbId === orderId) || o.cook === ck);
   const theCook = cookOfLine({ cook: ck, kitchenName: matchedOrder?.kitchenName, grad: matchedOrder?.lines[0]?.grad ?? 'g1' });
   const [live, setLive] = useState<{ status: string; fulfillment: string } | null>(null);
+  const [loadError, setLoadError] = useState('');
+  const [loading, setLoading] = useState(!!orderId);
 
   const poll = useCallback(() => {
     if (!orderId) return;
-    fetchOrderStatus(orderId).then(setLive).catch(() => {});
+    fetchOrderStatus(orderId)
+      .then((next) => { setLive(next); setLoadError(''); })
+      .catch((e) => setLoadError(e?.message ?? 'Couldn’t refresh this order.'))
+      .finally(() => setLoading(false));
   }, [orderId]);
 
   useFocusEffect(useCallback(() => {
@@ -94,14 +99,23 @@ export default function Track() {
             <View>
               <Text style={[type(12, 700), { color: c.muted, textTransform: 'uppercase' }]}>Status</Text>
               <Text style={[type(24, 900), { color: c.ink, letterSpacing: -0.6 }]}>
-                {cod ? 'Completed' : orderId ? (live ? realStatusLabel : 'Loading…') : 'Live'}
+                {cod ? 'Completed' : orderId ? (live ? realStatusLabel : loading ? 'Loading…' : 'Unavailable') : 'Live'}
               </Text>
             </View>
-            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6, height: 32, paddingHorizontal: 14, borderRadius: radius.pill, backgroundColor: c.greenL }}>
-              <View style={{ width: 7, height: 7, borderRadius: 4, backgroundColor: c.green }} />
-              <Text style={[type(12.5, 900), { color: c.green }]}>{cod ? 'Delivered' : orderId ? realStatusLabel : 'Live'}</Text>
+            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6, height: 32, paddingHorizontal: 14, borderRadius: radius.pill, backgroundColor: orderId && loadError && !live ? c.redL : c.greenL }}>
+              <View style={{ width: 7, height: 7, borderRadius: 4, backgroundColor: orderId && loadError && !live ? c.red : c.green }} />
+              <Text style={[type(12.5, 900), { color: orderId && loadError && !live ? c.red : c.green }]}>
+                {cod ? 'Delivered' : orderId && loadError && !live ? 'Unavailable' : orderId ? realStatusLabel : 'Live'}
+              </Text>
             </View>
           </View>
+
+          {orderId && loadError ? (
+            <View style={{ marginTop: 14, padding: 13, borderRadius: radius.lg, backgroundColor: c.redL, borderWidth: 1, borderColor: c.red }}>
+              <Text style={[type(12.5, 700), { color: c.red, lineHeight: 18 }]}>{loadError}</Text>
+              <View style={{ marginTop: 10, alignSelf: 'flex-start' }}><Btn label="Try again" icon="repeat" variant="ghost" onPress={poll} /></View>
+            </View>
+          ) : null}
 
           <View style={{ marginTop: 20 }}>
             {STEPS.map((s, i) => (
@@ -130,7 +144,7 @@ export default function Track() {
 
           {/* Handoff code is only for in-person pickup/meetup. Prepaid delivery
               comes to your door — no code needed. */}
-          {!cod && mode === 'pickup' ? (
+          {!cod && pickup ? (
             <View style={{ marginTop: 14, padding: 14, borderRadius: radius.lg, backgroundColor: c.purpleL, borderWidth: 1, borderColor: c.purple }}>
               <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10 }}>
                 <Icon name="qr" size={20} color={c.purpleOn} />

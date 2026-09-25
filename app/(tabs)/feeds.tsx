@@ -6,7 +6,7 @@ import { FLAGS } from '../../src/config/flags';
 import { type, shadow, radius } from '../../src/theme/theme';
 import { useC } from '../../src/theme/ThemeContext';
 import { useStore } from '../../src/store/store';
-import { Icon, Press } from '../../src/ui';
+import { Btn, Icon, Press } from '../../src/ui';
 import { fetchFeed, FeedPost } from '../../src/lib/feed';
 import { FeedReel } from '../../src/components/FeedReel';
 import { fetchLiveNow, type LiveStreamRow } from '../../src/lib/livestream';
@@ -16,11 +16,13 @@ export default function Feeds() {
   const c = useC();
   const insets = useSafeAreaInsets();
   const router = useRouter();
-  const { prepperStatus } = useStore();
+  const { prepperStatus, toast } = useStore();
   const [h, setH] = useState(0);
   const [items, setItems] = useState<FeedPost[]>([]);
   const [cursor, setCursor] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState('');
+  const [retryNonce, setRetryNonce] = useState(0);
   const [loadingMore, setLoadingMore] = useState(false);
   const [refreshing, setRefreshing] = useState(false);
   const [tab, setTab] = useState<'all' | 'following'>('all');
@@ -38,14 +40,19 @@ export default function Feeds() {
 
   useFocusEffect(useCallback(() => {
     let alive = true;
-    fetchFeed({ following }).then((r) => { if (alive) { setItems(r.posts); setCursor(r.nextCursor); setActiveId(r.posts[0]?.id ?? null); setLoading(false); } });
+    setError('');
+    fetchFeed({ following })
+      .then((r) => { if (alive) { setItems(r.posts); setCursor(r.nextCursor); setActiveId(r.posts[0]?.id ?? null); } })
+      .catch((e) => { if (alive) setError(e?.message ?? 'Couldn’t load the feed. Check your connection and try again.'); })
+      .finally(() => { if (alive) setLoading(false); });
     if (FLAGS.live) fetchLiveNow().then((l) => { if (alive) setLiveNow(l); }).catch(() => {});
     return () => { alive = false; setActiveId(null); }; // pause any playing video when the tab loses focus
-  }, [following]));
+  }, [following, retryNonce]));
 
   const onRefresh = useCallback(async () => {
     setRefreshing(true);
-    try { const r = await fetchFeed({ following }); setItems(r.posts); setCursor(r.nextCursor); setActiveId(r.posts[0]?.id ?? null); }
+    try { const r = await fetchFeed({ following }); setItems(r.posts); setCursor(r.nextCursor); setActiveId(r.posts[0]?.id ?? null); setError(''); }
+    catch (e: any) { toast(e?.message ?? 'Couldn’t refresh the feed.', 'info'); }
     finally { setRefreshing(false); }
   }, [following]);
 
@@ -56,6 +63,8 @@ export default function Feeds() {
       const r = await fetchFeed({ cursor, following });
       setItems((prev) => [...prev, ...r.posts]);
       setCursor(r.nextCursor);
+    } catch (e: any) {
+      toast(e?.message ?? 'Couldn’t load more posts.', 'info');
     } finally { setLoadingMore(false); }
   }, [cursor, loadingMore, following]);
 
@@ -72,6 +81,13 @@ export default function Feeds() {
     <View style={{ flex: 1, backgroundColor: '#000' }} onLayout={(e) => setH(e.nativeEvent.layout.height)}>
       {loading ? (
         <View style={{ flex: 1, alignItems: 'center', justifyContent: 'center' }}><ActivityIndicator color="#fff" /></View>
+      ) : error && items.length === 0 ? (
+        <View style={{ flex: 1, alignItems: 'center', justifyContent: 'center', padding: 40 }}>
+          <Icon name="info" size={40} color="rgba(255,255,255,.65)" />
+          <Text style={[type(16, 900), { color: '#fff', marginTop: 14 }]}>Couldn’t load the feed</Text>
+          <Text style={[type(13, 500), { color: 'rgba(255,255,255,.65)', textAlign: 'center', marginTop: 6, marginBottom: 16, lineHeight: 19 }]}>{error}</Text>
+          <Btn label="Try again" icon="repeat" onPress={() => { setLoading(true); setRetryNonce((n) => n + 1); }} />
+        </View>
       ) : items.length === 0 ? (
         <View style={{ flex: 1, alignItems: 'center', justifyContent: 'center', padding: 40 }}>
           <Icon name={following ? 'users' : 'video'} size={40} color="rgba(255,255,255,.5)" />

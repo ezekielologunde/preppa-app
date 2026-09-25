@@ -6,7 +6,7 @@ import { money } from '../../src/data/data';
 import { useC } from '../../src/theme/ThemeContext';
 import { type, radius } from '../../src/theme/theme';
 import { useStore } from '../../src/store/store';
-import { Icon, Press, GradBox } from '../../src/ui';
+import { Btn, Icon, Press, GradBox } from '../../src/ui';
 import { Stepper } from '../../src/ui/primitives';
 import { Screen, Dock, DockTotal, SectionLabel } from '../../src/ui/layout';
 import { HeroTopBar, HeroBtn } from '../../src/components/shared';
@@ -40,6 +40,8 @@ export default function ExperienceDetail() {
   const [exp, setExp] = useState<Experience | null>(null);
   const [avail, setAvail] = useState<Availability[]>([]);
   const [loading, setLoading] = useState(true);
+  const [loadError, setLoadError] = useState('');
+  const [retryNonce, setRetryNonce] = useState(0);
   const [notFound, setNotFound] = useState(false);
   const [selSession, setSelSession] = useState<string | null>(null);
   const [guests, setGuests] = useState(1);
@@ -57,15 +59,27 @@ export default function ExperienceDetail() {
     try { setWaitlisted(new Set(await fetchMyWaitlistSessions(a.map((s) => s.sessionId)))); } catch { /* signed-out */ }
   };
   useEffect(() => {
+    let alive = true;
+    setLoading(true);
+    setLoadError('');
+    setNotFound(false);
     (async () => {
-      const e = await fetchExperience(id!);
-      if (!e) { setNotFound(true); setLoading(false); return; }
-      setExp(e); setGuests(e.minGuests);
-      fetchExperienceRating(e.id).then(setRating).catch(() => {});
-      fetchExperienceReviews(e.id).then(setReviews).catch(() => {});
-      await loadAvail(e.id); setLoading(false);
+      try {
+        const e = await fetchExperience(id!);
+        if (!alive) return;
+        if (!e) { setNotFound(true); return; }
+        setExp(e); setGuests(e.minGuests);
+        fetchExperienceRating(e.id).then((r) => alive && setRating(r)).catch(() => {});
+        fetchExperienceReviews(e.id).then((r) => alive && setReviews(r)).catch(() => {});
+        await loadAvail(e.id);
+      } catch (err: any) {
+        if (alive) setLoadError(err?.message ?? 'Couldn’t load this experience. Check your connection and try again.');
+      } finally {
+        if (alive) setLoading(false);
+      }
     })();
-  }, [id]);
+    return () => { alive = false; };
+  }, [id, retryNonce]);
 
   // bookable sessions = open, in the future, seats left
   const sessions = useMemo(() => avail.filter((s) => s.status === 'open' && new Date(s.startsAt).getTime() > Date.now()), [avail]);
@@ -75,7 +89,17 @@ export default function ExperienceDetail() {
   useEffect(() => { if (exp) setGuests((g) => Math.max(exp.minGuests, Math.min(g, Math.max(exp.minGuests, maxGuests)))); }, [selSession, maxGuests, exp]);
 
   if (notFound) return <NotFound title="Experience" />;
-  if (loading || !exp) return <Screen bg={c.surface}><View style={{ flex: 1, alignItems: 'center', justifyContent: 'center' }}><ActivityIndicator color={c.primary} /></View></Screen>;
+  if (loading) return <Screen bg={c.surface}><View style={{ flex: 1, alignItems: 'center', justifyContent: 'center' }}><ActivityIndicator color={c.primary} /></View></Screen>;
+  if (loadError || !exp) return (
+    <Screen bg={c.surface}>
+      <View style={{ flex: 1, alignItems: 'center', justifyContent: 'center', padding: 28 }}>
+        <Icon name="info" size={38} color={c.red} />
+        <Text style={[type(18, 900), { color: c.ink, marginTop: 14 }]}>Couldn’t load this experience</Text>
+        <Text style={[type(13.5, 500), { color: c.soft, textAlign: 'center', marginTop: 7, marginBottom: 18, lineHeight: 20 }]}>{loadError || 'This experience is unavailable.'}</Text>
+        <Btn label="Try again" icon="repeat" onPress={() => setRetryNonce((n) => n + 1)} />
+      </View>
+    </Screen>
+  );
 
   const photos = exp.photoUrls.length ? exp.photoUrls : (exp.coverUrl ? [exp.coverUrl] : []);
   const isFlat = exp.priceModel === 'flat';

@@ -15,16 +15,19 @@ export default function Saved() {
   const router = useRouter();
   const [items, setItems] = useState<FeedPost[]>([]);
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState('');
+  const [retryNonce, setRetryNonce] = useState(0);
   const [removing, setRemoving] = useState<string | null>(null);
 
   useFocusEffect(useCallback(() => {
     let alive = true;
     setLoading(true);
+    setError('');
     fetchSavedPosts()
       .then((p) => { if (alive) { setItems(p); setLoading(false); } })
-      .catch(() => { if (alive) setLoading(false); });
+      .catch((e) => { if (alive) { setError(e?.message ?? 'Couldn’t load your saved posts.'); setLoading(false); } });
     return () => { alive = false; };
-  }, []));
+  }, [retryNonce]));
 
   const unsave = async (postId: string) => {
     if (removing) return;
@@ -44,6 +47,13 @@ export default function Saved() {
       <TopBar title="Saved" sub={items.length ? `${items.length} saved` : undefined} />
       {loading ? (
         <View style={{ flex: 1, alignItems: 'center', justifyContent: 'center' }}><ActivityIndicator color={c.primary} /></View>
+      ) : error ? (
+        <Empty
+          icon="info"
+          title="Couldn’t load saved posts"
+          body={error}
+          action={<Btn label="Try again" icon="repeat" onPress={() => setRetryNonce((n) => n + 1)} />}
+        />
       ) : items.length === 0 ? (
         <Empty
           icon="bookmark"

@@ -3,7 +3,7 @@ import { View, Text, ScrollView, ActivityIndicator } from 'react-native';
 import { useRouter } from 'expo-router';
 import { useC } from '../../src/theme/ThemeContext';
 import { type } from '../../src/theme/theme';
-import { Icon, GradBox } from '../../src/ui';
+import { Btn, Icon, GradBox } from '../../src/ui';
 import { Screen, TopBar } from '../../src/ui/layout';
 import { money } from '../../src/data/data';
 import { getMyKitchen } from '../../src/lib/connect';
@@ -46,17 +46,28 @@ export default function AnalyticsScreen() {
   const router = useRouter();
   const [loading, setLoading] = useState(true);
   const [data, setData] = useState<CookAnalyticsSummary | null>(null);
+  const [error, setError] = useState('');
+  const [retryNonce, setRetryNonce] = useState(0);
   const weeks = ['8w', '7w', '6w', '5w', '4w', '3w', '2w', 'now'];
 
   useEffect(() => {
+    let alive = true;
+    setLoading(true);
+    setError('');
     (async () => {
-      const k = await getMyKitchen();
-      if (k) {
-        try { setData(await fetchCookAnalyticsSummary(k.id)); } catch { /* keep null → empty state below */ }
+      try {
+        const k = await getMyKitchen();
+        if (!k) throw new Error('No kitchen is connected to this account.');
+        const next = await fetchCookAnalyticsSummary(k.id);
+        if (alive) setData(next);
+      } catch (e: any) {
+        if (alive) setError(e?.message ?? 'Couldn’t load analytics.');
+      } finally {
+        if (alive) setLoading(false);
       }
-      setLoading(false);
     })();
-  }, []);
+    return () => { alive = false; };
+  }, [retryNonce]);
 
   if (loading) {
     return (
@@ -67,8 +78,25 @@ export default function AnalyticsScreen() {
     );
   }
 
+  if (error || !data) {
+    return (
+      <Screen>
+        <TopBar title="Analytics" onBack={() => router.back()} />
+        <View style={{ flex: 1, alignItems: 'center', justifyContent: 'center', padding: 28 }}>
+          <Icon name="info" size={38} color={c.red} />
+          <Text style={[type(18, 900), { color: c.ink, marginTop: 14 }]}>Couldn’t load analytics</Text>
+          <Text style={[type(13.5, 500), { color: c.soft, textAlign: 'center', marginTop: 7, marginBottom: 18, lineHeight: 20 }]}>{error || 'Analytics are unavailable.'}</Text>
+          <Btn label="Try again" icon="repeat" onPress={() => setRetryNonce((n) => n + 1)} />
+        </View>
+      </Screen>
+    );
+  }
+
   const revenue = data?.weeklyRevenueCents.map((v) => v / 100) ?? [0, 0, 0, 0, 0, 0, 0, 0];
   const total = revenue.reduce((s, v) => s + v, 0);
+  const latest = revenue.at(-1) ?? 0;
+  const previous = revenue.at(-2) ?? 0;
+  const trend = latest > previous ? 'up' : latest < previous ? 'down' : 'flat';
 
   return (
     <Screen>
@@ -82,8 +110,10 @@ export default function AnalyticsScreen() {
             </View>
             {total > 0 ? (
               <View style={{ flexDirection: 'row', alignItems: 'center', gap: 3 }}>
-                <Icon name="trendUp" size={14} color={c.green} />
-                <Text style={[type(12.5, 800), { color: c.green }]}>Trending up</Text>
+                <Icon name={trend === 'up' ? 'trendUp' : trend === 'down' ? 'trendDown' : 'minus'} size={14} color={trend === 'up' ? c.green : trend === 'down' ? c.red : c.muted} />
+                <Text style={[type(12.5, 800), { color: trend === 'up' ? c.green : trend === 'down' ? c.red : c.muted }]}>
+                  {trend === 'up' ? 'Up from last week' : trend === 'down' ? 'Down from last week' : 'Same as last week'}
+                </Text>
               </View>
             ) : null}
           </View>
