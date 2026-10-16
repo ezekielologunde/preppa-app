@@ -2,11 +2,15 @@
 project: Preppa
 type: changelog
 status: active
-last_updated: 2026-09-25
+last_updated: 2026-10-16
 tags: [project/preppa, type/changelog]
 ---
 
 # Changelog
+
+## Pre-launch "opening soon" Home state (2026-10-16)
+
+Home now shows an honest "Preppa is opening near <area>" card, with a waitlist signup and an "Apply to cook" action, instead of blank empty states when the catalog loaded successfully and there are no meals and no kitchens at all. It never appears on load errors (those keep their retry states) and disappears automatically once any kitchen or meal is visible. Waitlist signups insert into the existing `waitlist` table with `source = 'app'` through a dedicated anonymous client, matching the public landing page. No schema, payment or Edge Function change. Verified locally: typecheck, unit tests, environment-separation, accessibility and bundle-secret checks pass, and a browser run against a mocked empty catalog confirmed the card, email validation and the signup payload on mobile and desktop widths. Not verified: a live signup row (the sandbox could not reach Supabase) and live-mode payments. See [[Launch-Plan]].
 
 ## Customer checkout and wide-screen onboarding (2026-09-25)
 
