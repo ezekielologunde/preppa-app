@@ -21,7 +21,7 @@ export const APP_ENV = process.env.EXPO_PUBLIC_APP_ENV || 'development';
 const productionWeb = typeof window !== 'undefined' && window.location.hostname === 'app.preppa.live';
 const productionTarget = APP_ENV === 'production' || productionWeb || process.env.VERCEL_ENV === 'production';
 export const SUPABASE_URL = process.env.EXPO_PUBLIC_SUPABASE_URL || (productionTarget ? LIVE_SUPABASE_URL : '');
-const SUPABASE_ANON = process.env.EXPO_PUBLIC_SUPABASE_ANON_KEY || (productionTarget ? LIVE_SUPABASE_ANON : '');
+export const SUPABASE_ANON = process.env.EXPO_PUBLIC_SUPABASE_ANON_KEY || (productionTarget ? LIVE_SUPABASE_ANON : '');
 export const STRIPE_PK = process.env.EXPO_PUBLIC_STRIPE_PUBLISHABLE_KEY || (productionTarget ? LIVE_STRIPE_PK : '');
 
 if (!SUPABASE_URL || !SUPABASE_ANON || !STRIPE_PK) {
