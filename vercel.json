@@ -2,5 +2,10 @@
   "buildCommand": "expo export -p web",
   "outputDirectory": "dist",
   "framework": null,
+  "git": {
+    "deploymentEnabled": {
+      "codex/waitlist-validation-20261017": false
+    }
+  },
   "rewrites": [{ "source": "/(.*)", "destination": "/" }]
 }

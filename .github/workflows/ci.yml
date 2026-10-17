@@ -50,3 +50,4 @@ jobs:
       # trim it for speed if it becomes a bottleneck.
       - run: supabase start
       - run: psql "postgresql://postgres:postgres@127.0.0.1:54322/postgres" -v ON_ERROR_STOP=1 -f supabase/tests/regressions.sql
+      - run: psql "postgresql://postgres:postgres@127.0.0.1:54322/postgres" -v ON_ERROR_STOP=1 -f supabase/tests/waitlist.sql
