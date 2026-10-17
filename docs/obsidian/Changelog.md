@@ -2,11 +2,19 @@
 project: Preppa
 type: changelog
 status: active
-last_updated: 2026-10-16
+last_updated: 2026-10-17
 tags: [project/preppa, type/changelog]
 ---
 
 # Changelog
+
+## Waitlist failure recovery and access-control regressions (2026-10-17, draft review)
+
+On top of draft PRs #41 and #42, waitlist signup now treats an existing case-insensitive email as the same successful UI outcome, explicitly disables URL-session detection, and converts unexpected exceptions to retryable failures. The form uses a synchronous submission guard so Enter and a tap cannot race before React renders busy; failures unlock retry, and success keeps submission locked. Inputs stop changing while a request is pending.
+
+Added 17 focused regressions: real Supabase SDK calls with intercepted transport, React DOM form tests with native-control adapters, the actual waitlist migration/policy in in-memory PostgreSQL using PGlite, and local-integration safety guards. Both anonymous and authenticated SQL roles can insert permitted columns and cannot read/update/delete; duplicate and invalid-length inserts are checked. The reusable rollback-only SQL suite is also prepared for the existing database CI job.
+
+After explicit approval at 05:54 UTC, created a separate disposable local Supabase fixture. Its real PostgreSQL SQL suite and all ten Auth/PostgREST integration scenarios pass, including synthetic signup, both roles' access restrictions, duplicates, concurrent repeats, invalid-credential failure, and recovery after stopping/restarting only the fixture PostgREST container. Only the waitlist schema and `citext` were added to the fresh database; full application migration history was not replayed locally. All task services were stopped afterward. Hosted parity and native devices remain unverified; the draft PR records subsequent remote CI results. Publication was approved at 06:30 UTC, with Vercel automatic deployments disabled only for this exact review branch. See [[Launch-Plan]] and [[Security]].
 
 ## Web page metadata and share preview (2026-10-16)
 

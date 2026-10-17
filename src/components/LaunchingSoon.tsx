@@ -19,15 +19,28 @@ export function LaunchingSoon({ area }: { area: string }) {
   const [busy, setBusy] = React.useState(false);
   const [done, setDone] = React.useState(false);
   const [err, setErr] = React.useState<string | null>(null);
+  const submitted = React.useRef(false);
 
   const submit = async () => {
-    if (busy) return;
+    // Enter and a tap can arrive before React renders busy. Keep success locked;
+    // only failed attempts unlock the form for a retry.
+    if (submitted.current) return;
+    submitted.current = true;
     setBusy(true);
     setErr(null);
-    const r = await joinWaitlist(email);
-    setBusy(false);
-    if (r.ok) setDone(true);
-    else setErr(r.reason === 'invalid_email' ? 'Enter a valid email address.' : 'Something went wrong. Please try again.');
+    try {
+      const r = await joinWaitlist(email);
+      if (r.ok) setDone(true);
+      else {
+        submitted.current = false;
+        setErr(r.reason === 'invalid_email' ? 'Enter a valid email address.' : 'Something went wrong. Please try again.');
+      }
+    } catch {
+      submitted.current = false;
+      setErr('Something went wrong. Please try again.');
+    } finally {
+      setBusy(false);
+    }
   };
 
   return (
@@ -58,6 +71,7 @@ export function LaunchingSoon({ area }: { area: string }) {
             autoCapitalize="none"
             autoCorrect={false}
             autoComplete="email"
+            editable={!busy}
             accessibilityLabel="Email address for the launch waitlist"
             onSubmitEditing={submit}
             style={{ height: 52, borderRadius: radius.md, borderWidth: 1, borderColor: err ? c.red : c.border2, paddingHorizontal: 16, fontSize: 16, color: c.ink, backgroundColor: c.bg }}

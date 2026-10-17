@@ -2,11 +2,19 @@
 project: Preppa
 type: security
 status: active
-last_updated: 2026-09-17
+last_updated: 2026-10-17
 tags: [project/preppa, type/security]
 ---
 
 # Security
+
+## Waitlist validation (2026-10-17, local only)
+
+The existing `20260710193742_waitlist_table.sql` policy is unchanged. Tests execute that source in embedded PostgreSQL with `citext`, synthetic rows, and non-bypass `anon`/`authenticated` roles. They verify allowed column inserts, case-insensitive uniqueness, denied reads/updates/deletes/read-back/protected columns, the email-length RLS check, and absence of readable rows even with a temporary SELECT grant. The test transaction rolls back. This checks the source policy under fixture grants, not hosted Supabase configuration or the full migration history.
+
+The signup client explicitly avoids persistent sessions, refresh, and URL-token detection. It never selects or upserts the waitlist. Duplicate and new signups share the same UI confirmation; the underlying public insert API still returns a unique-violation error on duplicates, so this is not a guarantee against email-existence probing or automated signup abuse.
+
+Explicit local-only approval was received at 05:54 UTC. Real Auth/PostgREST and PostgreSQL checks now pass in the fresh `preppa-waitlist-20261017-0554` fixture. Before schema writes, verified distinct container labels, new volumes, no hosted configuration, an empty auth table, no existing waitlist table, and loopback-only published ports. The opt-in integration runner rejects non-local API URLs and preexisting database mounts; ordinary `npm test` cannot start or contact the fixture. Local credentials remain outside the repository in the ignored fixture directory. Only task-owned services were stopped/restarted; existing databases and hosted endpoints were never test targets. Full migration replay and hosted parity remain unverified. See [[Launch-Plan]].
 
 ## Build-upload hardening — 2026-09-17
 

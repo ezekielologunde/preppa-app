@@ -2,12 +2,111 @@
 project: Preppa
 type: launch-plan
 status: active
-last_updated: 2026-09-25
+last_updated: 2026-10-17
 tags: [project/preppa, type/launch-plan]
 
 ---
 
 # Launch Plan
+
+## Waitlist validation - 2026-10-17
+
+Local branch `codex/waitlist-validation-20261017` is based on PR #42 head
+`6aa25dfc86f3c9390e4b583ab302dbb7e2b82a07`, which includes PR #41 head
+`9aaf2559cca4a1407c3eb714b3ef1cc26beb41b1`. Both draft PRs still target the expected
+stack: #41 -> main, #42 -> #41. Main remains `57f4223042a4da64c910f55c8db35c503934d3b3`.
+The separate `codex/launch-readiness-20261006` worktree and its 120-test payment/readiness
+changes are preserved and are **not** part of this waitlist patch. Neither change set is
+merged or deployed; their test counts must not be combined.
+
+Prepared fixes: duplicate signup confirmation, anonymous-client URL-session isolation,
+exception recovery, and synchronous repeat-submission prevention. No schema changes.
+The focused command is `npm run test:waitlist`; all tests run through `npm test`.
+All tests use synthetic `example.invalid` data. The ordinary suite intercepts HTTP;
+the separately invoked integration suite contacts only the verified local fixture.
+
+Verified locally: `npm test` passes 28/28 tests (17 new waitlist tests plus 11 existing).
+The focused suite also passes under Node 22.22.2, matching CI's supported major version.
+`npm run typecheck`, `npm run ui:a11y`, `npm run security:env`, and
+`npm run build:web -- --max-workers 2` followed by `npm run security:bundle` pass.
+The export uses synthetic test configuration, not production credentials. Before the fix,
+five focused regressions failed (exception recovery, duplicate handling, URL detection,
+and repeated submission); the unchanged embedded SQL policy check already passed.
+At completion of local validation, remote CI and native device checks were still pending.
+Real disposable Supabase results follow; the draft PR records subsequent CI evidence.
+
+| Layer | Evidence | Limit |
+| --- | --- | --- |
+| SDK contract | Actual Supabase SDK; inserted fields, anonymous headers, no read-back, invalid email, duplicate, transport/permission/server errors | Transport is intercepted; not a backend insertion |
+| Form | Actual React DOM in JSDOM; native controls adapted; success, error/retry, same-batch Enter/tap | Not an Expo browser/device acceptance test |
+| Embedded SQL | PGlite 0.5.10 runs the unchanged waitlist migration plus `supabase/tests/waitlist.sql`; `citext`, both roles, grants, RLS, duplicate and rollback assertions | In-memory PostgreSQL, not Supabase Auth/PostgREST or full history |
+| Real Supabase | Rollback-only SQL suite passes on local PostgreSQL 17.6; ten Auth/PostgREST scenarios pass (11 Node test nodes including parent) | Fresh fixture includes only waitlist schema plus standard Supabase bootstrap; no full history or hosted parity |
+
+The reusable SQL suite inserts two synthetic rows and tests rejected operations inside a
+transaction that rolls back, including temporary grants. It does not reset or delete
+existing databases. PGlite has no data directory or socket. The test-only DOM dependency
+requires Node 22.22.2+, 24.15.0+, or 26+ within its supported major versions; CI uses Node 22.
+
+**Local validation authorized and completed:** the user approved Docker startup and a
+fresh disposable Supabase instance at 05:54:02 UTC on October 17. The fixture is
+`C:\Users\WT8\Projects\PrepDash\Preppa\preppa-waitlist-supabase-20261017-0554`, project ID
+`preppa-waitlist-20261017-0554`, network `preppa_waitlist_local_20261017_0554`, API
+`127.0.0.1:55321`, database `127.0.0.1:55322`, and local mail sink `127.0.0.1:55324`.
+Supabase CLI 2.118.0 initialized fresh volumes; no hosted secrets, external mail provider,
+linked project, seeds, or other application migrations were used. The only app DDL applied
+was unchanged `20260710193742_waitlist_table.sql`, with its `citext` prerequisite.
+
+Setup issues were resolved before app writes: Docker's internal network did not publish
+the database port; the CLI then ignored the bridge's default loopback binding. The three
+new containers with host ports were recreated with explicit `127.0.0.1` mappings, retaining
+only this task's fresh volumes. Retired task containers remain stopped. Before schema writes,
+verified the new labels/mounts/network and loopback bindings, zero auth users, and no waitlist
+table. No test connected to an existing database.
+
+The SQL suite passed via `docker exec -i supabase_db_preppa-waitlist-20261017-0554 psql -X -U postgres -d postgres -At -v ON_ERROR_STOP=1`,
+with `supabase/tests/waitlist.sql` supplied on stdin. Equivalent host command when this
+fixture is running and `psql` is installed:
+
+```powershell
+psql "postgresql://postgres:postgres@127.0.0.1:55322/postgres" -v ON_ERROR_STOP=1 -f supabase/tests/waitlist.sql
+```
+
+The opt-in HTTP/Auth command, executed successfully from this worktree, is:
+
+```powershell
+$env:PREPPA_WAITLIST_FIXTURE = 'C:\Users\WT8\Projects\PrepDash\Preppa\preppa-waitlist-supabase-20261017-0554'
+npm run test:waitlist:local
+```
+
+It creates only synthetic `example.invalid` users and verifies a real authenticated session;
+anonymous helper and authenticated SDK inserts; denied SELECT/UPDATE/DELETE/read-back/ID/time
+columns for both roles; case-insensitive duplicate `23505`; three concurrent submissions
+creating one row; rejected credentials followed by a valid retry; and actual PostgREST
+outage/recovery. Owner queries confirm stored fields and row counts. An initial negative-test
+assumption failed because an invalid API key was accompanied by a valid anonymous bearer;
+the test now invalidates both. This was a fixture correction, not an app or RLS fix.
+
+All task-owned services are stopped and their automatic restart is disabled. Task volumes
+and private fixture logs/credentials are retained for review, ignored by Git. No preexisting
+container or volume was removed. Starting Docker automatically resumed preexisting services
+under their saved restart policies; no explicit change or database command targeted them,
+and Docker was left running to avoid stopping those unrelated services.
+
+At completion of local validation, full application migration replay and remote CI were
+still pending; the draft PR records their subsequent results. Hosted/staging parity,
+browser/device acceptance, and broader launch/payment validation remain separate work.
+The earlier readiness branch's SQL remains separate. Do not represent this local fixture
+as production verification.
+
+**Draft PR publication authorized:** at 06:30:34 UTC on October 17, the user approved
+committing this patch and opening a draft PR. It targets `claude/web-polish` (PR #42),
+preserving the #41 -> #42 stack without duplicating those changes in its review diff.
+Repository CI contains validation jobs only. Vercel is connected and ordinarily creates
+preview deployments; `vercel.json` sets `git.deploymentEnabled` to false for the exact
+`codex/waitlist-validation-20261017` branch, using Vercel's
+[supported branch exclusion](https://vercel.com/docs/project-configuration/git-configuration#git.deploymentenabled).
+Other branches retain their existing behavior. This publication does not authorize a
+merge, deployment, hosted database write, or production configuration change.
 
 ## Readiness review — 2026-09-17
 
