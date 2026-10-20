@@ -1,5 +1,30 @@
 # Loop 0 red-team findings
 
+## Corrections applied
+
+Each finding was re-checked against the source before it was folded in. D = DESIGN.md, S = SECURITY-SPEC.md.
+
+| Finding | Verified | Resolution |
+|---|---|---|
+| [critical] production-touch / env isolation | Yes. Orphan delete at `stripe-setup/index.ts:46245-46262` matches `managed_by: stripe-sync` set at `:46272`; vendored wrappers read the key directly | D 1.1 per-env Stripe Sandboxes; D 1.1g key-mode and account guard; D L1 ordered checklist steps 1-7 (guard and key check before any `stripe-setup`); D 1.11 webhook health alert; S T8, S8 |
+| [critical] payout hold (missing) | Yes. Credit at payment, full-balance `reserve_payout`, no `source_transaction`/reversal in any hand-written function | D 2.11 design task (L2); S S15 build (L3); L1 gate records 4242 vs 0077; L4 4.5 refund-after-payout; S T13 |
+| [high] S6 / T7 fix wrong | Yes. My `pg_proc`-style scan of latest repo definitions found the same 9 functions | S S6 rewritten to the `20260808040519` pattern with full list and live scan; S T7 corrected |
+| [high] reconcile_paid_pi swallow | Yes (`20260808030007:173`) | D 1.12 stuck-PI sweep; L1 exit-gate SQL check |
+| [high] no customer/admin refund path | Yes. Only `decline-order`; only cron outside workers is `reap-experience-holds` | S S16 (L3); D D14 SLA numbers; L4 4.5 |
+| [high] deploy ordering | Yes. 2-arg drop at `20260925011000:3`, `decline-order:100` passes `p_reason`, `create-order:298-299` writes new columns, `kitchen_pickup` has no client writer, `decline-order` missing from MANIFEST | D 4.2 expand-then-contract order; pickup backfill and editor; D 4.1 uses live list |
+| [high] OG stored-XSS | Yes (design-level: D1 writes prepper text, CSP report-only) | D 2.4 escaping, allowlist, hostile-title red/green test; production deploy only after 4.3 enforced CSP; S section 3 |
+| [medium] S12 RLS plan | Yes (embed at `supabaseRepository.ts:22`, policy at `20260817063118:47-51`) | S S12 rewritten (table revoke plus column grant); S section 5 row; D 2.2 |
+| [medium] Stripe Tax not committed | Yes. Only `tax.calculations.create` in `create-order` | S S17 (L3); D D11 open decision; D 4.7 |
+| [medium] admin MFA scope | Partly. `public_support_requests.sql:58` is a real direct-role access check. `notify_order_support_participants.sql:43` (and `:11,46`) is notification routing, not an access check | S S3 rewritten with that distinction; L3 gate covers RLS paths |
+| [medium] exit-gate gaps | Yes (`notify` URL literal at `20260808024849:16`) | D L1 gate adds `pg_proc.prosrc` check; D 1.2 loud failure, prod Vault set first (4.2 step 1), health check |
+| [medium] tooling | Accepted as stated (environment fact, not code) | D tooling rule, 1.13, 4.2 owner E only; S T15 |
+| [medium] account.updated | Yes. `connect-status:60` is the only writer | S S18 in L3 (money hardening) rather than L1; flagged for review |
+| [medium] auth T2 / password length | Yes. Client minimum 8 (`Onboarding.tsx:156`) | S S2 hijack test; S section 4; D D12 |
+| [medium] env guard 1.8 | Yes. Script reads only `eas.json`; `share.ts:5` hardcodes production | D 1.8 new `check-vercel-env.mjs`; D 2.12 |
+| [low] S5 feasibility | Yes. `check_rate_limit` is uuid-keyed; `ref` client-settable and unique | S S5 rewritten |
+| [low] threat model gaps | Yes for card testing, consent and Safari `window.open` | S T14; D D13; D 2.13 |
+| [low] citation fixes | Yes. `Tasks.md`/`Launch-Plan.md` are in `docs/obsidian/`; repo has about 166 unique SECURITY DEFINER names, not 306 | D paths corrected; S section 5 count corrected, live re-count in 4.1 |
+
 Red-team of docs/web-launch/DESIGN.md and SECURITY-SPEC.md, checked against the code at C:/Users/WT8/Projects/Preppa/preppa-web. Everything here comes from reading the source. I ran nothing against production Supabase or Stripe and changed no files.
 
 Many of the docs' line citations are correct: the env guard (src/lib/supabase.ts:20-41), the localStorage session (authStorage.web.ts:5), the onboarding overlay (app/_layout.tsx:96), window.confirm (confirm.ts:13), meeting-link zod .url() plus Linking.openURL, the Mux non-constant compare with no timestamp window, CORS *, the hardcoded production cron URLs, the Connect allowed origin, and Google OAuth having no callers.
