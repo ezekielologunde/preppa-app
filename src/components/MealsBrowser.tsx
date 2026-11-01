@@ -105,14 +105,14 @@ export function MealsBrowser({ initialCat, initialGoal }: { initialCat?: string;
 
         {loading ? (
           <View style={{ paddingVertical: 60, alignItems: 'center' }}><ActivityIndicator color={c.primary} /></View>
-        ) : error && (!allMeals || allMeals.length === 0) ? (
+        ) : error && allMeals === null ? (
           <Empty icon="info" title="Couldn’t load meals" body="Check your connection and try loading available meals again." action={<Btn label="Try again" icon="repeat" onPress={() => invalidate('catalog:live')} />} />
-        ) : list.length === 0 ? (
-          <Empty icon="search" title="No matches" body="Try another cuisine, clear filters, or search again." />
         ) : (
           <>
             {error ? <Empty icon="info" title="Meals may be out of date" body="You can keep browsing the last loaded menu while we reconnect." action={<Btn label="Refresh" icon="repeat" onPress={() => invalidate('catalog:live')} />} /> : null}
-            <MealGrid meals={list} showMatch px={16} />
+            {list.length === 0 ? (
+              <Empty icon="search" title="No matches" body="Try another cuisine, clear filters, or search again." />
+            ) : <MealGrid meals={list} showMatch px={16} />}
           </>
         )}
       </ScrollView>

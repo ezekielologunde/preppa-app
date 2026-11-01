@@ -28,6 +28,7 @@ export function Press({
   role,
   checked,
   expanded,
+  busy,
 }: {
   children: React.ReactNode;
   onPress?: () => void;
@@ -45,6 +46,8 @@ export function Press({
   checked?: boolean;
   /** Accessibility expanded state for disclosure and accordion controls. */
   expanded?: boolean;
+  /** Whether the control is waiting for an operation to finish. */
+  busy?: boolean;
 }) {
   const a = useRef(new Animated.Value(1)).current;
   const reduced = useReducedMotion();
@@ -72,7 +75,7 @@ export function Press({
       hitSlop={hitSlop}
       accessibilityRole={role ?? (onPress ? 'button' : undefined)}
       accessibilityLabel={label}
-      accessibilityState={{ disabled: !!disabled, selected, checked, expanded }}
+      accessibilityState={{ disabled: !!disabled, selected, checked, expanded, busy }}
       onPressIn={() => to(scale)}
       onPressOut={() => to(1)}
     >
@@ -270,7 +273,7 @@ export function Btn({
         ? shadow.soft
         : {};
   return (
-    <Press scale={0.97} disabled={blocked} onPress={loading ? undefined : onPress} label={label} style={[block ? { width: '100%' } : null, flex ? { flex } : null, style]}>
+    <Press scale={0.97} role="button" busy={!!loading} disabled={blocked} onPress={loading ? undefined : onPress} label={label} style={[block ? { width: '100%' } : null, flex ? { flex } : null, style]}>
       <View style={[base, extra]}>
         {loading ? (
           <ActivityIndicator color={fg} size="small" />
