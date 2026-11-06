@@ -378,3 +378,7 @@ Rewards, referrals, livestreaming, Meal Drops, instant payouts, fancy analytics,
 ## Related
 
 - [[Project]] · [[PM-Onboarding]] · [[Payments]] · [[Tasks]] · [[Bugs]] · [[Decisions]] · [[Changelog]]
+
+## Production availability, November 6
+
+The production Supabase dashboard reports Preppa paused, with Resume disabled for the currently signed-in account and an organization quota warning. The owner cannot upgrade now, so no paid change was made. Review-account credential rotation, live-flow verification and store submission remain blocked until authorized project access is restored on an allowed plan. Local tests and exports do not remove this operational blocker.
