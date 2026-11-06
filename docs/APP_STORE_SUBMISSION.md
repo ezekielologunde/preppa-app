@@ -1,75 +1,49 @@
 # App Store Submission — Reviewer Notes & Listing Draft
 
-Everything in this doc is ready to paste into App Store Connect once you're logged into your
-Apple Developer account and the iOS build exists. Nothing here requires your Apple login —
-it's all prep work done ahead of time so that step is the only thing left blocking submission.
+Status: draft, not approved for submission. Revalidated November 6, 2026. The current production EAS configuration uses a live Stripe publishable key. Earlier test-mode instructions and marketplace counts were stale and have been removed. Do not submit this document unchanged as reviewer notes.
 
-## Reviewer demo account
+## Reviewer access and payment environment
 
-Created live in Supabase (test mode), works today at `app.preppa.live` or in the iOS build once built.
+A reviewer credential was previously committed in this file. Its password has been removed from the current document, but remains exposed in repository history. The account owner must rotate or replace that credential before reuse. Do not place replacement credentials in source control; supply them only through the store's private review-access fields.
 
-- **Email:** `appreview@preppa.live`
-- **Password:** `PreppaReview2026!`
-- Signs in immediately — no email confirmation step, no OTP needed.
-- This is a plain customer account with no order history yet. Reviewers are expected to
-  exercise the real flow (see walkthrough below) rather than land on pre-seeded data — that's
-  normal for marketplace apps and reads as more credible than fake seeded orders would.
+Verify a dedicated review account can sign in, browse available content and exercise supported flows on the exact submitted build. Verify its privileges and whether its environment is test or live. A Stripe test card must never be presented as usable against the live payment configuration. Never charge a real customer or create a real food order merely to test submission readiness.
 
-**Test payment card:** `4242 4242 4242 4242`, any future expiry, any CVC, any ZIP. Stripe is in
-test mode, so no real charge occurs.
+The latest inspected iOS EAS artifact is a finished production/store build from August 18, 2026, version 1.0.0 build 4, at an older commit. It does not verify current source or current backend behavior. Android's recent inspected builds were internal previews. New signed builds and physical-device checks are still required.
 
-## Reviewer walkthrough (put this in App Store Connect's "Notes" field)
+## Reviewer walkthrough to verify before submission
 
-1. Sign in with the demo account above.
-2. On Home, browse "Fresh near you" and "Preppers near you" — tap into a meal or a prepper's
-   storefront.
-3. Add a meal to cart, go to Checkout, pay with the test card above. You'll land on live order
-   tracking.
-4. From Experiences → Meal plans, browse available plans (subscription model). From Profile →
-   Messages, you can message a cook directly.
-5. To see the seller side: the demo account isn't a verified prepper. If you want reviewers to
-   see prepper tools (menu builder, earnings, order queue), say so explicitly in your reply to
-   Apple and we can create a second verified-prepper demo account on request — flag this to me
-   and I'll set one up the same way.
-
-## Known content-sparsity note (be upfront, don't let Apple find it first)
-
-Today the marketplace has 8 verified kitchens, 10 active meals, 0 active meal plans, and 0
-reviews (all real, no fake data). This is honest early-marketplace state, not a broken app —
-but a reviewer landing on an empty "Meal plans" tab could misread it as incomplete (Guideline
-2.1). Two options before submitting:
-- Publish at least 1–2 real active meal plans from an existing verified kitchen so that tab
-  isn't empty, **or**
-- Add a line to the reviewer notes explicitly acknowledging "we're an early-stage marketplace —
-  the plans/reviews sections will be sparse while our cook community grows; core ordering flow
-  is fully functional" so it reads as intentional, not broken.
+1. Sign in with the privately supplied review account.
+2. Browse current meals and cook storefronts. Describe unavailable or sparse features honestly using current evidence, not old inventory counts.
+3. Confirm the cart, final total and payment flow in the verified environment. Record the actual payment-mode and test instructions privately.
+4. Exercise account deletion, support, messaging/reporting and order-state handling without sending unsolicited messages or placing real orders.
+5. Supply a separate scoped cook account only if seller review is required and the account is verified. Do not grant administrator access.
 
 ## App Store Connect listing draft
 
 **App name:** Preppa - Meal Prep Marketplace (the exact name "Preppa" was already taken on the
 App Store; this is the variant actually used when the app record was created)
-**Subtitle** (30 char max): `Real meals from verified cooks`
+**Subtitle** (30 char max): `Meals from independent cooks`
 **Category:** Food & Drink
-**Age rating:** 4+ (no objectionable content; standard e-commerce/food-delivery rating)
+**Age rating:** complete the current store questionnaire from actual content and messaging/moderation behavior; do not reuse a guessed rating.
 
 **Description draft:**
-> Preppa connects you with verified home cooks and meal preppers — order a single meal,
+> Preppa connects you with independent home cooks and meal preppers — order a single meal,
 > subscribe to a weekly plan, or book a private chef to cook in your own kitchen.
 >
-> • Browse real meals from verified cooks near you, with full nutrition info
+> • Browse available meals from cooks near you, with the information each cook provides
 > • Subscribe to weekly meal-prep plans — pause, skip, or cancel anytime
 > • Message your cook directly for allergies, substitutions, or delivery coordination
-> • Book "Cook at My Place" — a background-checked, insured prepper cooks in your home
+> • Book "Cook at My Place" — a participating cook offers an in-home service where available
 > • Secure payments, ratings & reviews, and real-time order tracking
 >
-> Preppa is a growing marketplace of independent home cooks — new kitchens join every week.
+> Preppa is a growing marketplace of independent home cooks — availability depends on your location and participating cooks.
 
 **Keywords** (100 char max, comma-separated, no spaces needed): 
 `meal prep,local food,home cook,healthy meals,meal plan,subscription,personal chef,food delivery`
 
 **Support URL:** `https://help.preppa.live/support`
 **Marketing URL:** `https://preppa.live`
-**Privacy Policy URL:** `https://help.preppa.live/legal/privacy` (lawyer-reviewed, confirmed final)
+**Privacy Policy URL:** `https://help.preppa.live/legal/privacy` (must be checked against current processing and confirmed by the operator)
 
 ## App Privacy questionnaire answers (App Store Connect → App Privacy)
 
@@ -85,17 +59,10 @@ Data collected and linked to the user's identity:
 
 No data used for third-party advertising or tracking (no ad SDKs in this app).
 
-## What's still blocked on you specifically
+## Required before submission
 
-Nothing above needs your Apple Developer login. What does:
-1. Log into your Apple Developer account (on your machine — I can't authenticate as you).
-2. I run the iOS EAS build once you confirm you're logged in / the account is active.
-3. Real-device test of native Stripe PaymentSheet (needs a physical iPhone or the EAS-built
-   .ipa on a simulator/TestFlight).
-4. Create the App Store Connect app record and paste in the listing draft above.
-
-## Since this doc was written
-
-- Stale `NSCameraUsageDescription` referencing removed cash-on-delivery QR scanning was fixed
-  in `app.json` (was describing a feature that never actually used the camera — `FauxQR` in
-  `Handoff.tsx` is a purely illustrative animation, not a real camera scan).
+- Rotate the previously committed review credential and verify scoped review access.
+- Verify support/privacy URLs, current listing claims, moderation and account deletion.
+- Confirm live versus test payment separation, connected-account readiness, refund handling and recurring-charge reconciliation.
+- Build the current source for both platforms, test native payments and recovery on physical devices, and finish store privacy disclosures and screenshots.
+- Obtain store submission receipts. A successful bundle export or an older EAS build is not a submission.

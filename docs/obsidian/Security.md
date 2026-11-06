@@ -2,11 +2,19 @@
 project: Preppa
 type: security
 status: active
-last_updated: 2026-09-17
+last_updated: 2026-11-06
 tags: [project/preppa, type/security]
 ---
 
 # Security
+
+## Dependency verification - 2026-11-06
+
+The existing release dependency patch includes PR #39 (brace-expansion 5.0.12) and PR #40 (shell-quote 1.12.0), decode-uri-component 0.5.1, and scoped fingerprint glob/minimatch overrides. Clean installation exposed a stale nested glob 13.0.7 lockfile entry despite the declared 14.0.4 override. Removing that entry makes fingerprint resolve the intended patched version. The glob regression fails against the original install and passes after the fix; both override resolutions are covered by tests. React DOM is pinned to 19.2.3 alongside React 19.2.3: the previous floating 19.3.1 resolution caused a reproduced incompatible-React-versions rendering failure. A third regression checks both the exact pin and an actual rendered component.
+
+Validated in an isolated snapshot of release base d1d4711 with Node 24.15.0/npm 11.12.1: clean npm ci, 14 tests, application typecheck, accessibility input-name check, environment separation, targeted security dependency tree, npm audit (zero known vulnerabilities), web/iOS/Android JavaScript exports, targeted bundle secret scan, and fingerprint generation (128 sources). Synthetic localhost/test settings were used for exports. Logs remain in the sibling preppa-deps-verify-20261106 worktree. The original release node_modules was preserved; run npm ci there before testing the new lockfile.
+
+The full npm ls --all check still exits 1 because expo-router's react-native-drawer-layout requires an absent Reanimated peer. The same missing peer exists on release HEAD; no app/source files import drawers or Reanimated. It was left unchanged rather than adding a new native module. The targeted security/React dependency tree passes; this is not a claim that the complete graph is warning-free. No push, merge, deployment, paid EAS build, database reset or live service mutation was performed. CI on Node 22, signed native builds, physical-device tests and broader launch acceptance remain unverified. Zero npm advisories and a targeted secret scan do not establish full security or launch readiness. See [[Changelog]] and [[Launch-Plan]].
 
 ## Build-upload hardening — 2026-09-17
 

@@ -2,11 +2,18 @@
 project: Preppa
 type: changelog
 status: active
-last_updated: 2026-09-25
+last_updated: 2026-11-06
 tags: [project/preppa, type/changelog]
 ---
 
 # Changelog
+
+## Store readiness recheck, November 6, 2026
+
+Dependency remediation is locally validated on release base d1d4711: clean npm install, 14 tests, TypeScript, accessibility, environment separation, web/iOS/Android JavaScript exports, bundle secret scan and Expo fingerprint generation passed. The final npm audit reports zero known vulnerabilities. PRs #39 and #40 are already represented in the combined local lockfile. A stale nested glob 13.0.7 entry was removed so the existing 14.0.4 security override actually resolves; three regression tests now check the fingerprint overrides and matching React/React DOM rendering. React DOM is pinned to 19.2.3 to match Expo's React runtime after the prior floating version resolved to 19.3.1 and threw an incompatible-version error. This work remains unpublished. Native exports are not signed builds, physical-device acceptance or store submission. The latest inspected iOS EAS production build is still the August 18 build 4; see [[Security]] for verification details.
+
+Corrected the submission draft: removed the committed reviewer password from the current file, removed stale test-card/live-payment instructions and unverified inventory, legal-review and provider-vetting claims. Credential rotation remains required because removal does not erase repository history. Current production config uses a live Stripe publishable key. Review access and payment environment must be verified before submission. See [[Payments]] and [[Launch-Plan]].
+
 
 ## Customer checkout and wide-screen onboarding (2026-09-25)
 
