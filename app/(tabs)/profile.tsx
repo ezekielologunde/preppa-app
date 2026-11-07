@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { View, Text, ScrollView, Pressable, Platform, Image, Linking } from 'react-native';
 import { confirmAction } from '../../src/lib/confirm';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -27,6 +27,14 @@ export default function Profile() {
   const router = useRouter();
   const { darkMode, setDarkMode, logout, deleteAccount, toast, prepperStatus, isAdmin, isPrepPlus, name, location, avatarUrl } = useStore();
   const initial = (name || '?').trim()[0]?.toUpperCase() ?? '?';
+  const [loggingOut, setLoggingOut] = useState(false);
+  const handleLogout = async () => {
+    if (loggingOut) return;
+    setLoggingOut(true);
+    try { await logout(); }
+    catch { toast('Could not confirm sign-out. Please try again.', 'info'); }
+    finally { setLoggingOut(false); }
+  };
   const openLink = (url: string) => Linking.openURL(url).catch(() => toast('Couldn’t open the link', 'info'));
 
   const confirmDelete = () => {
@@ -179,9 +187,9 @@ export default function Profile() {
         </Group>
 
         <Group>
-          <Pressable onPress={logout} accessibilityRole="button" accessibilityLabel="Log out" style={rowStyle(c, false)}>
+          <Pressable onPress={handleLogout} disabled={loggingOut} accessibilityRole="button" accessibilityLabel="Log out" accessibilityState={{ disabled: loggingOut, busy: loggingOut }} style={rowStyle(c, false)}>
             <IconWell ico="logout" tone="" />
-            <Text style={[type(15, 700), { color: c.ink, flex: 1 }]}>Log out</Text>
+            <Text style={[type(15, 700), { color: c.ink, flex: 1 }]}>{loggingOut ? 'Signing out...' : 'Log out'}</Text>
           </Pressable>
           <Pressable onPress={confirmDelete} accessibilityRole="button" accessibilityLabel="Delete account" style={rowStyle(c, true)}>
             <View style={{ width: 36, height: 36, borderRadius: 11, backgroundColor: c.pinkL, alignItems: 'center', justifyContent: 'center' }}>

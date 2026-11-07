@@ -414,3 +414,16 @@ Native update compatibility now uses the Expo fingerprint policy instead of the 
 hashes locally, and CI now resolves both before bundle export. This requires new signed
 builds before releasing updates for this runtime; do not reuse an old 1.0.0 binary or manually
 override its runtime to force compatibility. No EAS build or OTA update was published.
+
+## November 6 local logout readiness
+
+Logout now waits for local session removal to be confirmed. It uses the SDK's local scope,
+so an unavailable remote revocation service cannot falsely preserve a logged-in device while
+the UI claims success. A retained session or storage error produces a retry message. The
+button has pending and disabled accessibility states. Confirmed logout clears cached cart,
+favorites, profile, location, notifications and account flags. Session epochs invalidate late
+account/address/notification reads; order reads retain their existing sequence guard.
+
+Twenty-nine local tests, app typecheck and accessibility checks pass. The installed auth-js
+implementation was checked against the current signOut documentation. No production account
+was accessed or signed out. Real-device and offline acceptance remain required on a signed build.

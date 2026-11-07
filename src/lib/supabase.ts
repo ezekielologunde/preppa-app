@@ -2,6 +2,7 @@ import { createClient } from '@supabase/supabase-js';
 import { geocodeAddress } from './geo';
 import { authStorage } from './authStorage';
 import { validateServiceEnvironment } from './environmentSafety';
+import { confirmLocalSignOut } from './signOutSafety';
 
 /**
  * Supabase + Stripe connection for real card payments (LIVE mode).
@@ -160,11 +161,7 @@ export async function updatePassword(password: string) {
 
 /** Sign the current user out of Supabase (clears the persisted session). */
 export async function signOutUser() {
-  try {
-    await supabase.auth.signOut();
-  } catch {
-    // best-effort; local state is cleared by the caller regardless
-  }
+  await withTimeout(confirmLocalSignOut(supabase.auth));
 }
 
 /**
