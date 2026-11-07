@@ -16,4 +16,10 @@ export function validateServiceEnvironment(input: {
   if (!input.production && (url.origin === new URL(input.liveUrl).origin || input.anonKey === input.liveAnonKey || input.stripeKey.startsWith('pk_live_'))) {
     throw new Error('Development and preview builds cannot use Preppa production services. Configure the isolated test environment.');
   }
+  const expectedKey = input.production ? /^pk_live_[A-Za-z0-9]+$/ : /^pk_test_[A-Za-z0-9]+$/;
+  if (!expectedKey.test(input.stripeKey)) {
+    throw new Error(input.production
+      ? 'Production requires a live Stripe publishable key. Test and secret keys are not allowed.'
+      : 'Development and preview require a test Stripe publishable key. Secret keys are not allowed.');
+  }
 }

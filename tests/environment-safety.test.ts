@@ -25,3 +25,13 @@ test('malformed and ambiguous backend endpoints fail before client creation', ()
 test('explicit production configuration can use its production backend', () => {
   validateServiceEnvironment({ ...fixture, production: true, url: fixture.liveUrl, anonKey: fixture.liveAnonKey, stripeKey: 'pk_live_fixture' });
 });
+test('production fails closed on test, secret and malformed payment keys', () => {
+  for (const stripeKey of ['pk_test_fixture', 'sk_live_fixture', 'rk_live_fixture', 'pk_live_', ' pk_live_fixture', 'pk_live_fixture\n']) {
+    assert.throws(() => validateServiceEnvironment({ ...fixture, production: true, url: fixture.liveUrl, anonKey: fixture.liveAnonKey, stripeKey }), /live Stripe publishable key/);
+  }
+});
+test('preview accepts only a nonempty test publishable key', () => {
+  for (const stripeKey of ['sk_test_fixture', 'rk_test_fixture', 'pk_test_', 'invalid']) {
+    assert.throws(() => validateServiceEnvironment({ ...fixture, stripeKey }), /test Stripe publishable key/);
+  }
+});
