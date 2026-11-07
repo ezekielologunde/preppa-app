@@ -8,3 +8,5 @@ const unavailable = async () => {
 export const confirmPayment: typeof import('@stripe/stripe-react-native').confirmPayment = unavailable as any;
 export const initPaymentSheet: typeof import('@stripe/stripe-react-native').initPaymentSheet = unavailable as any;
 export const presentPaymentSheet: typeof import('@stripe/stripe-react-native').presentPaymentSheet = unavailable as any;
+
+export const retrievePaymentIntent: typeof import('@stripe/stripe-react-native').retrievePaymentIntent = unavailable;

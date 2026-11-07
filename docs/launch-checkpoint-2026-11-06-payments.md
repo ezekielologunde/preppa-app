@@ -20,3 +20,5 @@ Bundle compilation and local tests do not establish production payment readiness
 Native saved-card checkout previously accepted any SDK response without an error, even if the returned PaymentIntent was not succeeded. Web and native confirmation now require an explicit succeeded state. Processing and unresolved states direct the buyer to check the existing order before trying again. This does not replace webhook-based order settlement.
 
 Local tests now cover both SDK status spellings, missing status, pending action, cancellation, authorization-only and processing states. Production access remains unavailable. This change does not rotate the exposed historical reviewer credential or establish end-to-end payment readiness.
+
+The native new-card PaymentSheet path now retrieves its PaymentIntent after the sheet completes and applies the same succeeded-status check. A successful sheet dismissal alone no longer returns a successful order result. Retrieval failures tell the buyer to check the existing order before retrying. Backend webhook settlement remains authoritative.
