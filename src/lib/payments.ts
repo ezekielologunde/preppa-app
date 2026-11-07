@@ -3,7 +3,7 @@ import type { Stripe } from '@stripe/stripe-js';
 import { confirmPayment, initPaymentSheet, presentPaymentSheet, retrievePaymentIntent } from './nativeStripe';
 import { supabase, ensureAuth, STRIPE_PK, APPLE_PAY_MERCHANT_ID, assertLiveMoneyAllowed, assertFunctionSuccess } from './supabase';
 import type { CartLine } from '../store/store';
-import { requireSucceededPayment } from './payment-status';
+import { PaymentUnconfirmedError, requireSucceededPayment } from './payment-status';
 
 export interface OrderOpts {
   cook: string;
@@ -167,8 +167,8 @@ export async function payWithCard(opts: OrderOpts): Promise<{ orderId: string; t
     if (present.error.code === 'Canceled') throw new Error('Payment canceled');
     throw new Error(present.error.message || 'card payment failed');
   }
-  const settled = await retrievePaymentIntent(clientSecret);
-  if (settled.error) throw new Error('Payment status could not be verified. Check your order before trying again.');
+  const settled = await retrievePaymentIntent(clientSecret).catch(() => { throw new PaymentUnconfirmedError('unavailable'); });
+  if (settled.error) throw new PaymentUnconfirmedError('unavailable');
   requireSucceededPayment(settled.paymentIntent?.status);
   return { orderId, taxCents };
 }

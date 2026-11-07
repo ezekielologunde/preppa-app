@@ -22,3 +22,5 @@ Native saved-card checkout previously accepted any SDK response without an error
 Local tests now cover both SDK status spellings, missing status, pending action, cancellation, authorization-only and processing states. Production access remains unavailable. This change does not rotate the exposed historical reviewer credential or establish end-to-end payment readiness.
 
 The native new-card PaymentSheet path now retrieves its PaymentIntent after the sheet completes and applies the same succeeded-status check. A successful sheet dismissal alone no longer returns a successful order result. Retrieval failures tell the buyer to check the existing order before retrying. Backend webhook settlement remains authoritative.
+
+Checkout now recognizes typed uncertain-payment errors in both new-card and saved-card handling, preserving that instruction instead of replacing it with a generic retry message. Arbitrary provider errors are not exposed through this message path. Local coverage is now 37 passing tests.
