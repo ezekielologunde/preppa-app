@@ -382,3 +382,7 @@ Rewards, referrals, livestreaming, Meal Drops, instant payouts, fancy analytics,
 ## Production availability, November 6
 
 The production Supabase dashboard reports Preppa paused, with Resume disabled for the currently signed-in account and an organization quota warning. The owner cannot upgrade now, so no paid change was made. Review-account credential rotation, live-flow verification and store submission remain blocked until authorized project access is restored on an allowed plan. Local tests and exports do not remove this operational blocker.
+
+## November 6 follow-up
+
+Owner instructed continuing without production access. Both support/privacy endpoints returned HTTP 200. The expanded CI passes both native bundles, database regressions and web security. `docs/APP_STORE_SUBMISSION.md` contains the signed-build acceptance record. Historical Pro/test-payment claims in the baseline report are marked stale; no upgrade, charge or submission occurred. See [[Security]] and [[Changelog]].
