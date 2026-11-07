@@ -3,7 +3,8 @@ import { extname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
 const root = fileURLToPath(new URL('../dist/', import.meta.url));
-const textExtensions = new Set(['.html', '.js', '.json', '.map', '.txt', '.css']);
+// Hermes bytecode includes a string table; inspect its decoded bytes for credential markers too.
+const textExtensions = new Set(['.html', '.js', '.json', '.map', '.txt', '.css', '.hbc']);
 const forbidden = [
   ['Stripe secret key', /\b(?:sk|rk)_(?:live|test)_[A-Za-z0-9]+/],
   ['private key', /-----BEGIN (?:EC |RSA )?PRIVATE KEY-----/],
@@ -34,3 +35,4 @@ if (hits.length) {
   process.exit(1);
 }
 console.log('Build secret scan passed');
+

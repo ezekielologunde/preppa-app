@@ -2,12 +2,19 @@
 project: Preppa
 type: launch-plan
 status: active
-last_updated: 2026-09-25
+last_updated: 2026-11-06
 tags: [project/preppa, type/launch-plan]
 
 ---
 
 # Launch Plan
+
+## Store readiness recheck, November 6, 2026
+
+Dependency remediation is locally validated on release base d1d4711: clean npm install, 14 tests, TypeScript, accessibility, environment separation, web/iOS/Android JavaScript exports, bundle secret scan and Expo fingerprint generation passed. The final npm audit reports zero known vulnerabilities. PRs #39 and #40 are already represented in the combined local lockfile. A stale nested glob 13.0.7 entry was removed so the existing 14.0.4 security override actually resolves; three regression tests now check the fingerprint overrides and matching React/React DOM rendering. React DOM is pinned to 19.2.3 to match Expo's React runtime after the prior floating version resolved to 19.3.1 and threw an incompatible-version error. This work remains unpublished. Native exports are not signed builds, physical-device acceptance or store submission. The latest inspected iOS EAS production build is still the August 18 build 4; see [[Security]] for verification details.
+
+Corrected the submission draft: removed the committed reviewer password from the current file, removed stale test-card/live-payment instructions and unverified inventory, legal-review and provider-vetting claims. Credential rotation remains required because removal does not erase repository history. Current production config uses a live Stripe publishable key. Review access and payment environment must be verified before submission. See [[Payments]] and [[Launch-Plan]].
+
 
 ## Readiness review — 2026-09-17
 
@@ -371,3 +378,56 @@ Rewards, referrals, livestreaming, Meal Drops, instant payouts, fancy analytics,
 ## Related
 
 - [[Project]] · [[PM-Onboarding]] · [[Payments]] · [[Tasks]] · [[Bugs]] · [[Decisions]] · [[Changelog]]
+
+## Production availability, November 6
+
+The production Supabase dashboard reports Preppa paused, with Resume disabled for the currently signed-in account and an organization quota warning. The owner cannot upgrade now, so no paid change was made. Review-account credential rotation, live-flow verification and store submission remain blocked until authorized project access is restored on an allowed plan. Local tests and exports do not remove this operational blocker.
+
+## November 6 follow-up
+
+Owner instructed continuing without production access. Both support/privacy endpoints returned HTTP 200. The expanded CI passes both native bundles, database regressions and web security. `docs/APP_STORE_SUBMISSION.md` contains the signed-build acceptance record. Historical Pro/test-payment claims in the baseline report are marked stale; no upgrade, charge or submission occurred. See [[Security]] and [[Changelog]].
+
+## November 6 deletion eligibility hardening
+
+The deletion handler now validates every eligibility field and rejects missing or malformed
+RPC responses before cancellation or account cleanup. It invokes the ownership-checked
+`cook_deletion_blockers` RPC with the authenticated caller's JWT, not the service identity.
+Administrative cleanup remains on the server-only service client.
+
+Local verification: 20 Node tests, TypeScript application check, and Deno check of the
+actual Edge Function. Production remains paused. Before submission, deploy the function
+and exercise owner deletion, another owner's kitchen denial, all four blocker states,
+and dependency failures on the existing project. Confirm `SUPABASE_ANON_KEY` is available
+alongside the existing server secrets. No schema grant was widened.
+
+## November 6 preview environment validation
+
+Runtime service validation now compares normalized backend origins, so trailing slashes,
+hostname case and explicit default ports cannot bypass the production endpoint guard.
+Development and preview also reject the production anon key, live Stripe keys, malformed
+backend URLs and insecure HTTP outside loopback development. Tests use dummy configuration
+only. Twenty-five local tests and the application typecheck pass. No live service was called.
+This hardening does not supply an isolated backend or resume the paused production project.
+
+Native update compatibility now uses the Expo fingerprint policy instead of the unchanged
+1.0.0 app version. The installed expo-updates CLI resolved nonempty iOS and Android runtime
+hashes locally, and CI now resolves both before bundle export. This requires new signed
+builds before releasing updates for this runtime; do not reuse an old 1.0.0 binary or manually
+override its runtime to force compatibility. No EAS build or OTA update was published.
+
+## November 6 local logout readiness
+
+Logout now waits for local session removal to be confirmed. It uses the SDK's local scope,
+so an unavailable remote revocation service cannot falsely preserve a logged-in device while
+the UI claims success. A retained session or storage error produces a retry message. The
+button has pending and disabled accessibility states. Confirmed logout clears cached cart,
+favorites, profile, location, notifications and account flags. Session epochs invalidate late
+account/address/notification reads; order reads retain their existing sequence guard.
+
+Twenty-nine local tests, app typecheck and accessibility checks pass. The installed auth-js
+implementation was checked against the current signOut documentation. No production account
+was accessed or signed out. Real-device and offline acceptance remain required on a signed build.
+
+## November 6 realtime session isolation
+
+Realtime notification and unread-message refreshes now discard results after logout, account changes or subscription disposal. Late notification-write errors also cannot repopulate a different session's error state. Three deferred-response tests cover results, failures and callbacks after disposal; all 32 tests, application typecheck and accessibility checks pass locally. This change uses no production access. Signed-device acceptance and push-token lifecycle verification remain open.

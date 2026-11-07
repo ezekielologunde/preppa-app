@@ -1,4 +1,5 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
+import { unsettledPaymentMessage } from '../src/lib/payment-status';
 import { View, Text, ScrollView, Platform, ActivityIndicator, TextInput } from 'react-native';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { createRealOrder, confirmSavedCardPayment, payWithCard } from '../src/lib/payments';
@@ -120,6 +121,9 @@ export default function Checkout() {
         customerMessage = 'Please sign in again to place your order.';
         toast('Please sign in again to place your order.', 'info');
         resetOnboarding(); // re-show the sign-in gate
+      } else if (unsettledPaymentMessage(e)) {
+        customerMessage = unsettledPaymentMessage(e)!;
+        toast(customerMessage, 'info');
       } else if (/no longer available|are unavailable|taking orders|payouts are set up|own kitchen|delivery address|pickup address|valid area|tax|too many attempts|already been paid|could not be recovered|could not be resumed|no longer payable|different kitchen|cart is out of date/i.test(msg)) {
         // Server rejected on live availability (item sold out / kitchen paused / not payout-ready).
         // These messages are already customer-friendly — surface them instead of a generic error
@@ -206,7 +210,7 @@ export default function Checkout() {
     } catch (e) {
       setSavedCardConfirmOpen(false);
       const msg = (e as any)?.message ?? '';
-      const customerMessage = msg.includes('card') ? 'Your card couldn’t be charged. Try another card or check with your bank.' : 'Couldn’t complete your payment. Please try again.';
+      const customerMessage = unsettledPaymentMessage(e) ?? (msg.includes('card') ? 'Your card couldn’t be charged. Try another card or check with your bank.' : 'Couldn’t complete your payment. Please try again.');
       setPaymentError(customerMessage);
       toast(customerMessage, 'info');
       paymentInFlight.current = false;

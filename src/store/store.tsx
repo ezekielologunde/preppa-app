@@ -14,6 +14,7 @@ import { threadUnreadCount, subscribeMyNotifications } from '../lib/messages';
 import { fetchCustomerOrders, fetchOrderStatus, fetchReorderMeals, timeAgo } from '../lib/orders';
 import { getMyKitchen, getKitchenAvailability, setKitchenAvailability } from '../lib/connect';
 import { registerForPushNotifications } from '../lib/push';
+import { runSessionTask } from '../lib/sessionTask';
 import { setViewerCoords } from '../data/supabaseRepository';
 import { geocodeAddress, type LatLng } from '../lib/geo';
 import { createSavedAddress, deleteSavedAddress, fetchSavedAddresses, updateSavedAddress } from '../lib/addresses';
@@ -85,7 +86,7 @@ interface Store {
 
   darkMode: boolean;
   setDarkMode: (v: boolean) => void;
-  logout: () => void;
+  logout: () => Promise<void>;
   /** Throws (with a user-facing reason) if the server blocks deletion — see src/lib/supabase.ts. */
   deleteAccount: () => Promise<void>;
 
@@ -234,6 +235,8 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
   const flashTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const [toasts, setToasts] = useState<Toast[]>([]);
   const hydrated = useRef(false);
+  const accountEpoch = useRef(0); // invalidate private async reads across session changes
+  const [accountGeneration, setAccountGeneration] = useState(0);
 
   // hydrate
   useEffect(() => {
@@ -328,16 +331,18 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
   }, [uid]);
 
   const refreshAddresses = useCallback(async () => {
+    const epoch = accountEpoch.current;
     setAddressesLoading(true);
     setAddressesError('');
     try {
       const rows = await fetchSavedAddresses();
+      if (epoch !== accountEpoch.current) return;
       setAddresses(rows);
       setAddressId((current) => rows.some((a) => a.id === current) ? current : rows[0]?.id ?? '');
     } catch {
-      setAddressesError('Check your connection and try loading your delivery addresses again.');
+      if (epoch === accountEpoch.current) setAddressesError('Check your connection and try loading your delivery addresses again.');
     } finally {
-      setAddressesLoading(false);
+      if (epoch === accountEpoch.current) setAddressesLoading(false);
     }
   }, []);
 
@@ -346,8 +351,10 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
   // prepper approval reflect server truth (not a local flag). Runs after hydrate
   // and on every auth change. Signed out ⇒ 'none' (no elevated access retained).
   const reconcileAccount = useCallback(async () => {
+    const epoch = accountEpoch.current;
     try {
       const s = await fetchAccountState();
+      if (epoch !== accountEpoch.current) return;
       setIsAdmin(s.isAdmin);
       // Authoritative: prepperStatus always follows the live session. When signed
       // out, fetchAccountState returns 'none', so a stale cached role can never keep
@@ -360,19 +367,24 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
       setIsPrepPlus(s.isPrepPlus);
       setPrepplusUntil(s.prepplusUntil);
       const { data: sess } = await supabase.auth.getSession();
+      if (epoch !== accountEpoch.current) return;
       setUid(sess.session?.user?.id ?? null);
       if (s.signedIn) {
-        if (s.displayName) setName(s.displayName);
-        if (s.firstName) setFirstName(s.firstName);
+        setName(s.displayName || '');
+        setFirstName(s.firstName || '');
         setAvatarUrl(s.avatarUrl); // authoritative — set even when null so a removed photo clears
         setNotificationsLoading(true);
         setNotificationsError('');
-        try { setNotifs(await fetchNotifications()); }
-        catch (e: any) { setNotificationsError(e?.message || 'Could not load notifications.'); }
-        finally { setNotificationsLoading(false); }
-        try { setThreadUnread(await threadUnreadCount()); } catch { /* keep last */ }
+        try { const rows = await fetchNotifications(); if (epoch === accountEpoch.current) setNotifs(rows); }
+        catch (e: any) { if (epoch === accountEpoch.current) setNotificationsError(e?.message || 'Could not load notifications.'); }
+        finally { if (epoch === accountEpoch.current) setNotificationsLoading(false); }
+        if (epoch !== accountEpoch.current) return;
+        try { const count = await threadUnreadCount(); if (epoch === accountEpoch.current) setThreadUnread(count); } catch { /* keep last */ }
+        if (epoch !== accountEpoch.current) return;
         await refreshOrders(sess.session?.user?.id);
+        if (epoch !== accountEpoch.current) return;
         await refreshAddresses();
+        if (epoch !== accountEpoch.current) return;
         // Fire-and-forget: no-ops on web / before an EAS project is linked, and never
         // throws (see src/lib/push.ts) — safe to leave unawaited here.
         registerForPushNotifications();
@@ -398,14 +410,16 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
 
   // Refresh just the messaging unread count (called after opening/reading a thread).
   const refreshMessaging = useCallback(async () => {
-    try { setThreadUnread(await threadUnreadCount()); } catch { /* keep last */ }
+    const epoch = accountEpoch.current;
+    try { const count = await threadUnreadCount(); if (epoch === accountEpoch.current) setThreadUnread(count); } catch { /* keep last */ }
   }, []);
   const refreshNotifications = useCallback(async () => {
+    const epoch = accountEpoch.current;
     setNotificationsLoading(true);
     setNotificationsError('');
-    try { setNotifs(await fetchNotifications()); }
-    catch (e: any) { setNotificationsError(e?.message || 'Could not load notifications.'); }
-    finally { setNotificationsLoading(false); }
+    try { const rows = await fetchNotifications(); if (epoch === accountEpoch.current) setNotifs(rows); }
+    catch (e: any) { if (epoch === accountEpoch.current) setNotificationsError(e?.message || 'Could not load notifications.'); }
+    finally { if (epoch === accountEpoch.current) setNotificationsLoading(false); }
   }, []);
 
   const saveName = useCallback(async (fullName: string) => {
@@ -416,11 +430,21 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
   useEffect(() => {
     if (!ready) return;
     reconcileAccount();
-    const { data: sub } = supabase.auth.onAuthStateChange((event) => {
+    const { data: sub } = supabase.auth.onAuthStateChange((event, session) => {
       // Skip hourly TOKEN_REFRESHED and the INITIAL_SESSION echo — the reconcile on mount
       // (above) already covers boot. Reconciling on those re-ran 3 serial round trips + a
       // notifications refetch for the whole session. Only real sign-in/out/user changes matter.
       if (event === 'TOKEN_REFRESHED' || event === 'INITIAL_SESSION') return;
+      accountEpoch.current += 1;
+      setAccountGeneration(accountEpoch.current);
+      setUid(session?.user.id ?? null);
+      // Cross-tab sign-out and account switches must clear private notifications
+      // immediately, even when the following backend reconciliation is offline.
+      setNotifs([]);
+      setThreadUnread(0);
+      setNotificationsError('');
+      setNotificationsLoading(false);
+      ordersRequestSequence.current += 1;
       // Defer out of the callback: supabase-js v2 holds the auth lock while this runs, so
       // calling auth methods (getSession, inside reconcileAccount) synchronously can deadlock.
       setTimeout(() => { reconcileAccount(); }, 0);
@@ -450,12 +474,16 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
   // list/badge signal — see src/lib/messages.ts). Re-subscribes when the user changes.
   useEffect(() => {
     if (!uid) return;
+    const epoch = accountEpoch.current;
+    let disposed = false;
+    const current = () => !disposed && epoch === accountEpoch.current;
     const off = subscribeMyNotifications(uid, () => {
-      fetchNotifications().then((rows) => { setNotifs(rows); setNotificationsError(''); }).catch((e: any) => setNotificationsError(e?.message || 'Could not refresh notifications.'));
-      threadUnreadCount().then(setThreadUnread).catch(() => {});
+      void runSessionTask(current, fetchNotifications, (rows) => { setNotifs(rows); setNotificationsError(''); },
+        () => setNotificationsError('Could not refresh notifications.'));
+      void runSessionTask(current, threadUnreadCount, setThreadUnread);
     });
-    return off;
-  }, [uid]);
+    return () => { disposed = true; off(); };
+  }, [uid, accountGeneration]);
 
   const role: 'customer' | 'prepper' = prepperStatus === 'approved' ? 'prepper' : 'customer';
   const isMine = useCallback((cook: string, kitchenUuid?: string) => {
@@ -631,7 +659,19 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
   }, [orders]);
 
   const resetOnboarding = useCallback(() => setOnboardedState(false), []);
-  const logout = useCallback(() => { ordersRequestSequence.current += 1; signOutUser(); setPrepperStatus('none'); setOwnKitchenId(null); setIsAdmin(false); setIsPrepPlus(false); setPrepplusUntil(null); setOrders([]); setOrdersError(''); setOrdersLoading(false); setAddresses([]); setAddressId(''); setOnboardedState(false); }, []);
+  const logout = useCallback(async () => {
+    await signOutUser();
+    accountEpoch.current += 1;
+    ordersRequestSequence.current += 1;
+    setUid(null); setCart([]); setFav(new Set()); setName(''); setFirstName(''); setAvatarUrl(null);
+    setLocation('Choose your area'); setCoordsState(null); setViewerCoords(null); setCountry(null);
+    setNotifs([]); setThreadUnread(0); setNotificationsError(''); setNotificationsLoading(false);
+    setPayoutsEnabled(false); setApprovalNoticePending(false);
+    setPrepperStatus('none'); setOwnKitchenId(null); setIsAdmin(false); setIsPrepPlus(false); setPrepplusUntil(null);
+    setOrders([]); setOrdersError(''); setOrdersLoading(false); setAddresses([]); setAddressId('');
+    setAddressesError(''); setAddressesLoading(false); setOnboardedState(false);
+    AsyncStorage.removeItem(LS).catch(() => {});
+  }, []);
   const deleteAccount = useCallback(async () => {
     // Apple 5.1.1(v) / Google Play: account-deletion path. Calls the real delete-account edge
     // function FIRST (anonymizes the profile, soft-deletes the auth user so sign-in is
@@ -639,8 +679,9 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
     // Throws (with a specific, user-facing reason) if a cook's kitchen has in-flight orders,
     // an uncashed balance, or active subscribers — the caller must surface that, not swallow it.
     await deleteAccountServerSide();
+    accountEpoch.current += 1;
     ordersRequestSequence.current += 1;
-    signOutUser();
+    void signOutUser().catch(() => {}); // server deletion already succeeded; clear local profile even if remote revocation is unavailable
     AsyncStorage.removeItem(LS).catch(() => {});
     setCart([]);
     setFav(new Set());
@@ -719,12 +760,14 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
   }, []);
 
   const markNotifRead = useCallback((id: string) => {
+    const epoch = accountEpoch.current;
     setNotifs((ns) => ns.map((n) => (n.id === id ? { ...n, unread: false } : n))); // optimistic
-    markNotificationRead(id).catch((e: any) => setNotificationsError(e?.message || 'Could not save notification status. Refresh to try again.'));
+    markNotificationRead(id).catch(() => { if (epoch === accountEpoch.current) setNotificationsError('Could not save notification status. Refresh to try again.'); });
   }, []);
   const markAllRead = useCallback(() => {
+    const epoch = accountEpoch.current;
     setNotifs((ns) => ns.map((n) => ({ ...n, unread: false }))); // optimistic
-    markAllNotificationsRead().catch((e: any) => setNotificationsError(e?.message || 'Could not save notification status. Refresh to try again.'));
+    markAllNotificationsRead().catch(() => { if (epoch === accountEpoch.current) setNotificationsError('Could not save notification status. Refresh to try again.'); });
   }, []);
   // Keep the repository's viewer coords in sync so the catalog can sort nearest-first.
   const setCoords = useCallback((cc: LatLng | null) => { setCoordsState(cc); setViewerCoords(cc); }, []);

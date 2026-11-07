@@ -10,6 +10,7 @@
 // in-flight orders, an uncashed ledger balance, active subscribers, OR is currently SUSPENDED
 // is blocked outright -- deleting out from under paying subscribers, forfeiting real money,
 // or dodging an active admin suspension would all be worse outcomes than the block.
+import { cancelForDeletion, requireDeletionResult, requireDeletionBlockers } from './safety.ts';
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.45.4';
 import Stripe from 'https://esm.sh/stripe@16.12.0?target=deno';
 
@@ -31,11 +32,6 @@ function admin() {
   return createClient(requireEnv('SUPABASE_URL'), requireEnv('SUPABASE_SERVICE_ROLE_KEY'), { auth: { persistSession: false } });
 }
 
-async function cancelIfActive(subscriptionId: string | null | undefined) {
-  if (!subscriptionId) return;
-  try { await stripe.subscriptions.cancel(subscriptionId); } catch (_e) { /* already canceled/missing — fine */ }
-}
-
 Deno.serve(async (req) => {
   if (req.method === 'OPTIONS') return new Response('ok', { headers: corsHeaders });
   if (req.method !== 'POST') return json(405, { error: 'method not allowed' });
@@ -45,6 +41,11 @@ Deno.serve(async (req) => {
     const { data: userData, error: userErr } = await db.auth.getUser(jwt);
     if (userErr || !userData.user) return json(401, { error: 'unauthorized' });
     const uid = userData.user.id;
+    // The eligibility RPC checks auth.uid(); the service client has no caller identity.
+    const caller = createClient(requireEnv('SUPABASE_URL'), requireEnv('SUPABASE_ANON_KEY'), {
+      global: { headers: { Authorization: `Bearer ${jwt}` } },
+      auth: { persistSession: false, autoRefreshToken: false },
+    });
 
     const { error: rlErr } = await db.rpc('check_rate_limit', {
       p_action: 'delete_account', p_max_count: 5, p_window: '10 minutes', p_subject: uid,
@@ -53,10 +54,10 @@ Deno.serve(async (req) => {
 
     // Block on any kitchen the caller owns with in-flight orders, an uncashed balance,
     // active subscribers, or an active admin suspension.
-    const { data: kitchens } = await db.from('kitchens').select('id, name').eq('owner_id', uid);
+    const kitchens = requireDeletionResult(await db.from('kitchens').select('id, name').eq('owner_id', uid));
     for (const k of kitchens ?? []) {
-      const { data: blockers } = await db.rpc('cook_deletion_blockers', { p_kitchen_id: k.id }).single();
-      const b = blockers as any;
+      const blockers = requireDeletionResult(await caller.rpc('cook_deletion_blockers', { p_kitchen_id: k.id }).single());
+      const b = requireDeletionBlockers(blockers);
       if (b?.has_active_orders) {
         return json(409, { error: `"${k.name}" has orders in progress. Finish or cancel them before deleting your account.` });
       }
@@ -76,18 +77,18 @@ Deno.serve(async (req) => {
     // soft-delete the auth user (keeps the row/id — everything that references it via a
     // RESTRICT foreign key stays valid — but disables sign-in and obfuscates the email at
     // the auth layer).
-    const { data: mem } = await db.from('memberships').select('stripe_subscription_id').eq('customer_id', uid).maybeSingle();
-    await cancelIfActive(mem?.stripe_subscription_id as string | undefined);
+    const mem = requireDeletionResult(await db.from('memberships').select('stripe_subscription_id').eq('customer_id', uid).maybeSingle());
+    await cancelForDeletion(stripe.subscriptions, mem?.stripe_subscription_id as string | undefined);
 
     for (const k of kitchens ?? []) {
-      const { data: cmem } = await db.from('cook_memberships').select('stripe_subscription_id').eq('kitchen_id', k.id).maybeSingle();
-      await cancelIfActive(cmem?.stripe_subscription_id as string | undefined);
-      await db.from('kitchens').update({ availability: 'paused' }).eq('id', k.id);
+      const cmem = requireDeletionResult(await db.from('cook_memberships').select('stripe_subscription_id').eq('kitchen_id', k.id).maybeSingle());
+      await cancelForDeletion(stripe.subscriptions, cmem?.stripe_subscription_id as string | undefined);
+      requireDeletionResult(await db.from('kitchens').update({ availability: 'paused' }).eq('id', k.id));
     }
 
-    await db.from('push_tokens').delete().eq('user_id', uid);
+    requireDeletionResult(await db.from('push_tokens').delete().eq('user_id', uid));
 
-    await db.from('profiles').update({
+    requireDeletionResult(await db.from('profiles').update({
       display_name: 'Deleted user',
       first_name: null,
       avatar_url: null,
@@ -95,7 +96,7 @@ Deno.serve(async (req) => {
       location: null,
       dietary: null,
       updated_at: new Date().toISOString(),
-    }).eq('id', uid);
+    }).eq('id', uid));
 
     const { error: delErr } = await db.auth.admin.deleteUser(uid, true); // shouldSoftDelete
     if (delErr) throw delErr;

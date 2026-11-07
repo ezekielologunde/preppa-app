@@ -83,7 +83,7 @@
     },
     "owner": "tolaologunde",
     "runtimeVersion": {
-      "policy": "appVersion"
+      "policy": "fingerprint"
     },
     "updates": {
       "url": "https://u.expo.dev/a585c8a7-673b-4707-b132-d8c347c0f862"

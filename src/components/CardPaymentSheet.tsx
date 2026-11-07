@@ -5,6 +5,7 @@ import { useC } from '../theme/ThemeContext';
 import { type, radius } from '../theme/theme';
 import { Btn, Sheet } from '../ui';
 import { getStripe } from '../lib/payments';
+import { confirmationError, PaymentUnconfirmedError } from '../lib/payment-status';
 import { STRIPE_PK } from '../lib/supabase';
 
 /** amountLabel is always a `money()`-formatted "$X.XX" string (see call sites) — parsed back
@@ -15,15 +16,6 @@ function labelToCents(label: string): number {
   return Number.isFinite(n) ? n : 0;
 }
 
-function confirmationError(mode: 'pay' | 'save', status: string | undefined): string | null {
-  if (status === 'succeeded') return null;
-  if (status === 'processing') return mode === 'pay'
-    ? 'Your payment is still processing. Keep this window open and try again in a moment.'
-    : 'Your card is still being verified. Try again in a moment.';
-  return mode === 'save'
-    ? 'Stripe did not finish saving this card. Check the details and try again.'
-    : 'Stripe did not confirm this payment. Check the card details or try another card.';
-}
 
 /**
  * Real card entry (web only) — mounts a Stripe Elements Card into the shared
@@ -136,7 +128,7 @@ export function CardPaymentSheet({
                     onPaid();
                   } catch {
                     if (!eventCompleted) ev.complete('fail');
-                    setErr('Payment could not be completed. Check your connection and try again.');
+                    setErr(new PaymentUnconfirmedError('unavailable').message);
                   }
                 });
                 if (!cancelled) setWalletReady(true);
@@ -178,7 +170,7 @@ export function CardPaymentSheet({
       if (statusError) { setErr(statusError); return; }
       onPaid();
     } catch {
-      setErr(mode === 'save' ? 'Could not save the card. Check your connection and try again.' : 'Payment could not be completed. Check your connection and try again.');
+      setErr(mode === 'save' ? 'Could not save the card. Check your connection and try again.' : new PaymentUnconfirmedError('unavailable').message);
     } finally {
       setBusy(false);
     }
