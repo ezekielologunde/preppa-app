@@ -19,3 +19,15 @@ export function requireSucceededPayment(status: string | undefined): void {
   }
   throw new PaymentUnconfirmedError('unconfirmed');
 }
+
+/** Payment and card-saving flows have different recovery instructions. */
+export function confirmationError(mode: 'pay' | 'save', status: string | undefined): string | null {
+  if (mode === 'pay') {
+    try { requireSucceededPayment(status); return null; }
+    catch (error) { return unsettledPaymentMessage(error) ?? new PaymentUnconfirmedError('unavailable').message; }
+  }
+  if (status === 'succeeded') return null;
+  return status === 'processing'
+    ? 'Your card is still being verified. Try again in a moment.'
+    : 'Stripe did not finish saving this card. Check the details and try again.';
+}

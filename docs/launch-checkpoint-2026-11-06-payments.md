@@ -24,3 +24,9 @@ Local tests now cover both SDK status spellings, missing status, pending action,
 The native new-card PaymentSheet path now retrieves its PaymentIntent after the sheet completes and applies the same succeeded-status check. A successful sheet dismissal alone no longer returns a successful order result. Retrieval failures tell the buyer to check the existing order before retrying. Backend webhook settlement remains authoritative.
 
 Checkout now recognizes typed uncertain-payment errors in both new-card and saved-card handling, preserving that instruction instead of replacing it with a generic retry message. Arbitrary provider errors are not exposed through this message path. Local coverage is now 37 passing tests.
+
+## November 7 web confirmation recovery
+
+Web new-card and wallet confirmation now share the settled-payment check with native checkout. Processing, missing and unresolved payment states direct the buyer to check the existing order before trying again. Unexpected confirmation transport failures use the same instruction, including saved-card web/native requests. Saving a card remains a separate SetupIntent flow.
+
+Validation: 38 tests, TypeScript, web export, compiled-bundle secret scan, environment separation and accessibility input-name checks passed locally. No production access, payment activation, signed mobile build or store submission was performed. The backend access and historical reviewer-credential rotation blockers above remain open.

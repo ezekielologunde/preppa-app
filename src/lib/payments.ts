@@ -120,7 +120,7 @@ export async function confirmSavedCardPayment(clientSecret: string, paymentMetho
   if (Platform.OS === 'web') {
     const stripe = await getStripe();
     if (!stripe) throw new Error('Stripe.js failed to load');
-    const res = await stripe.confirmCardPayment(clientSecret, { payment_method: paymentMethodId });
+    const res = await stripe.confirmCardPayment(clientSecret, { payment_method: paymentMethodId }).catch(() => { throw new PaymentUnconfirmedError('unavailable'); });
     if (res.error) throw new Error(res.error.message || 'card payment failed');
     requireSucceededPayment(res.paymentIntent?.status);
     return;
@@ -128,7 +128,7 @@ export async function confirmSavedCardPayment(clientSecret: string, paymentMetho
   const { error, paymentIntent } = await confirmPayment(clientSecret, {
     paymentMethodType: 'Card',
     paymentMethodData: { paymentMethodId },
-  });
+  }).catch(() => { throw new PaymentUnconfirmedError('unavailable'); });
   if (error) throw new Error(error.message || 'card payment failed');
   requireSucceededPayment(paymentIntent?.status);
 }
