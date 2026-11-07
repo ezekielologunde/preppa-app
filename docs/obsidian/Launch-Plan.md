@@ -427,3 +427,7 @@ account/address/notification reads; order reads retain their existing sequence g
 Twenty-nine local tests, app typecheck and accessibility checks pass. The installed auth-js
 implementation was checked against the current signOut documentation. No production account
 was accessed or signed out. Real-device and offline acceptance remain required on a signed build.
+
+## November 6 realtime session isolation
+
+Realtime notification and unread-message refreshes now discard results after logout, account changes or subscription disposal. Late notification-write errors also cannot repopulate a different session's error state. Three deferred-response tests cover results, failures and callbacks after disposal; all 32 tests, application typecheck and accessibility checks pass locally. This change uses no production access. Signed-device acceptance and push-token lifecycle verification remain open.

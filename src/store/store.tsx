@@ -14,6 +14,7 @@ import { threadUnreadCount, subscribeMyNotifications } from '../lib/messages';
 import { fetchCustomerOrders, fetchOrderStatus, fetchReorderMeals, timeAgo } from '../lib/orders';
 import { getMyKitchen, getKitchenAvailability, setKitchenAvailability } from '../lib/connect';
 import { registerForPushNotifications } from '../lib/push';
+import { runSessionTask } from '../lib/sessionTask';
 import { setViewerCoords } from '../data/supabaseRepository';
 import { geocodeAddress, type LatLng } from '../lib/geo';
 import { createSavedAddress, deleteSavedAddress, fetchSavedAddresses, updateSavedAddress } from '../lib/addresses';
@@ -464,11 +465,15 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
   // list/badge signal — see src/lib/messages.ts). Re-subscribes when the user changes.
   useEffect(() => {
     if (!uid) return;
+    const epoch = accountEpoch.current;
+    let disposed = false;
+    const current = () => !disposed && epoch === accountEpoch.current;
     const off = subscribeMyNotifications(uid, () => {
-      fetchNotifications().then((rows) => { setNotifs(rows); setNotificationsError(''); }).catch((e: any) => setNotificationsError(e?.message || 'Could not refresh notifications.'));
-      threadUnreadCount().then(setThreadUnread).catch(() => {});
+      void runSessionTask(current, fetchNotifications, (rows) => { setNotifs(rows); setNotificationsError(''); },
+        () => setNotificationsError('Could not refresh notifications.'));
+      void runSessionTask(current, threadUnreadCount, setThreadUnread);
     });
-    return off;
+    return () => { disposed = true; off(); };
   }, [uid]);
 
   const role: 'customer' | 'prepper' = prepperStatus === 'approved' ? 'prepper' : 'customer';
@@ -746,12 +751,14 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
   }, []);
 
   const markNotifRead = useCallback((id: string) => {
+    const epoch = accountEpoch.current;
     setNotifs((ns) => ns.map((n) => (n.id === id ? { ...n, unread: false } : n))); // optimistic
-    markNotificationRead(id).catch((e: any) => setNotificationsError(e?.message || 'Could not save notification status. Refresh to try again.'));
+    markNotificationRead(id).catch(() => { if (epoch === accountEpoch.current) setNotificationsError('Could not save notification status. Refresh to try again.'); });
   }, []);
   const markAllRead = useCallback(() => {
+    const epoch = accountEpoch.current;
     setNotifs((ns) => ns.map((n) => ({ ...n, unread: false }))); // optimistic
-    markAllNotificationsRead().catch((e: any) => setNotificationsError(e?.message || 'Could not save notification status. Refresh to try again.'));
+    markAllNotificationsRead().catch(() => { if (epoch === accountEpoch.current) setNotificationsError('Could not save notification status. Refresh to try again.'); });
   }, []);
   // Keep the repository's viewer coords in sync so the catalog can sort nearest-first.
   const setCoords = useCallback((cc: LatLng | null) => { setCoordsState(cc); setViewerCoords(cc); }, []);
