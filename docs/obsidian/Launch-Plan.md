@@ -399,3 +399,12 @@ actual Edge Function. Production remains paused. Before submission, deploy the f
 and exercise owner deletion, another owner's kitchen denial, all four blocker states,
 and dependency failures on the existing project. Confirm `SUPABASE_ANON_KEY` is available
 alongside the existing server secrets. No schema grant was widened.
+
+## November 6 preview environment validation
+
+Runtime service validation now compares normalized backend origins, so trailing slashes,
+hostname case and explicit default ports cannot bypass the production endpoint guard.
+Development and preview also reject the production anon key, live Stripe keys, malformed
+backend URLs and insecure HTTP outside loopback development. Tests use dummy configuration
+only. Twenty-five local tests and the application typecheck pass. No live service was called.
+This hardening does not supply an isolated backend or resume the paused production project.

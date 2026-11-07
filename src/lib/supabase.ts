@@ -1,6 +1,7 @@
 import { createClient } from '@supabase/supabase-js';
 import { geocodeAddress } from './geo';
 import { authStorage } from './authStorage';
+import { validateServiceEnvironment } from './environmentSafety';
 
 /**
  * Supabase + Stripe connection for real card payments (LIVE mode).
@@ -24,12 +25,8 @@ export const SUPABASE_URL = process.env.EXPO_PUBLIC_SUPABASE_URL || (productionT
 const SUPABASE_ANON = process.env.EXPO_PUBLIC_SUPABASE_ANON_KEY || (productionTarget ? LIVE_SUPABASE_ANON : '');
 export const STRIPE_PK = process.env.EXPO_PUBLIC_STRIPE_PUBLISHABLE_KEY || (productionTarget ? LIVE_STRIPE_PK : '');
 
-if (!SUPABASE_URL || !SUPABASE_ANON || !STRIPE_PK) {
-  throw new Error('Preppa environment is not configured. Set isolated EXPO_PUBLIC_SUPABASE_URL, EXPO_PUBLIC_SUPABASE_ANON_KEY, and EXPO_PUBLIC_STRIPE_PUBLISHABLE_KEY values.');
-}
-if (!productionTarget && (SUPABASE_URL === LIVE_SUPABASE_URL || STRIPE_PK.startsWith('pk_live_'))) {
-  throw new Error('Development and preview builds cannot use Preppa production services. Configure the isolated test environment.');
-}
+validateServiceEnvironment({ production: productionTarget, url: SUPABASE_URL, anonKey: SUPABASE_ANON,
+  stripeKey: STRIPE_PK, liveUrl: LIVE_SUPABASE_URL, liveAnonKey: LIVE_SUPABASE_ANON });
 
 /** Prevent local, development and preview clients from accidentally mutating live money.
  * Production web is identified at runtime because Vercel does not consume EAS profile env. */
