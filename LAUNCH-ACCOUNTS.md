@@ -34,6 +34,11 @@ mail delivery, policy accuracy or legal approval. The reviewer credential previo
 repository history still needs rotation after authorized backend access is restored. Do not put
 the replacement credential into this repository or chat.
 
+Cloudflare email routing had a missing apex SPF record on November 6. It was restored without
+changing the six existing routing rules; the dashboard then reported DNS Locked and routing
+Syncing. Actual support-email delivery still needs verification. This DNS repair does not
+restore the paused Supabase project or resolve the reviewer-credential rotation gate.
+
 The owner-side next step is existing-plan project-owner access or a working existing backend.
 Until then, finish source, metadata and build preparation; do not claim successful production
 deletion, purchases, payouts or completed store submission.
