@@ -408,3 +408,9 @@ Development and preview also reject the production anon key, live Stripe keys, m
 backend URLs and insecure HTTP outside loopback development. Tests use dummy configuration
 only. Twenty-five local tests and the application typecheck pass. No live service was called.
 This hardening does not supply an isolated backend or resume the paused production project.
+
+Native update compatibility now uses the Expo fingerprint policy instead of the unchanged
+1.0.0 app version. The installed expo-updates CLI resolved nonempty iOS and Android runtime
+hashes locally, and CI now resolves both before bundle export. This requires new signed
+builds before releasing updates for this runtime; do not reuse an old 1.0.0 binary or manually
+override its runtime to force compatibility. No EAS build or OTA update was published.
