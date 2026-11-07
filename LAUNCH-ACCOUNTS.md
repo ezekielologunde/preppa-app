@@ -18,6 +18,26 @@ still required; Blocked = required evidence is absent.
 
 ## Account details to verify
 
+### November 6 release checkpoint
+
+The production Supabase project is paused and Resume was disabled in the available session.
+The owner requested continued preparation without production access and without paid upgrades.
+Backend deployment and live acceptance therefore remain blocked. Do not deploy into another
+organization's project or use a test project as a substitute for production.
+
+Current source includes fail-closed account deletion: required database operations and Stripe
+subscription cancellation must succeed before deleting the auth identity. This change passed
+local tests and Edge Function typechecking, but has not been deployed or verified live.
+
+Public support and privacy URLs returned HTTP 200 on November 6. Reachability does not verify
+mail delivery, policy accuracy or legal approval. The reviewer credential previously exposed in
+repository history still needs rotation after authorized backend access is restored. Do not put
+the replacement credential into this repository or chat.
+
+The owner-side next step is existing-plan project-owner access or a working existing backend.
+Until then, finish source, metadata and build preparation; do not claim successful production
+deletion, purchases, payouts or completed store submission.
+
 - Apple Team ID: pending verification
 - App Store Connect app record for `6802527112`: pending verification
 - Google Play app record for `live.preppa.app`: pending verification
