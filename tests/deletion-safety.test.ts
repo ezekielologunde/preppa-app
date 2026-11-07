@@ -1,6 +1,23 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
-import { cancelForDeletion, requireDeletionResult } from '../supabase/functions/delete-account/safety';
+import { cancelForDeletion, requireDeletionResult, requireDeletionBlockers } from '../supabase/functions/delete-account/safety';
+
+test('eligibility requires all typed database fields before permitting deletion', () => {
+  const valid = { has_active_orders: false, balance_cents: 0, active_subscribers: 0, is_suspended: false };
+  assert.deepEqual(requireDeletionBlockers(valid), valid);
+  assert.equal(requireDeletionBlockers({ ...valid, balance_cents: -100 }).balance_cents, -100);
+  for (const value of [null, undefined, {}, [], 'ok']) {
+    assert.throws(() => requireDeletionBlockers(value), /eligibility unavailable/);
+  }
+  for (const field of Object.keys(valid)) {
+    for (const value of [undefined, null, '0', NaN, Infinity, 0.5]) {
+      assert.throws(() => requireDeletionBlockers({ ...valid, [field]: value }), /eligibility unavailable/);
+    }
+  }
+  assert.throws(() => requireDeletionBlockers({ ...valid, active_subscribers: -1 }), /eligibility unavailable/);
+  assert.deepEqual(requireDeletionBlockers({ ...valid, has_active_orders: true, is_suspended: true, active_subscribers: 2 }),
+    { ...valid, has_active_orders: true, is_suspended: true, active_subscribers: 2 });
+});
 
 test('database failures cannot masquerade as absent memberships or eligibility', () => {
   for (const data of [null, [], { has_active_orders: false }]) {

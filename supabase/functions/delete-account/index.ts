@@ -10,7 +10,7 @@
 // in-flight orders, an uncashed ledger balance, active subscribers, OR is currently SUSPENDED
 // is blocked outright -- deleting out from under paying subscribers, forfeiting real money,
 // or dodging an active admin suspension would all be worse outcomes than the block.
-import { cancelForDeletion, requireDeletionResult } from './safety.ts';
+import { cancelForDeletion, requireDeletionResult, requireDeletionBlockers } from './safety.ts';
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.45.4';
 import Stripe from 'https://esm.sh/stripe@16.12.0?target=deno';
 
@@ -41,6 +41,11 @@ Deno.serve(async (req) => {
     const { data: userData, error: userErr } = await db.auth.getUser(jwt);
     if (userErr || !userData.user) return json(401, { error: 'unauthorized' });
     const uid = userData.user.id;
+    // The eligibility RPC checks auth.uid(); the service client has no caller identity.
+    const caller = createClient(requireEnv('SUPABASE_URL'), requireEnv('SUPABASE_ANON_KEY'), {
+      global: { headers: { Authorization: `Bearer ${jwt}` } },
+      auth: { persistSession: false, autoRefreshToken: false },
+    });
 
     const { error: rlErr } = await db.rpc('check_rate_limit', {
       p_action: 'delete_account', p_max_count: 5, p_window: '10 minutes', p_subject: uid,
@@ -51,9 +56,8 @@ Deno.serve(async (req) => {
     // active subscribers, or an active admin suspension.
     const kitchens = requireDeletionResult(await db.from('kitchens').select('id, name').eq('owner_id', uid));
     for (const k of kitchens ?? []) {
-      const blockers = requireDeletionResult(await db.rpc('cook_deletion_blockers', { p_kitchen_id: k.id }).single());
-      if (!blockers) throw new Error('Deletion eligibility unavailable');
-      const b = blockers as any;
+      const blockers = requireDeletionResult(await caller.rpc('cook_deletion_blockers', { p_kitchen_id: k.id }).single());
+      const b = requireDeletionBlockers(blockers);
       if (b?.has_active_orders) {
         return json(409, { error: `"${k.name}" has orders in progress. Finish or cancel them before deleting your account.` });
       }

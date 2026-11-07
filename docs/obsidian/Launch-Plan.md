@@ -386,3 +386,16 @@ The production Supabase dashboard reports Preppa paused, with Resume disabled fo
 ## November 6 follow-up
 
 Owner instructed continuing without production access. Both support/privacy endpoints returned HTTP 200. The expanded CI passes both native bundles, database regressions and web security. `docs/APP_STORE_SUBMISSION.md` contains the signed-build acceptance record. Historical Pro/test-payment claims in the baseline report are marked stale; no upgrade, charge or submission occurred. See [[Security]] and [[Changelog]].
+
+## November 6 deletion eligibility hardening
+
+The deletion handler now validates every eligibility field and rejects missing or malformed
+RPC responses before cancellation or account cleanup. It invokes the ownership-checked
+`cook_deletion_blockers` RPC with the authenticated caller's JWT, not the service identity.
+Administrative cleanup remains on the server-only service client.
+
+Local verification: 20 Node tests, TypeScript application check, and Deno check of the
+actual Edge Function. Production remains paused. Before submission, deploy the function
+and exercise owner deletion, another owner's kitchen denial, all four blocker states,
+and dependency failures on the existing project. Confirm `SUPABASE_ANON_KEY` is available
+alongside the existing server secrets. No schema grant was widened.
