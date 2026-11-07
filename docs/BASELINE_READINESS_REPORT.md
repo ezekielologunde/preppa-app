@@ -1,5 +1,8 @@
 # Preppa — Baseline Production-Readiness Report
 
+> Historical audit. November 6, 2026 correction: the production project is currently paused under a Free organization; Resume is disabled for the current login. The production EAS client configuration contains a live Stripe publishable key. References below to Pro hosting or test-mode payments describe the older audit snapshot and must not be used as current deployment or reviewer instructions. Do not test against production using Stripe test cards. Use `docs/APP_STORE_SUBMISSION.md` and `docs/obsidian/Launch-Plan.md` for current release gates.
+
+
 Scope: static architecture/code/database audit only. **No live load testing was run** —
 there is no staging environment, and the one Supabase project (`fwidhpzwldneeaphrxgg`,
 Pro plan) holds real seeded kitchens and real applicant data, so simulating 1,000

@@ -66,3 +66,27 @@ No data used for third-party advertising or tracking (no ad SDKs in this app).
 - Confirm live versus test payment separation, connected-account readiness, refund handling and recurring-charge reconciliation.
 - Build the current source for both platforms, test native payments and recovery on physical devices, and finish store privacy disclosures and screenshots.
 - Obtain store submission receipts. A successful bundle export or an older EAS build is not a submission.
+
+
+## November 6 deployment preparation evidence
+
+- Current release source 5e644e6 passed CI run 42317607142: database regressions, tests/typecheck/production audit, web security, iOS bundle and Android bundle. Native bundles include Hermes string-table scans for credential markers. No EAS credits or production database access were used.
+- HTTPS GET checks returned 200 for `https://help.preppa.live/support` (Contact Support) and `https://help.preppa.live/legal/privacy` (Privacy Policy). This proves reachability, not the correctness of every disclosure or successful support delivery.
+- The production dashboard was rechecked: project paused, Resume disabled. The owner directed continuing without production access and without upgrades. Review-account rotation, live order/payment/refund/deletion checks and store review access remain unverified.
+- The historical baseline audit is explicitly marked outdated where it describes Pro hosting and test-mode Stripe.
+
+## Signed-build acceptance record
+
+Complete this record on the exact release build before uploading for review. Do not fill unknown results with assumed passes.
+
+| Check | Evidence needed | Current state |
+| --- | --- | --- |
+| Build identity | Commit, iOS build number, Android version code, signed artifact IDs | Current signed artifacts not built |
+| Authentication | Fresh sign-in, wrong password, recovery, expired session and logout | Requires backend access |
+| Buyer checkout | Final price, failure/cancel/retry, no duplicate order or charge | Requires authorized test environment |
+| Seller payments | Connect onboarding, payout eligibility and refund handling | Requires authorized test environment |
+| Account deletion | Buyer and cook cases, retained transaction explanation, failed deletion recovery | Requires backend access |
+| Moderation | Report/block content and users, permissions and support routing | Requires backend access |
+| Native behavior | Camera/photo permission denial, notification opt-in, links, offline/resume, accessibility | Requires signed devices |
+| Review access | Rotated scoped credentials entered only in private store fields | Blocked, credential remains exposed in history |
+| Submission | Completed privacy/data safety, screenshots and upload receipt | Not submitted |
