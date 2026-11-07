@@ -438,6 +438,12 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
       accountEpoch.current += 1;
       setAccountGeneration(accountEpoch.current);
       setUid(session?.user.id ?? null);
+      // Cross-tab sign-out and account switches must clear private notifications
+      // immediately, even when the following backend reconciliation is offline.
+      setNotifs([]);
+      setThreadUnread(0);
+      setNotificationsError('');
+      setNotificationsLoading(false);
       ordersRequestSequence.current += 1;
       // Defer out of the callback: supabase-js v2 holds the auth lock while this runs, so
       // calling auth methods (getSession, inside reconcileAccount) synchronously can deadlock.
