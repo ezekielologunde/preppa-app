@@ -20,6 +20,7 @@ jobs:
       - run: npm test
       - run: npm run ui:a11y
       - run: npm run typecheck
+      - run: npm audit --omit=dev --audit-level=low
 
   web-build-security:
     runs-on: ubuntu-latest
@@ -50,3 +51,19 @@ jobs:
       # trim it for speed if it becomes a bottleneck.
       - run: supabase start
       - run: psql "postgresql://postgres:postgres@127.0.0.1:54322/postgres" -v ON_ERROR_STOP=1 -f supabase/tests/regressions.sql
+
+  native-bundle-check:
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        platform: [ios, android]
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        with:
+          node-version: 22
+      - run: npm ci
+      # Bundle compilation only: no EAS credits, signing keys, store upload or live API calls.
+      - run: npx expo export --platform ${{ matrix.platform }} --output-dir dist
+      - run: npm run security:bundle

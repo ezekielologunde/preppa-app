@@ -140,3 +140,7 @@ Rate limiting + quote-booking balance collection; `accept_quote()` outage fixed 
 ## Related
 
 - [[Project]] · [[Decisions]] · [[Bugs]]
+
+## November 6 native release checks
+- Added iOS and Android JavaScript bundle checks to existing GitHub CI, with the existing secret scan and no EAS build credits or production API access.
+- CI now rejects production dependency advisories at every severity. Signed builds, device verification and paused-backend recovery remain separate gates. See [[Launch-Plan]] and [[Security]].
