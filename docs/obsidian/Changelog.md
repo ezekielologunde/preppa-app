@@ -144,3 +144,7 @@ Rate limiting + quote-booking balance collection; `accept_quote()` outage fixed 
 ## November 6 native release checks
 - Added iOS and Android JavaScript bundle checks to existing GitHub CI, with the existing secret scan and no EAS build credits or production API access.
 - CI now rejects production dependency advisories at every severity. Signed builds, device verification and paused-backend recovery remain separate gates. See [[Launch-Plan]] and [[Security]].
+
+## November 6 deletion safety
+
+Added fail-closed account deletion: database dependency errors stop processing, and Stripe subscription status must confirm cancellation before auth removal. Five regression tests cover absent references, idempotent cancellation, provider failures and unconfirmed responses. Total local tests: 19 passed; application typecheck and Deno Edge Function check passed. No production invocation or deployment. See [[Launch-Plan]] and [[Payments]].

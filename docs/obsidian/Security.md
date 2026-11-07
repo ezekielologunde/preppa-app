@@ -88,3 +88,7 @@ Webhook signature verification real and fail-closed (Stripe + Mux); service-role
 ## Production availability, November 6
 
 The production Supabase dashboard reports Preppa paused, with Resume disabled for the currently signed-in account and an organization quota warning. The owner cannot upgrade now, so no paid change was made. Review-account credential rotation, live-flow verification and store submission remain blocked until authorized project access is restored on an allowed plan. Local tests and exports do not remove this operational blocker.
+
+## November 6 deletion safety
+
+Account deletion no longer treats database query failures as missing records or swallows subscription cancellation failures. Auth deletion occurs only after required cancellation and cleanup calls succeed. Operations remain retryable but are not a distributed transaction; live failure/retry and data-retention verification remain release gates. No production account or Stripe resource was touched. See [[Launch-Plan]] and [[Payments]].
