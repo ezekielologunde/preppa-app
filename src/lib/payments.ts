@@ -3,6 +3,7 @@ import type { Stripe } from '@stripe/stripe-js';
 import { confirmPayment, initPaymentSheet, presentPaymentSheet } from './nativeStripe';
 import { supabase, ensureAuth, STRIPE_PK, APPLE_PAY_MERCHANT_ID, assertLiveMoneyAllowed, assertFunctionSuccess } from './supabase';
 import type { CartLine } from '../store/store';
+import { requireSucceededPayment } from './payment-status';
 
 export interface OrderOpts {
   cook: string;
@@ -121,18 +122,15 @@ export async function confirmSavedCardPayment(clientSecret: string, paymentMetho
     if (!stripe) throw new Error('Stripe.js failed to load');
     const res = await stripe.confirmCardPayment(clientSecret, { payment_method: paymentMethodId });
     if (res.error) throw new Error(res.error.message || 'card payment failed');
-    if (res.paymentIntent?.status !== 'succeeded') {
-      throw new Error(res.paymentIntent?.status === 'processing'
-        ? 'Payment is still processing. Try again in a moment.'
-        : 'card payment was not confirmed');
-    }
+    requireSucceededPayment(res.paymentIntent?.status);
     return;
   }
-  const { error } = await confirmPayment(clientSecret, {
+  const { error, paymentIntent } = await confirmPayment(clientSecret, {
     paymentMethodType: 'Card',
     paymentMethodData: { paymentMethodId },
   });
   if (error) throw new Error(error.message || 'card payment failed');
+  requireSucceededPayment(paymentIntent?.status);
 }
 
 /**
