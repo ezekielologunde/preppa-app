@@ -10,6 +10,7 @@ import { useC } from '../theme/ThemeContext';
 import { useStore } from '../store/store';
 import { Icon, Press, GradBox } from '../ui';
 import { shareAndNotify, SITE } from '../lib/share';
+import { reportContent } from '../lib/report';
 import { togglePostLike, togglePostSave, toggleFollow, recordFeedEvent, initialOf, FeedPost } from '../lib/feed';
 
 /** One full-screen reel — shared by the main feed, a kitchen's feed, and the post-detail screen.
@@ -100,6 +101,10 @@ export const FeedReel = React.memo(function FeedReel({ f, height, isActive = tru
         <RailBtn icon={liked ? 'heartFill' : 'heart'} label={likes > 0 ? String(likes) : 'Like'} active={liked} onPress={onLike} />
         <RailBtn icon="share" label="Share" onPress={() => { recordFeedEvent(f.id, 'share'); shareAndNotify(toast, f.mealOrderable && f.mealId ? { title: f.mealName ?? 'A dish on Preppa', url: `${SITE}/meal/${f.mealId}` } : { title: `${f.kitchenName} on Preppa`, url: `${SITE}/post/${f.id}` }); }} />
         <RailBtn icon={saved ? 'bookmarkFill' : 'bookmark'} label={saved ? 'Saved' : 'Save'} active={saved} onPress={onSave} />
+        <RailBtn icon="flag" label="Report" onPress={async () => {
+          const opened = await reportContent('post', f.id, f.kitchenName);
+          toast(opened ? 'Reference copied. Paste it into the report form.' : 'Could not open the report page. Email safety@preppa.live.', opened ? 'flag' : 'info', opened);
+        }} />
       </View>
 
       {/* bottom */}

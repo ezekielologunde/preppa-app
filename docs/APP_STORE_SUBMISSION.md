@@ -6,24 +6,29 @@ it's all prep work done ahead of time so that step is the only thing left blocki
 
 ## Reviewer demo account
 
-Created live in Supabase (test mode), works today at `app.preppa.live` or in the iOS build once built.
+Created live in Supabase, works today at `app.preppa.live` or in the iOS build once built.
 
 - **Email:** `appreview@preppa.live`
-- **Password:** `PreppaReview2026!`
+- **Password:** supplied to App Review only in the App Store Connect "Sign-in required" fields, never in this repository. The value previously committed here must be treated as exposed: rotate it before submission.
 - Signs in immediately — no email confirmation step, no OTP needed.
 - This is a plain customer account with no order history yet. Reviewers are expected to
   exercise the real flow (see walkthrough below) rather than land on pre-seeded data — that's
   normal for marketplace apps and reads as more credible than fake seeded orders would.
 
-**Test payment card:** `4242 4242 4242 4242`, any future expiry, any CVC, any ZIP. Stripe is in
-test mode, so no real charge occurs.
+**Payment for reviewers (OPEN DECISION):** the production build is configured with a live Stripe
+publishable key, so Stripe test card `4242 4242 4242 4242` will be declined in review. Before
+submitting, choose one and record it here: (a) give review a dedicated real-money path that is
+refunded afterwards, (b) ship the review build against an isolated Stripe test environment, or
+(c) explain in the review notes that ordering is not yet open to customers (cook-first launch) and
+supply a demo cook account so review can exercise the cook side. Do not tell review to use a test
+card against live mode.
 
 ## Reviewer walkthrough (put this in App Store Connect's "Notes" field)
 
 1. Sign in with the demo account above.
 2. On Home, browse "Fresh near you" and "Preppers near you" — tap into a meal or a prepper's
    storefront.
-3. Add a meal to cart, go to Checkout, pay with the test card above. You'll land on live order
+3. Add a meal to cart, go to Checkout, pay using the arrangement chosen under "Payment for reviewers" above. You'll land on live order
    tracking.
 4. From Experiences → Meal plans, browse available plans (subscription model). From Profile →
    Messages, you can message a cook directly.

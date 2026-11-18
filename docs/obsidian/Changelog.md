@@ -8,6 +8,10 @@ tags: [project/preppa, type/changelog]
 
 # Changelog
 
+## Store-readiness code changes (2026-11-18)
+
+Cook-first "opening soon" card: "Apply to cook" is now the primary action, with the customer waitlist second. Added `expo-location` so "near you" works on iOS and Android (React Native no longer provides `navigator.geolocation`); web keeps the browser API; `app.json` gains the `expo-location` plugin with the existing permission text. iOS `supportsTablet` set to false for v1 so iPad screenshots and iPad layout testing are not required. Feed posts gain a Report action that copies a post reference and opens the public safety/abuse form (`src/lib/report.ts`); reviews and a per-user block for posts are still open. Reviewer notes no longer contain a password and now flag that a live Stripe key rejects test cards. Not verified on a physical device. See [[Launch-Plan]] and [[Security]].
+
 ## Web page metadata and share preview (2026-10-16)
 
 Added a custom web page template (`public/index.html`) so `app.preppa.live` has a descriptive title, meta description, theme color, Open Graph and Twitter share tags, and an apple-touch-icon (`public/preppa-icon.png`, copied from `assets/icon.png`). Previously the exported page was titled only "Preppa" with no description or share preview. The app mounts exactly as before. The share image is the square app icon; a dedicated 1200x630 image is still open. See [[Launch-Plan]].
