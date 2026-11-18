@@ -8,6 +8,10 @@ tags: [project/preppa, type/changelog]
 
 # Changelog
 
+## Web page metadata and share preview (2026-10-16)
+
+Added a custom web page template (`public/index.html`) so `app.preppa.live` has a descriptive title, meta description, theme color, Open Graph and Twitter share tags, and an apple-touch-icon (`public/preppa-icon.png`, copied from `assets/icon.png`). Previously the exported page was titled only "Preppa" with no description or share preview. The app mounts exactly as before. The share image is the square app icon; a dedicated 1200x630 image is still open. See [[Launch-Plan]].
+
 ## Pre-launch "opening soon" Home state (2026-10-16)
 
 Home now shows an honest "Preppa is opening near <area>" card, with a waitlist signup and an "Apply to cook" action, instead of blank empty states when the catalog loaded successfully and there are no meals and no kitchens at all. It never appears on load errors (those keep their retry states) and disappears automatically once any kitchen or meal is visible. Waitlist signups insert into the existing `waitlist` table with `source = 'app'` through a dedicated anonymous client, matching the public landing page. No schema, payment or Edge Function change. Verified locally: typecheck, unit tests, environment-separation, accessibility and bundle-secret checks pass, and a browser run against a mocked empty catalog confirmed the card, email validation and the signup payload on mobile and desktop widths. Not verified: a live signup row (the sandbox could not reach Supabase) and live-mode payments. See [[Launch-Plan]].
