@@ -102,8 +102,10 @@ export const FeedReel = React.memo(function FeedReel({ f, height, isActive = tru
         <RailBtn icon="share" label="Share" onPress={() => { recordFeedEvent(f.id, 'share'); shareAndNotify(toast, f.mealOrderable && f.mealId ? { title: f.mealName ?? 'A dish on Preppa', url: `${SITE}/meal/${f.mealId}` } : { title: `${f.kitchenName} on Preppa`, url: `${SITE}/post/${f.id}` }); }} />
         <RailBtn icon={saved ? 'bookmarkFill' : 'bookmark'} label={saved ? 'Saved' : 'Save'} active={saved} onPress={onSave} />
         <RailBtn icon="flag" label="Report" onPress={async () => {
-          const opened = await reportContent('post', f.id, f.kitchenName);
-          toast(opened ? 'Reference copied. Paste it into the report form.' : 'Could not open the report page. Email safety@preppa.live.', opened ? 'flag' : 'info', opened);
+          const r = await reportContent('post', f.id, f.kitchenName);
+          if (!r.opened) toast('Could not open the report page. Email safety@preppa.live.', 'info');
+          else if (r.copied) toast('Reference copied. Paste it into the report form.', 'flag', true);
+          else toast(`Include this reference in your report: post ${f.id}`, 'flag', true);
         }} />
       </View>
 
