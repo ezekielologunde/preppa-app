@@ -39,16 +39,29 @@ export function LaunchingSoon({ area }: { area: string }) {
         Preppa is opening near {area}
       </Text>
       <Text style={[type(15, 400), { color: c.soft, marginTop: 8, lineHeight: 22 }]}>
-        We’re onboarding our first home cooks now. Ordering opens as soon as the first kitchens are approved in your area.
+        We’re inviting our first home cooks now. Ordering opens to customers as soon as the first kitchens are approved in your area.
       </Text>
 
+      <View style={{ marginTop: 20 }}>
+        <Text style={[type(15, 700), { color: c.ink }]}>Love to cook?</Text>
+        <Text style={[type(14, 400), { color: c.soft, marginTop: 4, lineHeight: 20 }]}>
+          Apply to be one of our first Preppers and sell your meals to neighbors.
+        </Text>
+        <Btn label="Apply to cook" icon="chefhat" block onPress={() => router.push('/apply')} style={{ marginTop: 12 }} />
+      </View>
+
+      <View style={{ height: 1, backgroundColor: c.border, marginVertical: 20 }} />
+      <Text style={[type(15, 700), { color: c.ink }]}>Hungry instead?</Text>
+      <Text style={[type(14, 400), { color: c.soft, marginTop: 4, lineHeight: 20 }]}>
+        Get an email the moment ordering opens near you.
+      </Text>
       {done ? (
-        <View accessibilityRole="alert" style={{ marginTop: 18, flexDirection: 'row', alignItems: 'center', gap: 8 }}>
+        <View accessibilityRole="alert" style={{ marginTop: 14, flexDirection: 'row', alignItems: 'center', gap: 8 }}>
           <Icon name="check" size={18} color={c.primary} />
           <Text style={[type(15, 700), { color: c.ink, flex: 1 }]}>You’re on the list. We’ll email you when cooks go live.</Text>
         </View>
       ) : (
-        <View style={{ marginTop: 18 }}>
+        <View style={{ marginTop: 14 }}>
           <TextInput
             value={email}
             onChangeText={setEmail}
@@ -63,16 +76,10 @@ export function LaunchingSoon({ area }: { area: string }) {
             style={{ height: 52, borderRadius: radius.md, borderWidth: 1, borderColor: err ? c.red : c.border2, paddingHorizontal: 16, fontSize: 16, color: c.ink, backgroundColor: c.bg }}
           />
           {err ? <Text accessibilityRole="alert" style={[type(13, 600), { color: c.red, marginTop: 8 }]}>{err}</Text> : null}
-          <Btn label="Notify me at launch" icon="bell" block loading={busy} onPress={submit} style={{ marginTop: 12 }} />
+          <Btn label="Notify me at launch" variant="ghost" icon="bell" block loading={busy} onPress={submit} style={{ marginTop: 12 }} />
         </View>
       )}
 
-      <View style={{ height: 1, backgroundColor: c.border, marginVertical: 20 }} />
-      <Text style={[type(15, 700), { color: c.ink }]}>Love to cook?</Text>
-      <Text style={[type(14, 400), { color: c.soft, marginTop: 4, lineHeight: 20 }]}>
-        Apply to be one of our first Preppers and sell your meals to neighbors.
-      </Text>
-      <Btn label="Apply to cook" variant="ghost" icon="chefhat" block onPress={() => router.push('/apply')} style={{ marginTop: 12 }} />
     </View>
   );
 }

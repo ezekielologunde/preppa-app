@@ -8,10 +8,25 @@
  * Nominatim (also key-less). Both degrade gracefully.
  */
 
+import { Platform } from 'react-native';
+import * as Location from 'expo-location';
+
 export interface LatLng { lat: number; lng: number }
 export interface CapturedLocation extends LatLng { label: string; countryCode?: string }
 
-export async function captureCurrentLocation(): Promise<CapturedLocation> {
+/** Device position. Web uses the browser Geolocation API; native uses expo-location, because
+ *  React Native no longer provides `navigator.geolocation`. Throws the same user-facing messages. */
+async function readPosition(): Promise<{ latitude: number; longitude: number }> {
+  if (Platform.OS !== 'web') {
+    const perm = await Location.requestForegroundPermissionsAsync();
+    if (perm.status !== 'granted') throw new Error('Location permission denied.');
+    try {
+      const p = await Location.getCurrentPositionAsync({ accuracy: Location.Accuracy.Balanced });
+      return { latitude: p.coords.latitude, longitude: p.coords.longitude };
+    } catch {
+      throw new Error('Couldn’t get your location.');
+    }
+  }
   if (typeof navigator === 'undefined' || !navigator.geolocation) {
     throw new Error('Location isn’t available on this device.');
   }
@@ -22,6 +37,11 @@ export async function captureCurrentLocation(): Promise<CapturedLocation> {
       { enableHighAccuracy: false, timeout: 10000, maximumAge: 60000 },
     );
   });
+  return pos.coords;
+}
+
+export async function captureCurrentLocation(): Promise<CapturedLocation> {
+  const pos = { coords: await readPosition() };
   const { latitude, longitude } = pos.coords;
   let label = `${latitude.toFixed(3)}, ${longitude.toFixed(3)}`;
   let countryCode: string | undefined;
