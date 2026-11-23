@@ -10,7 +10,7 @@
     "ios": {
       "bundleIdentifier": "live.preppa.app",
       "buildNumber": "1",
-      "supportsTablet": true,
+      "supportsTablet": false,
       "infoPlist": {
         "NSCameraUsageDescription": "Preppa uses the camera to add photos of your dishes and to record video posts.",
         "NSMicrophoneUsageDescription": "Preppa uses the microphone to record audio for your video posts.",
@@ -70,6 +70,12 @@
         "@stripe/stripe-react-native",
         {
           "merchantIdentifier": "merchant.live.preppa.app"
+        }
+      ],
+      [
+        "expo-location",
+        {
+          "locationWhenInUsePermission": "Preppa uses your location to show cooks and meals near you and to set your delivery address."
         }
       ],
       "expo-secure-store",
