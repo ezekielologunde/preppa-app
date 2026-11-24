@@ -8,6 +8,10 @@ tags: [project/preppa, type/changelog]
 
 # Changelog
 
+## Stripe key-mode guard in the 26 hand-written functions (2026-11-24)
+
+Every hand-written Edge Function that reads the Stripe key through `requireEnv('STRIPE_SECRET_KEY')` (26 files, cron and reconcile functions included) now refuses a key whose mode does not match the project at module load, and checks `GET /v1/account` against `STRIPE_EXPECTED_ACCOUNT` at the top of its handler, answering a generic 500 before any other work except the CORS preflight. Same rule and caching as the vendored-wrapper guard (web-launch DESIGN 1.1g), inlined per file. Pinned by `tests/stripeKeyModeCallers.test.ts`. Not deployed; `STRIPE_EXPECTED_ACCOUNT` must be set on each project before any of these functions is redeployed (DESIGN 4.2). See [[Security]].
+
 ## Stripe key-mode guard review fixes (2026-11-24)
 
 The guard in `stripe-setup`, `stripe-webhook` and `stripe-worker` now shares one in-flight `GET /v1/account` per isolate and caches a failure for 30 seconds, so unsigned webhook requests cannot each trigger a Stripe lookup. `stripe-worker` no longer latches a failed boot check: it creates `StripeSync` lazily once the guard passes and answers 500 until then. `STRIPE_EXPECTED_ACCOUNT` and the key are trimmed before comparing. Only the exact production host unlocks a live key; any other well-formed URL, including local-stack URLs such as `http://kong:8000`, needs a test key. `STRIPE_EXPECTED_ACCOUNT` must be set on a project before these functions are deployed to it (web-launch DESIGN 4.2). See [[Security]].
