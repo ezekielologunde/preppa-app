@@ -266,6 +266,8 @@ auto-cancel and customer cancel each refund on Stripe and reverse the ledger.
 **4.2 deploy order (expand, then switch, then contract).** Each step is verified on the test project
 first with the same order, and live checkout plus decline-refund are smoke-tested between steps.
 `STRIPE_EXPECTED_ACCOUNT` is set on the target project (production included) before any of `stripe-setup`, `stripe-webhook`, `stripe-worker` or the 26 hand-written `requireEnv('STRIPE_SECRET_KEY')` functions (task 1.7) is deployed to it, and holds the bare `acct_` id with no whitespace.
+
+Before deploying to production, confirm that `GET /v1/account` succeeds with the production key (a restricted `rk_live_` key without Account read permission would make every guarded function answer 500), and deploy the 26 functions by name, not all at once. A key-mode mismatch in the 26 functions shows up as a boot error from the platform (the check runs at module load), not the generic 500 with CORS headers; the account check returns the generic 500.
 1. E sets the production Vault functions base URL (1.2) and confirms it with a read.
 2. Additive migrations only: new columns (`delivery_address_text` from `20260925022000`,
    `delivery_instructions` from `20260925025000`, and any other column the 4.1 diff lists as pending),
