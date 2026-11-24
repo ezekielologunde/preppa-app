@@ -28,6 +28,9 @@ const PRODUCTION = {
   [NAMES.appEnv]: 'production',
 };
 
+const jwt = (payload: unknown) =>
+  `${Buffer.from('{"alg":"HS256"}').toString('base64url')}.${Buffer.from(JSON.stringify(payload)).toString('base64url')}.sig`;
+
 type Vars = Record<string, string | undefined>;
 
 function run(vars: Vars) {
@@ -224,4 +227,43 @@ test('preview: a production host hidden by URL encoding still fails', () => {
 test('preview: the production ref anywhere in the raw URL still fails', () => {
   assertFail({ VERCEL_ENV: 'preview', ...ISOLATED, [NAMES.url]: `https://${MARKER}.example/?project=${PRODUCTION_REF}` }, [NAMES.url]);
   assertFail({ VERCEL_ENV: 'preview', ...ISOLATED, [NAMES.url]: `https://${PRODUCTION_REF}@${MARKER}.example` }, [NAMES.url]);
+});
+
+test('production: padded values fail because Expo inlines the raw value', () => {
+  assertFail({ VERCEL_ENV: 'production', [NAMES.stripe]: 'pk_live_x\n' }, [NAMES.stripe]);
+  assertFail({ VERCEL_ENV: 'production', [NAMES.appEnv]: ' production ' }, [NAMES.appEnv]);
+  assertFail({ VERCEL_ENV: 'production', [NAMES.url]: `https://${PRODUCTION_REF}.supabase.co ` }, [NAMES.url]);
+  assertFail({ VERCEL_ENV: 'production', [NAMES.anon]: ` ${MARKER}-production-anon-key` }, [NAMES.anon]);
+});
+
+test('preview and development: padded values fail, clean values still pass', () => {
+  assertFail({ VERCEL_ENV: 'preview', ...ISOLATED, [NAMES.url]: `${ISOLATED[NAMES.url]} ` }, [NAMES.url]);
+  assertFail({ VERCEL_ENV: 'development', ...ISOLATED, [NAMES.stripe]: `pk_test_${MARKER}\r\n` }, [NAMES.stripe]);
+  assertFail({ VERCEL_ENV: 'preview', ...ISOLATED, [NAMES.appEnv]: '\tpreview' }, [NAMES.appEnv]);
+  assertFail({ VERCEL_ENV: 'preview', ...ISOLATED, [NAMES.anon]: `${ISOLATED[NAMES.anon]}\n` }, [NAMES.anon]);
+  assertPass({ VERCEL_ENV: 'preview', ...ISOLATED });
+  assertPass({ VERCEL_ENV: 'production', ...PRODUCTION });
+});
+
+test('production: a JWT anon key for another project ref fails', () => {
+  assertFail({ VERCEL_ENV: 'production', [NAMES.anon]: jwt({ ref: 'otherref', role: 'anon' }) }, [NAMES.anon]);
+});
+
+test('production: a JWT anon key for the production ref passes, as does one without a ref', () => {
+  assertPass({ VERCEL_ENV: 'production', [NAMES.anon]: jwt({ ref: PRODUCTION_REF, role: 'anon' }) });
+  assertPass({ VERCEL_ENV: 'production', [NAMES.anon]: jwt({ role: 'anon' }) });
+});
+
+test('production: a non-JWT anon key (new-style publishable key) is left alone', () => {
+  assertPass({ VERCEL_ENV: 'production', [NAMES.anon]: `sb_publishable_${MARKER}` });
+});
+
+test('production: a JWT-shaped anon key whose payload does not decode fails', () => {
+  assertFail({ VERCEL_ENV: 'production', [NAMES.anon]: 'a.b.c' }, [NAMES.anon]);
+  assertFail({ VERCEL_ENV: 'production', [NAMES.anon]: `a.${Buffer.from('not json').toString('base64url')}.c` }, [NAMES.anon]);
+});
+
+test('preview: a JWT anon key for the production ref fails; another ref passes', () => {
+  assertFail({ VERCEL_ENV: 'preview', ...ISOLATED, [NAMES.anon]: jwt({ ref: PRODUCTION_REF, role: 'anon' }) }, [NAMES.anon]);
+  assertPass({ VERCEL_ENV: 'preview', ...ISOLATED, [NAMES.anon]: jwt({ ref: 'otherref', role: 'anon' }) });
 });
