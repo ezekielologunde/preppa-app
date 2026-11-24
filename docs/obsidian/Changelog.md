@@ -2,11 +2,15 @@
 project: Preppa
 type: changelog
 status: active
-last_updated: 2026-09-25
+last_updated: 2026-11-24
 tags: [project/preppa, type/changelog]
 ---
 
 # Changelog
+
+## Vercel build-time environment check (2026-11-24)
+
+Vercel now runs `scripts/check-vercel-env.mjs` before `expo export` (`vercel.json` `buildCommand`). It reads `VERCEL_ENV` and the four `EXPO_PUBLIC_*` client values. A Preview (or Development) build fails if it has a `pk_live_` key, a Supabase URL containing the production ref, `EXPO_PUBLIC_APP_ENV=production`, or a missing/empty Supabase URL, anon key or Stripe key. A Production build fails if it has a `pk_test_` key, a Supabase URL for any other project, or `EXPO_PUBLIC_APP_ENV=preview`; unset values pass because production uses the in-code fallbacks. With `VERCEL_ENV` unset (a local build) it passes with a note. It prints variable names and reasons, never values. Removed the dead `process.env.VERCEL_ENV` check from `src/lib/supabase.ts` (Expo does not inline it on web). Covered by `tests/vercelEnvCheck.test.ts`; not yet exercised on a real Vercel build. See [[Security]].
 
 ## Customer checkout and wide-screen onboarding (2026-09-25)
 
