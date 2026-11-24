@@ -2,11 +2,15 @@
 project: Preppa
 type: security
 status: active
-last_updated: 2026-09-17
+last_updated: 2026-11-24
 tags: [project/preppa, type/security]
 ---
 
 # Security
+
+## Stripe key-mode and account guard (web launch task 1.1g, 2026-11-24)
+
+The vendored `stripe-setup`, `stripe-webhook` and `stripe-worker` wrappers read `STRIPE_SECRET_KEY` directly and bypass `requireEnv`, so each now carries an inline guard (identical block between `BEGIN/END stripe-key-mode-guard` markers) that runs before `StripeSync.create`. It derives the ref from `SUPABASE_URL` (`https://<ref>.supabase.co` only), requires a live key on the production ref and a test key everywhere else, then checks `GET /v1/account` against the `STRIPE_EXPECTED_ACCOUNT` secret, caching a pass per isolate. Any failure, including a missing secret or URL, fails closed with a fixed 500 body that names no key, ref or account. `stripe-setup` checks it after the caller-secret check; `stripe-webhook` before signature verification, which is unchanged; `stripe-worker` at module load. This closes threat T8 for the vendored functions (SECURITY-SPEC S8); the hand-written `requireEnv` callers are task 1.7. Deploying requires `STRIPE_EXPECTED_ACCOUNT` on each project first, or the three functions return 500.
 
 ## Build-upload hardening — 2026-09-17
 

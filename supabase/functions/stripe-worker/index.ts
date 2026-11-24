@@ -47093,6 +47093,64 @@ import * as npm_postgres_star from "npm:postgres";
 import { default as default6 } from "npm:postgres";
 
 // src/supabase/edge-functions/stripe-worker.ts
+// BEGIN stripe-key-mode-guard (docs/web-launch/DESIGN.md task 1.1g)
+// Keep this block identical in stripe-setup, stripe-webhook and stripe-worker: tests/stripeKeyModeGuard.test.ts
+// evaluates it from each file. The key's mode must match the project (the production ref needs a live key, any
+// other ref a test key) and GET /v1/account must return STRIPE_EXPECTED_ACCOUNT. Anything else fails closed
+// with a fixed message that names no key, ref or account id.
+var STRIPE_GUARD_PRODUCTION_REF = "fwidhpzwldneeaphrxgg";
+var STRIPE_GUARD_FAILURE_MESSAGE = "Stripe configuration check failed";
+var stripeGuardPassed = false;
+function stripeGuardFailureResponse() {
+  return new Response(JSON.stringify({ error: STRIPE_GUARD_FAILURE_MESSAGE }), {
+    status: 500,
+    headers: { "Content-Type": "application/json" }
+  });
+}
+function stripeGuardRefuse(reason) {
+  console.error(`Stripe key-mode guard refused: ${reason}`);
+  return false;
+}
+async function stripeGuardCheck() {
+  const refMatch = /^https:\/\/([a-z0-9]+)\.supabase\.co\/?$/.exec(Deno.env.get("SUPABASE_URL") ?? "");
+  if (!refMatch) {
+    return stripeGuardRefuse("SUPABASE_URL is missing or not a Supabase project URL");
+  }
+  const expectedAccount = Deno.env.get("STRIPE_EXPECTED_ACCOUNT") ?? "";
+  if (!expectedAccount) {
+    return stripeGuardRefuse("STRIPE_EXPECTED_ACCOUNT is not set");
+  }
+  const stripeKey = Deno.env.get("STRIPE_SECRET_KEY") ?? "";
+  const allowedPrefixes = refMatch[1] === STRIPE_GUARD_PRODUCTION_REF ? ["sk_live_", "rk_live_"] : ["sk_test_", "rk_test_"];
+  if (!allowedPrefixes.some((prefix) => stripeKey.startsWith(prefix))) {
+    return stripeGuardRefuse("STRIPE_SECRET_KEY mode does not match this project");
+  }
+  let account;
+  try {
+    const response = await fetch("https://api.stripe.com/v1/account", {
+      method: "GET",
+      headers: { Authorization: `Bearer ${stripeKey}` },
+      signal: AbortSignal.timeout(1e4)
+    });
+    if (!response.ok) {
+      return stripeGuardRefuse("Stripe account lookup failed");
+    }
+    account = await response.json();
+  } catch {
+    return stripeGuardRefuse("Stripe account lookup failed");
+  }
+  if (!account || account.id !== expectedAccount) {
+    return stripeGuardRefuse("Stripe account does not match STRIPE_EXPECTED_ACCOUNT");
+  }
+  return true;
+}
+async function stripeKeyModeGuard() {
+  if (!stripeGuardPassed) {
+    stripeGuardPassed = await stripeGuardCheck();
+  }
+  return stripeGuardPassed;
+}
+// END stripe-key-mode-guard
 var dbUrl = Deno.env.get("SUPABASE_DB_URL");
 if (!dbUrl) {
   throw new Error("SUPABASE_DB_URL secret not configured");
@@ -47103,19 +47161,23 @@ var workerCount = Number(Deno.env.get("WORKER_COUNT")) || 10;
 var schemaName = Deno.env.get("SYNC_SCHEMA_NAME") ?? "stripe";
 var syncTablesSchemaName = Deno.env.get("SYNC_TABLES_SCHEMA_NAME") ?? schemaName;
 var sql3 = default6(dbUrl, { max: 1, prepare: false });
-var stripeSync = await StripeSync.create({
+var stripeKeyModeGuardPassed = await stripeKeyModeGuard();
+var stripeSync = stripeKeyModeGuardPassed ? await StripeSync.create({
   poolConfig: { connectionString: dbUrl, max: 1 },
   stripeSecretKey: Deno.env.get("STRIPE_SECRET_KEY"),
   enableSigma: false,
   partnerId: "pp_supabase",
   schemaName,
   syncTablesSchemaName
-});
-var objects = stripeSync.getSupportedSyncObjects();
+}) : null;
+var objects = stripeSync ? stripeSync.getSupportedSyncObjects() : [];
 var tableNames = objects.map(
   (obj) => stripeSync.resourceRegistry[obj].tableName
 );
 Deno.serve(async (req) => {
+  if (!stripeSync) {
+    return stripeGuardFailureResponse();
+  }
   if (req.method !== "POST") {
     return new Response("Method not allowed", { status: 405 });
   }

@@ -2,11 +2,15 @@
 project: Preppa
 type: changelog
 status: active
-last_updated: 2026-09-25
+last_updated: 2026-11-24
 tags: [project/preppa, type/changelog]
 ---
 
 # Changelog
+
+## Stripe key-mode and account guard (2026-11-24)
+
+The three vendored Stripe sync functions (`stripe-setup`, `stripe-webhook`, `stripe-worker`) now refuse to run unless the Stripe key matches the Supabase project they are deployed to: the production ref needs a live key (`sk_live_`/`rk_live_`), any other ref a test key (`sk_test_`/`rk_test_`), and `GET /v1/account` must return the new `STRIPE_EXPECTED_ACCOUNT` function secret. Anything else returns a generic 500 before `StripeSync.create`. Pinned by `tests/stripeKeyModeGuard.test.ts`. Not deployed; `STRIPE_EXPECTED_ACCOUNT` must be set on each project before these functions are redeployed. See [[Security]] and [[Payments]].
 
 ## Customer checkout and wide-screen onboarding (2026-09-25)
 
