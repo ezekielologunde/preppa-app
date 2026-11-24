@@ -2,11 +2,19 @@
 project: Preppa
 type: changelog
 status: active
-last_updated: 2026-09-25
+last_updated: 2026-11-24
 tags: [project/preppa, type/changelog]
 ---
 
 # Changelog
+
+## Stripe key-mode guard review fixes (2026-11-24)
+
+The guard in `stripe-setup`, `stripe-webhook` and `stripe-worker` now shares one in-flight `GET /v1/account` per isolate and caches a failure for 30 seconds, so unsigned webhook requests cannot each trigger a Stripe lookup. `stripe-worker` no longer latches a failed boot check: it creates `StripeSync` lazily once the guard passes and answers 500 until then. `STRIPE_EXPECTED_ACCOUNT` and the key are trimmed before comparing. Only the exact production host unlocks a live key; any other well-formed URL, including local-stack URLs such as `http://kong:8000`, needs a test key. `STRIPE_EXPECTED_ACCOUNT` must be set on a project before these functions are deployed to it (web-launch DESIGN 4.2). See [[Security]].
+
+## Stripe key-mode and account guard (2026-11-24)
+
+The three vendored Stripe sync functions (`stripe-setup`, `stripe-webhook`, `stripe-worker`) now refuse to run unless the Stripe key matches the Supabase project they are deployed to: the production ref needs a live key (`sk_live_`/`rk_live_`), any other ref a test key (`sk_test_`/`rk_test_`), and `GET /v1/account` must return the new `STRIPE_EXPECTED_ACCOUNT` function secret. Anything else returns a generic 500 before `StripeSync.create`. Pinned by `tests/stripeKeyModeGuard.test.ts`. Not deployed; `STRIPE_EXPECTED_ACCOUNT` must be set on each project before these functions are redeployed. See [[Security]] and [[Payments]].
 
 ## Customer checkout and wide-screen onboarding (2026-09-25)
 
