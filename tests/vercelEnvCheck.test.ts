@@ -1,5 +1,6 @@
 import assert from 'node:assert/strict';
 import { spawnSync } from 'node:child_process';
+import { readFileSync } from 'node:fs';
 import { resolve } from 'node:path';
 import test from 'node:test';
 
@@ -151,4 +152,76 @@ test('production: the full isolated test config fails on every rule', () => {
 
 test('an unrecognised VERCEL_ENV fails without printing it', () => {
   assertFail({ VERCEL_ENV: `${MARKER}-staging`, ...ISOLATED }, ['VERCEL_ENV']);
+});
+
+test('vercel.json runs the check before the web export', () => {
+  const config = JSON.parse(readFileSync(resolve(process.cwd(), 'vercel.json'), 'utf8'));
+  assert.equal(config.buildCommand, 'node scripts/check-vercel-env.mjs && expo export -p web');
+});
+
+test('Vercel builder without VERCEL_ENV: VERCEL set fails instead of skipping the checks', () => {
+  assertFail({ VERCEL: '1', ...PRODUCTION, [NAMES.stripe]: `pk_test_${MARKER}` }, ['VERCEL_ENV']);
+  assertFail({ VERCEL: `${MARKER}` }, ['VERCEL_ENV']);
+  assertFail({ VERCEL: '1', VERCEL_ENV: '' }, ['VERCEL_ENV']);
+  assertFail({ VERCEL: '1', VERCEL_ENV: '   ' }, ['VERCEL_ENV']);
+});
+
+test('Vercel builder without VERCEL_ENV: VERCEL_URL set fails, with or without CI', () => {
+  assertFail({ CI: '1', VERCEL_URL: `${MARKER}.vercel.app`, ...ISOLATED }, ['VERCEL_ENV']);
+  assertFail({ VERCEL_URL: `${MARKER}.vercel.app` }, ['VERCEL_ENV']);
+});
+
+test('a whitespace-only VERCEL_ENV is not a local build', () => {
+  assertFail({ VERCEL_ENV: '   ' }, ['VERCEL_ENV']);
+});
+
+test('local build: CI alone, or an empty VERCEL, is still a local build', () => {
+  assert.match(assertPass({ CI: '1' }).output, /local build/);
+  assert.match(assertPass({ VERCEL: '', VERCEL_URL: '' }).output, /local build/);
+});
+
+for (const target of ['preview', 'development']) {
+  for (const key of [`sk_live_${MARKER}`, `rk_live_${MARKER}`, `sk_test_${MARKER}`, `rk_test_${MARKER}`, `pk_live_${MARKER}`, `${MARKER}`]) {
+    test(`${target}: a Stripe value shaped ${key.replace(MARKER, '...')} fails; only pk_test_ passes`, () => {
+      assertFail({ VERCEL_ENV: target, ...ISOLATED, [NAMES.appEnv]: target, [NAMES.stripe]: key }, [NAMES.stripe]);
+    });
+  }
+}
+
+for (const key of [`sk_live_${MARKER}`, `rk_live_${MARKER}`, `sk_test_${MARKER}`, `pk_test_${MARKER}`, `${MARKER}`]) {
+  test(`production: a Stripe value shaped ${key.replace(MARKER, '...')} fails; only pk_live_ passes`, () => {
+    assertFail({ VERCEL_ENV: 'production', [NAMES.stripe]: key }, [NAMES.stripe]);
+  });
+}
+
+for (const name of Object.values(NAMES)) {
+  test(`production: a whitespace-only ${name} fails, because the client would not fall back`, () => {
+    assertFail({ VERCEL_ENV: 'production', [name]: '   ' }, [name]);
+    assertFail({ VERCEL_ENV: 'production', ...PRODUCTION, [name]: '\t' }, [name]);
+  });
+}
+
+test('preview: a Supabase URL that does not parse fails', () => {
+  assertFail({ VERCEL_ENV: 'preview', ...ISOLATED, [NAMES.url]: `not a url ${MARKER}` }, [NAMES.url]);
+  assertFail({ VERCEL_ENV: 'preview', ...ISOLATED, [NAMES.url]: `https://${MARKER}[isolated` }, [NAMES.url]);
+});
+
+test('preview: a production host hidden by URL encoding still fails', () => {
+  const encoded = `%${PRODUCTION_REF.charCodeAt(0).toString(16)}${PRODUCTION_REF.slice(1)}`;
+  const fullWidth = `${String.fromCharCode(PRODUCTION_REF.charCodeAt(0) + 0xfee0)}${PRODUCTION_REF.slice(1)}`;
+  for (const host of [
+    `${encoded}.supabase.co`,
+    `${PRODUCTION_REF.slice(0, 5)}%${PRODUCTION_REF.charCodeAt(5).toString(16).toUpperCase()}${PRODUCTION_REF.slice(6)}.supabase.co`,
+    `${fullWidth}.supabase.co`,
+    `${encoded}.supabase.co.`,
+    `${encoded.toUpperCase()}.SUPABASE.CO:443`,
+  ]) {
+    assert.ok(!`https://${host}`.includes(PRODUCTION_REF), `fixture must hide the ref: ${host}`);
+    assertFail({ VERCEL_ENV: 'preview', ...ISOLATED, [NAMES.url]: `https://${host}` }, [NAMES.url]);
+  }
+});
+
+test('preview: the production ref anywhere in the raw URL still fails', () => {
+  assertFail({ VERCEL_ENV: 'preview', ...ISOLATED, [NAMES.url]: `https://${MARKER}.example/?project=${PRODUCTION_REF}` }, [NAMES.url]);
+  assertFail({ VERCEL_ENV: 'preview', ...ISOLATED, [NAMES.url]: `https://${PRODUCTION_REF}@${MARKER}.example` }, [NAMES.url]);
 });
