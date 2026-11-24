@@ -47095,12 +47095,25 @@ import { default as default6 } from "npm:postgres";
 // src/supabase/edge-functions/stripe-worker.ts
 // BEGIN stripe-key-mode-guard (docs/web-launch/DESIGN.md task 1.1g)
 // Keep this block identical in stripe-setup, stripe-webhook and stripe-worker: tests/stripeKeyModeGuard.test.ts
-// evaluates it from each file. The key's mode must match the project (the production ref needs a live key, any
-// other ref a test key) and GET /v1/account must return STRIPE_EXPECTED_ACCOUNT. Anything else fails closed
-// with a fixed message that names no key, ref or account id.
+// evaluates it from each file. The key's mode must match the project and GET /v1/account must return
+// STRIPE_EXPECTED_ACCOUNT; the key and the account id are trimmed before either comparison.
+// Which mode: only SUPABASE_URL https://fwidhpzwldneeaphrxgg.supabase.co (the production project, compared
+// after URL normalisation, so a trailing slash is allowed but a path, port, query or credentials are not)
+// unlocks a live key (sk_live_/rk_live_). Every other well-formed http(s) URL is non-production and needs a
+// test key (sk_test_/rk_test_): another project ref, and local stacks such as http://kong:8000 or
+// http://127.0.0.1:54321. A missing or unparseable SUPABASE_URL, or another scheme, fails closed.
+// Anything else fails closed too, with a fixed message that names no key, ref or account id.
+// Caching (per isolate): a pass is kept and never overwritten. Concurrent callers share one in-flight check.
+// After a failed check every call refuses without contacting Stripe for STRIPE_GUARD_RETRY_MS, then the next
+// call runs one fresh check, so unauthenticated traffic (the webhook guards before signature verification)
+// cannot turn into a stream of Stripe lookups. The clock is injectable for tests; the wrappers use Date.now.
 var STRIPE_GUARD_PRODUCTION_REF = "fwidhpzwldneeaphrxgg";
+var STRIPE_GUARD_PRODUCTION_URL = `https://${STRIPE_GUARD_PRODUCTION_REF}.supabase.co/`;
 var STRIPE_GUARD_FAILURE_MESSAGE = "Stripe configuration check failed";
+var STRIPE_GUARD_RETRY_MS = 3e4;
 var stripeGuardPassed = false;
+var stripeGuardInFlight = null;
+var stripeGuardRetryAt = 0;
 function stripeGuardFailureResponse() {
   return new Response(JSON.stringify({ error: STRIPE_GUARD_FAILURE_MESSAGE }), {
     status: 500,
@@ -47112,16 +47125,21 @@ function stripeGuardRefuse(reason) {
   return false;
 }
 async function stripeGuardCheck() {
-  const refMatch = /^https:\/\/([a-z0-9]+)\.supabase\.co\/?$/.exec(Deno.env.get("SUPABASE_URL") ?? "");
-  if (!refMatch) {
-    return stripeGuardRefuse("SUPABASE_URL is missing or not a Supabase project URL");
+  let supabaseUrl;
+  try {
+    supabaseUrl = new URL(Deno.env.get("SUPABASE_URL") ?? "");
+  } catch {
+    return stripeGuardRefuse("SUPABASE_URL is missing or not a URL");
   }
-  const expectedAccount = Deno.env.get("STRIPE_EXPECTED_ACCOUNT") ?? "";
+  if (supabaseUrl.protocol !== "https:" && supabaseUrl.protocol !== "http:") {
+    return stripeGuardRefuse("SUPABASE_URL is missing or not a URL");
+  }
+  const expectedAccount = (Deno.env.get("STRIPE_EXPECTED_ACCOUNT") ?? "").trim();
   if (!expectedAccount) {
     return stripeGuardRefuse("STRIPE_EXPECTED_ACCOUNT is not set");
   }
-  const stripeKey = Deno.env.get("STRIPE_SECRET_KEY") ?? "";
-  const allowedPrefixes = refMatch[1] === STRIPE_GUARD_PRODUCTION_REF ? ["sk_live_", "rk_live_"] : ["sk_test_", "rk_test_"];
+  const stripeKey = (Deno.env.get("STRIPE_SECRET_KEY") ?? "").trim();
+  const allowedPrefixes = supabaseUrl.href === STRIPE_GUARD_PRODUCTION_URL ? ["sk_live_", "rk_live_"] : ["sk_test_", "rk_test_"];
   if (!allowedPrefixes.some((prefix) => stripeKey.startsWith(prefix))) {
     return stripeGuardRefuse("STRIPE_SECRET_KEY mode does not match this project");
   }
@@ -47144,11 +47162,30 @@ async function stripeGuardCheck() {
   }
   return true;
 }
-async function stripeKeyModeGuard() {
-  if (!stripeGuardPassed) {
-    stripeGuardPassed = await stripeGuardCheck();
+async function stripeKeyModeGuard(clock = Date.now) {
+  if (stripeGuardPassed) {
+    return true;
   }
-  return stripeGuardPassed;
+  if (!stripeGuardInFlight) {
+    if (clock() < stripeGuardRetryAt) {
+      return false;
+    }
+    stripeGuardInFlight = (async () => {
+      let passed = false;
+      try {
+        passed = await stripeGuardCheck();
+      } finally {
+        stripeGuardInFlight = null;
+        if (passed) {
+          stripeGuardPassed = true;
+        } else {
+          stripeGuardRetryAt = clock() + STRIPE_GUARD_RETRY_MS;
+        }
+      }
+      return passed;
+    })();
+  }
+  return stripeGuardInFlight;
 }
 // END stripe-key-mode-guard
 var dbUrl = Deno.env.get("SUPABASE_DB_URL");
@@ -47161,21 +47198,42 @@ var workerCount = Number(Deno.env.get("WORKER_COUNT")) || 10;
 var schemaName = Deno.env.get("SYNC_SCHEMA_NAME") ?? "stripe";
 var syncTablesSchemaName = Deno.env.get("SYNC_TABLES_SCHEMA_NAME") ?? schemaName;
 var sql3 = default6(dbUrl, { max: 1, prepare: false });
-var stripeKeyModeGuardPassed = await stripeKeyModeGuard();
-var stripeSync = stripeKeyModeGuardPassed ? await StripeSync.create({
-  poolConfig: { connectionString: dbUrl, max: 1 },
-  stripeSecretKey: Deno.env.get("STRIPE_SECRET_KEY"),
-  enableSigma: false,
-  partnerId: "pp_supabase",
-  schemaName,
-  syncTablesSchemaName
-}) : null;
-var objects = stripeSync ? stripeSync.getSupportedSyncObjects() : [];
-var tableNames = objects.map(
-  (obj) => stripeSync.resourceRegistry[obj].tableName
-);
+var stripeSync = null;
+var stripeSyncCreating = null;
+var objects = [];
+var tableNames = [];
+async function stripeSyncAfterGuard() {
+  if (stripeSync) {
+    return stripeSync;
+  }
+  if (!await stripeKeyModeGuard()) {
+    return null;
+  }
+  if (!stripeSyncCreating) {
+    stripeSyncCreating = StripeSync.create({
+      poolConfig: { connectionString: dbUrl, max: 1 },
+      stripeSecretKey: Deno.env.get("STRIPE_SECRET_KEY"),
+      enableSigma: false,
+      partnerId: "pp_supabase",
+      schemaName,
+      syncTablesSchemaName
+    }).then((created) => {
+      objects = created.getSupportedSyncObjects();
+      tableNames = objects.map(
+        (obj) => created.resourceRegistry[obj].tableName
+      );
+      stripeSync = created;
+      return created;
+    }, (error) => {
+      stripeSyncCreating = null;
+      throw error;
+    });
+  }
+  return stripeSyncCreating;
+}
+await stripeSyncAfterGuard();
 Deno.serve(async (req) => {
-  if (!stripeSync) {
+  if (!await stripeSyncAfterGuard()) {
     return stripeGuardFailureResponse();
   }
   if (req.method !== "POST") {

@@ -265,6 +265,7 @@ auto-cancel and customer cancel each refund on Stripe and reverse the ledger.
 
 **4.2 deploy order (expand, then switch, then contract).** Each step is verified on the test project
 first with the same order, and live checkout plus decline-refund are smoke-tested between steps.
+`STRIPE_EXPECTED_ACCOUNT` is set on the target project (production included) before any of `stripe-setup`, `stripe-webhook` or `stripe-worker` is deployed to it, and holds the bare `acct_` id with no whitespace.
 1. E sets the production Vault functions base URL (1.2) and confirms it with a read.
 2. Additive migrations only: new columns (`delivery_address_text` from `20260925022000`,
    `delivery_instructions` from `20260925025000`, and any other column the 4.1 diff lists as pending),

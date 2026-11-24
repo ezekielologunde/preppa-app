@@ -30,7 +30,7 @@ const FAILURE_BODY = { error: 'Stripe configuration check failed' };
 const SECRET_VALUES = [PROD_REF, TEST_REF, EXPECTED_ACCOUNT, OTHER_ACCOUNT, SK_LIVE, RK_LIVE, SK_TEST, RK_TEST];
 
 type Env = Record<string, string | undefined>;
-type Guard = { stripeKeyModeGuard: () => Promise<boolean>; stripeGuardFailureResponse: () => Response };
+type Guard = { stripeKeyModeGuard: (clock?: () => number) => Promise<boolean>; stripeGuardFailureResponse: () => Response };
 type Handler = (req: Request) => Promise<Response>;
 
 const sourceCache = new Map<FunctionName, string>();
@@ -68,16 +68,19 @@ function accountResponse(id: string, status = 200): Response {
   });
 }
 
-// Stubbed outside world for one evaluation. `respond` answers the one fetch the guard may make.
+// Stubbed outside world for one evaluation. `respond` answers the one fetch the guard may make. `clock` is
+// what Date.now() returns inside a wrapper section (guard-block tests pass their own clock instead).
 function makeWorld(env: Env, respond: () => Response | Promise<Response> = () => accountResponse(EXPECTED_ACCOUNT)) {
   const fetchCalls: { url: string; init?: RequestInit }[] = [];
   const logs: string[] = [];
+  const clock = { now: 0 };
   const record = (...args: unknown[]) => {
     logs.push(args.map(String).join(' '));
   };
   return {
     fetchCalls,
     logs,
+    clock,
     globals: {
       Deno: { env: { get: (key: string) => env[key] } } as Record<string, unknown>,
       fetch: async (url: unknown, init?: RequestInit) => {
@@ -87,6 +90,7 @@ function makeWorld(env: Env, respond: () => Response | Promise<Response> = () =>
       console: { log: record, info: record, warn: record, error: record, debug: record },
       Response,
       AbortSignal,
+      URL,
     } as Record<string, unknown>,
   };
 }
@@ -201,13 +205,16 @@ for (const name of FUNCTIONS) {
     assert.equal(verified.fetchCalls.length, 1, 'one lookup for many calls');
 
     let answer = OTHER_ACCOUNT;
+    let now = 0;
+    const clock = () => now;
     const flaky = makeWorld(env({ SUPABASE_URL: TEST_URL, STRIPE_SECRET_KEY: SK_TEST }), () => accountResponse(answer));
     const retrying = loadGuard(name, flaky);
-    assert.equal(await retrying.stripeKeyModeGuard(), false);
+    assert.equal(await retrying.stripeKeyModeGuard(clock), false);
     answer = EXPECTED_ACCOUNT;
-    assert.equal(await retrying.stripeKeyModeGuard(), true);
-    assert.equal(await retrying.stripeKeyModeGuard(), true);
-    assert.equal(flaky.fetchCalls.length, 2, 'a refusal is not cached; a pass is');
+    now += 31_000; // a refusal is cached for 30 seconds (see the negative-cache tests below)
+    assert.equal(await retrying.stripeKeyModeGuard(clock), true);
+    assert.equal(await retrying.stripeKeyModeGuard(clock), true);
+    assert.equal(flaky.fetchCalls.length, 2, 'a refusal is cached for 30 seconds only; a pass is kept');
   });
 }
 
@@ -232,8 +239,14 @@ async function loadWrapper(name: FunctionName, world: ReturnType<typeof makeWorl
   deno.serve = (fn: Handler) => {
     handler = fn;
   };
+  const clock = world.clock;
   const context = vm.createContext({
     ...world.globals,
+    Date: class extends Date {
+      static now() {
+        return clock.now;
+      }
+    },
     StripeSync: {
       create: async (config: Record<string, unknown>) => {
         createCalls.push(config);
@@ -412,4 +425,173 @@ test('stripe-worker: a verified key creates StripeSync once and keeps the worker
     new Request(`${TEST_URL}/functions/v1/stripe-worker`, { method: 'POST', headers: { Authorization: 'Bearer wrong' } }),
   );
   assert.equal(forbidden.status, 403);
+});
+
+// ---- Review fixes: shared in-flight lookup, 30-second negative cache, trimming, local-stack URLs ----
+
+function deferred<T>() {
+  let resolve!: (value: T) => void;
+  const promise = new Promise<T>((done) => {
+    resolve = done;
+  });
+  return { promise, resolve };
+}
+
+const LOCAL_URLS = ['http://kong:8000', 'http://127.0.0.1:54321', 'http://localhost:54321/'];
+
+for (const name of FUNCTIONS) {
+  test(`${name}: concurrent first calls share one account lookup, pass or fail`, async () => {
+    for (const [answer, expected] of [
+      [EXPECTED_ACCOUNT, true],
+      [OTHER_ACCOUNT, false],
+    ] as const) {
+      const lookup = deferred<Response>();
+      const world = makeWorld(env({ SUPABASE_URL: TEST_URL, STRIPE_SECRET_KEY: SK_TEST }), () => lookup.promise);
+      const guard = loadGuard(name, world);
+      const calls = Array.from({ length: 5 }, () => guard.stripeKeyModeGuard(() => 0));
+      lookup.resolve(accountResponse(answer));
+      assert.deepEqual(await Promise.all(calls), Array(5).fill(expected), answer);
+      assert.equal(world.fetchCalls.length, 1, `${answer}: one lookup for five concurrent callers`);
+    }
+  });
+
+  test(`${name}: after a failed check, refuses without a lookup for 30 seconds, then allows one fresh lookup`, async () => {
+    let now = 1_000_000;
+    const clock = () => now;
+    let answer = OTHER_ACCOUNT;
+    const world = makeWorld(env({ SUPABASE_URL: TEST_URL, STRIPE_SECRET_KEY: SK_TEST }), () => accountResponse(answer));
+    const guard = loadGuard(name, world);
+    assert.equal(await guard.stripeKeyModeGuard(clock), false);
+    assert.equal(world.fetchCalls.length, 1);
+
+    now += 29_000;
+    answer = EXPECTED_ACCOUNT;
+    assert.equal(await guard.stripeKeyModeGuard(clock), false, '29s after the failure: refused from cache');
+    assert.equal(world.fetchCalls.length, 1, '29s after the failure: no lookup');
+
+    answer = OTHER_ACCOUNT;
+    now += 2_000;
+    assert.equal(await guard.stripeKeyModeGuard(clock), false, '31s: the fresh lookup fails again');
+    assert.equal(world.fetchCalls.length, 2, '31s: exactly one fresh lookup');
+    assert.equal(await guard.stripeKeyModeGuard(clock), false);
+    assert.equal(world.fetchCalls.length, 2, 'the new failure re-arms the window');
+
+    answer = EXPECTED_ACCOUNT;
+    now += 31_000;
+    assert.equal(await guard.stripeKeyModeGuard(clock), true, '31s after the second failure: a fresh lookup passes');
+    assert.equal(world.fetchCalls.length, 3);
+  });
+
+  test(`${name}: a cached pass survives a concurrent or later failing lookup`, async () => {
+    let now = 0;
+    const clock = () => now;
+    const answers = [EXPECTED_ACCOUNT, OTHER_ACCOUNT, OTHER_ACCOUNT, OTHER_ACCOUNT];
+    const world = makeWorld(env({ SUPABASE_URL: TEST_URL, STRIPE_SECRET_KEY: SK_TEST }), () =>
+      accountResponse(answers[world.fetchCalls.length - 1]),
+    );
+    const guard = loadGuard(name, world);
+    assert.deepEqual(await Promise.all([guard.stripeKeyModeGuard(clock), guard.stripeKeyModeGuard(clock)]), [true, true]);
+    now += 60_000;
+    assert.equal(await guard.stripeKeyModeGuard(clock), true, 'still passed after the account would now mismatch');
+    assert.equal(world.fetchCalls.length, 1, 'no lookup after a pass');
+  });
+
+  test(`${name}: trims STRIPE_EXPECTED_ACCOUNT and the key before comparing`, async () => {
+    for (const pair of [
+      { url: TEST_URL, key: SK_TEST },
+      { url: PROD_URL, key: SK_LIVE },
+    ]) {
+      const world = makeWorld(
+        env({ SUPABASE_URL: pair.url, STRIPE_SECRET_KEY: ` ${pair.key}\r\n`, STRIPE_EXPECTED_ACCOUNT: `  ${EXPECTED_ACCOUNT}\n` }),
+      );
+      const guard = loadGuard(name, world);
+      assert.equal(await guard.stripeKeyModeGuard(() => 0), true, pair.key);
+      assert.equal(world.fetchCalls.length, 1);
+      assert.deepEqual({ ...(world.fetchCalls[0].init?.headers as Record<string, string>) }, { Authorization: `Bearer ${pair.key}` });
+    }
+  });
+
+  test(`${name}: only the exact production host unlocks a live key; local-stack URLs need a test key`, async () => {
+    for (const url of LOCAL_URLS) {
+      for (const key of [SK_TEST, RK_TEST]) {
+        const world = makeWorld(env({ SUPABASE_URL: url, STRIPE_SECRET_KEY: key }));
+        assert.equal(await loadGuard(name, world).stripeKeyModeGuard(() => 0), true, `${url} with ${key}`);
+        assert.equal(world.fetchCalls.length, 1, `${url} with ${key}: one lookup`);
+      }
+    }
+    const refused: { url: string | undefined; key: string }[] = [
+      ...LOCAL_URLS.flatMap((url) => [SK_LIVE, RK_LIVE].map((key) => ({ url, key }))),
+      { url: PROD_URL, key: SK_TEST },
+      { url: `${PROD_URL}/`, key: RK_TEST },
+      { url: `https://${PROD_REF}.supabase.co:8443`, key: SK_LIVE },
+      { url: `https://user@${PROD_REF}.supabase.co`, key: SK_LIVE },
+      { url: `${PROD_URL}/?x=1`, key: SK_LIVE },
+      { url: `ftp://${PROD_REF}.supabase.co`, key: SK_TEST },
+      { url: 'kong:8000', key: SK_TEST },
+      { url: '', key: SK_TEST },
+      { url: undefined, key: SK_TEST },
+    ];
+    for (const scenario of refused) {
+      const world = makeWorld(env({ SUPABASE_URL: scenario.url, STRIPE_SECRET_KEY: scenario.key }));
+      const guard = loadGuard(name, world);
+      assert.equal(await guard.stripeKeyModeGuard(() => 0), false, `${scenario.url} with ${scenario.key}`);
+      assert.equal(world.fetchCalls.length, 0, `${scenario.url} with ${scenario.key}: no lookup`);
+      assertNoLeak(`${name} ${scenario.url}`, ...world.logs);
+    }
+  });
+}
+
+test('stripe-webhook: unsigned requests after a failed check cause no further Stripe lookups for 30 seconds', async () => {
+  let answer = OTHER_ACCOUNT;
+  const world = makeWorld(MATCHED, () => accountResponse(answer));
+  let processed = 0;
+  const wrapper = await loadWrapper('stripe-webhook', world, {
+    webhook: { processWebhook: async () => void processed++ },
+    postgresClient: { pool: { end: async () => {} } },
+  });
+  const flood = await Promise.all(Array.from({ length: 10 }, () => wrapper.handler(webhookRequest('{}', 't=1,v1=forged'))));
+  for (const response of flood) await refusalBody(response);
+  world.clock.now += 29_000;
+  answer = EXPECTED_ACCOUNT;
+  await refusalBody(await wrapper.handler(webhookRequest('{}', 't=1,v1=forged')));
+  assert.equal(world.fetchCalls.length, 1, 'eleven refused requests, one lookup');
+  assert.equal(processed, 0);
+  world.clock.now += 2_000;
+  const ok = await wrapper.handler(webhookRequest('{}', 't=1,v1=good'));
+  assert.equal(ok.status, 200, 'after the window a fresh lookup passes');
+  assert.equal(world.fetchCalls.length, 2);
+});
+
+test('stripe-worker: recovers after a transient boot failure once the negative-cache window ends', async () => {
+  let answer = OTHER_ACCOUNT;
+  const world = makeWorld(MATCHED, () => accountResponse(answer));
+  const wrapper = await loadWrapper('stripe-worker', world, {
+    getSupportedSyncObjects: () => ['customer'],
+    resourceRegistry: { customer: { tableName: 'customers' } },
+  });
+  assert.equal(wrapper.createCalls.length, 0, 'boot lookup failed: no StripeSync');
+  assert.equal(world.fetchCalls.length, 1);
+
+  answer = EXPECTED_ACCOUNT;
+  world.clock.now += 29_000;
+  const refused = await wrapper.handler(
+    new Request(`${TEST_URL}/functions/v1/stripe-worker`, { method: 'POST', headers: { Authorization: `Bearer ${VAULT_SECRET}` } }),
+  );
+  assertNoLeak('stripe-worker 29s', await refusalBody(refused), ...world.logs);
+  assert.equal(wrapper.sqlCalls.length, 0, 'no vault query while refusing');
+  assert.equal(wrapper.createCalls.length, 0);
+  assert.equal(world.fetchCalls.length, 1, 'no lookup inside the window');
+
+  world.clock.now += 2_000;
+  const unauthenticated = await wrapper.handler(new Request(`${TEST_URL}/functions/v1/stripe-worker`, { method: 'POST' }));
+  assert.equal(unauthenticated.status, 401, 'after the window the guard passes and auth runs');
+  assert.equal(world.fetchCalls.length, 2);
+  assert.equal(wrapper.createCalls.length, 1);
+  assert.equal(wrapper.createCalls[0].stripeSecretKey, SK_TEST);
+  const forbidden = await wrapper.handler(
+    new Request(`${TEST_URL}/functions/v1/stripe-worker`, { method: 'POST', headers: { Authorization: 'Bearer wrong' } }),
+  );
+  assert.equal(forbidden.status, 403);
+  assert.equal(wrapper.createCalls.length, 1, 'StripeSync is created once');
+  assert.equal(world.fetchCalls.length, 2, 'the pass is cached');
 });
