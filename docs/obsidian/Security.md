@@ -41,7 +41,7 @@ Part of [[Project]]. Backed by the living `AUDIT.md`/`AUDIT_FULL.md` in the repo
 ## Secrets
 
 - **No secret key committed** — repo-wide grep for Stripe/AWS/PEM patterns returned nothing; `git log --all` scan for the same (plus Resend/Mux/Google patterns) across full history also came back clean, 2026-09-08.
-- `src/lib/supabase.ts` reads `EXPO_PUBLIC_*` values and permits production fallbacks only for the production build or `app.preppa.live`. Development and preview fail closed without isolated values, and `security:env` prevents their EAS profiles from containing the production Supabase project or a live Stripe key. See [[Payments]] and [[Launch-Plan]] item 5.
+- `src/lib/supabase.ts` reads `EXPO_PUBLIC_*` values and permits production fallbacks only for the production build or `app.preppa.live`. Development and preview fail closed without isolated values, and `security:env` prevents their EAS profiles from containing the production Supabase project or a live Stripe key. On Vercel, `scripts/check-vercel-env.mjs` runs before the web export and fails a Preview build carrying production values (or missing values) and a Production build carrying test values. See [[Payments]] and [[Launch-Plan]] item 5.
 - **Credential rotation — done 2026-09-08** (Launch-Plan item 4, previously open):
   - **Resend**: both Full-access API keys on the account revoked; replaced with a `Sending access`-only, `preppa.live`-domain-restricted key for Auth SMTP, verified with a real OTP send.
   - **Google OAuth**: added a new client secret (dual-secret zero-downtime rotation), updated Supabase's Google provider, disabled the old (Aug 8, 2026) secret.
