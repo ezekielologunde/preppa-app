@@ -8,6 +8,10 @@ tags: [project/preppa, type/changelog]
 
 # Changelog
 
+## Workers and push read the functions host from Vault (2026-11-24)
+
+New migration `20260927000000_vault_base_url_for_workers.sql`: `notify()`'s push dispatch and the six pg_cron workers (`stripe-sync-worker`, `charge-due-cycles`, `reconcile-payouts`, `reconcile-cycle-charges`, `reconcile-booking-balances`, `auto-payouts`) now build their Edge Function URL at run time from the Vault secret `project_base_url` through `public.project_function_url(fn)`, instead of the hardcoded production URL. Schedules, headers, auth and bodies are unchanged and the jobs keep their names and ids. On a project with pg_cron the migration raises unless `project_base_url` is set to `https://<project-ref>.supabase.co`; `detect_system_health_issues()` now also alerts when the secret is missing or invalid and when a worker has had no successful run in its window. Pinned by `tests/vaultBaseUrl.test.ts`. Not deployed; E sets `project_base_url` on each project first (DESIGN 4.2 step 1). See [[Security]].
+
 ## Stripe key-mode guard in the 26 hand-written functions (2026-11-24)
 
 Every hand-written Edge Function that reads the Stripe key through `requireEnv('STRIPE_SECRET_KEY')` (26 files, cron and reconcile functions included) now refuses a key whose mode does not match the project at module load, and checks `GET /v1/account` against `STRIPE_EXPECTED_ACCOUNT` at the top of its handler, answering a generic 500 before any other work except the CORS preflight. Same rule and caching as the vendored-wrapper guard (web-launch DESIGN 1.1g), inlined per file. Pinned by `tests/stripeKeyModeCallers.test.ts`. Not deployed; `STRIPE_EXPECTED_ACCOUNT` must be set on each project before any of these functions is redeployed (DESIGN 4.2). See [[Security]].
