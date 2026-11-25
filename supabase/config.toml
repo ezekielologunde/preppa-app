@@ -1,4 +1,9 @@
-project_id = "fwidhpzwldneeaphrxgg"
+# project_id is only the local stack's name (the Docker container and volume prefix for
+# `supabase start`); it is not a hosted project ref. The hosted project is chosen per command by
+# `supabase link --project-ref <ref>` (kept in the gitignored supabase/.temp/project-ref),
+# `--project-ref`, or the SUPABASE_PROJECT_ID environment variable. Never commit the production
+# ref here (docs/web-launch/DESIGN.md task 1.5).
+project_id = "preppa-web"
 
 [api]
 enabled = true
@@ -11,3 +16,37 @@ port = 54322
 [studio]
 enabled = true
 port = 54323
+
+# Functions deployed with verify_jwt = false: cron, worker and webhook callers that send no end-user
+# JWT and authenticate in code (worker secret, Vault bearer or signature). Source of truth is the
+# verify_jwt column in supabase/functions/MANIFEST.md; tests/supabaseConfig.test.ts keeps the two in
+# step. Every other function keeps the default verify_jwt = true.
+[functions.stripe-webhook]
+verify_jwt = false
+
+[functions.stripe-setup]
+verify_jwt = false
+
+[functions.stripe-worker]
+verify_jwt = false
+
+[functions.reconcile-payouts]
+verify_jwt = false
+
+[functions.reconcile-cycle-charges]
+verify_jwt = false
+
+[functions.reconcile-booking-balances]
+verify_jwt = false
+
+[functions.auto-payouts]
+verify_jwt = false
+
+[functions.charge-due-cycles]
+verify_jwt = false
+
+[functions.mux-webhook]
+verify_jwt = false
+
+[functions.send-push]
+verify_jwt = false
