@@ -231,8 +231,7 @@ try {
   if ($StartAt -le 6) {
     Step 6 'Negative check: stripe-setup must refuse a wrong STRIPE_EXPECTED_ACCOUNT'
     if ($LocalAccount -eq '') {
-      Say 'No -LocalAccount given: skipping the negative check. DESIGN step 6 wants it; rerun with -StartAt 6 -LocalAccount acct_... before relying on the guard.'
-      Add-Evidence 'negative check SKIPPED (no LocalAccount)'
+      Stop-Here 'Step 6 (the negative check) needs -LocalAccount <preppa-local acct_ id>. DESIGN forbids running stripe-setup before it. Rerun with -StartAt 6 -LocalAccount acct_...'
     } else {
       Set-FunctionSecrets @{ STRIPE_EXPECTED_ACCOUNT = $LocalAccount }
       Say 'Secrets can take a few seconds to reach running isolates; waiting 20 s.'
