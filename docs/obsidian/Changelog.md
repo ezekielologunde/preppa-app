@@ -8,6 +8,10 @@ tags: [project/preppa, type/changelog]
 
 # Changelog
 
+## Re-runnable Stripe reconcile trigger install (2026-11-24)
+
+New migration `20260927002000_install_stripe_reconcile_triggers.sql` adds `public.install_stripe_reconcile_triggers()`, which creates the four `stripe.*` mirror triggers (`reconcile_paid_pi_trg`, `reconcile_paid_invoice_trg`, `sync_prepplus_membership_trg`, `sync_cook_pro_membership_trg`) with the same definitions as their original migrations and raises, naming every trigger it cannot install, instead of skipping. `public.check_stripe_reconcile_triggers()` lists the missing ones, and `detect_system_health_issues()` alerts admins, at most hourly, while the Stripe mirror exists but a trigger is missing. The migration installs only where a `stripe.*` table already exists; elsewhere run `select public.install_stripe_reconcile_triggers();` after `stripe-setup` (web-launch DESIGN 1.4, L1 step 8). Pinned by `tests/stripeReconcileTriggers.test.ts`. Not deployed. See [[Security]].
+
 ## Workers and push read the functions host from Vault (2026-11-24)
 
 New migration `20260927000000_vault_base_url_for_workers.sql`: `notify()`'s push dispatch and the six pg_cron workers (`stripe-sync-worker`, `charge-due-cycles`, `reconcile-payouts`, `reconcile-cycle-charges`, `reconcile-booking-balances`, `auto-payouts`) now build their Edge Function URL at run time from the Vault secret `project_base_url` through `public.project_function_url(fn)`, instead of the hardcoded production URL. Schedules, headers, auth and bodies are unchanged and the jobs keep their names and ids. On a project with pg_cron the migration raises unless `project_base_url` is set to `https://<project-ref>.supabase.co`; `detect_system_health_issues()` now also alerts when the secret is missing or invalid and when a worker has had no successful run in its window. Pinned by `tests/vaultBaseUrl.test.ts`. Not deployed; E sets `project_base_url` on each project first (DESIGN 4.2 step 1). See [[Security]].
