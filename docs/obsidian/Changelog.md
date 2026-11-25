@@ -8,6 +8,10 @@ tags: [project/preppa, type/changelog]
 
 # Changelog
 
+## Media URL allowlist reads the storage host from Vault (2026-11-24)
+
+New migration `20260927001000_media_allowlist_from_vault.sql` replaces `public.is_allowed_media_url(text)` so its three Supabase Storage prefixes (meal-photos, post-videos, avatars) are `project_base_url || '/storage/v1/object/public/<bucket>/'`, read from the Vault secret `project_base_url` on every call, instead of the production host hardcoded in July. Mux prefixes and every caller (`create_post`, `set_meal_photo`, the plans and experiences CHECK constraints) are unchanged. A missing, empty or slash-terminated secret raises. Pinned by `tests/mediaAllowlistVault.test.ts` (web-launch DESIGN 1.3). Not deployed; `project_base_url` must be set in Vault on each project before this migration reaches it, or post, meal-photo, plan and experience media writes fail. See [[Security]].
+
 ## Stripe key-mode guard in the 26 hand-written functions (2026-11-24)
 
 Every hand-written Edge Function that reads the Stripe key through `requireEnv('STRIPE_SECRET_KEY')` (26 files, cron and reconcile functions included) now refuses a key whose mode does not match the project at module load, and checks `GET /v1/account` against `STRIPE_EXPECTED_ACCOUNT` at the top of its handler, answering a generic 500 before any other work except the CORS preflight. Same rule and caching as the vendored-wrapper guard (web-launch DESIGN 1.1g), inlined per file. Pinned by `tests/stripeKeyModeCallers.test.ts`. Not deployed; `STRIPE_EXPECTED_ACCOUNT` must be set on each project before any of these functions is redeployed (DESIGN 4.2). See [[Security]].
