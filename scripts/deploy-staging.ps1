@@ -220,11 +220,11 @@ try {
     $prefix = if ($stripeKey.StartsWith('sk_test_')) { 'sk_test_' } else { 'rk_test_' }
     $acct = Get-StripeAccountId $stripeKey
     if ($acct -ne $ExpectedAccount) { Stop-Here "The key belongs to $acct, not $ExpectedAccount. Wrong sandbox key." }
-    $webhooksBefore = Get-WebhookIds $stripeKey
+    $webhooksBefore = @(Get-WebhookIds $stripeKey)
     Say "Key prefix $prefix, account $acct matches, $($webhooksBefore.Count) webhook endpoint(s) in the test Sandbox."
     Add-Evidence "key check: prefix $prefix, GET /v1/account = $acct, test webhooks before: $($webhooksBefore -join ',')"
   }
-  elseif ($StartAt -le 7) { $webhooksBefore = Get-WebhookIds $stripeKey }
+  elseif ($StartAt -le 7) { $webhooksBefore = @(Get-WebhookIds $stripeKey) }
 
   # ============================================================================================
   $setupUrl = "$BaseUrl/functions/v1/stripe-setup"
@@ -248,7 +248,7 @@ try {
           $sr = New-Object IO.StreamReader($_.Exception.Response.GetResponseStream()); $body = $sr.ReadToEnd(); $sr.Dispose()
         }
       }
-      $after = Get-WebhookIds $stripeKey
+      $after = @(Get-WebhookIds $stripeKey)
       $same = (($after -join ',') -eq ($webhooksBefore -join ','))
       Say "stripe-setup answered HTTP $status : $body"
       Say "Webhook ids unchanged: $same"
@@ -270,7 +270,7 @@ try {
       Say "stripe-setup answered HTTP $([int]$resp.StatusCode): $($resp.Content)"
       if ([int]$resp.StatusCode -ne 200) { Stop-Here 'stripe-setup did not return 200.' }
     }
-    $afterSetup = Get-WebhookIds $stripeKey
+    $afterSetup = @(Get-WebhookIds $stripeKey)
     $added = @($afterSetup | Where-Object { $webhooksBefore -notcontains $_ })
     Say "Test Sandbox webhooks added: $($added.Count) ($($added -join ','))"
     Add-Evidence "stripe-setup ok; test webhooks after: $($afterSetup -join ','); added: $($added -join ',')"
