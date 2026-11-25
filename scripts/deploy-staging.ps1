@@ -139,6 +139,8 @@ try {
     if ($ProjectRef -eq $ProdRef) { Stop-Here 'That is the PRODUCTION ref. This script only deploys the test project.' }
     if ($ProjectRef -notmatch '^[a-z0-9]{20}$') { Stop-Here 'ProjectRef is not a 20-character Supabase ref.' }
     if ($ExpectedAccount -notmatch '^acct_[A-Za-z0-9]+$') { Stop-Here 'ExpectedAccount must be a bare acct_ id with no spaces.' }
+    if ($LocalAccount -eq '' -and -not $DryRun -and $StartAt -le 6) { $LocalAccount = (Read-Host 'preppa-local Sandbox acct_ id (for the step 6 negative check)').Trim() }
+    if ($LocalAccount -eq '' -and $StartAt -le 6) { Stop-Here 'LocalAccount is required for the step 6 negative check.' }
     if ($LocalAccount -ne '' -and $LocalAccount -notmatch '^acct_[A-Za-z0-9]+$') { Stop-Here 'LocalAccount must be a bare acct_ id.' }
     if ($LocalAccount -ne '' -and $LocalAccount -eq $ExpectedAccount) { Stop-Here 'LocalAccount must differ from ExpectedAccount (the negative check needs a different account).' }
     Push-Location $RepoRoot
