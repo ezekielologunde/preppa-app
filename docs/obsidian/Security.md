@@ -8,6 +8,10 @@ tags: [project/preppa, type/security]
 
 # Security
 
+## verify_jwt versioned, production ref out of config.toml (web launch task 1.5, 2026-11-24)
+
+`verify_jwt` was a deployment-only setting recorded only in `supabase/functions/MANIFEST.md`. `supabase/config.toml` now carries `[functions.<slug>] verify_jwt = false` for exactly the 10 functions the manifest marks false; each authenticates in code (worker secret, Vault bearer or signature). Every other function keeps the default `verify_jwt = true`. `tests/supabaseConfig.test.ts` fails if a manifest `false` row has no block, if a block disables JWT checks for a function the manifest marks true, or if a block names a missing function directory. `config.toml` no longer holds the production ref (red-team medium, tooling): `project_id` is the local stack name and the hosted ref comes from `supabase link`, `--project-ref` or `SUPABASE_PROJECT_ID`, so the committed file names no project.
+
 ## Media URL allowlist host from Vault (web launch task 1.3, 2026-11-24)
 
 `public.is_allowed_media_url(text)` no longer hardcodes the production storage host, so a test or local project accepts its own storage URLs and not production's, and the L1 exit gate's `pg_proc.prosrc` check finds no production ref in it. The storage prefixes come from the Vault secret `project_base_url` (`https://<project-ref>.supabase.co`, no trailing slash) at call time and are matched with `starts_with`, so the base is never a LIKE pattern. If the secret is missing, empty or ends in `/` the function raises `is_allowed_media_url: Vault secret project_base_url ...` rather than allowing or denying everything. It is now SECURITY DEFINER (search_path still pinned to `public`) so anon, authenticated and service_role callers, and the CHECK constraints, can resolve the secret without direct Vault access; it returns only a boolean, and the base URL is public. STABLE replaces IMMUTABLE because the result depends on a Vault row. Grants are unchanged (CREATE OR REPLACE). Set `project_base_url` before deploying (DESIGN 4.2 step 1).

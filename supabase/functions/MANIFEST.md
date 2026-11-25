@@ -1,12 +1,17 @@
 # Edge Functions Manifest
 
-Metadata pulled from the live Supabase project (fwidhpzwldneeaphrxgg, "Preppa"), most recently
+Metadata pulled from the live production Supabase project ("Preppa"), most recently
 updated 2026-08-08. This is NOT recoverable from the vendored source files themselves —
 `verify_jwt` in particular is a per-function deployment setting (not code) and matters a lot:
 webhook-receiving functions (`stripe-webhook`, `stripe-setup`, `stripe-worker`,
 `charge-due-cycles`, `send-push`, `mux-webhook`) have `verify_jwt:false` on purpose
 (cron/webhook/worker callers, not end-user JWTs). Redeploying any of them with `verify_jwt:true`
 by mistake would break them.
+
+Since web-launch task 1.5 every `**false**` row below also has a `[functions.<slug>]
+verify_jwt = false` block in `supabase/config.toml`, so `supabase functions deploy` keeps the
+setting. `tests/supabaseConfig.test.ts` fails if this table and `config.toml` disagree. The
+project ref is not recorded in `config.toml`; it comes from `supabase link`.
 
 The list below reflects what `list_edge_functions` returned at audit time (30 functions total,
 not 31 as originally estimated). `connect-payout`, `accept-quote-and-deposit`, and `mux-webhook`

@@ -8,6 +8,10 @@ tags: [project/preppa, type/changelog]
 
 # Changelog
 
+## supabase/config.toml versions verify_jwt and drops the production ref (2026-11-24)
+
+`supabase/config.toml` now has a `[functions.<slug>] verify_jwt = false` block for each of the 10 functions `supabase/functions/MANIFEST.md` marks `verify_jwt:false` (`stripe-webhook`, `stripe-setup`, `stripe-worker`, `reconcile-payouts`, `reconcile-cycle-charges`, `reconcile-booking-balances`, `auto-payouts`, `charge-due-cycles`, `mux-webhook`, `send-push`), so a plain `supabase functions deploy` no longer turns JWT checks back on for cron, worker and webhook callers. `project_id` changed from the production ref to the local stack name `preppa-web`; the hosted project comes from `supabase link`, `--project-ref` or `SUPABASE_PROJECT_ID`. A local stack started under the old name keeps its old Docker volumes, so `supabase start` creates a fresh one. Pinned by `tests/supabaseConfig.test.ts` (web-launch DESIGN 1.5). See [[Security]].
+
 ## Media URL allowlist reads the storage host from Vault (2026-11-24)
 
 New migration `20260927001000_media_allowlist_from_vault.sql` replaces `public.is_allowed_media_url(text)` so its three Supabase Storage prefixes (meal-photos, post-videos, avatars) are `project_base_url || '/storage/v1/object/public/<bucket>/'`, read from the Vault secret `project_base_url` on every call, instead of the production host hardcoded in July. Mux prefixes and every caller (`create_post`, `set_meal_photo`, the plans and experiences CHECK constraints) are unchanged. A missing, empty or slash-terminated secret raises. Pinned by `tests/mediaAllowlistVault.test.ts` (web-launch DESIGN 1.3). Not deployed; `project_base_url` must be set in Vault on each project before this migration reaches it, or post, meal-photo, plan and experience media writes fail. See [[Security]].
