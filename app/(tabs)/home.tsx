@@ -11,6 +11,7 @@ import { HeroDrop, MealGrid, SectionHeader, PrepperRail } from '../../src/compon
 import { LocationPicker } from '../../src/components/LocationPicker';
 import { captureCurrentLocation } from '../../src/lib/geo';
 import { QuickCartSheet } from '../../src/components/QuickCartSheet';
+import { LaunchingSoon } from '../../src/components/LaunchingSoon';
 import { FLAGS } from '../../src/config/flags';
 
 function greetWord() {
@@ -40,6 +41,10 @@ export default function HomeScreen() {
   const drop = meals.length ? meals[dayNumber % meals.length] : null;
   const picks = meals.filter((m) => m.id !== drop?.id).slice(0, 4);
   const { data: kitchens } = useKitchens({ mode: mode === 'pickup' ? 'pickup' : mode === 'delivery' ? 'delivery' : undefined });
+  // True only when both unfiltered catalogs loaded successfully and are empty (null = load error/pending).
+  const { data: anyMeals } = useMeals();
+  const { data: anyKitchens } = useKitchens();
+  const noSupplyYet = !mealsLoading && anyMeals !== null && anyMeals.length === 0 && anyKitchens !== null && anyKitchens.length === 0;
 
   const useMyLocation = async () => {
     if (locBusy) return;
@@ -146,6 +151,8 @@ export default function HomeScreen() {
               <Skeleton w={'47%'} h={230} r={radius.card} />
             </View>
           </View>
+        ) : noSupplyYet ? (
+          <LaunchingSoon area={location} />
         ) : !drop && picks.length === 0 ? (
           <ModeEmpty c={c}
             title={mode === 'pickup' ? 'No pickup meals near you yet' : 'No meals near you yet'}
@@ -164,7 +171,7 @@ export default function HomeScreen() {
             <SectionHeader title="Preppers near you" action="See all" onAction={() => router.push('/discover?mode=preppers')} />
             <PrepperRail kitchens={kitchens.slice(0, 10)} />
           </>
-        ) : kitchens && kitchens.length === 0 && !mealsLoading ? (
+        ) : kitchens && kitchens.length === 0 && !mealsLoading && !noSupplyYet ? (
           <ModeEmpty c={c}
             title={mode === 'pickup' ? 'No pickup spots near you yet' : 'No preppers near you yet'}
             body={mode === 'pickup' ? 'Try Delivery, or check back soon — cooks are adding pickup spots.' : 'Try Pickup, or check back soon — new cooks join every week.'}

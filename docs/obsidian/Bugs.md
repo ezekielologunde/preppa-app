@@ -2,13 +2,21 @@
 project: Preppa
 type: bugs
 status: active
-last_updated: 2026-09-17
+last_updated: 2026-11-07
 tags: [project/preppa, type/bugs]
 ---
 
 # Bugs
 
 Part of [[Project]]. See [[Security]] and [[Payments]] for the security/payment-specific risk lists; this is the general known-issues ledger.
+
+## Optional drawer dependency-tree limitation (verified 2026-11-07)
+
+In the local dependency-verification worktree based on `d1d4711`, `npm ls --all` exits with `ELSPROBLEMS`: `expo-router@57.0.30` includes `react-native-drawer-layout@4.2.12`, whose peer dependency requires `react-native-reanimated >= 2.0.0`. Expo Router itself explicitly marks Reanimated optional. The existing `.npmrc` uses `legacy-peer-deps=true`.
+
+No drawer or Reanimated imports were found in `app/` or `src/`. The installed router's drawer entry point is separate from its default exports. [Expo's drawer documentation](https://docs.expo.dev/router/advanced/drawer/) explains that native drawers need Reanimated and Worklets; web drawers use CSS. Do not add unused native dependencies solely to make this tree check green, and do not describe the full dependency tree as passing.
+
+The November 6 local verification logs record 14 passing tests, typecheck, security checks, web/iOS/Android exports and an audit with zero vulnerabilities after the dependency fixes. On November 7, all three dependency regression tests passed again. These are local checks, not native compilation, signed-build, device, production or payment acceptance evidence. If a drawer is introduced, install the Expo-compatible native dependencies and retest all platforms; the installed SDK metadata currently specifies Reanimated `4.5.1` and Worklets `0.10.1`. See [[Frontend]] and [[Tasks]].
 
 ## Fixed 2026-09-08
 
