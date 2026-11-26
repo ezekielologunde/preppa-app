@@ -1,0 +1,121 @@
+import React, { useState } from 'react';
+import { Animated, Pressable, StyleSheet, Text, TextInput, View } from 'react-native';
+import { sendEmailOtp, signUpWithPassword, signInWithPassword, sendPasswordResetOtp, AUTH_TIMEOUT_MESSAGE } from '../../lib/supabase';
+import { Icon } from '../../ui/Icon';
+import { Btn } from '../../ui/primitives';
+import { useC } from '../../theme/ThemeContext';
+import { type, radius } from '../../theme/theme';
+import { Title, Lead, useShake } from './authUi';
+
+export function Auth({ mode, onNext, onRecovery }: { mode: 'signin' | 'signup'; onNext: (email: string, authed: boolean) => void; onRecovery: (email: string, newPassword: string) => void }) {
+  const c = useC();
+  const [email, setEmail] = useState('');
+  const [password, setPassword] = useState('');
+  const [fullName, setFullName] = useState('');
+  const [err, setErr] = useState<string | null>(null);
+  const [info, setInfo] = useState<string | null>(null);
+  const [busy, setBusy] = useState(false);
+  const [codeBusy, setCodeBusy] = useState(false);
+  const [recovering, setRecovering] = useState(false);
+  const shake = useShake();
+
+  const validEmail = /^\S+@\S+\.\S+$/.test(email.trim());
+  const clearMsgs = () => { if (err) setErr(null); if (info) setInfo(null); };
+
+  // Primary path: email + password → session directly (no code to copy).
+  const submit = async () => {
+    if (busy || codeBusy) return;
+    const addr = email.trim();
+    const nm = fullName.trim();
+    if (!recovering && mode === 'signup' && nm.length < 2) { setErr('Please enter your name.'); shake.fire(); return; }
+    if (!validEmail) { setErr('That doesn’t look like an email \u2014 check for typos.'); shake.fire(); return; }
+    if (password.length < 8) { setErr('Use a password of at least 8 characters.'); shake.fire(); return; }
+    setErr(null); setInfo(null); setBusy(true);
+    try {
+      if (recovering) {
+        await sendPasswordResetOtp(addr);
+        setBusy(false);
+        onRecovery(addr, password);
+        return;
+      }
+      if (mode === 'signup') {
+        const session = await signUpWithPassword(addr, password, { display_name: nm, first_name: nm.split(/\s+/)[0] });
+        setBusy(false);
+        if (session) onNext(addr, true);
+        else setInfo(`We sent a confirmation link to ${addr}. Tap it, then sign in.`);
+      } else {
+        await signInWithPassword(addr, password);
+        setBusy(false);
+        onNext(addr, true);
+      }
+    } catch (e: any) {
+      setBusy(false);
+      const msg = e?.message === AUTH_TIMEOUT_MESSAGE
+        ? e.message
+        : recovering
+          ? 'Couldn’t send a recovery code. Check the email and try again.'
+        : mode === 'signin'
+          ? 'Wrong email or password. Try again, or email yourself a code.'
+          : (typeof e?.message === 'string' && e.message.toLowerCase().includes('already'))
+            ? 'That email already has an account \u2014 sign in instead.'
+            : 'Couldn’t create your account \u2014 please try again.';
+      setErr(msg); shake.fire();
+    }
+  };
+
+  // Fallback: passwordless, email a 6-digit sign-in code (the old flow).
+  const emailCode = async () => {
+    if (busy || codeBusy) return;
+    const addr = email.trim();
+    const nm = fullName.trim();
+    if (mode === 'signup' && nm.length < 2) { setErr('Please enter your name.'); shake.fire(); return; }
+    if (!validEmail) { setErr('That doesn’t look like an email \u2014 check for typos.'); shake.fire(); return; }
+    setErr(null); setInfo(null); setCodeBusy(true);
+    try {
+      await sendEmailOtp(addr, mode === 'signup' ? { display_name: nm, first_name: nm.split(/\s+/)[0] } : undefined);
+      setCodeBusy(false);
+      onNext(addr, false);
+    } catch (e: any) {
+      setCodeBusy(false);
+      setErr(e?.message || 'Couldn’t send your code just now \u2014 please try again.');
+      shake.fire();
+    }
+  };
+
+  const inputStyle = (hasErr: boolean) => [stt.input, { backgroundColor: c.surface, borderColor: hasErr ? c.red : c.border, color: c.ink }];
+
+  return (
+    <>
+      <Title parts={[recovering ? 'Reset your password.' : mode === 'signin' ? 'Welcome back.' : 'Create your account.']} />
+      <Lead>{recovering ? 'Choose a new password. We’ll email a code to confirm it’s you.' : mode === 'signin' ? 'Sign in with your email and password.' : 'A couple details and you’re in \u2014 your password lets you skip codes next time.'}</Lead>
+      <Animated.View style={{ marginTop: 24, transform: [{ translateX: shake.x }] }}>
+        {mode === 'signup' && !recovering ? (
+          <View style={{ marginBottom: 14 }}>
+            <Text style={[type(12.5, 800), { color: c.soft, marginBottom: 8 }]}>Full name</Text>
+      <TextInput value={fullName} onChangeText={(t) => { setFullName(t); clearMsgs(); }} autoCapitalize="words" autoComplete="name" textContentType="name" placeholder="Your name" placeholderTextColor={c.muted} accessibilityLabel="Your name" style={inputStyle(false)} />
+          </View>
+        ) : null}
+        <Text style={[type(12.5, 800), { color: c.soft, marginBottom: 8 }]}>Email address</Text>
+      <TextInput value={email} onChangeText={(t) => { setEmail(t); clearMsgs(); }} keyboardType="email-address" autoCapitalize="none" autoComplete="email" textContentType="emailAddress" placeholder="you@example.com" placeholderTextColor={c.muted} accessibilityLabel="Email address" style={inputStyle(!!err)} />
+        <View style={{ height: 14 }} />
+        <Text style={[type(12.5, 800), { color: c.soft, marginBottom: 8 }]}>{recovering ? 'New password' : 'Password'}</Text>
+      <TextInput value={password} onChangeText={(t) => { setPassword(t); clearMsgs(); }} onSubmitEditing={submit} secureTextEntry autoCapitalize="none" autoComplete={mode === 'signup' || recovering ? 'password-new' : 'password'} textContentType={mode === 'signup' || recovering ? 'newPassword' : 'password'} placeholder={mode === 'signup' || recovering ? 'At least 8 characters' : 'Your password'} placeholderTextColor={c.muted} accessibilityLabel={recovering ? 'New password' : 'Password'} style={inputStyle(!!err)} />
+      {mode === 'signin' ? <Pressable onPress={() => { setRecovering((v) => !v); setErr(null); setInfo(null); setPassword(''); }} accessibilityRole="button" style={{ marginTop: 11, alignSelf: 'flex-end' }}><Text style={[type(13, 700), { color: c.primary }]}>{recovering ? 'Back to sign in' : 'Forgot password?'}</Text></Pressable> : null}
+        {err ? <View style={{ flexDirection: 'row', alignItems: 'center', gap: 7, marginTop: 9 }}><Icon name="info" size={15} color={c.red} /><Text style={[type(13, 700), { color: c.red, flex: 1 }]}>{err}</Text></View> : null}
+        {info ? <View style={{ flexDirection: 'row', alignItems: 'center', gap: 7, marginTop: 9 }}><Icon name="check" size={15} color={c.green} /><Text style={[type(13, 700), { color: c.green, flex: 1 }]}>{info}</Text></View> : null}
+      </Animated.View>
+      <View style={{ flex: 1, minHeight: 24 }} />
+      <Btn
+        label={busy ? (recovering ? 'Sending code…' : mode === 'signin' ? 'Signing in…' : 'Creating…') : (recovering ? 'Send recovery code' : mode === 'signin' ? 'Sign in' : 'Create account')}
+        iconRight={busy ? undefined : 'arrow'} loading={busy} onPress={submit} block lg
+      />
+      {!recovering ? <Pressable onPress={emailCode} accessibilityRole="button" style={{ marginTop: 16, alignSelf: 'center' }}>
+        <Text style={[type(13.5, 700), { color: c.soft }]}>{codeBusy ? 'Sending code…' : 'Email me a sign-in code instead'}</Text>
+      </Pressable> : null}
+    </>
+  );
+}
+
+const stt = StyleSheet.create({
+  input: { height: 56, borderRadius: radius.card, paddingHorizontal: 18, borderWidth: 1, fontSize: 16 },
+});
