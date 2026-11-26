@@ -25,6 +25,19 @@ const kitchen = {
   verification_status: 'verified', created_at: '2026-01-01T00:00:00Z',
 };
 
+// One published experience hosted by the fixture kitchen, with one open session a week out.
+// Columns follow the SELECT in src/lib/experiences.ts (experiences + kitchens(name) embed).
+export const EXPERIENCE_ID = 'eeeeeeee-eeee-4eee-8eee-eeeeeeeeeeee';
+export const SESSION_ID = 'ffffffff-ffff-4fff-8fff-ffffffffffff';
+export const THREAD_ID = 'dddddddd-dddd-4ddd-8ddd-dddddddddddd';
+export const SESSION_SEATS_LEFT = 4;
+const experience = {
+  id: EXPERIENCE_ID, kitchen_id: KITCHEN_ID, title: 'Fixture Jollof Class', description: 'A fixture cooking class.', experience_type: 'class',
+  category: 'nigerian', cover_url: null, photo_urls: [], location_type: 'prepper_place', address_text: null, duration_min: 120,
+  min_guests: 1, max_guests: 6, price_model: 'per_person', per_person_cents: 5000, price_cents: null, whats_included: [],
+  requirements: null, dietary_tags: [], allergens: [], cancellation_policy: 'standard', status: 'published', kitchens: { name: 'Test Kitchen' },
+};
+
 export interface MockState {
   /** Count of calls per mocked endpoint key, e.g. 'fn:create-order', 'rpc:toggle_follow', 'auth:verify'. */
   calls: Record<string, number>;
@@ -56,6 +69,7 @@ export async function installMocks(page: Page, opts: MockOptions): Promise<MockS
   const state: MockState = { calls: {}, blocked: [], following: false, signedIn: false, unknownOtpError: 'signupsNotAllowed' };
   const local = new Set([`http://127.0.0.1:${opts.port}`, `http://localhost:${opts.port}`]);
   const bump = (k: string) => { state.calls[k] = (state.calls[k] || 0) + 1; };
+  const sessionStartsAt = new Date(Date.now() + 7 * 24 * 3600 * 1000).toISOString();
 
   await page.route('**/*', async (route: Route) => {
     const req = route.request();
@@ -114,7 +128,7 @@ export async function installMocks(page: Page, opts: MockOptions): Promise<MockS
       if (!authed) return json(401, { error: 'Not signed in', code: 'AUTH_REQUIRED' });
       // alreadyPaid: the app goes straight to tracking and never loads Stripe.js (an outside host).
       if (name === 'create-order') return json(200, { orderId: 'order-fixture', clientSecret: null, taxCents: 0, alreadyPaid: true });
-      if (name === 'book-experience') return json(200, { bookingId: 'booking-fixture', clientSecret: 'pi_fixture_secret_fixture', amountCents: 5000 });
+      if (name === 'book-experience') return json(200, { bookingId: 'booking-fixture', clientSecret: null, amountCents: 5000, alreadyPaid: true });
       return json(200, {});
     }
 
@@ -126,6 +140,21 @@ export async function installMocks(page: Page, opts: MockOptions): Promise<MockS
         if (!authed) return json(401, { code: 'PGRST301', message: 'JWT required' });
         state.following = !state.following;
         return json(200, state.following);
+      }
+      if (fn === 'experience_availability') {
+        return json(200, body.p_experience === EXPERIENCE_ID
+          ? [{ session_id: SESSION_ID, starts_at: sessionStartsAt, capacity: 6, seats_left: SESSION_SEATS_LEFT, status: 'open' }] : []);
+      }
+      if (fn === 'experience_rating' || fn === 'experience_reviews') return json(200, []);
+      if (fn === 'open_thread') {
+        if (!authed) return json(401, { code: 'PGRST301', message: 'JWT required' });
+        return json(200, THREAD_ID);
+      }
+      if (fn === 'thread_header') {
+        return json(200, authed && body.p_thread === THREAD_ID ? [{
+          thread_id: THREAD_ID, kitchen_id: KITCHEN_ID, counterpart_name: 'Test Kitchen', counterpart_avatar: null, context_type: 'experience',
+          context_id: EXPERIENCE_ID, i_am_cook: false, blocked_by_me: false, blocked: false, counterpart_last_read_at: null,
+        }] : []);
       }
       return json(200, null);
     }
@@ -139,7 +168,12 @@ export async function installMocks(page: Page, opts: MockOptions): Promise<MockS
         if ((!id || id === `eq.${KITCHEN_ID}`) && (!slug || slug === `eq.${kitchen.slug}`)) rows = [kitchen];
       } else if (table === 'follows') {
         rows = authed && state.following ? [{ kitchen_id: KITCHEN_ID }] : [];
+      } else if (table === 'experiences') {
+        if (url.searchParams.get('id') === `eq.${EXPERIENCE_ID}`) rows = [experience];
+      } else if (table === 'experience_sessions') {
+        if (url.searchParams.get('experience_id') === `eq.${EXPERIENCE_ID}`) rows = [{ id: SESSION_ID, starts_at: sessionStartsAt, capacity: 6, status: 'open' }];
       }
+      // experience_private (owner-only), experience_seat_reservations and experience_waitlist stay empty.
       const accept = req.headers()['accept'] || '';
       const range = { 'Content-Range': rows.length ? `0-${rows.length - 1}/${rows.length}` : '*/0' };
       if (accept.includes('vnd.pgrst.object')) {

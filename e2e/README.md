@@ -27,11 +27,14 @@ fallback; Playwright starts and stops it.
 ## Fake data
 
 Test user `test-user@example.com`, password and code constants in `support/mocks.ts`; good code
-`123456`, any other code is rejected as expired. One kitchen fixture (`/store/aaaaaaaa-...`);
-every other table returns an empty list. `create-order` and `book-experience` return 401 without
-the fake user's bearer token, and every call is counted in `mocks.calls`.
+`123456`, any other code is rejected as expired. One kitchen fixture (`/store/aaaaaaaa-...`) and
+one published experience it hosts (`/experience/eeeeeeee-...`) with one open session a week out;
+its rating, reviews and waitlist are empty, and every other table returns an empty list.
+`create-order` and `book-experience` answer `alreadyPaid: true` with no client secret, so Stripe.js
+is never loaded. They, `toggle_follow` and `open_thread` return 401 without the fake user's bearer
+token, and every call is counted in `mocks.calls`.
 
-## Coverage (19 tests)
+## Coverage (21 tests)
 
 - `sheet.spec.ts`: guest Follow opens a labelled modal dialog, URL kept, focus inside; Escape and
   Not now close it, nothing runs, focus returns to Follow; Tab stays inside the dialog.
@@ -39,6 +42,10 @@ the fake user's bearer token, and every call is counted in `mocks.calls`.
   close the sheet, then Follow runs exactly once.
 - `money.spec.ts`: Pay as a guest opens the sheet with no `create-order` call; after sign-in Pay is
   enabled again and nothing is charged until it is tapped again, then exactly one call.
+- `book.spec.ts`: on the experience page, Book as a guest opens the sheet with no `book-experience`
+  call; after sign-in Book is enabled again and nothing is booked until it is tapped again, then
+  exactly one call and the page moves to `/orders`. Message the host as a guest opens the sheet;
+  after sign-in `open_thread` runs exactly once and the app opens `/messages/<thread id>`.
 - `neutral.spec.ts`: duplicate-email sign-up shows the neutral green notice (no red, no shake, no
   error alert); recovery for an unknown email (both GoTrue refusal shapes) advances exactly like a
   known one; with the consent flag off, Terms and Privacy Policy open in a new tab and the tap
@@ -50,13 +57,13 @@ the fake user's bearer token, and every call is counted in `mocks.calls`.
 - Every test fails if any request reaches a host outside the allow-list.
 
 Sabotage check (C3c): each money, neutral and consent test was run against a patched copy of the
-bundle (`.dist-sabotage-N`, gitignored) and failed. The Back test still passes with the sheet
+bundle (`.dist-sabotage-N`, gitignored) and failed. C3d: with `checkout` and `book` added to the
+bundle's auto-run list, the Book test fails (the booking runs by itself on resume). The Back test still passes with the sheet
 host's `popstate` listener removed: on web, expo-router's own popstate handling re-resolves and
 remounts the screen, which also closes the sheet, so that listener is not pinned here.
 
 ## Not covered
 
 - The consent checkbox variant (`EXPO_PUBLIC_CONSENT_CHECKBOX=1` needs its own build).
-- Book and Message on the experience page (planned `book.spec.ts`, not written yet).
 - Real-backend flows (real GoTrue, Edge Functions, Stripe).
 - Safari and Firefox (Chromium only).
