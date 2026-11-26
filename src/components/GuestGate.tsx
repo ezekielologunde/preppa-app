@@ -2,14 +2,17 @@
 //
 // Web, once the account state is known and nobody is signed in: a short empty state with a Sign in
 // button instead of the screen, so the screen's own loads never run for a guest. Everywhere else
-// (native, web while the account is loading, signed in) the children render untouched.
-import React from 'react';
+// (native, web while the account is loading, signed in) the children render untouched. Before the
+// guest state, one live session check (guestGateAfterCheck): the children render while it runs,
+// and stay when it finds a session or fails.
+import React, { useEffect, useState } from 'react';
 import { View, Text, Platform } from 'react-native';
 import { useC } from '../theme/ThemeContext';
 import { type } from '../theme/theme';
 import { useStore } from '../store/store';
 import { requestSignIn, type AuthReason } from '../lib/authRequest';
-import { guestGateMode } from '../lib/guestGateLogic';
+import { guestGateAfterCheck, guestGateMode, guestSessionCheck, type GuestGateMode, type GuestSessionCheck } from '../lib/guestGateLogic';
+import { supabase } from '../lib/supabase';
 import { Btn, Icon } from '../ui';
 import { Screen, TopBar } from '../ui/layout';
 
@@ -29,7 +32,9 @@ export interface GuestGateProps {
 
 export function GuestGate({ title, body, reason = 'generic', icon = 'lock', screenTitle, children }: GuestGateProps) {
   const { accountReady, signedIn } = useStore();
-  const mode = guestGateMode({ isWeb: Platform.OS === 'web', accountReady, signedIn });
+  const stored = guestGateMode({ isWeb: Platform.OS === 'web', accountReady, signedIn });
+  const check = useGuestSessionCheck(stored);
+  const mode = guestGateAfterCheck(stored, check);
   if (mode !== 'guest') return <>{children}</>;
   const state = <GuestState title={title} body={body} reason={reason} icon={icon} />;
   if (!screenTitle) return state;
@@ -39,6 +44,25 @@ export function GuestGate({ title, body, reason = 'generic', icon = 'lock', scre
       {state}
     </Screen>
   );
+}
+
+// One live session check each time the store turns guest; back to pending when it is not guest.
+function useGuestSessionCheck(stored: GuestGateMode): GuestSessionCheck {
+  const [check, setCheck] = useState<GuestSessionCheck>('pending');
+  useEffect(() => {
+    if (stored !== 'guest') {
+      setCheck('pending');
+      return undefined;
+    }
+    let current = true;
+    void guestSessionCheck(() => supabase.auth.getSession().then(({ data }) => !!data.session)).then((r) => {
+      if (current) setCheck(r);
+    });
+    return () => {
+      current = false;
+    };
+  }, [stored]);
+  return check;
 }
 
 function GuestState({ title, body, reason, icon }: { title: string; body: string; reason: AuthReason; icon: string }) {
