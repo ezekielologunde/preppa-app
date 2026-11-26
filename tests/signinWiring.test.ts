@@ -86,13 +86,43 @@ test('the hook returns early with run() on native and has no console calls', () 
     assert.ok(!src.includes('console.'), `${file}: console. found`);
     assert.ok(!src.includes('\u2014'), `${file}: literal em dash found`);
   }
+  // The loop lives in runRequireAuth (behaviour pinned in tests/requireAuthRun.test.ts); the hook
+  // only says whether this is web and hands over its refs.
   const hook = read('src/lib/useRequireAuth.ts');
-  const early = hook.search(/if \(Platform\.OS !== 'web'\) \{\s*await run\(\{ resumed: false \}\);\s*return true;\s*\}/);
+  assert.match(hook, /isWeb:\s*Platform\.OS\s*===\s*'web'\s*,/);
+  assert.match(hook, /return\s+runRequireAuth\(\s*deps\s*,\s*reason\s*,\s*intent\s*,\s*run\s*\)\s*;/);
+  const logic = read('src/lib/requireAuthLogic.ts');
+  const body = logic.slice(logic.indexOf('export async function runRequireAuth('));
+  const early = body.search(/if \(!deps\.isWeb\) \{\s*await run\(\{ resumed: false \}\);\s*return true;\s*\}/);
   assert.ok(early > 0, 'native early return not found');
-  assert.ok(early < hook.indexOf('preflightDecision('), 'native returns before any web decision');
-  assert.ok(early < hook.indexOf('requestSignIn('), 'native never asks for a sign-in');
-  assert.match(hook, /decideAfterSignIn\(effectiveKind\(reason, intent\), ok\)/);
-  assert.match(hook, /if \(after === 'run'\) await run\(\{ resumed: true \}\);/);
+  assert.ok(early < body.indexOf('preflightDecision('), 'native returns before any web decision');
+  assert.ok(early < body.indexOf('requestSignIn('), 'native never asks for a sign-in');
+  assert.ok(early < body.indexOf('hasSession('), 'native never checks a session');
+});
+
+// Fix 4: guards that no sign-in can change come before requireAuth, so a guest never signs in to no effect.
+test('screen guards come before the sheet', () => {
+  const store = read('app/store/[cook].tsx');
+  assert.match(store, /const onFollow = \(\) => \{[^{}]*?if \(\s*followLoading\s*\|\|\s*followMutationInFlight\.current\s*\)\s*return;\s*void requireAuth\(\s*'follow'/);
+  assert.match(store, /const onMessage = \(\) => \{\s*if \(\s*chatOpeningInFlight\.current\s*\)\s*return;\s*void requireAuth\(\s*'openThread'/);
+  const exp = read('app/experience/[id].tsx');
+  assert.match(exp, /const onBook = \(\) => \{\s*if \(\s*!sel\s*\|\|\s*bookingInFlight\.current\s*\)\s*return;[^\n]*\n\s*void requireAuth\(\s*'book'/);
+  const checkout = read('app/checkout.tsx');
+  assert.match(checkout, /const onPay = \(\) => \{\s*if \(\s*paymentInFlight\.current\s*\)\s*return;[^\n]*\n\s*void requireAuth\(\s*'checkout'/);
+});
+
+test('store follow decides through nextFollowState with the server re-read (null on failure)', () => {
+  const src = read('app/store/[cook].tsx');
+  assert.match(src, /import\s*\{\s*buildIntent\s*,\s*nextFollowState\s*\}\s*from\s*'\.\.\/\.\.\/src\/lib\/requireAuthLogic'\s*;/);
+  assert.match(src, /await fetchIsFollowing\(profile\.id\)\.catch\(\(\) => null\)/);
+  assert.match(src, /const step = nextFollowState\(\s*resumed\s*,\s*following\s*,\s*serverIsFollowing\s*\)\s*;/);
+  assert.match(src, /const next = step\.next;/);
+  assert.doesNotMatch(src, /const next = [^;]*!following/);
+});
+
+test('checkout: a sign-in from the AUTH_REQUIRED sheet clears the payment error', () => {
+  const src = read('app/checkout.tsx');
+  assert.match(src, /requestSignIn\(\s*'checkout'\s*,[^;]*?\)\s*\.then\(\s*\(?\s*ok\s*\)?\s*=>\s*\{?\s*if\s*\(\s*ok\s*\)\s*\{?\s*setPaymentError\(\s*null\s*\)/);
 });
 
 test('the pure helper has no React or React Native imports', () => {

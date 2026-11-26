@@ -155,6 +155,7 @@ export default function ExperienceDetail() {
   };
   // Booking moves money: after a sign-in it is not re-fired; the user taps Book again.
   const onBook = () => {
+    if (!sel || bookingInFlight.current) return; // the screen's own guard, before the sheet
     void requireAuth('book', buildIntent('book', [exp.id], `/experience/${exp.id}`, Date.now()), book);
   };
 

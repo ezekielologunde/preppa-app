@@ -1,17 +1,16 @@
 // requireAuth: run an action now, or after a sign-in on web (docs/web-launch/SIGNIN-DESIGN.md, part C).
 //
-// Native: runs the action and returns true. Native flows keep their own AUTH_REQUIRED handling.
-// Web: waits until the account state is known (never opens the sheet before that), runs the action
-// when signed in, otherwise opens the sheet. After a sign-in only idempotent kinds run by themselves;
-// money kinds return true without running so the screen's button is simply tapped again.
+// A thin wrapper: the decisions and the wait/sign-in/run loop are runRequireAuth in
+// requireAuthLogic.ts (tests/requireAuthRun.test.ts). Native runs the action at once and keeps its
+// own AUTH_REQUIRED handling.
 import { useCallback, useEffect, useRef } from 'react';
 import { Platform } from 'react-native';
 import { useStore } from '../store/store';
 import { requestSignIn, type AuthReason, type Intent } from './authRequest';
-import { decideAfterSignIn, effectiveKind, preflightDecision } from './requireAuthLogic';
+import { liveSessionCheck, runRequireAuth, type RequireAuthDeps, type RequireAuthRun } from './requireAuthLogic';
+import { supabase } from './supabase';
 
-/** `resumed` is true when the action runs after a sign-in from the sheet (state read signed out may be stale). */
-export type RequireAuthRun = (ctx: { resumed: boolean }) => void | Promise<void>;
+export type { RequireAuthRun };
 export type RequireAuth = (reason: AuthReason, intent: Intent | undefined, run: RequireAuthRun) => Promise<boolean>;
 
 export function useRequireAuth(): RequireAuth {
@@ -41,37 +40,18 @@ export function useRequireAuth(): RequireAuth {
     if (ready && accountReady) flush();
   }, [ready, accountReady, flush]);
 
-  return useCallback<RequireAuth>(async (reason, intent, run) => {
-    if (Platform.OS !== 'web') {
-      await run({ resumed: false });
-      return true;
-    }
-    let step = preflightDecision(gate.current);
-    if (step === 'run') {
-      await run({ resumed: false });
-      return true;
-    }
-    if (pending.current) return false;
-    pending.current = true;
-    try {
-      while (step === 'wait') {
-        await new Promise<void>((resolve) => {
-          waiters.current.push(resolve);
-        });
-        if (!alive.current) return false;
-        step = preflightDecision(gate.current);
-      }
-      if (step === 'run') {
-        await run({ resumed: false });
-        return true;
-      }
-      const ok = await requestSignIn(reason, intent);
-      const after = decideAfterSignIn(effectiveKind(reason, intent), ok);
-      if (after === 'cancel' || !alive.current) return false;
-      if (after === 'run') await run({ resumed: true });
-      return true;
-    } finally {
-      pending.current = false;
-    }
+  return useCallback<RequireAuth>((reason, intent, run) => {
+    const deps: RequireAuthDeps = {
+      isWeb: Platform.OS === 'web',
+      getState: () => gate.current,
+      waitForReady: () => new Promise<void>((resolve) => {
+        waiters.current.push(resolve);
+      }),
+      hasSession: () => liveSessionCheck(() => supabase.auth.getSession().then(({ data }) => !!data.session)),
+      requestSignIn,
+      alive: () => alive.current,
+      pending,
+    };
+    return runRequireAuth(deps, reason, intent, run);
   }, []);
 }

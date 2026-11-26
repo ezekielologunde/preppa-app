@@ -204,6 +204,7 @@ export default function Checkout() {
   // Pay: a signed-out web user gets the sign-in sheet first. Checkout moves money, so it is not
   // re-fired after sign-in; the button is enabled again and the user taps it once more.
   const onPay = () => {
+    if (paymentInFlight.current) return; // the screen's own guard, before the sheet
     void requireAuth('checkout', { kind: 'checkout', ids: [], path: '/checkout', t: Date.now() }, place);
   };
 
