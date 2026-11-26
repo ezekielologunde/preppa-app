@@ -6,7 +6,14 @@ import { useC } from '../../theme/ThemeContext';
 import { type, radius, FILL } from '../../theme/theme';
 import { Spinner, Title, Lead, useShake } from './authUi';
 
-export function Code({ email, onNext, newPassword }: { email: string; onNext: () => void; newPassword?: string }) {
+// Optional props default to the native behaviour: a 24 second resend cooldown and today's copy.
+export function Code({ email, onNext, newPassword, resendCooldownSec = 24, mapError }: {
+  email: string;
+  onNext: () => void;
+  newPassword?: string;
+  resendCooldownSec?: number;
+  mapError?: (err: unknown) => string;
+}) {
   const c = useC();
   const [code, setCode] = useState('');
   const [busy, setBusy] = useState(false);
@@ -31,7 +38,7 @@ export function Code({ email, onNext, newPassword }: { email: string; onNext: ()
         if (cancelled) return;
         setBusy(false);
         // A stalled network surfaces the timeout message; anything else is a bad code.
-        setErr(e?.message === AUTH_TIMEOUT_MESSAGE ? e.message : 'That code didn’t match. Check the digits and try again.');
+        setErr(mapError ? mapError(e) : e?.message === AUTH_TIMEOUT_MESSAGE ? e.message : 'That code didn’t match. Check the digits and try again.');
         shake.fire();
         setCode('');
       });
@@ -44,11 +51,11 @@ export function Code({ email, onNext, newPassword }: { email: string; onNext: ()
     setErr(null);
     try {
       await (newPassword ? sendPasswordResetOtp(email) : sendEmailOtp(email));
-      setCool(24);
+      setCool(resendCooldownSec);
       setResent(true);
       setTimeout(() => setResent(false), 2400);
     } catch (e: any) {
-      setErr(e?.message === AUTH_TIMEOUT_MESSAGE ? e.message : 'Couldn’t resend the code. Check your connection and try again.');
+      setErr(mapError ? mapError(e) : e?.message === AUTH_TIMEOUT_MESSAGE ? e.message : 'Couldn’t resend the code. Check your connection and try again.');
     } finally {
       setResending(false);
     }
