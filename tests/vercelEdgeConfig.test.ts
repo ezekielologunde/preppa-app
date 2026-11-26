@@ -51,6 +51,19 @@ test('CSP ships in Report-Only mode only; no rule enforces it', () => {
   assert.deepEqual(allHeaders().filter((h) => h.key.toLowerCase() === 'content-security-policy'), []);
 });
 
+test('no enforcing CSP exists before step 4.3, and none may use the *.supabase.co wildcard', () => {
+  // The Report-Only CSP uses https://*.supabase.co and wss://*.supabase.co (owner: Ezekiel). Enforcing that
+  // would let injected script reach any Supabase project, so the exact project hosts must replace the
+  // wildcard before step 4.3 switches the CSP to enforcing. Step 4.3 updates the first assertion; the
+  // wildcard check stays.
+  const enforcing = config.headers.flatMap((r) =>
+    r.headers.filter((h) => h.key.trim().toLowerCase() === 'content-security-policy').map((h) => ({ source: r.source, value: h.value })));
+  for (const csp of enforcing) {
+    assert.ok(!csp.value.includes('*.supabase.co'), `enforcing CSP on ${csp.source} must name exact Supabase hosts, not *.supabase.co`);
+  }
+  assert.deepEqual(enforcing, [], 'the CSP must stay Report-Only until step 4.3');
+});
+
 test('CSP carries the spec directives and no inline or eval script', () => {
   const csp = header(rule('/(.*)'), 'Content-Security-Policy-Report-Only') ?? '';
   const directives = new Map(
@@ -94,8 +107,21 @@ test('hosts other than app.preppa.live send X-Robots-Tag: noindex', () => {
   assert.ok(robots, 'expected an X-Robots-Tag rule');
   assert.equal(header(robots, 'X-Robots-Tag'), 'noindex');
   assert.equal(robots.source, '/(.*)');
-  assert.deepEqual(robots.missing, [{ type: 'host', value: 'app.preppa.live' }]);
+  assert.deepEqual(robots.missing, [{ type: 'host', value: 'app\\.preppa\\.live' }]);
   assert.equal(rule('/(.*)')?.headers.some((h) => h.key === 'X-Robots-Tag'), false);
+});
+
+test('the production host condition is a regex that matches only app.preppa.live', () => {
+  // Vercel reads a has/missing value as an anchored regex, so an unescaped dot matches any character.
+  const robots = config.headers.find((r) => header(r, 'X-Robots-Tag'));
+  const value = robots?.missing?.find((m) => m.type === 'host')?.value;
+  assert.ok(value, 'expected a missing host condition');
+  const host = new RegExp(`^(?:${value})$`);
+  assert.ok(host.test('app.preppa.live'));
+  for (const other of ['app-preppa-live', 'appxpreppaxlive', 'app.preppa-live', 'app.preppa.live.example.com',
+    'preppa-test.vercel.app']) {
+    assert.ok(!host.test(other), `${other} must not count as production (it would skip noindex)`);
+  }
 });
 
 test('cache headers: hashed Expo static assets are immutable, the HTML shell is not cached', () => {

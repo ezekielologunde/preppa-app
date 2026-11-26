@@ -20,7 +20,7 @@
     },
     {
       "source": "/(.*)",
-      "missing": [{ "type": "host", "value": "app.preppa.live" }],
+      "missing": [{ "type": "host", "value": "app\\.preppa\\.live" }],
       "headers": [{ "key": "X-Robots-Tag", "value": "noindex" }]
     },
     {
