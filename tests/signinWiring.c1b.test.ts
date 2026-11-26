@@ -37,14 +37,16 @@ test('FeedReel: in-flight guards come before the sheet and again inside the acti
   for (const [fn, ref, reason] of [['onLike', 'likeInFlight', 'like'], ['onSave', 'saveInFlight', 'save'], ['onFollow', 'followInFlight', 'follow']]) {
     assert.match(src, new RegExp(`const ${fn} = \\(\\) => \\{\\s*if \\(\\s*${ref}\\.current\\s*\\)\\s*return;\\s*void requireAuth\\(\\s*'${reason}'`), `${fn} guard before requireAuth`);
     const gate = callAt(src, reason);
-    const inner = src.indexOf(`if (${ref}.current) return;`, gate);
-    assert.ok(inner > gate, `${fn}: in-flight check inside the action`);
+    const inner = src.slice(gate).search(new RegExp(`^requireAuth\\('${reason}',[^\\n]*\\(\\{ resumed \\}\\) => withInFlight\\(${ref}, async \\(\\) => \\{`));
+    assert.equal(inner, 0, `${fn}: the action runs through withInFlight(${ref}, ...)`);
   }
+  // withInFlight owns the flag (tests/withInFlight.test.ts): no hand-written set or reset is left.
+  assert.doesNotMatch(src, /(like|save|follow)InFlight\.current\s*=/);
 });
 
 test('FeedReel: like and save are gated before the optimistic flip and a resumed one changes nothing', () => {
   const src = read('src/components/FeedReel.tsx');
-  assert.match(src, /import\s*\{\s*buildIntent\s*,\s*nextFollowState\s*,\s*nextToggleState\s*\}\s*from\s*'\.\.\/lib\/requireAuthLogic'\s*;/);
+  assert.match(src, /import\s*\{\s*buildIntent\s*,\s*nextFollowState\s*,\s*nextToggleState\s*,\s*withInFlight\s*\}\s*from\s*'\.\.\/lib\/requireAuthLogic'\s*;/);
   for (const [reason, value, flip] of [['like', 'liked', 'setLiked(next); setLikes('], ['save', 'saved', 'setSaved(next); // optimistic']]) {
     const gate = callAt(src, reason);
     const decide = src.indexOf(`const step = nextToggleState(resumed, ${value}, null);`, gate);
@@ -55,6 +57,19 @@ test('FeedReel: like and save are gated before the optimistic flip and a resumed
     assert.match(src.slice(decide, at), /const next = step\.next;/);
   }
   assert.doesNotMatch(src, /const next = !(liked|saved|following)\b/);
+});
+
+test('FeedReel: a resumed like or save that changes nothing says so with a toast', () => {
+  const src = read('src/components/FeedReel.tsx');
+  for (const [reason, value] of [['like', 'liked'], ['save', 'saved']]) {
+    const gate = callAt(src, reason);
+    const decide = src.indexOf(`const step = nextToggleState(resumed, ${value}, null);`, gate);
+    const abort = src.indexOf("if (step.action === 'abort') { toast('Signed in. Tap again to finish.', 'info'); return; }", decide);
+    const stop = src.indexOf("if (step.action !== 'toggle') return;", decide);
+    assert.ok(gate > 0 && decide > gate, `${reason}: decision after requireAuth`);
+    assert.ok(abort > decide && stop > abort, `${reason}: the abort toast comes right after the decision`);
+    assert.match(src.slice(decide, stop), /^const step = [^\n]*\n\s*if \(step\.action === 'abort'\) \{[^\n]*\}\n\s*$/);
+  }
 });
 
 test('FeedReel: a resumed follow re-reads the server (null on failure) before the optimistic flip', () => {
@@ -121,10 +136,34 @@ test('native still runs the action at once, before any web decision', () => {
   assert.match(read('src/lib/useRequireAuth.ts'), /isWeb:\s*Platform\.OS\s*===\s*'web'\s*,/);
 });
 
+test('experience: waitlist join and leave go through requireAuth generic, guards first', () => {
+  const src = read('app/experience/[id].tsx');
+  for (const [fn, run] of [['onJoinWl', 'joinWl'], ['onLeaveWl', 'leaveWl']]) {
+    assert.match(src, new RegExp(`const ${fn} = \\(\\) => \\{\\s*if \\(\\s*!sel\\s*\\|\\|\\s*waitlistInFlight\\.current\\s*\\)\\s*return;[^\\n]*\\n\\s*void requireAuth\\(\\s*'generic'\\s*,\\s*undefined\\s*,\\s*${run}\\s*\\);\\s*\\};`), fn);
+  }
+  assert.match(src, /canBook \? onBook : onWait \? onLeaveWl : onJoinWl;/);
+  // The bare actions are reached only through requireAuth.
+  assert.doesNotMatch(src, /[?:]\s*(joinWl|leaveWl)\b/);
+  assert.doesNotMatch(src, /onPress=\{\s*(joinWl|leaveWl)\s*\}/);
+});
+
 test('no console calls or literal em dashes added in the C1b sites', () => {
-  for (const { file } of SITES) {
+  const EM_DASH = '\u2014';
+  // Em dashes each file already had before C1b (comments and copy); none may be added.
+  const BEFORE: Record<string, number> = {
+    'src/components/FeedReel.tsx': 3,
+    'src/components/plans/index.tsx': 8,
+    'app/order/[id].tsx': 2,
+    'app/chat/[cook].tsx': 0,
+    'app/addresses.tsx': 0,
+    'app/experience/[id].tsx': 5,
+    'src/lib/requireAuthLogic.ts': 0,
+    'src/lib/useRequireAuth.ts': 0,
+  };
+  for (const { file } of SITES) assert.ok(file in BEFORE, `${file}: not scanned`);
+  for (const [file, before] of Object.entries(BEFORE)) {
     const src = read(file);
     assert.ok(!/console\.(log|warn|error|info)\(/.test(src), `${file}: console call`);
+    assert.ok(src.split(EM_DASH).length - 1 <= before, `${file}: em dash added`);
   }
-  assert.ok(!read('src/lib/requireAuthLogic.ts').includes('—'));
 });

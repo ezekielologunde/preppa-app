@@ -12,7 +12,7 @@ import { Icon, Press, GradBox } from '../ui';
 import { shareAndNotify, SITE } from '../lib/share';
 import { reportContent } from '../lib/report';
 import { togglePostLike, togglePostSave, toggleFollow, fetchIsFollowing, recordFeedEvent, initialOf, FeedPost } from '../lib/feed';
-import { buildIntent, nextFollowState, nextToggleState } from '../lib/requireAuthLogic';
+import { buildIntent, nextFollowState, nextToggleState, withInFlight } from '../lib/requireAuthLogic';
 import { useRequireAuth } from '../lib/useRequireAuth';
 
 /** One full-screen reel — shared by the main feed, a kitchen's feed, and the post-detail screen.
@@ -53,29 +53,27 @@ export const FeedReel = React.memo(function FeedReel({ f, height, isActive = tru
 
   // Like and save have no server read that reports a failure (fetchPost's overlays fall back to
   // false), so a resumed like or save changes nothing (nextToggleState with no server value): the
-  // shown state was read signed out, and the user taps again.
+  // shown state was read signed out (or before the account state was known), so a toast asks the
+  // user to tap again. withInFlight sets each in-flight flag and always clears it.
   const onLike = () => {
     if (likeInFlight.current) return;
-    void requireAuth('like', undefined, async ({ resumed }) => {
-      if (likeInFlight.current) return;
+    void requireAuth('like', undefined, ({ resumed }) => withInFlight(likeInFlight, async () => {
       const step = nextToggleState(resumed, liked, null);
+      if (step.action === 'abort') { toast('Signed in. Tap again to finish.', 'info'); return; }
       if (step.action !== 'toggle') return;
-      likeInFlight.current = true;
       const next = step.next;
       setLiked(next); setLikes((n) => n + (next ? 1 : -1)); // optimistic
       try { const real = await togglePostLike(f.id); if (real !== next) { setLiked(real); setLikes((n) => n + (real ? 1 : -1) - (next ? 1 : -1)); } }
       catch { setLiked(!next); setLikes((n) => n + (next ? -1 : 1)); toast('Sign in to like posts', 'info'); }
-      finally { likeInFlight.current = false; }
-    });
+    }));
   };
 
   const onSave = () => {
     if (saveInFlight.current) return;
-    void requireAuth('save', undefined, async ({ resumed }) => {
-      if (saveInFlight.current) return;
+    void requireAuth('save', undefined, ({ resumed }) => withInFlight(saveInFlight, async () => {
       const step = nextToggleState(resumed, saved, null);
+      if (step.action === 'abort') { toast('Signed in. Tap again to finish.', 'info'); return; }
       if (step.action !== 'toggle') return;
-      saveInFlight.current = true;
       const next = step.next;
       setSaved(next); // optimistic
       try {
@@ -84,15 +82,12 @@ export const FeedReel = React.memo(function FeedReel({ f, height, isActive = tru
         toast(real ? 'Saved to your list' : 'Removed from saved', 'bookmark', real);
         if (real) recordFeedEvent(f.id, 'save');
       } catch { setSaved(!next); toast('Sign in to save posts', 'info'); }
-      finally { saveInFlight.current = false; }
-    });
+    }));
   };
 
   const onFollow = () => {
     if (followInFlight.current) return;
-    void requireAuth('follow', buildIntent('follow', [f.kitchenId], `/post/${f.id}`, Date.now()), async ({ resumed }) => {
-      if (followInFlight.current) return;
-      followInFlight.current = true;
+    void requireAuth('follow', buildIntent('follow', [f.kitchenId], `/post/${f.id}`, Date.now()), ({ resumed }) => withInFlight(followInFlight, async () => {
       let serverIsFollowing: boolean | null = null;
       if (resumed) {
         // Signed in from the sheet: `following` was read signed out, so re-read it. A resumed follow never unfollows.
@@ -100,12 +95,10 @@ export const FeedReel = React.memo(function FeedReel({ f, height, isActive = tru
       }
       const step = nextFollowState(resumed, following, serverIsFollowing);
       if (step.action === 'abort') {
-        followInFlight.current = false;
         toast('Could not update your follow. Try again.', 'info');
         return;
       }
       if (step.action === 'keep') {
-        followInFlight.current = false;
         setFollowing(true);
         toast(`Following ${f.kitchenName}`, 'check', true);
         return;
@@ -117,8 +110,7 @@ export const FeedReel = React.memo(function FeedReel({ f, height, isActive = tru
         setFollowing(real);
         toast(real ? `Following ${f.kitchenName}` : `Unfollowed ${f.kitchenName}`, real ? 'check' : 'info', real);
       } catch { setFollowing(!next); toast('Sign in to follow kitchens', 'info'); }
-      finally { followInFlight.current = false; }
-    });
+    }));
   };
 
   return (

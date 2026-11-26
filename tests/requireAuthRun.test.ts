@@ -165,7 +165,7 @@ test('a second call while one is pending returns false and runs nothing', async 
   assert.equal(w.waiters.length, 1);
   w.becomeReady(true);
   assert.equal(await waiting, true);
-  assert.deepEqual(w.runs, [{ resumed: false }]);
+  assert.deepEqual(w.runs, [{ resumed: true }]);
 });
 
 test('a run that throws after a sign-in still clears the pending flag', async () => {
@@ -221,7 +221,7 @@ test('after a wait that ends signed in: idempotent kinds run, money kinds return
     await tick();
     h.becomeReady(true);
     assert.equal(await p, true);
-    assert.deepEqual(h.runs, [{ resumed: false }], reason);
+    assert.deepEqual(h.runs, [{ resumed: true }], reason);
     assert.equal(h.sheets.length, 0);
   }
   for (const reason of MONEY) {
@@ -234,6 +234,47 @@ test('after a wait that ends signed in: idempotent kinds run, money kinds return
     assert.equal(h.sheets.length, 0, reason);
     assert.equal(h.deps.pending.current, false);
   }
+});
+
+// Review fix 1: a wait means the tap-time state was not verified, so the run after it is resumed
+// (toggles re-read the server or change nothing instead of flipping stale state).
+test('a run after a wait is resumed: one wait, several wake-ups, and a wait then a live session', async () => {
+  // Settle any sheet that wrongly opens, so a regression fails instead of hanging.
+  const settle = (h: Harness) => { for (const s of h.sheets) s.resolve(false); };
+  for (const reason of IDEMPOTENT) {
+    const h = harness({ ready: false });
+    const p = runRequireAuth(h.deps, reason, undefined, h.run);
+    await tick();
+    h.becomeReady(true);
+    await tick();
+    settle(h);
+    assert.equal(await p, true, reason);
+    assert.deepEqual(h.runs, [{ resumed: true }], `${reason}: resumed after a wait`);
+    assert.equal(h.sheets.length, 0, reason);
+    assert.equal(h.deps.pending.current, false);
+  }
+  // Wake-ups before the state is known: nothing runs; then one run, resumed.
+  const many = harness({ ready: false });
+  const p2 = runRequireAuth(many.deps, 'like', undefined, many.run);
+  await tick();
+  for (const w of many.waiters.splice(0)) w();
+  await tick();
+  assert.deepEqual(many.runs, [], 'nothing runs while the state is unknown');
+  many.becomeReady(true);
+  await tick();
+  settle(many);
+  assert.equal(await p2, true);
+  assert.deepEqual(many.runs, [{ resumed: true }]);
+  // A wait that ends signed out by the store with a live session: resumed, no sheet.
+  const live = harness({ ready: false, session: true });
+  const p3 = runRequireAuth(live.deps, 'save', undefined, live.run);
+  await tick();
+  live.becomeReady(false);
+  await tick();
+  settle(live);
+  assert.equal(await p3, true);
+  assert.deepEqual(live.runs, [{ resumed: true }]);
+  assert.equal(live.sheets.length, 0);
 });
 
 test('after a wait that ends signed out: the sheet opens', async () => {

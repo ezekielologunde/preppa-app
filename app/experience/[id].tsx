@@ -174,7 +174,16 @@ export default function ExperienceDetail() {
     catch { toast('Could not update the waitlist. Please try again.', 'info'); }
     finally { waitlistInFlight.current = false; setBusy(false); }
   };
-  const primaryAction = !sel ? undefined : canBook ? onBook : onWait ? leaveWl : joinWl;
+  // The waitlist needs an account. 'generic' never runs by itself after a sign-in; the user taps again.
+  const onJoinWl = () => {
+    if (!sel || waitlistInFlight.current) return; // the screen's own guard, before the sheet
+    void requireAuth('generic', undefined, joinWl);
+  };
+  const onLeaveWl = () => {
+    if (!sel || waitlistInFlight.current) return; // the screen's own guard, before the sheet
+    void requireAuth('generic', undefined, leaveWl);
+  };
+  const primaryAction = !sel ? undefined : canBook ? onBook : onWait ? onLeaveWl : onJoinWl;
   const primaryLabel = !sel ? 'Pick a date' : canBook ? (isFlat ? `Book the whole session · ${money(total / 100)}` : `Book · ${money(total / 100)}`) : onWait ? 'On the waitlist' : 'Join waitlist';
   const primaryIcon = canBook ? 'ticket' : onWait ? 'check' : 'bell';
 

@@ -60,6 +60,20 @@ export function buildIntent(kind: IntentKind, ids: readonly unknown[], path: str
 /** `resumed` is true when the action runs after a sign-in (state read signed out may be stale). */
 export type RequireAuthRun = (ctx: { resumed: boolean }) => void | Promise<void>;
 
+/**
+ * Runs `fn` with `ref.current` set, unless it is already set (then `fn` does not run). The flag is
+ * cleared however `fn` ends: a success, an early return or a throw (the throw passes through).
+ */
+export async function withInFlight(ref: { current: boolean }, fn: () => void | Promise<void>): Promise<void> {
+  if (ref.current) return;
+  ref.current = true;
+  try {
+    await fn();
+  } finally {
+    ref.current = false;
+  }
+}
+
 /** How long the live session check may take before it counts as signed out. */
 export const SESSION_CHECK_MS = 1500;
 
@@ -100,8 +114,9 @@ export interface RequireAuthDeps {
  * Native: runs the action and returns true. Web:
  * - signed in now: runs the action.
  * - account state not known yet: waits (one wait or sheet per screen; a second call meanwhile
- *   returns false and runs nothing). When the wait ends signed in, only idempotent kinds run;
- *   money kinds return true without running, so the user taps again.
+ *   returns false and runs nothing). When the wait ends signed in, only idempotent kinds run, with
+ *   `resumed: true` (the state read at tap time was not verified); money kinds return true
+ *   without running, so the user taps again.
  * - signed out by the store but a live session exists (the flag is stale after a sign-in): no
  *   second sheet; idempotent kinds run with `resumed: true`, money kinds return true.
  * - signed out: opens the sheet. After a sign-in idempotent kinds run with `resumed: true`;
@@ -133,7 +148,8 @@ export async function runRequireAuth(
       if (!deps.alive()) return false;
       step = preflightDecision(deps.getState());
     }
-    let resumed = false;
+    // A wait means the state read at tap time was not verified, so a run after it is resumed.
+    let resumed = waited;
     if (step === 'signIn') {
       const live = await deps.hasSession();
       if (!deps.alive()) return false;
