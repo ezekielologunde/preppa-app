@@ -10,6 +10,7 @@ import { useStore } from '../../src/store/store';
 import { Icon, Press, Switch } from '../../src/ui';
 import { SectionLabel } from '../../src/ui/layout';
 import { FLAGS } from '../../src/config/flags';
+import { GuestGate } from '../../src/components/GuestGate';
 
 type Tone = '' | 'amber' | 'purple' | 'blue' | 'pink' | 'green';
 interface Row { ico: string; cls: Tone; t: string; act: () => void }
@@ -22,6 +23,14 @@ const PRIVACY_URL = 'https://help.preppa.live/legal/privacy';
 const TERMS_URL = 'https://help.preppa.live/legal/terms';
 
 export default function Profile() {
+  return (
+    <GuestGate title="Sign in to see your profile" body="Your account, addresses and settings show up here after you sign in.">
+      <ProfileScreen />
+    </GuestGate>
+  );
+}
+
+function ProfileScreen() {
   const c = useC();
   const insets = useSafeAreaInsets();
   const router = useRouter();

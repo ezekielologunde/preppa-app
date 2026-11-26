@@ -11,6 +11,7 @@ import { Empty } from '../../src/ui/layout';
 import { listMyBookings, completeBooking, cancelBooking, type BookingView } from '../../src/lib/services';
 import { cancelExperienceBooking, fetchExperienceMeetingUrl } from '../../src/lib/experiences';
 import { confirmAction } from '../../src/lib/confirm';
+import { GuestGate } from '../../src/components/GuestGate';
 
 const STATUS: Record<CustomerOrder['status'], { label: string; bg: (c: any) => string; fg: (c: any) => string }> = {
   confirming: { label: 'Confirming payment', bg: (c) => c.bg2, fg: (c) => c.soft },
@@ -23,6 +24,14 @@ const STATUS: Record<CustomerOrder['status'], { label: string; bg: (c: any) => s
 
 /** Unified activity: meal orders + service bookings. (Weekly plans live under Experiences → My Plans.) */
 export default function Orders() {
+  return (
+    <GuestGate title="Sign in to see your orders" body="Your orders and receipts show up here after you sign in." icon="ticket">
+      <OrdersScreen />
+    </GuestGate>
+  );
+}
+
+function OrdersScreen() {
   const c = useC();
   const router = useRouter();
   const insets = useSafeAreaInsets();
