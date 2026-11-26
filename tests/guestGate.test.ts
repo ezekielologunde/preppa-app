@@ -138,10 +138,24 @@ const blocks = (src: string, open: string) => {
 
 test('profile is not wrapped in GuestGate; the default export is the screen and the guest flag needs no extra hook', () => {
   const src = read(PROFILE);
-  assert.doesNotMatch(src, /GuestGate/);
+  assert.doesNotMatch(src, /<GuestGate[s>]/); // not wrapped; only the exported session-check hook is used
   assert.match(src, /export default function Profile\(\) \{\s*const c = useC\(\);/);
-  assert.match(src, /import \{ guestGateMode \} from '\.\.\/\.\.\/src\/lib\/guestGateLogic';/);
-  assert.match(src, /const \{ accountReady, signedIn \} = useStore\(\);\n.*\n.*\n\s*const guest = guestGateMode\(\{ isWeb: Platform\.OS === 'web', accountReady, signedIn \}\) === 'guest';/);
+  assert.match(src, /import \{ guestGateAfterCheck, guestGateMode \} from '\.\.\/\.\.\/src\/lib\/guestGateLogic';/);
+  assert.match(src, /const \{ accountReady, signedIn \} = useStore\(\);/);
+});
+
+test('profile guest card needs the stored guest mode AND a session check that resolved none', () => {
+  const src = read(PROFILE);
+  assert.match(src, /import \{ useGuestSessionCheck \} from '\.\.\/\.\.\/src\/components\/GuestGate';/);
+  assert.match(src, /const storedMode = guestGateMode\(\{ isWeb: Platform\.OS === 'web', accountReady, signedIn \}\);\s*const guest = guestGateAfterCheck\(storedMode, useGuestSessionCheck\(storedMode\)\) === 'guest';/);
+  // The hook is exported, and does no work unless the stored mode is guest (native never is).
+  const gate = read('src/components/GuestGate.tsx');
+  assert.match(gate, /export function useGuestSessionCheck\(stored: GuestGateMode\): GuestSessionCheck \{/);
+  assert.match(gate, /if \(stored !== 'guest'\) \{\s*setCheck\('pending'\);\s*return undefined;\s*\}/);
+  // The decision: only 'none' lets the guest card show; pending, session and failed keep the profile.
+  for (const check of ['pending', 'session', 'failed'] as const) assert.equal(guestGateAfterCheck('guest', check), 'children', check);
+  assert.equal(guestGateAfterCheck('guest', 'none'), 'guest');
+  for (const check of ['pending', 'session', 'failed', 'none'] as const) assert.equal(guestGateAfterCheck('children', check), 'children', check);
 });
 
 test('profile web guest: a sign-in card instead of the account header, the help and legal links kept', () => {

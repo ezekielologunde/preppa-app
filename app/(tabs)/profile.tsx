@@ -10,7 +10,8 @@ import { useStore } from '../../src/store/store';
 import { Btn, Icon, Press, Switch } from '../../src/ui';
 import { SectionLabel } from '../../src/ui/layout';
 import { FLAGS } from '../../src/config/flags';
-import { guestGateMode } from '../../src/lib/guestGateLogic';
+import { guestGateAfterCheck, guestGateMode } from '../../src/lib/guestGateLogic';
+import { useGuestSessionCheck } from '../../src/components/GuestGate';
 import { requestSignIn } from '../../src/lib/authRequest';
 
 type Tone = '' | 'amber' | 'purple' | 'blue' | 'pink' | 'green';
@@ -33,7 +34,10 @@ export default function Profile() {
   const { accountReady, signedIn } = useStore();
   // Web guest (account known, nobody signed in): a sign-in card replaces the account header and the
   // account-only rows; the cook, PrepPlus, favorites, help, legal and dark mode rows stay.
-  const guest = guestGateMode({ isWeb: Platform.OS === 'web', accountReady, signedIn }) === 'guest';
+  // The card also waits for one live session check (no-op on native), so a signed-in user whose first
+  // account load timed out never sees it.
+  const storedMode = guestGateMode({ isWeb: Platform.OS === 'web', accountReady, signedIn });
+  const guest = guestGateAfterCheck(storedMode, useGuestSessionCheck(storedMode)) === 'guest';
 
   const confirmDelete = () => {
     confirmAction(

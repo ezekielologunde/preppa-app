@@ -538,6 +538,23 @@ test('consent links: Terms and Privacy Policy open the help-center legal pages, 
   }
 });
 
+test('consent links: a press on a link opens the URL and does not reach the checkbox row', () => {
+  const consent = consentProp('checkbox');
+  const { env, m } = mountAuth('signup', { consent });
+  const row = pressable(m.tree, 'Terms')!;
+  assert.equal(row.props.accessibilityRole, 'checkbox');
+  // Model bubbling: the row's onPress runs after the link's unless the link stopped the press.
+  const press = (link: El, e?: any) => { link.props.onPress(e); if (!e?.stopped) row.props.onPress(); };
+  const ev = () => { const e: any = { stopped: false, stopPropagation() { e.stopped = true; } }; return e; };
+  press(links(m.tree)[0], ev());
+  press(links(m.tree)[1], ev());
+  assert.deepEqual(callsOf(env, 'openURL'), [[TERMS_URL], [PRIVACY_URL]]);
+  assert.deepEqual(consent.changes, []);
+  // No event (native passes none): the link still opens the URL.
+  links(m.tree)[0].props.onPress();
+  assert.equal(callsOf(env, 'openURL').length, 3);
+});
+
 test('consent links: the same URLs as the profile screen', () => {
   const profile = read('app/(tabs)/profile.tsx');
   assert.match(profile, new RegExp(`const TERMS_URL = '${TERMS_URL}';`));

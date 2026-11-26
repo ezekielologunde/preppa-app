@@ -47,7 +47,7 @@ export function GuestGate({ title, body, reason = 'generic', icon = 'lock', scre
 }
 
 // One live session check each time the store turns guest; back to pending when it is not guest.
-function useGuestSessionCheck(stored: GuestGateMode): GuestSessionCheck {
+export function useGuestSessionCheck(stored: GuestGateMode): GuestSessionCheck {
   const [check, setCheck] = useState<GuestSessionCheck>('pending');
   useEffect(() => {
     if (stored !== 'guest') {

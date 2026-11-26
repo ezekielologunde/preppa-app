@@ -15,7 +15,9 @@ const noop = () => {};
 // The help-center legal pages (the same URLs as the profile screen's links).
 const TERMS_URL = 'https://help.preppa.live/legal/terms';
 const PRIVACY_URL = 'https://help.preppa.live/legal/privacy';
-const openLegal = (url: string) => {
+// The links sit inside the checkbox row's Pressable: stop the press there so a tap does not also toggle it.
+const openLegal = (url: string, e?: { stopPropagation?: () => void }) => {
+  e?.stopPropagation?.();
   try {
     Linking.openURL(url).catch(noop);
   } catch {
@@ -151,7 +153,7 @@ export function Auth({ mode, onNext, onRecovery, passwordMin = 8, mapError, mapN
   // CONSENT_TEXT with "Terms" and "Privacy Policy" as links.
   const consentLine = (
     <>
-      By continuing you agree to the <Text accessibilityRole="link" onPress={() => openLegal(TERMS_URL)} style={{ color: c.primary, textDecorationLine: 'underline' }}>Terms</Text> and <Text accessibilityRole="link" onPress={() => openLegal(PRIVACY_URL)} style={{ color: c.primary, textDecorationLine: 'underline' }}>Privacy Policy</Text>.
+      By continuing you agree to the <Text accessibilityRole="link" onPress={(e) => openLegal(TERMS_URL, e)} style={{ color: c.primary, textDecorationLine: 'underline' }}>Terms</Text> and <Text accessibilityRole="link" onPress={(e) => openLegal(PRIVACY_URL, e)} style={{ color: c.primary, textDecorationLine: 'underline' }}>Privacy Policy</Text>.
     </>
   );
   const inputStyle = (hasErr: boolean) => [stt.input, { backgroundColor: c.surface, borderColor: hasErr ? c.red : c.border, color: c.ink }];
