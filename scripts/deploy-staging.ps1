@@ -12,7 +12,7 @@
     1 preflight        CLI, login, branch, ref guard, typed confirmation
     2 link             supabase link to the test ref
     3 vault            YOU run generated SQL: project_base_url, stripe_setup_secret, stripe_sync_worker_secret
-    4 secrets+guarded  set STRIPE_SECRET_KEY + STRIPE_EXPECTED_ACCOUNT, deploy stripe-setup/-webhook/-worker
+    4 secrets+guarded  set STRIPE_SECRET_KEY + STRIPE_EXPECTED_ACCOUNT + APP_ORIGINS, deploy stripe-setup/-webhook/-worker
     5 verify key       sk_test_/rk_test_ and GET /v1/account equals the expected acct id; record webhook ids
     6 negative check   wrong STRIPE_EXPECTED_ACCOUNT must make stripe-setup refuse; webhooks unchanged; restore
     7 stripe-setup     POST stripe-setup; the test webhook list changes only by the managed webhook
@@ -49,6 +49,7 @@ $ProdRef = 'fwidhpzwldneeaphrxgg'
 $RepoRoot = Split-Path -Parent $PSScriptRoot
 $Evidence = Join-Path $RepoRoot 'docs\web-launch\L1-EVIDENCE.md'
 $Guarded3 = @('stripe-setup', 'stripe-webhook', 'stripe-worker')
+$AppOrigins = 'https://staging.preppa.live'   # connect-onboard redirect allowlist (DESIGN 1.6); not a secret
 $BaseUrl = "https://$ProjectRef.supabase.co"
 $TempFiles = New-Object System.Collections.ArrayList
 $script:SetupSecret = $null
@@ -206,8 +207,8 @@ try {
 
   if ($StartAt -le 4) {
     Step 4 'Secrets, then the three guarded Stripe functions'
-    Set-FunctionSecrets @{ STRIPE_SECRET_KEY = $stripeKey; STRIPE_EXPECTED_ACCOUNT = $ExpectedAccount }
-    Add-Evidence "function secrets set: STRIPE_SECRET_KEY (test key), STRIPE_EXPECTED_ACCOUNT = $ExpectedAccount"
+    Set-FunctionSecrets @{ STRIPE_SECRET_KEY = $stripeKey; STRIPE_EXPECTED_ACCOUNT = $ExpectedAccount; APP_ORIGINS = $AppOrigins }
+    Add-Evidence "function secrets set: STRIPE_SECRET_KEY (test key), STRIPE_EXPECTED_ACCOUNT = $ExpectedAccount, APP_ORIGINS = $AppOrigins"
     Push-Location $RepoRoot
     try {
       foreach ($fn in $Guarded3) {
@@ -307,6 +308,11 @@ try {
     $rest = @($all | Where-Object { $first -notcontains $_ })
     $order = @($first) + $rest
     Say "$($order.Count) functions to deploy."
+    if ($StartAt -gt 4) {
+      # A resume skips step 4, and connect-onboard refuses every request without APP_ORIGINS (DESIGN 1.6).
+      Set-FunctionSecrets @{ APP_ORIGINS = $AppOrigins }
+      Add-Evidence "function secrets set: APP_ORIGINS = $AppOrigins (step 9 resume)"
+    }
     Push-Location $RepoRoot
     try {
       $n = 0
@@ -332,7 +338,7 @@ try {
     } finally { Pop-Location }
     Say ''
     Say 'Not set by this script (set later only if you test those features): MUX_TOKEN_ID, MUX_TOKEN_SECRET, MUX_WEBHOOK_SECRET.'
-    Say 'Run `supabase secrets list --project-ref <ref>` to confirm STRIPE_SECRET_KEY and STRIPE_EXPECTED_ACCOUNT exist.'
+    Say 'Run `supabase secrets list --project-ref <ref>` to confirm STRIPE_SECRET_KEY, STRIPE_EXPECTED_ACCOUNT and APP_ORIGINS exist.'
   }
 
   Say ''

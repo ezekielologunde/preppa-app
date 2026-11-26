@@ -2,11 +2,15 @@
 project: Preppa
 type: changelog
 status: active
-last_updated: 2026-11-24
+last_updated: 2026-11-25
 tags: [project/preppa, type/changelog]
 ---
 
 # Changelog
+
+## connect-onboard reads its redirect origins from APP_ORIGINS (2026-11-25)
+
+`connect-onboard` no longer hardcodes `https://app.preppa.live` as the only post-onboarding redirect origin. It reads the new function secret `APP_ORIGINS`, a comma separated list of exact origins (for example `https://staging.preppa.live`). A caller's `returnUrl` or `refreshUrl` is kept only when its origin equals one entry exactly; otherwise, and when none is sent (native clients), the function uses the first entry plus `/my-hub?connect=return` or `/my-hub?connect=refresh`. A missing, empty or malformed value (wildcard, path, trailing slash, upper-case host, default port, credentials, non-http scheme) makes every POST answer 500 `{"error":"Could not start payout setup. Please try again."}` after the CORS preflight and the 1.7 key-mode guard, before auth, database or other Stripe work. A redirect with a non-http(s) scheme (for example `blob:` on an allowed origin) is refused too. Pinned by `tests/connectOnboardOrigins.test.ts` (web-launch DESIGN 1.6). Not deployed; `APP_ORIGINS` must be set on the test project (`https://staging.preppa.live`) and on production (`https://app.preppa.live`) before this version is deployed there, or cook payout onboarding stops working. See [[Security]].
 
 ## Re-runnable Stripe reconcile trigger install (2026-11-24)
 

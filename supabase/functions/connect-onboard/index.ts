@@ -115,13 +115,50 @@ function admin() {
   return createClient(requireEnv('SUPABASE_URL'), requireEnv('SUPABASE_SERVICE_ROLE_KEY'), { auth: { persistSession: false } });
 }
 
-// Only the app's own domain is a valid post-KYC redirect target - this is the moment right
+// BEGIN connect-onboard-app-origins (docs/web-launch/DESIGN.md task 1.6)
+// Only the app's own origins are valid post-KYC redirect targets - this is the moment right
 // after a cook submits bank/identity info to Stripe, a high-trust window an open redirect
-// here would be worth exploiting.
-const ALLOWED_ORIGIN = 'https://app.preppa.live';
-function isAllowedRedirect(url: string): boolean {
-  try { return new URL(url).origin === ALLOWED_ORIGIN; } catch { return false; }
+// here would be worth exploiting. Pinned by tests/connectOnboardOrigins.test.ts.
+// APP_ORIGINS (function secret) is a comma separated list of exact origins, for example
+// https://staging.preppa.live,http://localhost:8081 (DESIGN section 4 lists the value per environment).
+// Each entry is trimmed and must already be in the form URL.origin produces: http(s) scheme, lower-case
+// host, port only when it is not the scheme default, and no path, trailing slash, query, fragment,
+// credentials or wildcard. A redirect is allowed only when its URL.origin equals one entry exactly. A
+// missing or empty list, or any malformed entry, fails closed: the handler answers a fixed 500 that names
+// no origin. The redirect itself must be http(s) too, so blob:<allowed origin>/x is refused. The first
+// entry is the default return/refresh origin when the caller sends none (native).
+const APP_ORIGINS_FAILURE_MESSAGE = 'Could not start payout setup. Please try again.';
+function parseAppOrigins(raw: string | undefined): string[] | null {
+  const entries = (raw ?? '').split(',').map((entry) => entry.trim()).filter((entry) => entry !== '');
+  if (entries.length === 0) return null;
+  for (const entry of entries) {
+    if (entry.includes('*')) return null;
+    let parsed: URL;
+    try {
+      parsed = new URL(entry);
+    } catch {
+      return null;
+    }
+    if (parsed.protocol !== 'https:' && parsed.protocol !== 'http:') return null;
+    if (parsed.origin !== entry) return null;
+  }
+  return entries;
 }
+function isAllowedRedirect(url: string, allowedOrigins: string[]): boolean {
+  let parsed: URL;
+  try { parsed = new URL(url); } catch { return false; }
+  // blob: URLs report the inner URL's origin, so the redirect's own scheme is checked separately.
+  if (parsed.protocol !== 'https:' && parsed.protocol !== 'http:') return false;
+  return allowedOrigins.includes(parsed.origin);
+}
+function appOriginsFailureResponse(headers: Record<string, string> = {}): Response {
+  console.error('connect-onboard refused: APP_ORIGINS is missing or malformed');
+  return new Response(JSON.stringify({ error: APP_ORIGINS_FAILURE_MESSAGE }), {
+    status: 500,
+    headers: { ...headers, 'content-type': 'application/json' },
+  });
+}
+// END connect-onboard-app-origins
 
 // Create (or reuse) the cook's Express connected account and return a Stripe-hosted
 // onboarding link (KYC/identity + payout bank). Preppa is the platform; the cook does
@@ -130,6 +167,8 @@ Deno.serve(async (req) => {
   if (req.method === 'OPTIONS') return new Response('ok', { headers: corsHeaders });
   if (!(await stripeKeyModeGuard())) return stripeGuardFailureResponse(corsHeaders);
   if (req.method !== 'POST') return json(405, { error: 'method not allowed' });
+  const appOrigins = parseAppOrigins(Deno.env.get('APP_ORIGINS'));
+  if (!appOrigins) return appOriginsFailureResponse(corsHeaders);
   try {
     const db = admin();
     const jwt = (req.headers.get('Authorization') ?? '').replace('Bearer ', '');
@@ -146,10 +185,10 @@ Deno.serve(async (req) => {
     const body = await req.json().catch(() => ({}));
     const kitchenId = body?.kitchenId;
     if (typeof kitchenId !== 'string') return json(400, { error: 'kitchenId required' });
-    const returnUrl = (typeof body?.returnUrl === 'string' && isAllowedRedirect(body.returnUrl))
-      ? body.returnUrl : 'https://app.preppa.live/my-hub?connect=return';
-    const refreshUrl = (typeof body?.refreshUrl === 'string' && isAllowedRedirect(body.refreshUrl))
-      ? body.refreshUrl : 'https://app.preppa.live/my-hub?connect=refresh';
+    const returnUrl = (typeof body?.returnUrl === 'string' && isAllowedRedirect(body.returnUrl, appOrigins))
+      ? body.returnUrl : `${appOrigins[0]}/my-hub?connect=return`;
+    const refreshUrl = (typeof body?.refreshUrl === 'string' && isAllowedRedirect(body.refreshUrl, appOrigins))
+      ? body.refreshUrl : `${appOrigins[0]}/my-hub?connect=refresh`;
 
     const { data: kitchen } = await db.from('kitchens').select('id, owner_id, name').eq('id', kitchenId).single();
     if (!kitchen || kitchen.owner_id !== userId) return json(403, { error: 'not your kitchen' });
