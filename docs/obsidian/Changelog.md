@@ -2,11 +2,15 @@
 project: Preppa
 type: changelog
 status: active
-last_updated: 2026-11-25
+last_updated: 2026-11-26
 tags: [project/preppa, type/changelog]
 ---
 
 # Changelog
+
+## Share links follow EXPO_PUBLIC_SITE_URL; web manifest, robots.txt and sitemap (2026-11-26)
+
+`SITE` in `src/lib/share.ts`, the origin every share link uses (meal, store, post, experience and invite links), is no longer the production literal. It is `resolveSite(process.env.EXPO_PUBLIC_SITE_URL)`, defined in the new `src/lib/siteOrigin.ts`: the value is kept only when it parses as a bare origin (no path, query, hash, credentials or surrounding whitespace) on `app.preppa.live` or `staging.preppa.live` over `https:` with the default port, or on `localhost` or `127.0.0.1` over `http:` or `https:` with any port; it returns `URL.origin`, and anything else, including unset, gives `https://app.preppa.live`. `scripts/check-vercel-env.mjs` now fails any Vercel build where `EXPO_PUBLIC_SITE_URL` is set to a value `resolveSite` would reject (unset or empty passes); it holds a copy of the host list and rules, and `tests/shareSite.test.ts` fails if the copy drifts. Until `EXPO_PUBLIC_SITE_URL=https://staging.preppa.live` is set on the Vercel test environment, staging shares still point at production. Static head (DESIGN 2.3): `public/manifest.webmanifest` with 192 and 512 PNG icons generated from `public/preppa-icon.png` and linked from `public/index.html`, no orientation lock; `public/robots.txt` (`Disallow: /`) and `public/sitemap.xml` listing only `/`, `/discover`, `/experiences`, `/feeds` and `/prepplus`. Launch must change `robots.txt` to `Allow: /` in the same change that removes the `noindex, nofollow` meta from `public/index.html`; `tests/publicStatic.test.ts` fails if only one of the two moves. `og:url`, `og:image` and `twitter:image` still name production on every host, because Expo's `single` template substitutes no environment values; that moves to the 2.4 middleware. `app.json` keeps `orientation: portrait`, which only reaches native builds. Pinned by `tests/shareSite.test.ts`, `tests/vercelEnvCheck.test.ts` and `tests/publicStatic.test.ts` (web-launch DESIGN 2.12 and 2.3). Not deployed.
 
 ## connect-onboard reads its redirect origins from APP_ORIGINS (2026-11-25)
 

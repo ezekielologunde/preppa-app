@@ -132,6 +132,32 @@ if (!target) {
   fail('VERCEL_ENV', 'unrecognised value; expected production, preview or development');
 }
 
+// EXPO_PUBLIC_SITE_URL (DESIGN 2.12) is the origin share links use. The client falls back to
+// production for any value src/lib/siteOrigin.ts rejects, so a set but rejected value would quietly
+// send every share from this build to production; fail the build instead. Unset or empty passes
+// (the fallback is intended there). SITE_HOSTS and siteOrigin() are a copy of SITE_HOSTS and
+// parseSiteOrigin() in src/lib/siteOrigin.ts; tests/shareSite.test.ts fails if they drift.
+const SITE_VAR = 'EXPO_PUBLIC_SITE_URL';
+const SITE_HOSTS = ['app.preppa.live', 'staging.preppa.live', 'localhost', '127.0.0.1'];
+const LOCAL_HOSTS = ['localhost', '127.0.0.1'];
+const siteOrigin = (value) => {
+  if (value === '' || value !== value.trim()) return null;
+  let site;
+  try { site = new URL(value); } catch { return null; }
+  const local = LOCAL_HOSTS.includes(site.hostname);
+  if (!SITE_HOSTS.includes(site.hostname)) return null;
+  if (site.protocol !== 'https:' && !(site.protocol === 'http:' && local)) return null;
+  if (site.username !== '' || site.password !== '') return null;
+  if (site.pathname !== '/' || site.search !== '' || site.hash !== '') return null;
+  if (site.port !== '' && !local) return null;
+  return site.origin;
+};
+if (isPresent(SITE_VAR) && siteOrigin(raw(SITE_VAR)) === null) {
+  fail(SITE_VAR, 'is set but is not an allowed share origin (https on app.preppa.live or staging.preppa.live, '
+    + 'or http or https on localhost or 127.0.0.1, with no path, query, credentials, padding or other port); '
+    + 'the client would fall back to production');
+}
+
 if (failures.length) {
   console.error(`check-vercel-env: FAIL (${label} build)`);
   for (const line of failures) console.error(`  ${line}`);

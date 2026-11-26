@@ -1,0 +1,7 @@
+# Pre-launch: no crawling anywhere. Non-production hosts also send X-Robots-Tag: noindex
+# (vercel.json). At launch, change "Disallow: /" to "Allow: /" in the same change that removes
+# the robots noindex meta tag from public/index.html; tests/publicStatic.test.ts keeps the two in step.
+User-agent: *
+Disallow: /
+
+Sitemap: https://app.preppa.live/sitemap.xml

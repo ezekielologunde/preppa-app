@@ -270,3 +270,49 @@ test('preview: a JWT anon key for the production ref fails; another ref passes',
   assertFail({ VERCEL_ENV: 'preview', ...ISOLATED, [NAMES.anon]: jwt({ ref: PRODUCTION_REF, role: 'anon' }) }, [NAMES.anon]);
   assertPass({ VERCEL_ENV: 'preview', ...ISOLATED, [NAMES.anon]: jwt({ ref: 'otherref', role: 'anon' }) });
 });
+
+// DESIGN 2.12: EXPO_PUBLIC_SITE_URL is the share-link origin. A set value the client would reject
+// (and silently replace with production) fails the build; unset or empty passes.
+const SITE = 'EXPO_PUBLIC_SITE_URL';
+
+test('share origin: unset or empty passes in every Vercel environment', () => {
+  assertPass({ VERCEL_ENV: 'preview', ...ISOLATED });
+  assertPass({ VERCEL_ENV: 'preview', ...ISOLATED, [SITE]: '' });
+  assertPass({ VERCEL_ENV: 'production' });
+  assertPass({ VERCEL_ENV: 'production', [SITE]: '' });
+});
+
+test('share origin: allowlisted origins pass', () => {
+  assertPass({ VERCEL_ENV: 'preview', ...ISOLATED, [SITE]: 'https://staging.preppa.live' });
+  assertPass({ VERCEL_ENV: 'development', ...ISOLATED, [NAMES.appEnv]: 'development', [SITE]: 'http://localhost:8081' });
+  assertPass({ VERCEL_ENV: 'production', ...PRODUCTION, [SITE]: 'https://app.preppa.live' });
+  assertPass({ VERCEL_ENV: 'production', [SITE]: 'HTTPS://APP.PREPPA.LIVE/' });
+});
+
+for (const value of [
+  'javascript:alert(1)',
+  `//${MARKER}.com`,
+  `https://${MARKER}.com`,
+  `https://app.preppa.live@${MARKER}.com`,
+  `https://app.preppa.live.${MARKER}.com`,
+  'http://app.preppa.live',
+  `https://app.preppa.live/${MARKER}`,
+  `https://staging.preppa.live/?${MARKER}`,
+  `https://${MARKER}:pw@staging.preppa.live`,
+  'https://staging.preppa.live:8443',
+  'https://staging.preppa.live ',
+  '   ',
+]) {
+  test(`share origin: ${JSON.stringify(value.replace(MARKER, '...'))} fails the build without printing it`, () => {
+    assertFail({ VERCEL_ENV: 'preview', ...ISOLATED, [SITE]: value }, [SITE]);
+    assertFail({ VERCEL_ENV: 'production', [SITE]: value }, [SITE]);
+  });
+}
+
+test('share origin: a rejected value is reported alongside other failures, once', () => {
+  assertFail({ VERCEL_ENV: 'preview', ...ISOLATED, [NAMES.stripe]: `pk_live_${MARKER}`, [SITE]: `https://${MARKER}.com` }, [NAMES.stripe, SITE]);
+});
+
+test('share origin: a local build runs no checks, so a rejected value does not fail it', () => {
+  assert.match(assertPass({ [SITE]: `https://${MARKER}.com` }).output, /local build/);
+});

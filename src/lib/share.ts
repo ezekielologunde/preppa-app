@@ -1,8 +1,15 @@
 import { Platform, Share } from 'react-native';
 import * as Clipboard from 'expo-clipboard';
+import { resolveSite } from './siteOrigin';
 
-/** Canonical web origin — shared links open the live app. */
-export const SITE = 'https://app.preppa.live';
+export { resolveSite };
+
+/**
+ * Web origin shared links open (DESIGN 2.12): EXPO_PUBLIC_SITE_URL when it is an allowlisted
+ * origin, otherwise the production origin. Expo inlines the value at build time only for a literal
+ * `process.env.EXPO_PUBLIC_SITE_URL` read, so keep it in that form. Rules live in siteOrigin.ts.
+ */
+export const SITE = resolveSite(process.env.EXPO_PUBLIC_SITE_URL);
 
 export type ShareResult = 'shared' | 'copied' | 'dismissed';
 
