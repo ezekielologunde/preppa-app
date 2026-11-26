@@ -7,11 +7,21 @@ import {
   SUCCESS_MS,
   FIRST_STEP,
   canDismiss,
+  isSameOpenRequest,
+  mayBindIntent,
   nextStep,
   onSignedIn,
   sheetTitle,
   type SheetStep,
 } from '../src/lib/authSheetLogic';
+import {
+  __resetForTests,
+  dismissSignIn,
+  getSignInState,
+  requestSignIn,
+  resolveSignIn,
+  subscribe,
+} from '../src/lib/authRequest';
 
 const KEY_A = 'a'.repeat(32);
 const KEY_B = 'b'.repeat(32);
@@ -78,4 +88,61 @@ test('step machine: events that do not apply leave the step, success is terminal
 
 test('success state is brief', () => {
   assert.ok(SUCCESS_MS >= 300 && SUCCESS_MS <= 1000);
+});
+
+// Stale callbacks: the host captures getSignInState() when it starts async work and checks it again.
+test('isSameOpenRequest: a request that closed and a new one that opened are told apart', async () => {
+  __resetForTests();
+  const off = subscribe(() => {});
+  try {
+    const first = requestSignIn('checkout');
+    const captured = getSignInState();
+    assert.equal(isSameOpenRequest(captured, getSignInState()), true);
+    resolveSignIn(false);
+    assert.equal(await first, false);
+    assert.equal(isSameOpenRequest(captured, getSignInState()), false, 'closed');
+    const second = requestSignIn('follow');
+    assert.equal(getSignInState().open, true);
+    assert.equal(isSameOpenRequest(captured, getSignInState()), false, 'a later request is not the captured one');
+    // The host's success timer for the first request must therefore never settle the second.
+    dismissSignIn();
+    assert.equal(await second, false);
+  } finally {
+    off();
+    __resetForTests();
+  }
+});
+
+test('isSameOpenRequest is false for null and for a closed state', () => {
+  const closed = Object.freeze({ open: false });
+  assert.equal(isSameOpenRequest(null, closed), false);
+  assert.equal(isSameOpenRequest(closed, closed), false);
+});
+
+test('resolve once: a second resolveSignIn(true) after a dismiss has no effect', async () => {
+  __resetForTests();
+  const off = subscribe(() => {});
+  try {
+    const p = requestSignIn('book');
+    dismissSignIn();
+    resolveSignIn(true);
+    assert.equal(await p, false);
+    assert.equal(getSignInState().open, false);
+  } finally {
+    off();
+    __resetForTests();
+  }
+});
+
+test('mayBindIntent: only the latest email of the same open request, and never while finishing', () => {
+  const open = Object.freeze({ open: true });
+  const other = Object.freeze({ open: true });
+  const closed = Object.freeze({ open: false });
+  const base = { callSeq: 3, currentSeq: 3, captured: open, current: open, finishing: false };
+  assert.equal(mayBindIntent(base), true);
+  assert.equal(mayBindIntent({ ...base, currentSeq: 4 }), false, 'a later email superseded it');
+  assert.equal(mayBindIntent({ ...base, current: closed }), false, 'the sheet closed');
+  assert.equal(mayBindIntent({ ...base, current: other }), false, 'a different request is open now');
+  assert.equal(mayBindIntent({ ...base, finishing: true }), false, 'the host is finishing and has cleared the intent');
+  assert.equal(mayBindIntent({ ...base, captured: null }), false);
 });

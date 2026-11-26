@@ -10,6 +10,7 @@ import {
   type ApplicationFields, type AppNotification,
 } from '../lib/supabase';
 import { supabase } from '../lib/supabase';
+import { clearIntent, dismissSignIn } from '../lib/authRequest';
 import { threadUnreadCount, subscribeMyNotifications } from '../lib/messages';
 import { fetchCustomerOrders, fetchOrderStatus, fetchReorderMeals, timeAgo } from '../lib/orders';
 import { getMyKitchen, getKitchenAvailability, setKitchenAvailability } from '../lib/connect';
@@ -657,7 +658,7 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
   }, [orders]);
 
   const resetOnboarding = useCallback(() => setOnboardedState(false), []);
-  const logout = useCallback(() => { ordersRequestSequence.current += 1; signOutUser(); setPrepperStatus('none'); setOwnKitchenId(null); setIsAdmin(false); setIsPrepPlus(false); setPrepplusUntil(null); setOrders([]); setOrdersError(''); setOrdersLoading(false); setAddresses([]); setAddressId(''); setOnboardedState(false); }, []);
+  const logout = useCallback(() => { ordersRequestSequence.current += 1; clearIntent(); dismissSignIn(); signOutUser(); setPrepperStatus('none'); setOwnKitchenId(null); setIsAdmin(false); setIsPrepPlus(false); setPrepplusUntil(null); setOrders([]); setOrdersError(''); setOrdersLoading(false); setAddresses([]); setAddressId(''); setOnboardedState(false); }, []);
   const deleteAccount = useCallback(async () => {
     // Apple 5.1.1(v) / Google Play: account-deletion path. Calls the real delete-account edge
     // function FIRST (anonymizes the profile, soft-deletes the auth user so sign-in is

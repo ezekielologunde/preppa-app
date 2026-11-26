@@ -85,3 +85,31 @@ export function onSignedIn(args: { boundKey: string | null; sessionEmailKey: str
   if (typeof sessionEmailKey !== 'string' || sessionEmailKey === '') return 'clear-and-continue';
   return boundKey === sessionEmailKey ? 'resume' : 'clear-and-continue';
 }
+
+// ---------------------------------------------------------------------------------------------
+// Stale callbacks
+
+/**
+ * The controller makes a fresh state object for every request it opens, so identity tells two
+ * requests apart even when one closes and the next opens before the host re-renders. Work the host
+ * started under `captured` (a key lookup, the success timer) may act only while that exact request
+ * is still the open one.
+ */
+export function isSameOpenRequest(captured: { open: boolean } | null, current: { open: boolean }): boolean {
+  return captured !== null && captured === current && current.open === true;
+}
+
+/**
+ * Whether a finished account-key lookup may still store the intent: it must be the latest email
+ * for the same open request, and the host must not already be finishing (which clears the intent).
+ */
+export function mayBindIntent(args: {
+  callSeq: number;
+  currentSeq: number;
+  captured: { open: boolean } | null;
+  current: { open: boolean };
+  finishing: boolean;
+}): boolean {
+  if (args.finishing || args.callSeq !== args.currentSeq) return false;
+  return isSameOpenRequest(args.captured, args.current);
+}
