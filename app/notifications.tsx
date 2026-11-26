@@ -7,6 +7,7 @@ import { useStore } from '../src/store/store';
 import type { AppNotification } from '../src/lib/supabase';
 import { Icon, Press, Btn } from '../src/ui';
 import { Screen, TopBar, Empty } from '../src/ui/layout';
+import { GuestGate } from '../src/components/GuestGate';
 
 type Tone = '' | 'amber' | 'purple' | 'blue' | 'pink' | 'green';
 
@@ -26,6 +27,14 @@ function relTime(iso: string): string {
 }
 
 export default function Notifications() {
+  return (
+    <GuestGate title="Sign in to see your alerts" body="Order updates and account activity show up here after you sign in." icon="bell" screenTitle="Notifications">
+      <NotificationsScreen />
+    </GuestGate>
+  );
+}
+
+function NotificationsScreen() {
   const c = useC();
   const router = useRouter();
   const { notifs, notificationsLoading, notificationsError, refreshNotifications, markNotifRead, markAllRead, notifCount, threadUnread } = useStore();

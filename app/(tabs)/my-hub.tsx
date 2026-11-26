@@ -460,6 +460,12 @@ export default function MyHub() {
     return (
       <View style={{ flex: 1, alignItems: 'center', justifyContent: 'center', padding: 24, backgroundColor: c.bg }}>
         <Text style={[type(15, 700), { color: c.ink, textAlign: 'center' }]}>Sign in to finish setting up payouts.</Text>
+        {/* Web: reopens the sheet after a dismiss; ?connect= stays in the URL and is handled once signedIn flips. */}
+        {Platform.OS === 'web' ? (
+          <View style={{ marginTop: 16 }}>
+            <Btn label="Sign in" onPress={() => void requestSignIn('connect')} />
+          </View>
+        ) : null}
       </View>
     );
   }

@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Animated, Pressable, StyleSheet, Text, TextInput, View } from 'react-native';
+import { Animated, Linking, Pressable, StyleSheet, Text, TextInput, View } from 'react-native';
 import { sendEmailOtp, signUpWithPassword, signInWithPassword, sendPasswordResetOtp, AUTH_TIMEOUT_MESSAGE } from '../../lib/supabase';
 import { Icon } from '../../ui/Icon';
 import { Btn } from '../../ui/primitives';
@@ -12,6 +12,18 @@ export type ConsentOption = { mode: ConsentMode; checked: boolean; onChange: (v:
 const CONSENT_TEXT = 'By continuing you agree to the Terms and Privacy Policy.';
 const CONSENT_REQUIRED = 'Please agree to the Terms and Privacy Policy to continue.';
 const noop = () => {};
+// The help-center legal pages (the same URLs as the profile screen's links).
+const TERMS_URL = 'https://help.preppa.live/legal/terms';
+const PRIVACY_URL = 'https://help.preppa.live/legal/privacy';
+// The links sit inside the checkbox row's Pressable: stop the press there so a tap does not also toggle it.
+const openLegal = (url: string, e?: { stopPropagation?: () => void }) => {
+  e?.stopPropagation?.();
+  try {
+    Linking.openURL(url).catch(noop);
+  } catch {
+    // ignored: a link that cannot open leaves the form as it is
+  }
+};
 // Supabase's reply to a recovery code for an address with no account (shouldCreateUser false).
 const NO_ACCOUNT = /user[ _]not[ _]found|signups? not allowed|otp_disabled/i;
 function isNoAccountError(e: unknown): boolean {
@@ -138,6 +150,12 @@ export function Auth({ mode, onNext, onRecovery, passwordMin = 8, mapError, mapN
     }
   };
 
+  // CONSENT_TEXT with "Terms" and "Privacy Policy" as links.
+  const consentLine = (
+    <>
+      By continuing you agree to the <Text accessibilityRole="link" onPress={(e) => openLegal(TERMS_URL, e)} style={{ color: c.primary, textDecorationLine: 'underline' }}>Terms</Text> and <Text accessibilityRole="link" onPress={(e) => openLegal(PRIVACY_URL, e)} style={{ color: c.primary, textDecorationLine: 'underline' }}>Privacy Policy</Text>.
+    </>
+  );
   const inputStyle = (hasErr: boolean) => [stt.input, { backgroundColor: c.surface, borderColor: hasErr ? c.red : c.border, color: c.ink }];
 
   return (
@@ -157,13 +175,13 @@ export function Auth({ mode, onNext, onRecovery, passwordMin = 8, mapError, mapN
         <Text style={[type(12.5, 800), { color: c.soft, marginBottom: 8 }]}>{recovering ? 'New password' : 'Password'}</Text>
       <TextInput value={password} onChangeText={(t) => { setPassword(t); clearMsgs(); }} onSubmitEditing={submit} secureTextEntry autoCapitalize="none" autoComplete={mode === 'signup' || recovering ? 'password-new' : 'password'} textContentType={mode === 'signup' || recovering ? 'newPassword' : 'password'} placeholder={mode === 'signup' || recovering ? `At least ${passwordMin} characters` : 'Your password'} placeholderTextColor={c.muted} accessibilityLabel={recovering ? 'New password' : 'Password'} style={inputStyle(!!err)} />
       {mode === 'signin' ? <Pressable onPress={() => { setRecovering((v) => !v); setErr(null); setInfo(null); setPassword(''); }} accessibilityRole="button" style={{ marginTop: 11, alignSelf: 'flex-end' }}><Text style={[type(13, 700), { color: c.primary }]}>{recovering ? 'Back to sign in' : 'Forgot password?'}</Text></Pressable> : null}
-        {showConsent && consentMode === 'notice' ? <Text style={[type(12.5, 600), { color: c.soft, marginTop: 14 }]}>{CONSENT_TEXT}</Text> : null}
+        {showConsent && consentMode === 'notice' ? <Text style={[type(12.5, 600), { color: c.soft, marginTop: 14 }]}>{consentLine}</Text> : null}
         {showConsent && consentMode === 'checkbox' ? (
           <Pressable onPress={() => { if (consent) consent.onChange(!consent.checked); clearMsgs(); }} accessibilityRole="checkbox" accessibilityState={{ checked: !!consent?.checked }} accessibilityLabel={CONSENT_TEXT} style={{ flexDirection: 'row', alignItems: 'center', gap: 10, marginTop: 14 }}>
             <View style={{ width: 22, height: 22, borderRadius: 6, borderWidth: 1, borderColor: err === CONSENT_REQUIRED ? c.red : c.border, backgroundColor: consent?.checked ? c.primary : c.surface, alignItems: 'center', justifyContent: 'center' }}>
               {consent?.checked ? <Icon name="check" size={14} color={c.surface} /> : null}
             </View>
-            <Text style={[type(13, 600), { color: c.soft, flex: 1 }]}>{CONSENT_TEXT}</Text>
+            <Text style={[type(13, 600), { color: c.soft, flex: 1 }]}>{consentLine}</Text>
           </Pressable>
         ) : null}
         {err ? <View style={{ flexDirection: 'row', alignItems: 'center', gap: 7, marginTop: 9 }}><Icon name="info" size={15} color={c.red} /><Text style={[type(13, 700), { color: c.red, flex: 1 }]}>{err}</Text></View> : null}

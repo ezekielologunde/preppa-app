@@ -90,6 +90,7 @@ function makeEnv() {
     Animated: { Value, View: 'Animated.View', timing: (value: any, cfg: any) => anim('timing', { value, cfg }), sequence: (items: any[]) => anim('sequence', { items }), loop: (item: any) => anim('loop', { items: [item] }) },
     Easing: { linear: 'linear' },
     Pressable: 'Pressable', Text: 'Text', TextInput: 'TextInput', View: 'View',
+    Linking: { openURL: (url: string) => { env.calls.push(['openURL', [url]]); return Promise.resolve(); } },
     StyleSheet: { create: (s: any) => s },
   };
   const supa = (name: string) => (...args: any[]) => {
@@ -516,4 +517,56 @@ test('Code mapError: overrides the wrong-code and resend messages, in the code c
   assert.ok(texts(m.tree).includes('Too many tries. Wait a minute.'));
   assert.ok(!texts(m.tree).includes('raw server text'));
   assert.deepEqual(ctxs, ['code', 'code']);
+});
+
+/* ---------------- consent links ---------------- */
+
+const TERMS_URL = 'https://help.preppa.live/legal/terms';
+const PRIVACY_URL = 'https://help.preppa.live/legal/privacy';
+const links = (tree: any) => all(tree).filter((e) => e.type === 'Text' && e.props.accessibilityRole === 'link');
+
+test('consent links: Terms and Privacy Policy open the help-center legal pages, in the notice and the checkbox', () => {
+  for (const mode of ['notice', 'checkbox'] as const) {
+    const { env, m } = mountAuth('signup', { consent: consentProp(mode) });
+    const l = links(m.tree);
+    assert.deepEqual(l.map((e) => textOf(e)), ['Terms', 'Privacy Policy'], mode);
+    // The sentence reads as before; only the two names became links.
+    assert.ok(all(m.tree).some((e) => e.type === 'Text' && textOf(e) === CONSENT_TEXT && e.props.accessibilityRole === undefined), mode);
+    l[0].props.onPress();
+    l[1].props.onPress();
+    assert.deepEqual(callsOf(env, 'openURL'), [[TERMS_URL], [PRIVACY_URL]], mode);
+  }
+});
+
+test('consent links: a press on a link opens the URL and does not reach the checkbox row', () => {
+  const consent = consentProp('checkbox');
+  const { env, m } = mountAuth('signup', { consent });
+  const row = pressable(m.tree, 'Terms')!;
+  assert.equal(row.props.accessibilityRole, 'checkbox');
+  // Model bubbling: the row's onPress runs after the link's unless the link stopped the press.
+  const press = (link: El, e?: any) => { link.props.onPress(e); if (!e?.stopped) row.props.onPress(); };
+  const ev = () => { const e: any = { stopped: false, stopPropagation() { e.stopped = true; } }; return e; };
+  press(links(m.tree)[0], ev());
+  press(links(m.tree)[1], ev());
+  assert.deepEqual(callsOf(env, 'openURL'), [[TERMS_URL], [PRIVACY_URL]]);
+  assert.deepEqual(consent.changes, []);
+  // No event (native passes none): the link still opens the URL.
+  links(m.tree)[0].props.onPress();
+  assert.equal(callsOf(env, 'openURL').length, 3);
+});
+
+test('consent links: the same URLs as the profile screen', () => {
+  const profile = read('app/(tabs)/profile.tsx');
+  assert.match(profile, new RegExp(`const TERMS_URL = '${TERMS_URL}';`));
+  assert.match(profile, new RegExp(`const PRIVACY_URL = '${PRIVACY_URL}';`));
+});
+
+test('consent links: none by default (native) and none during password recovery', () => {
+  assert.equal(links(mountAuth('signup').m.tree).length, 0);
+  assert.equal(links(mountAuth('signin').m.tree).length, 0);
+  const { m } = mountAuth('signin', { consent: consentProp('checkbox') });
+  assert.equal(links(m.tree).length, 2);
+  pressable(m.tree, 'Forgot password?')!.props.onPress();
+  m.flush();
+  assert.equal(links(m.tree).length, 0);
 });

@@ -7,9 +7,12 @@ import { LinearGradient } from 'expo-linear-gradient';
 import { useC } from '../../src/theme/ThemeContext';
 import { type, radius, shadow, BRAND_GRAD, PREPPLUS_GRAD } from '../../src/theme/theme';
 import { useStore } from '../../src/store/store';
-import { Icon, Press, Switch } from '../../src/ui';
+import { Btn, Icon, Press, Switch } from '../../src/ui';
 import { SectionLabel } from '../../src/ui/layout';
 import { FLAGS } from '../../src/config/flags';
+import { guestGateAfterCheck, guestGateMode } from '../../src/lib/guestGateLogic';
+import { useGuestSessionCheck } from '../../src/components/GuestGate';
+import { requestSignIn } from '../../src/lib/authRequest';
 
 type Tone = '' | 'amber' | 'purple' | 'blue' | 'pink' | 'green';
 interface Row { ico: string; cls: Tone; t: string; act: () => void }
@@ -28,6 +31,13 @@ export default function Profile() {
   const { darkMode, setDarkMode, logout, deleteAccount, toast, prepperStatus, isAdmin, isPrepPlus, name, location, avatarUrl } = useStore();
   const initial = (name || '?').trim()[0]?.toUpperCase() ?? '?';
   const openLink = (url: string) => Linking.openURL(url).catch(() => toast('Couldn’t open the link', 'info'));
+  const { accountReady, signedIn } = useStore();
+  // Web guest (account known, nobody signed in): a sign-in card replaces the account header and the
+  // account-only rows; the cook, PrepPlus, favorites, help, legal and dark mode rows stay.
+  // The card also waits for one live session check (no-op on native), so a signed-in user whose first
+  // account load timed out never sees it.
+  const storedMode = guestGateMode({ isWeb: Platform.OS === 'web', accountReady, signedIn });
+  const guest = guestGateAfterCheck(storedMode, useGuestSessionCheck(storedMode)) === 'guest';
 
   const confirmDelete = () => {
     confirmAction(
@@ -61,11 +71,24 @@ export default function Profile() {
     { ico: 'shield', cls: '', t: 'Privacy policy', act: () => openLink(PRIVACY_URL) },
     { ico: 'lock', cls: '', t: 'Terms of service', act: () => openLink(TERMS_URL) },
   ];
+  // Web guest: only the rows that work without an account.
+  const guestActivity = activity.filter((r) => r.t === 'Favorites');
+  const guestSupport = support.filter((r) => r.t !== 'Your support requests');
 
   return (
     <View style={{ flex: 1, backgroundColor: c.bg }}>
       <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={{ paddingBottom: 40, maxWidth: 1040, alignSelf: 'center', width: '100%' }}>
+        {guest ? (
+          <View style={{ backgroundColor: c.surface, paddingTop: insets.top + 20, paddingBottom: 20, paddingHorizontal: 16, alignItems: 'center', borderBottomWidth: 1, borderBottomColor: c.border2 }}>
+            <Text accessibilityRole="header" style={[type(18, 900), { color: c.ink, textAlign: 'center' }]}>Sign in to your account</Text>
+            <Text style={[type(13, 600), { color: c.soft, textAlign: 'center', maxWidth: 300, marginTop: 6, lineHeight: 19 }]}>Your orders, addresses and payment methods show up here after you sign in.</Text>
+            <View style={{ marginTop: 14 }}>
+              <Btn label="Sign in" onPress={() => void requestSignIn('generic')} />
+            </View>
+          </View>
+        ) : null}
         {/* hero */}
+        {!guest ? (
         <View style={{ backgroundColor: c.surface, paddingTop: insets.top + 20, paddingBottom: 20, paddingHorizontal: 16, alignItems: 'center', borderBottomWidth: 1, borderBottomColor: c.border2 }}>
           <View style={{ borderRadius: 26, ...shadow.brand }}>
             {avatarUrl ? (
@@ -84,6 +107,7 @@ export default function Profile() {
           </Press>
           <Text style={[type(13, 600), { color: c.soft, marginTop: 2 }]}>{location}</Text>
         </View>
+        ) : null}
 
         {/* become a preppa — state-aware (themed: warm tint that adapts to dark) */}
         <View style={{ marginHorizontal: 16, marginTop: 16, borderRadius: radius.xl, padding: 18, flexDirection: 'row', alignItems: 'center', gap: 14, borderWidth: 1, borderColor: c.border2, backgroundColor: c.primaryL }}>
@@ -158,6 +182,18 @@ export default function Profile() {
           </Group>
         ) : null}
 
+        {guest ? (
+          <>
+            <Group label="Activity">
+              {guestActivity.map((r, i) => <RowItem key={r.t} {...r} last={i === guestActivity.length - 1} />)}
+            </Group>
+            <Group label="Help & support">
+              {guestSupport.map((r, i) => <RowItem key={r.t} {...r} last={i === guestSupport.length - 1} />)}
+            </Group>
+          </>
+        ) : null}
+        {!guest ? (
+        <>
         <Group label="Activity">
           {activity.map((r, i) => <RowItem key={r.t} {...r} last={i === activity.length - 1} />)}
         </Group>
@@ -169,6 +205,8 @@ export default function Profile() {
         <Group label="Help & support">
           {support.map((r, i) => <RowItem key={r.t} {...r} last={i === support.length - 1} />)}
         </Group>
+        </>
+        ) : null}
 
         <Group label="Preferences">
           <Pressable onPress={() => setDarkMode(!darkMode)} style={rowStyle(c, true)} accessibilityRole="switch" accessibilityLabel="Dark mode" accessibilityState={{ checked: darkMode }}>
@@ -178,6 +216,7 @@ export default function Profile() {
           </Pressable>
         </Group>
 
+        {!guest ? (
         <Group>
           <Pressable onPress={logout} accessibilityRole="button" accessibilityLabel="Log out" style={rowStyle(c, false)}>
             <IconWell ico="logout" tone="" />
@@ -190,6 +229,7 @@ export default function Profile() {
             <Text style={[type(15, 700), { color: c.red, flex: 1 }]}>Delete account</Text>
           </Pressable>
         </Group>
+        ) : null}
 
         <Text style={[type(12, 700), { color: c.muted, textAlign: 'center', padding: 20 }]}>preppa · v1.0</Text>
       </ScrollView>
