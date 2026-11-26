@@ -5,7 +5,7 @@
 // No Postgres runs here, so these are static checks over the migration text. The smoke script
 // supabase/tests/anon_browse_smoke.sql runs the real queries.
 import assert from 'node:assert/strict';
-import { existsSync, readFileSync } from 'node:fs';
+import { existsSync, readdirSync, readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import test from 'node:test';
 
@@ -16,7 +16,7 @@ const WITHHELD: Record<string, string[]> = {
   kitchens: ['owner_id', 'cod_enabled', 'cod_paused', 'approved_at', 'rejection_reason', 'suspension_reason',
     'service_categories', 'approval_notice_seen_at', 'updated_at'],
   reviews: ['author_id', 'order_id', 'booking_id'],
-  plans: ['stripe_price_id', 'tax_bps', 'interval', 'service_area', 'photo_urls', 'updated_at'],
+  plans: ['stripe_price_id', 'tax_bps', 'interval', 'meals_per_week', 'service_area', 'photo_urls', 'updated_at'],
   plan_items: [],
 };
 const REWRITTEN: Array<[string, string]> = [
@@ -28,6 +28,14 @@ const REWRITTEN: Array<[string, string]> = [
   ['bookings_read', 'bookings'],
   ['kitchen_private_owner_or_admin_read', 'kitchen_private'],
 ];
+// [table, authenticated policy (exact previous expression), anon policy (published and verified only)]
+const SPLIT: Array<[string, string, string]> = [
+  ['experiences', 'experiences_public_read', 'experiences_anon_read'],
+  ['experience_sessions', 'experience_sessions_public_read', 'experience_sessions_anon_read'],
+];
+// Tables and views the signed-out client reads (directly, or through kitchen_public and kitchen_rating).
+const GUEST_TABLES = ['kitchens', 'meals', 'posts', 'livestreams', 'reviews', 'plans', 'plan_items',
+  'experiences', 'experience_sessions'];
 
 // Lower-case, drop -- comments, collapse whitespace. None of the SQL here has '--' inside a string literal.
 const norm = (sql: string): string =>
@@ -106,7 +114,7 @@ test('every rewritten policy is dropped if it exists, re-created, and no longer 
   }
   assert.ok(sql.includes('create policy posts_public_read on public.posts for select to anon, authenticated using'), 'posts roles kept');
   const creates = sql.match(/create policy \w+/g) ?? [];
-  assert.equal(creates.length, REWRITTEN.length, 'only the listed policies are re-created');
+  assert.equal(creates.length, REWRITTEN.length + SPLIT.length * 2, 'only the listed policies are re-created');
 });
 
 test('every column the signed-out client paths read is in the anon grant', () => {
@@ -152,4 +160,89 @@ test('regressions.sql and the smoke script cover the grants', () => {
     assert.ok(smoke.includes(col), `smoke checks ${col} raises`);
   }
   assert.ok(smoke.includes('exception when insufficient_privilege then'));
+});
+
+// The body of `create policy <name> on public.<table> ...;` in normalized SQL.
+function policyBody(sql: string, name: string, table: string): string {
+  const start = sql.indexOf(`create policy ${name} on public.${table} `);
+  assert.ok(start >= 0, `${name} is created`);
+  return sql.slice(start, sql.indexOf(';', start) + 1);
+}
+
+test('experiences and experience_sessions: anon policy without is_admin, authenticated keeps the old expression', () => {
+  const sql = migration();
+  for (const [table, authed, anon] of SPLIT) {
+    for (const name of [authed, anon]) {
+      const drop = sql.indexOf(`drop policy if exists ${name} on public.${table};`);
+      assert.ok(drop >= 0 && sql.indexOf(`create policy ${name} on public.${table} `) > drop, `${name} dropped then created`);
+    }
+    const a = policyBody(sql, anon, table);
+    assert.ok(a.startsWith(`create policy ${anon} on public.${table} for select to anon using (`), `${anon} is to anon only`);
+    assert.equal(/is_admin|is_kitchen_owner|auth\.uid|owned_kitchen_ids/.test(a), false, `${anon} has no admin or owner branch`);
+    assert.ok(a.includes("status = 'published'") && a.includes("k.verification_status = 'verified'"), `${anon} is published and verified`);
+    const b = policyBody(sql, authed, table);
+    assert.ok(b.startsWith(`create policy ${authed} on public.${table} for select to authenticated using (`), `${authed} is to authenticated only`);
+    assert.ok(b.includes('or (public.is_kitchen_owner(kitchen_id) or public.is_admin())'), `${authed} keeps the owner and admin branch`);
+    assert.ok(b.includes("'published'::text") && b.includes("'verified'::public.verification_status"), `${authed} keeps the public branch`);
+  }
+  assert.equal(/grant [^;]* on function public\.is_admin/.test(sql), false, 'anon is not granted is_admin()');
+});
+
+// Replays every create, alter and drop policy across the migrations, in order, to get each policy's
+// latest roles and expression.
+function latestPolicies(): Map<string, { table: string; cmd: string; roles: string; body: string }> {
+  const dir = join(ROOT, 'supabase', 'migrations');
+  const out = new Map<string, { table: string; cmd: string; roles: string; body: string }>();
+  const re = /\b(create|alter|drop) policy (?:if exists )?(?:"([^"]+)"|(\w+)) on (?:public\.)?"?(\w+)"?([^;]*);/g;
+  for (const f of readdirSync(dir).filter((n) => n.endsWith('.sql')).sort()) {
+    const sql = norm(readFileSync(join(dir, f), 'utf8'));
+    for (const m of sql.matchAll(re)) {
+      const [, verb, quoted, bare, table, rest] = m;
+      const key = `${table}.${quoted ?? bare}`;
+      if (verb === 'drop') { out.delete(key); continue; }
+      const head = rest.split(/ using | with check /)[0];
+      const roles = / to ([\w, ]+)/.exec(head)?.[1].trim();
+      const cmd = / for (select|all|insert|update|delete)/.exec(head)?.[1];
+      const prev = out.get(key);
+      if (verb === 'create') out.set(key, { table, cmd: cmd ?? 'all', roles: roles ?? 'public', body: rest });
+      else if (prev) out.set(key, { ...prev, roles: roles ?? prev.roles, body: rest.includes(' using ') ? rest : prev.body });
+    }
+  }
+  return out;
+}
+
+test('no SELECT policy that applies to anon on a guest-read table calls is_admin()', () => {
+  const policies = latestPolicies();
+  const seen = new Set<string>();
+  for (const [key, p] of policies) {
+    if (!GUEST_TABLES.includes(p.table) || !['select', 'all'].includes(p.cmd)) continue;
+    if (!/\b(anon|public)\b/.test(p.roles)) continue;
+    seen.add(p.table);
+    assert.equal(/\bis_admin\s*\(/.test(p.body), false, `${key} applies to anon (${p.roles}) and calls is_admin()`);
+  }
+  for (const t of ['experiences', 'experience_sessions', 'kitchens', 'meals', 'posts', 'plans']) {
+    assert.ok(seen.has(t), `found an anon-facing SELECT policy on ${t}`);
+  }
+  assert.equal(policies.get('experiences.experiences_public_read')?.roles, 'authenticated');
+  assert.equal(policies.get('experiences.experiences_anon_read')?.roles, 'anon');
+  assert.equal(policies.get('experience_sessions.experience_sessions_public_read')?.roles, 'authenticated');
+  assert.equal(policies.get('experience_sessions.experience_sessions_anon_read')?.roles, 'anon');
+});
+
+test('the smoke script reads the experience fixtures and checks a customer sees only their own rows', () => {
+  const smoke = src('supabase/tests/anon_browse_smoke.sql');
+  assert.ok(smoke.includes("insert into public.experiences (kitchen_id, title, status, price_model, per_person_cents)"));
+  assert.ok(smoke.includes('v_exp = 1 and v_sess = 1'));
+  assert.ok(smoke.includes("v_ok := v_ok and t = 'kitchen_private';"), 'only kitchen_private may raise 42501');
+  assert.ok(smoke.includes('v_subs = 1 and v_subs_own = 1 and v_bookings = 1 and v_bookings_own = 1'));
+  assert.ok(smoke.includes('<> 12 then') && smoke.includes('all 12 cases passed'), 'expects 12 cases');
+  assert.equal(/\b11\b cases|<> 11/.test(smoke), false);
+  const reg = src('supabase/tests/regressions.sql');
+  for (const c of ['interval', 'meals_per_week', 'photo_urls', 'service_area', 'updated_at']) {
+    assert.ok(reg.includes(`('plans', '${c}')`), `regressions.sql checks plans.${c} is withheld`);
+  }
+  const grantList = /union all select 'plans', unnest\(array\[([^\]]*)\]\)/.exec(reg);
+  assert.ok(grantList, 'regressions.sql lists the granted plans columns');
+  const cols = grantList[1].split(',').map((c) => c.trim().replace(/'/g, ''));
+  assert.deepEqual([...cols].sort(), [...anonGrant(migration(), 'plans')].sort(), 'all 27 granted plans columns are asserted');
 });

@@ -2,12 +2,15 @@
 project: Preppa
 type: changelog
 status: active
-last_updated: 2026-11-25
+last_updated: 2026-11-26
 tags: [project/preppa, type/changelog]
 ---
 
 # Changelog
 
+## Signed-out reads limited to allowlisted columns, guest experiences browse fixed (2026-11-26)
+
+`supabase/migrations/20260927005000_anon_column_grants.sql` (web launch S12, DESIGN 2.2) revokes anon's table-level SELECT on `kitchens`, `reviews`, `plans` and `plan_items` and grants only the columns guest browse reads (18, 5, 27 and 5), so a signed-out visitor no longer receives `kitchens.owner_id`, the rejection and suspension reasons, a review's author, order and booking ids, or `plans.stripe_price_id` and `tax_bps`. Seven SELECT policies that read `kitchens.owner_id` now go through the SECURITY DEFINER helper `public.owned_kitchen_ids()`. It also fixes a bug that predates it: since `20260817063118` the anon-facing `experiences_public_read` and `experience_sessions_public_read` called `is_admin()`, which anon cannot execute, so every signed-out read of experiences raised 42501. Each is now split into `experiences_anon_read` / `experience_sessions_anon_read` (to anon: a published experience on a verified kitchen, no admin or owner branch) and the old policy name with its exact previous expression, scoped to authenticated. Signed-in users run as authenticated and see no change. Pinned by `tests/anonColumnGrants.test.ts` and `supabase/tests/regressions.sql`; `supabase/tests/anon_browse_smoke.sql` (12 cases, always rolled back) runs the real queries. Not applied anywhere yet: test project first, production last (a published mobile build exists). See [[Security]].
 ## connect-onboard reads its redirect origins from APP_ORIGINS (2026-11-25)
 
 `connect-onboard` no longer hardcodes `https://app.preppa.live` as the only post-onboarding redirect origin. It reads the new function secret `APP_ORIGINS`, a comma separated list of exact origins (for example `https://staging.preppa.live`). A caller's `returnUrl` or `refreshUrl` is kept only when its origin equals one entry exactly; otherwise, and when none is sent (native clients), the function uses the first entry plus `/my-hub?connect=return` or `/my-hub?connect=refresh`. A missing, empty or malformed value (wildcard, path, trailing slash, upper-case host, default port, credentials, non-http scheme) makes every POST answer 500 `{"error":"Could not start payout setup. Please try again."}` after the CORS preflight and the 1.7 key-mode guard, before auth, database or other Stripe work. A redirect with a non-http(s) scheme (for example `blob:` on an allowed origin) is refused too. Pinned by `tests/connectOnboardOrigins.test.ts` (web-launch DESIGN 1.6). Not deployed; `APP_ORIGINS` must be set on the test project (`https://staging.preppa.live`) and on production (`https://app.preppa.live`) before this version is deployed there, or cook payout onboarding stops working. See [[Security]].

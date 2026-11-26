@@ -1,6 +1,7 @@
 -- Smoke test for the anon column grants and the rewritten policies (web launch S12,
 -- supabase/migrations/20260927005000_anon_column_grants.sql). It runs real queries as anon and as a
--- signed-in kitchen owner, which the static checks in tests/anonColumnGrants.test.ts cannot.
+-- signed-in kitchen owner and a signed-in customer, which the static checks in
+-- tests/anonColumnGrants.test.ts cannot.
 --
 -- Run (after the migration is applied):
 --   psql "$DATABASE_URL" -v ON_ERROR_STOP=1 -f supabase/tests/anon_browse_smoke.sql
@@ -8,10 +9,12 @@
 -- Everything happens inside one transaction that always rolls back, so nothing here persists:
 -- * one throwaway auth user (handle_new_user makes the profile; inserted here if that trigger is
 --   absent) who owns one verified, open kitchen with payouts enabled, so its live meal is orderable;
--- * one live meal, one active plan and one archived plan (each with one plan item), and one
---   published post, all on that kitchen.
--- Reviews and experiences get no fixture rows (a review needs a completed order): their reads are
--- checked for the column privileges they need, which Postgres checks whether or not rows exist.
+-- * one live meal, one active plan and one archived plan (each with one plan item), one published
+--   post, and one published experience with one open future session, all on that kitchen;
+-- * two throwaway customers, each with one draft subscription to the active plan and one
+--   experience booking, so case 12 can check a customer sees only their own rows.
+-- Reviews get no fixture rows (a review needs a completed order): their read is checked for the
+-- column privileges it needs, which Postgres checks whether or not rows exist.
 --
 -- The anon queries are plain SQL versions of the PostgREST embeds the client sends signed out
 -- (src/data/supabaseRepository.ts, src/lib/orders.ts, src/lib/feed.ts, src/lib/livestream.ts,
@@ -31,7 +34,9 @@ create temp table smoke_result (
 ) on commit drop;
 
 create temp table smoke_ctx (
-  owner_id uuid, kitchen_id uuid, meal_id uuid, plan_id uuid, archived_plan_id uuid, post_id uuid
+  owner_id uuid, kitchen_id uuid, meal_id uuid, plan_id uuid, archived_plan_id uuid, post_id uuid,
+  experience_id uuid, session_id uuid, customer_id uuid, other_customer_id uuid,
+  sub_mine uuid, sub_other uuid, booking_mine uuid, booking_other uuid
 ) on commit drop;
 insert into smoke_ctx default values;
 
@@ -47,7 +52,8 @@ grant select, insert on pg_temp.smoke_result to anon, authenticated;
 grant usage on sequence pg_temp.smoke_result_n_seq to anon, authenticated;
 grant select on pg_temp.smoke_ctx to anon, authenticated;
 
--- setup: owner, verified open kitchen with payouts, live meal, active and archived plans, a post
+-- setup: owner, verified open kitchen with payouts, live meal, active and archived plans, a post,
+-- a published experience with a session, and two customers with a subscription and a booking each
 do $$
 declare
   v_owner uuid := gen_random_uuid();
@@ -56,6 +62,14 @@ declare
   v_plan uuid;
   v_archived uuid;
   v_post uuid;
+  v_exp uuid;
+  v_session uuid;
+  v_cust uuid := gen_random_uuid();
+  v_other uuid := gen_random_uuid();
+  v_sub_mine uuid;
+  v_sub_other uuid;
+  v_bk_mine uuid;
+  v_bk_other uuid;
 begin
   insert into auth.users (id, email, aud, role, raw_user_meta_data)
   values (v_owner, 'anon-browse-smoke-s12@example.invalid', 'authenticated', 'authenticated',
@@ -87,9 +101,43 @@ begin
   values (v_kitchen, 'S12 smoke post', 'https://example.invalid/s12.jpg', 'published')
   returning id into v_post;
 
+  insert into public.experiences (kitchen_id, title, status, price_model, per_person_cents)
+  values (v_kitchen, 'S12 smoke experience', 'published', 'per_person', 3000)
+  returning id into v_exp;
+  insert into public.experience_sessions (experience_id, kitchen_id, starts_at, capacity)
+  values (v_exp, v_kitchen, pg_catalog.now() + interval '7 days', 8)
+  returning id into v_session;
+
+  insert into auth.users (id, email, aud, role, raw_user_meta_data)
+  values (v_cust, 'anon-browse-smoke-s12-customer@example.invalid', 'authenticated', 'authenticated',
+          '{"display_name": "anon browse smoke customer"}'::jsonb),
+         (v_other, 'anon-browse-smoke-s12-other@example.invalid', 'authenticated', 'authenticated',
+          '{"display_name": "anon browse smoke other"}'::jsonb);
+  insert into public.profiles (id, display_name)
+  values (v_cust, 'anon browse smoke customer'), (v_other, 'anon browse smoke other')
+  on conflict (id) do nothing;
+
+  insert into public.subscriptions (customer_id, kitchen_id, plan_id) values (v_cust, v_kitchen, v_plan)
+  returning id into v_sub_mine;
+  insert into public.subscriptions (customer_id, kitchen_id, plan_id) values (v_other, v_kitchen, v_plan)
+  returning id into v_sub_other;
+
+  insert into public.bookings (kitchen_id, customer_id, amount_cents, deposit_cents, service_fee_cents, event_date,
+                               booking_kind, experience_id, session_id, guests)
+  values (v_kitchen, v_cust, 3000, 3000, 450, (pg_catalog.now() + interval '7 days')::date,
+          'experience', v_exp, v_session, 1)
+  returning id into v_bk_mine;
+  insert into public.bookings (kitchen_id, customer_id, amount_cents, deposit_cents, service_fee_cents, event_date,
+                               booking_kind, experience_id, session_id, guests)
+  values (v_kitchen, v_other, 3000, 3000, 450, (pg_catalog.now() + interval '7 days')::date,
+          'experience', v_exp, v_session, 1)
+  returning id into v_bk_other;
+
   update pg_temp.smoke_ctx
   set owner_id = v_owner, kitchen_id = v_kitchen, meal_id = v_meal, plan_id = v_plan,
-      archived_plan_id = v_archived, post_id = v_post;
+      archived_plan_id = v_archived, post_id = v_post, experience_id = v_exp, session_id = v_session,
+      customer_id = v_cust, other_customer_id = v_other, sub_mine = v_sub_mine, sub_other = v_sub_other,
+      booking_mine = v_bk_mine, booking_other = v_bk_other;
 end $$;
 
 -- signed out: role anon, no sub claim, so auth.uid() is null
@@ -211,20 +259,33 @@ exception when others then
                                false, sqlstate || ' ' || sqlerrm);
 end $$;
 
--- case 8: reviews list (id,rating,body,created_at by kitchen_id), experiences and sessions by verified kitchen
+-- case 8: reviews list (id,rating,body,created_at by kitchen_id), and the published experience and
+-- its session on the verified kitchen through experiences_anon_read and experience_sessions_anon_read
+-- (before the split these raised 42501: the anon-facing policy called is_admin())
 do $$
+declare
+  v_exp integer;
+  v_sess integer;
 begin
   perform r.id, r.kitchen_id, r.rating, r.body, r.created_at from public.reviews r
   where r.kitchen_id = (select c.kitchen_id from pg_temp.smoke_ctx c) order by r.created_at desc;
-  perform e.id, k.name from public.experiences e join public.kitchens k on k.id = e.kitchen_id
-  where e.status = 'published' and k.verification_status = 'verified';
-  perform count(*) from public.experience_sessions;
-  perform pg_temp.smoke_record('anon reads reviews, experiences and experience_sessions', true, null);
+  select count(*) into v_exp from (
+    select e.id, k.name from public.experiences e join public.kitchens k on k.id = e.kitchen_id
+    where e.status = 'published' and k.verification_status = 'verified'
+      and e.id = (select c.experience_id from pg_temp.smoke_ctx c)
+  ) s;
+  select count(*) into v_sess from public.experience_sessions es
+  where es.id = (select c.session_id from pg_temp.smoke_ctx c);
+  perform pg_temp.smoke_record('anon reads reviews, experiences and experience_sessions', v_exp = 1 and v_sess = 1,
+                               pg_catalog.format('experiences %s, sessions %s', v_exp, v_sess));
 exception when others then
   perform pg_temp.smoke_record('anon reads reviews, experiences and experience_sessions', false, sqlstate || ' ' || sqlerrm);
 end $$;
 
--- case 9: the other rewritten policies return no rows to anon instead of raising
+-- case 9: the other rewritten policies return no rows to anon instead of raising. kitchen_private
+-- alone may raise 42501 instead: its policy still calls is_admin(), which anon cannot EXECUTE. That
+-- is accepted (owner and admin only table, the guest client never reads it, the error exposes
+-- nothing); any other error, or any row, still fails the case.
 do $$
 declare
   t text;
@@ -241,12 +302,15 @@ begin
       execute pg_catalog.format('select count(*) from public.%I', t) into v_n;
       v_ok := v_ok and v_n = 0;
       v_detail := v_detail || t || ': ' || v_n || ' row(s); ';
-    exception when others then
+    exception when insufficient_privilege then
+      v_ok := v_ok and t = 'kitchen_private';
+      v_detail := v_detail || t || ': ' || sqlstate || ' ' || sqlerrm || '; ';
+    when others then
       v_ok := false;
       v_detail := v_detail || t || ': ' || sqlstate || ' ' || sqlerrm || '; ';
     end;
   end loop;
-  perform pg_temp.smoke_record('anon gets no rows, not an error, from subscriptions, quotes, bookings, kitchen_private',
+  perform pg_temp.smoke_record('anon gets no rows, not an error, from subscriptions, quotes, bookings (kitchen_private: no rows or 42501)',
                                v_ok, v_detail);
 end $$;
 
@@ -308,6 +372,38 @@ end $$;
 
 reset role;
 
+-- signed in as a customer who owns no kitchen: role authenticated with the customer's sub claim
+select pg_catalog.set_config('request.jwt.claims',
+  pg_catalog.jsonb_build_object('sub', (select c.customer_id from pg_temp.smoke_ctx c), 'role', 'authenticated')::text, true);
+set local role authenticated;
+
+-- case 12: the customer sees their own subscription and booking, not the other customer's
+-- (subs_customer_read, bookings_read: customer_id = auth.uid(), and no kitchen of theirs)
+do $$
+declare
+  v_subs integer;
+  v_subs_own integer;
+  v_bookings integer;
+  v_bookings_own integer;
+begin
+  select count(*), count(*) filter (where s.customer_id = (select c.customer_id from pg_temp.smoke_ctx c))
+  into v_subs, v_subs_own
+  from public.subscriptions s
+  where s.id in (select c.sub_mine from pg_temp.smoke_ctx c union all select c.sub_other from pg_temp.smoke_ctx c);
+  select count(*), count(*) filter (where b.customer_id = (select c.customer_id from pg_temp.smoke_ctx c))
+  into v_bookings, v_bookings_own
+  from public.bookings b
+  where b.id in (select c.booking_mine from pg_temp.smoke_ctx c union all select c.booking_other from pg_temp.smoke_ctx c);
+  perform pg_temp.smoke_record(
+    'customer reads only their own subscriptions and bookings',
+    v_subs = 1 and v_subs_own = 1 and v_bookings = 1 and v_bookings_own = 1,
+    pg_catalog.format('subscriptions %s (own %s), bookings %s (own %s)', v_subs, v_subs_own, v_bookings, v_bookings_own));
+exception when others then
+  perform pg_temp.smoke_record('customer reads only their own subscriptions and bookings', false, sqlstate || ' ' || sqlerrm);
+end $$;
+
+reset role;
+
 do $$
 declare
   r record;
@@ -317,10 +413,13 @@ begin
     raise notice '% %: %', case when r.ok then 'PASS' else 'FAIL' end, r.name, coalesce(r.detail, '');
   end loop;
   select count(*) into v_failed from pg_temp.smoke_result where not ok;
-  if v_failed > 0 or (select count(*) from pg_temp.smoke_result) <> 11 then
-    raise exception 'anon_browse smoke: % of % case(s) failed', v_failed, (select count(*) from pg_temp.smoke_result);
+  if v_failed > 0 or (select count(*) from pg_temp.smoke_result) <> 12 then
+    raise exception 'anon_browse smoke: % of % failed (12 expected): %', v_failed,
+      (select count(*) from pg_temp.smoke_result),
+      coalesce((select string_agg(name || ' => ' || coalesce(detail, ''), ' || ' order by n)
+                from pg_temp.smoke_result where not ok), '');
   end if;
-  raise notice 'anon_browse smoke: all 11 cases passed';
+  raise notice 'anon_browse smoke: all 12 cases passed';
 end $$;
 
 rollback;

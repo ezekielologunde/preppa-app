@@ -18,8 +18,9 @@
 --   rejection_reason, suspension_reason, service_categories, in_home_vetting_*,
 --   approval_notice_seen_at, updated_at.
 -- * reviews: src/data/hooks.ts and the kitchen_rating view. Withheld: author_id, order_id, booking_id.
--- * plans: PLAN_SELECT in src/lib/subscriptions.ts plus created_at (its order by). Withheld:
---   stripe_price_id, tax_bps, interval, service_area, photo_urls, updated_at.
+-- * plans: PLAN_SELECT in src/lib/subscriptions.ts plus created_at (its order by). Withheld (every
+--   other column, checked against the plans migrations): interval, stripe_price_id, updated_at
+--   (20260711055903), meals_per_week, tax_bps, photo_urls, service_area (20260712020200).
 -- * plan_items: the plan_items(qty, meal_id, week_index) embed, plus its keys.
 --
 -- Policies rewritten. A subquery inside an RLS policy runs as the querying role, so a policy on
@@ -37,11 +38,35 @@
 -- * plans_read_active (public): guest browse lists active plans.
 -- * plan_items_read (public): guest browse embeds plan_items in each plan.
 -- * posts_public_read (anon, authenticated): guest feed reads published posts.
--- * subs_customer_read, quotes_read, bookings_read, kitchen_private_owner_or_admin_read (public):
---   anon has no rows there, but without the rewrite a signed-out read would raise 42501 where it
---   returns no rows today.
--- Not rewritten: experiences_public_read and experience_sessions_public_read read only kitchens.id
--- and kitchens.verification_status, which anon keeps; profiles_select_self_or_public_cook applies to
+-- * subs_customer_read, quotes_read, bookings_read (public): anon has no rows there, but without
+--   the rewrite a signed-out read would raise 42501 where it returns no rows today.
+-- * kitchen_private_owner_or_admin_read (public): rewritten the same way, but it still calls
+--   is_admin(), which anon cannot EXECUTE (revoked in 20260708061142), so a signed-out read of
+--   kitchen_private raises 42501 as it did before this migration. Left that way on purpose: the
+--   table is owner and admin only, the guest client never reads it, and the error exposes nothing.
+--
+-- Policies split by role (is_admin() in an anon-facing policy). Postgres checks EXECUTE on every
+-- function in a policy when the query starts, whether or not the OR branch is reached, and anon
+-- lost EXECUTE on is_admin() in 20260708061142. 20260817063118 merged the owner-or-admin branch into
+-- experiences_public_read and experience_sessions_public_read, which apply to anon, so every
+-- signed-out read of experiences and experience_sessions has raised 42501 since then (guest browse
+-- of experiences is broken today, independent of the column grants). Fixed without granting anon
+-- EXECUTE on is_admin():
+-- * experiences_public_read, experience_sessions_public_read: re-created to authenticated only,
+--   with the exact previous expression (published and verified, or is_kitchen_owner() or
+--   is_admin()), so signed-in reads are unchanged.
+-- * experiences_anon_read, experience_sessions_anon_read (new, to anon): only the published and
+--   verified-kitchen part, the same pure-SQL check 20260713214136 used, with no is_admin(),
+--   is_kitchen_owner() or auth.uid() branch (for anon those branches were always false or null).
+--   They read kitchens.id and kitchens.verification_status, which anon keeps, and experiences.id,
+--   status and kitchen_id (experiences keeps its table grant).
+-- Sweep: every other SELECT policy that applies to anon on a table the guest client reads (kitchens,
+-- meals, posts, livestreams, reviews, plans, plan_items, and the kitchen_public and kitchen_rating
+-- views through them) calls only functions anon can EXECUTE (is_kitchen_owner, is_kitchen_orderable,
+-- owned_kitchen_ids) or none. The other policies that call is_admin() or a function revoked from
+-- anon (stripe_accounts, feed_events, subscription_cycles and the rest) apply to authenticated only.
+--
+-- Not rewritten: profiles_select_self_or_public_cook applies to
 -- authenticated only; the plan_items insert, update and delete policies apply to writes, which anon
 -- cannot make (no INSERT, UPDATE or DELETE grant). A kitchens policy may read owner_id itself: the
 -- columns a policy reads on its own table are not checked against the caller's column privileges.
@@ -129,4 +154,42 @@ create policy bookings_read on public.bookings for select using (
 drop policy if exists kitchen_private_owner_or_admin_read on public.kitchen_private;
 create policy kitchen_private_owner_or_admin_read on public.kitchen_private for select using (
   public.is_admin() or kitchen_id in (select public.owned_kitchen_ids())
+);
+
+-- experiences and experience_sessions: anon gets the published-and-verified rows without any
+-- is_admin() call; authenticated keeps the exact previous expression
+drop policy if exists experiences_public_read on public.experiences;
+create policy experiences_public_read on public.experiences for select to authenticated using (
+  ((status = 'published'::text) and (exists (
+    select 1 from public.kitchens k
+    where ((k.id = experiences.kitchen_id) and (k.verification_status = 'verified'::public.verification_status))
+  )))
+  or (public.is_kitchen_owner(kitchen_id) or public.is_admin())
+);
+
+drop policy if exists experiences_anon_read on public.experiences;
+create policy experiences_anon_read on public.experiences for select to anon using (
+  status = 'published' and exists (
+    select 1 from public.kitchens k
+    where k.id = experiences.kitchen_id and k.verification_status = 'verified'
+  )
+);
+
+drop policy if exists experience_sessions_public_read on public.experience_sessions;
+create policy experience_sessions_public_read on public.experience_sessions for select to authenticated using (
+  (exists (
+    select 1 from (public.experiences e join public.kitchens k on ((k.id = e.kitchen_id)))
+    where ((e.id = experience_sessions.experience_id) and (e.status = 'published'::text)
+      and (k.verification_status = 'verified'::public.verification_status))
+  ))
+  or (public.is_kitchen_owner(kitchen_id) or public.is_admin())
+);
+
+drop policy if exists experience_sessions_anon_read on public.experience_sessions;
+create policy experience_sessions_anon_read on public.experience_sessions for select to anon using (
+  exists (
+    select 1 from public.experiences e join public.kitchens k on k.id = e.kitchen_id
+    where e.id = experience_sessions.experience_id and e.status = 'published'
+      and k.verification_status = 'verified'
+  )
 );
