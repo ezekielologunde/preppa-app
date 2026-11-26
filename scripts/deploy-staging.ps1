@@ -26,6 +26,7 @@
 .PARAMETER ExpectedAccount  The preppa-test Stripe Sandbox acct_ id.
 .PARAMETER LocalAccount     The preppa-local Stripe Sandbox acct_ id (used only for the negative check).
 .PARAMETER StartAt          Resume at step N (1-9). Steps are idempotent.
+.PARAMETER FromFunction   Step 9 only: skip every function before this one (already deployed).
 .PARAMETER DryRun           Print what would run; no CLI mutation, no network, no secret prompts.
 
 .EXAMPLE
@@ -37,6 +38,7 @@ param(
   [Parameter(Mandatory = $true)][string]$ExpectedAccount,
   [string]$LocalAccount = '',
   [ValidateRange(1, 9)][int]$StartAt = 1,
+  [string]$FromFunction = '',
   [switch]$DryRun
 )
 
@@ -308,10 +310,20 @@ try {
     Push-Location $RepoRoot
     try {
       $n = 0
+      $reached = ($FromFunction -eq '')
       foreach ($fn in $order) {
         $n++
         Say "[$n/$($order.Count)] $fn"
-        Invoke-Sb functions deploy $fn --project-ref $ProjectRef --use-api
+        if (-not $reached) { if ($fn -eq $FromFunction) { $reached = $true } else { Say '(skipped: already deployed)'; continue } }
+        $tries = 0
+        while ($true) {
+          $tries++
+          try { Invoke-Sb functions deploy $fn --project-ref $ProjectRef --use-api; break }
+          catch {
+            if ($_.Exception.Message -eq 'stopped' -and $tries -lt 4) { Say "Deploy of $fn failed. Waiting 60 seconds, then retrying ($tries of 3)."; Start-Sleep -Seconds 60 }
+            else { throw }
+          }
+        }
         Add-Evidence "deployed $fn"
         if ($fn -eq 'decline-order') {
           Wait-Human 'create-order and decline-order are up. Smoke-test checkout and decline-refund on staging now if you want to, before the rest go out.'
