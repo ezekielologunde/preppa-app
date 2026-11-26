@@ -2,11 +2,15 @@
 project: Preppa
 type: security
 status: active
-last_updated: 2026-11-24
+last_updated: 2026-11-25
 tags: [project/preppa, type/security]
 ---
 
 # Security
+
+## connect-onboard redirect origins from APP_ORIGINS (web launch task 1.6, 2026-11-25)
+
+The Stripe onboarding return and refresh URLs are the redirect a cook follows right after submitting identity and bank details, so they stay an allowlist, but the allowlist now comes from the `APP_ORIGINS` function secret instead of a production literal; a test project can complete onboarding on its own host and never sends a cook to production. Each comma separated entry is trimmed and must equal its own `URL.origin` (http or https, lower-case host, no default port, no path, trailing slash, query, fragment, credentials or `*`). A candidate URL is accepted only when its parsed `URL.origin` is exactly one of the entries: no wildcard, suffix, prefix or substring match, so `https://staging.preppa.live.evil.example`, another scheme or another port is rejected and replaced by the first entry's default path. If the value is missing, empty or has any malformed entry the function fails closed: after the CORS preflight and the 1.7 key-mode guard it answers a fixed 500 with the same generic payout-setup message as other failures, logs one fixed reason, and echoes neither the configured nor the requested origin. CORS stays `*` (the function is called with the user's JWT, not cookies). Pinned by `tests/connectOnboardOrigins.test.ts`, which evaluates the whole module with stubbed Supabase and Stripe clients. Set `APP_ORIGINS` on each project before deploying this version.
 
 ## Stripe reconcile triggers install loudly (web launch task 1.4, 2026-11-24)
 

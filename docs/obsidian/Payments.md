@@ -31,7 +31,7 @@ Funds are **not held in Stripe escrow**. Cook earnings accrue as append-only `le
 
 ## Connect payouts — implemented
 
-`connect-onboard` creates an Express account (redirect URLs allowlisted to `app.preppa.live` only). `connect-payout`: `reserve_payout` (advisory lock, caller's JWT) → `transfers.create` with idempotency key and retry → `finalize_payout` (**service-role only**, so a cook can't self-confirm their own payout).
+`connect-onboard` creates an Express account (redirect URLs allowlisted to the exact origins in the `APP_ORIGINS` function secret, production `https://app.preppa.live`; missing or malformed fails closed, web-launch DESIGN 1.6). `connect-payout`: `reserve_payout` (advisory lock, caller's JWT) → `transfers.create` with idempotency key and retry → `finalize_payout` (**service-role only**, so a cook can't self-confirm their own payout).
 
 **Ambiguous-error handling (deliberate design):** a Stripe connection/timeout error during payout or subscription charging means the outcome is *unknown*. Rather than risk a double-payout by freeing the amount for retry, these paths return HTTP 202 and leave the row `pending`/`charging` — for payouts this is now picked up automatically (see below); for subscription charging it's still manual. See [[Tasks]].
 
