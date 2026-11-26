@@ -17,6 +17,8 @@ import { CardPaymentSheet } from '../../src/components/CardPaymentSheet';
 import { shareAndNotify, SITE } from '../../src/lib/share';
 import { FLAGS } from '../../src/config/flags';
 import { openThread } from '../../src/lib/messages';
+import { buildIntent } from '../../src/lib/requireAuthLogic';
+import { useRequireAuth } from '../../src/lib/useRequireAuth';
 import { fetchExperience, fetchAvailability, bookExperience, fetchMyWaitlistSessions, joinWaitlist, leaveWaitlist, fetchExperienceRating, fetchExperienceReviews, type Experience, type Availability, type ExperienceReview } from '../../src/lib/experiences';
 
 const WD = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
@@ -36,6 +38,7 @@ export default function ExperienceDetail() {
   const router = useRouter();
   const { id } = useLocalSearchParams<{ id: string }>();
   const { toast } = useStore();
+  const requireAuth = useRequireAuth();
 
   const [exp, setExp] = useState<Experience | null>(null);
   const [avail, setAvail] = useState<Availability[]>([]);
@@ -150,6 +153,10 @@ export default function ExperienceDetail() {
       else toast('Couldn’t start your booking. Please try again.', 'info');
     } finally { bookingInFlight.current = false; setBusy(false); }
   };
+  // Booking moves money: after a sign-in it is not re-fired; the user taps Book again.
+  const onBook = () => {
+    void requireAuth('book', buildIntent('book', [exp.id], `/experience/${exp.id}`, Date.now()), book);
+  };
 
   const onWait = !!sel && waitlisted.has(sel.sessionId);
   const joinWl = async () => {
@@ -166,7 +173,7 @@ export default function ExperienceDetail() {
     catch { toast('Could not update the waitlist. Please try again.', 'info'); }
     finally { waitlistInFlight.current = false; setBusy(false); }
   };
-  const primaryAction = !sel ? undefined : canBook ? book : onWait ? leaveWl : joinWl;
+  const primaryAction = !sel ? undefined : canBook ? onBook : onWait ? leaveWl : joinWl;
   const primaryLabel = !sel ? 'Pick a date' : canBook ? (isFlat ? `Book the whole session · ${money(total / 100)}` : `Book · ${money(total / 100)}`) : onWait ? 'On the waitlist' : 'Join waitlist';
   const primaryIcon = canBook ? 'ticket' : onWait ? 'check' : 'bell';
 
@@ -174,6 +181,9 @@ export default function ExperienceDetail() {
   const messageHost = async () => {
     try { const tid = await openThread(exp.kitchenId, 'experience', exp.id); router.push(`/messages/${tid}`); }
     catch (e: any) { toast(/auth/i.test(String(e?.message)) ? 'Sign in to message the host' : 'Could not open chat. Please try again.', 'info'); }
+  };
+  const onMessageHost = () => {
+    void requireAuth('openThread', buildIntent('openThread', [exp.kitchenId, exp.id], `/experience/${exp.id}`, Date.now()), messageHost);
   };
 
   return (
@@ -208,7 +218,7 @@ export default function ExperienceDetail() {
           </Press>
 
           {FLAGS.chat ? (
-            <Press scale={0.98} onPress={messageHost} style={{ marginTop: 10 }}>
+            <Press scale={0.98} onPress={onMessageHost} style={{ marginTop: 10 }}>
               <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8, height: 44, borderRadius: radius.md, borderWidth: 1, borderColor: c.border2, backgroundColor: c.bg2 }}>
                 <Icon name="comment" size={17} color={c.ink2} />
                 <Text style={[type(13.5, 800), { color: c.ink2 }]}>Message the host</Text>

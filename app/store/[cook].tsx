@@ -16,6 +16,8 @@ import { shareAndNotify, SITE } from '../../src/lib/share';
 import { FLAGS } from '../../src/config/flags';
 import { openThread } from '../../src/lib/messages';
 import { toggleFollow, fetchIsFollowing } from '../../src/lib/feed';
+import { buildIntent } from '../../src/lib/requireAuthLogic';
+import { useRequireAuth } from '../../src/lib/useRequireAuth';
 import { fetchExperiencesForKitchen, type Experience } from '../../src/lib/experiences';
 import { fetchKitchenLivestream } from '../../src/lib/livestream';
 import { invalidate } from '../../src/data/cache';
@@ -138,6 +140,7 @@ function RealKitchenStore({ profile, meals, mealsLoading, mealsError, reviewsErr
   const c = useC();
   const router = useRouter();
   const { toast } = useStore();
+  const requireAuth = useRequireAuth();
   const [following, setFollowing] = useState(false);
   const [followLoading, setFollowLoading] = useState(true);
   const [followMutating, setFollowMutating] = useState(false);
@@ -156,10 +159,28 @@ function RealKitchenStore({ profile, meals, mealsLoading, mealsError, reviewsErr
       .finally(() => { if (alive) setFollowLoading(false); });
     return () => { alive = false; };
   }, [profile.id, followNonce]);
-  const onFollow = async () => {
+  const onFollow = () => requireAuth('follow', buildIntent('follow', [profile.id], `/store/${profile.id}`, Date.now()), async ({ resumed }) => {
     if (followLoading || followMutationInFlight.current) return;
     followMutationInFlight.current = true;
-    const next = !following;
+    if (resumed) {
+      // Signed in from the sheet: `following` was read signed out, so a toggle could unfollow. Follow only.
+      let already: boolean;
+      try {
+        already = await fetchIsFollowing(profile.id);
+      } catch {
+        followMutationInFlight.current = false;
+        setFollowNonce((n) => n + 1);
+        toast('Could not update your follow. Try again.', 'info');
+        return;
+      }
+      if (already) {
+        followMutationInFlight.current = false;
+        setFollowing(true);
+        toast(`Following ${profile.name}`, 'check', true);
+        return;
+      }
+    }
+    const next = resumed ? true : !following;
     setFollowMutating(true);
     setFollowing(next); // optimistic
     try {
@@ -173,8 +194,8 @@ function RealKitchenStore({ profile, meals, mealsLoading, mealsError, reviewsErr
       followMutationInFlight.current = false;
       setFollowMutating(false);
     }
-  };
-  const onMessage = async () => {
+  });
+  const onMessage = () => requireAuth('openThread', buildIntent('openThread', [profile.id], `/store/${profile.id}`, Date.now()), async () => {
     if (chatOpeningInFlight.current) return;
     chatOpeningInFlight.current = true;
     setChatOpening(true);
@@ -187,7 +208,7 @@ function RealKitchenStore({ profile, meals, mealsLoading, mealsError, reviewsErr
       chatOpeningInFlight.current = false;
       setChatOpening(false);
     }
-  };
+  });
   const initial = profile.name.trim()[0]?.toUpperCase() ?? 'K';
   const sub = [profile.cuisine, profile.area].filter(Boolean).join(' · ');
   return (

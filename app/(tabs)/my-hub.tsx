@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { View, Text, ScrollView, StyleProp, ViewStyle, TextInput, LayoutChangeEvent } from 'react-native';
+import { View, Text, ScrollView, StyleProp, ViewStyle, TextInput, LayoutChangeEvent, Platform } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useRouter, useLocalSearchParams, Redirect, useFocusEffect } from 'expo-router';
 import { useC } from '../../src/theme/ThemeContext';
@@ -11,6 +11,7 @@ import { fetchDashboardSummary, fetchKitchenOrders, updateOrderStatus, KitchenDa
 import { getMyKitchen, refreshConnectStatus, startConnectOnboarding } from '../../src/lib/connect';
 import { FLAGS } from '../../src/config/flags';
 import { connectReturnAction, myHubDecision } from '../../src/lib/accountGate';
+import { requestSignIn } from '../../src/lib/authRequest';
 
 export type Tone = 'ic-amber' | 'ic-green' | 'ic-purple' | 'ic-blue' | 'ic-ink' | 'ic-red';
 export function well(c: Palette, t: Tone): [string, string] {
@@ -414,7 +415,9 @@ export default function MyHub() {
       // Signed out: leave ?connect= in the URL so it is handled after sign-in.
       if (!signInToastShown.current) {
         signInToastShown.current = true;
-        toast('Sign in to finish setting up payouts.', 'info');
+        // Web: open the sign-in sheet; ?connect= stays and is handled once signedIn flips.
+        if (Platform.OS === 'web') void requestSignIn('connect');
+        else toast('Sign in to finish setting up payouts.', 'info');
       }
       return;
     }
