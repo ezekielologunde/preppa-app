@@ -34,6 +34,8 @@ export interface Intent {
 function readProp(obj: unknown, key: string): unknown {
   if (obj === null || (typeof obj !== 'object' && typeof obj !== 'function')) return undefined;
   try {
+    // Own properties only: an inherited value (for example one planted on Object.prototype) is never read.
+    if (!Object.prototype.hasOwnProperty.call(obj, key)) return undefined;
     return (obj as Record<string, unknown>)[key];
   } catch {
     return undefined;
@@ -143,8 +145,11 @@ export function isSafePath(p: string): boolean {
 
 export const INTENT_STORAGE_KEY = 'preppa.authIntent';
 export const INTENT_TTL_MS = 15 * 60 * 1000;
-/** A stored timestamp this far in the future is still accepted (clock nudges); further is tampering. */
-export const INTENT_CLOCK_SKEW_MS = 60 * 1000;
+/**
+ * A stored timestamp this far in the future is still accepted (clock nudges); further is tampering.
+ * Kept small so the longest lifetime stays about INTENT_TTL_MS + this.
+ */
+export const INTENT_CLOCK_SKEW_MS = 5 * 1000;
 export const MAX_INTENT_IDS = 8;
 const ID_PATTERN = /^[A-Za-z0-9_-]{1,64}$/;
 const ACCOUNT_KEY_PATTERN = /^[A-Za-z0-9_-]{1,128}$/;
@@ -172,6 +177,8 @@ function sanitizeIntent(raw: unknown): Intent | null {
     if (typeof id !== 'string' || !ID_PATTERN.test(id)) return null;
     cleanIds.push(id);
   }
+  // Re-check on the cleaned copy: an array-like that misreports `length` cannot sneak extra ids in.
+  if (cleanIds.length > MAX_INTENT_IDS) return null;
   if (typeof path !== 'string' || !isSafePath(path)) return null;
   if (typeof t !== 'number' || !Number.isFinite(t) || t < 0) return null;
   return { kind, ids: cleanIds, path, t };
@@ -263,6 +270,16 @@ export function loadIntent(now: number, accountKey: string, storage?: KeyValueSt
   return intent;
 }
 
+/**
+ * Single use: loads the intent for `accountKey` and clears the stored copy in the same step, whether
+ * or not it decoded. A second call returns null.
+ */
+export function consumeIntent(accountKey: string, now: number, storage?: KeyValueStorage | null): Intent | null {
+  const intent = loadIntent(now, accountKey, storage);
+  clearIntent(storage);
+  return intent;
+}
+
 export function clearIntent(storage?: KeyValueStorage | null): void {
   const s = pickStorage(storage);
   if (!s) return;
@@ -306,6 +323,8 @@ function emit(): void {
  */
 export function requestSignIn(reason: AuthReason, intent?: Intent): Promise<boolean> {
   if (pending) return pending.promise;
+  // No host is listening, so nobody could ever settle this request: fail it now instead of hanging.
+  if (listeners.size === 0) return Promise.resolve(false);
   let resolve: (ok: boolean) => void = () => {};
   const promise = new Promise<boolean>((r) => {
     resolve = r;
@@ -346,9 +365,12 @@ export function subscribe(listener: Listener): () => void {
   listeners.add(listener);
   return () => {
     listeners.delete(listener);
+    // The last host went away while a request is open: nobody can settle it, so settle it false.
+    if (listeners.size === 0 && pending) resolveSignIn(false);
   };
 }
 
+/** Test-only: not for app code. Settles any pending request false and removes every listener. */
 export function __resetForTests(): void {
   const p = pending;
   pending = null;
@@ -410,19 +432,20 @@ export interface FragmentWindow {
 
 /**
  * Removes an auth fragment from the address bar with history.replaceState. Does nothing when the
- * fragment carries no tokens or errors, or there is no window. Returns what was found (without
+ * fragment carries no tokens or errors, or `win` is null. The caller passes the window; there is no global fallback. Returns what was found (without
  * token values) when it scrubbed, otherwise null.
  */
-export function scrubAuthFragment(win?: FragmentWindow | null): AuthFragment | null {
+export function scrubAuthFragment(win: FragmentWindow | null): AuthFragment | null {
   try {
-    const w = win === undefined ? (globalThis as FragmentWindow) : win;
+    const w = win;
     if (!w) return null;
     const loc = w.location;
     const hist = w.history;
     if (!loc || !hist || typeof hist.replaceState !== 'function') return null;
     const found = parseAuthFragment(typeof loc.hash === 'string' ? loc.hash : '');
     if (!found.hasTokens && found.error === null && found.errorCode === null) return null;
-    const url = (loc.pathname || '/') + (loc.search || '');
+    // Exactly one leading slash, so a pathname like "//evil.com/x" cannot become a protocol-relative URL.
+    const url = '/' + (loc.pathname || '').replace(/^\/+/, '') + (loc.search || '');
     hist.replaceState(hist.state ?? null, '', url);
     return found;
   } catch {

@@ -10,6 +10,7 @@ import {
   __resetForTests,
   AUTH_COPY,
   clearIntent,
+  consumeIntent,
   decodeIntent,
   dismissSignIn,
   encodeIntent,
@@ -194,6 +195,21 @@ test('intent codec rejects an expired or far-future timestamp', () => {
   assert.equal(decodeIntent(future, NOW, KEY), null);
 });
 
+test('intent codec accepts a timestamp up to 5 s ahead and rejects further', () => {
+  const ahead = (ms: number) => encodeIntent({ ...good, t: NOW + ms }, KEY)!;
+  assert.ok(decodeIntent(ahead(4000), NOW, KEY), '+4 s accepted');
+  assert.ok(decodeIntent(ahead(5000), NOW, KEY), '+5 s is the edge, accepted');
+  assert.equal(decodeIntent(ahead(5001), NOW, KEY), null, '+5.001 s rejected');
+  assert.equal(decodeIntent(ahead(10_000), NOW, KEY), null, '+10 s rejected');
+});
+
+test('intent codec: a slightly future timestamp expires no later than TTL + 5 s', () => {
+  const raw = encodeIntent({ ...good, t: NOW + 4000 }, KEY)!;
+  assert.ok(decodeIntent(raw, NOW + 4000 + INTENT_TTL_MS, KEY), 'still valid exactly at its own TTL');
+  assert.equal(decodeIntent(raw, NOW + INTENT_TTL_MS + 5000, KEY), null);
+  assert.equal(decodeIntent(raw, NOW + INTENT_TTL_MS + 4001, KEY), null);
+});
+
 test('intent codec drops unknown fields on encode and decode', () => {
   const sneaky = { ...good, email: 'a@b.c', password: 'x', access_token: 'tok', cart: [{ price: 1 }] } as Intent;
   const raw = encodeIntent(sneaky, KEY)!;
@@ -223,6 +239,19 @@ test('intent codec rejects oversized or malformed ids', () => {
   assert.equal(encodeIntent({ ...good, ids: 'cook-1' as unknown as string[] }, KEY), null);
 });
 
+test('intent codec rejects ids whose array misreports its length', () => {
+  const real = Array.from({ length: 9 }, (_, i) => 'id' + i);
+  const liar = new Proxy(real, {
+    get(target, prop) {
+      if (prop === 'length') return 1;
+      if (prop === Symbol.iterator) return () => target.values();
+      return Reflect.get(target, prop);
+    },
+  });
+  assert.equal(liar.length, 1);
+  assert.equal(encodeIntent({ ...good, ids: liar }, KEY), null);
+});
+
 test('intent codec checks the path on encode and again on decode', () => {
   assert.equal(encodeIntent({ ...good, path: '//evil.com' }, KEY), null);
   const tampered = JSON.stringify({ kind: 'follow', ids: [], path: '//evil.com', t: NOW, k: KEY });
@@ -237,6 +266,42 @@ test('intent codec returns null for tampered or non-JSON input', () => {
   }
   const badT = JSON.stringify({ kind: 'follow', ids: [], path: '/home', t: 'soon', k: KEY });
   assert.equal(decodeIntent(badT, NOW, KEY), null);
+});
+
+test('intent codec ignores inherited properties (Object.prototype pollution)', () => {
+  const own = { kind: 'follow', ids: ['cook-1'], path: '/store/cook-1', t: NOW, k: KEY };
+  const polluted: [string, unknown][] = [
+    ['k', KEY],
+    ['kind', 'follow'],
+    ['ids', ['cook-1']],
+    ['path', '/store/cook-1'],
+    ['t', NOW],
+  ];
+  const proto = Object.prototype as unknown as Record<string, unknown>;
+  for (const [field, value] of polluted) {
+    const stored: Record<string, unknown> = { ...own };
+    delete stored[field];
+    assert.equal(decodeIntent(JSON.stringify(stored), NOW, KEY), null, `${field} missing, no pollution`);
+    proto[field] = value;
+    try {
+      assert.equal(decodeIntent(JSON.stringify(stored), NOW, KEY), null, `inherited ${field} must not count`);
+    } finally {
+      delete proto[field];
+    }
+  }
+  assert.deepEqual(decodeIntent(JSON.stringify(own), NOW, KEY), good, 'sanity: intact after cleanup');
+});
+
+test('isAuthFailure ignores an inherited code or status', () => {
+  const proto = Object.prototype as unknown as Record<string, unknown>;
+  proto.code = 'AUTH_REQUIRED';
+  proto.status = 401;
+  try {
+    assert.equal(isAuthFailure({}, false), false);
+  } finally {
+    delete proto.code;
+    delete proto.status;
+  }
 });
 
 function memoryStorage(): KeyValueStorage & { data: Map<string, string> } {
@@ -269,6 +334,18 @@ test('saveIntent, loadIntent and clearIntent use the preppa.authIntent key', () 
   clearIntent(s);
   assert.equal(s.data.size, 0);
   assert.equal(loadIntent(NOW, KEY, s), null);
+});
+
+test('consumeIntent returns the intent once and clears storage', () => {
+  const s = memoryStorage();
+  saveIntent(good, KEY, s);
+  assert.deepEqual(consumeIntent(KEY, NOW, s), good);
+  assert.equal(s.data.size, 0);
+  assert.equal(consumeIntent(KEY, NOW, s), null, 'a second call finds nothing');
+  saveIntent(good, KEY, s);
+  assert.equal(consumeIntent('other_account', NOW, s), null);
+  assert.equal(s.data.size, 0, 'cleared even when it did not decode');
+  assert.equal(consumeIntent(KEY, NOW, null), null);
 });
 
 test('loadIntent removes an intent that fails to decode (expired or another account)', () => {
@@ -336,6 +413,7 @@ test('controller: resolves exactly once; later calls change nothing', async () =
 
 test('controller: dismiss resolves false and closes', async () => {
   __resetForTests();
+  subscribe(() => {});
   const p = requestSignIn('like');
   dismissSignIn();
   assert.equal(await p, false);
@@ -344,6 +422,7 @@ test('controller: dismiss resolves false and closes', async () => {
 
 test('controller: keeps the first sanitised intent and drops it on settle', async () => {
   __resetForTests();
+  subscribe(() => {});
   const p = requestSignIn('follow', { ...good, extra: 'x' } as Intent);
   requestSignIn('save', { ...good, kind: 'save' });
   assert.deepEqual(getPendingIntent(), good);
@@ -381,6 +460,41 @@ test('controller: __resetForTests settles a pending request false and clears lis
   assert.deepEqual(getSignInState(), { open: false, reason: null });
   requestSignIn('connect');
   assert.equal(calls, 1, 'the old listener was removed');
+  __resetForTests();
+});
+
+test('controller: with no listener a request resolves false at once and leaves nothing pending', async () => {
+  __resetForTests();
+  assert.equal(await requestSignIn('checkout', good), false);
+  assert.deepEqual(getSignInState(), { open: false, reason: null });
+  assert.equal(getPendingIntent(), null);
+  const seen: SignInState[] = [];
+  subscribe((s) => seen.push(s));
+  const p = requestSignIn('follow');
+  assert.deepEqual(getSignInState(), { open: true, reason: 'follow' });
+  assert.equal(seen.length, 1);
+  resolveSignIn(true);
+  assert.equal(await p, true);
+  __resetForTests();
+});
+
+test('controller: the last unsubscribe while open settles false and the next request is fresh', async () => {
+  __resetForTests();
+  const offA = subscribe(() => {});
+  const offB = subscribe(() => {});
+  const old = requestSignIn('book', good);
+  offA();
+  assert.deepEqual(getSignInState(), { open: true, reason: 'book' }, 'one listener left: still open');
+  offB();
+  assert.equal(await old, false);
+  assert.deepEqual(getSignInState(), { open: false, reason: null });
+  assert.equal(getPendingIntent(), null);
+  subscribe(() => {});
+  const fresh = requestSignIn('save');
+  assert.notEqual(fresh, old);
+  assert.deepEqual(getSignInState(), { open: true, reason: 'save' });
+  dismissSignIn();
+  assert.equal(await fresh, false);
   __resetForTests();
 });
 
@@ -444,7 +558,22 @@ test('scrubAuthFragment replaces the URL only when an auth fragment is present',
   }
 });
 
-test('scrubAuthFragment is a no-op without a window or history and never throws', () => {
+test('scrubAuthFragment never passes a protocol-relative URL to replaceState', () => {
+  for (const pathname of ['//evil.com/x', '///evil.com']) {
+    const w = fakeWindow(`#access_token=${TOKEN}`, pathname, '?a=1');
+    scrubAuthFragment(w);
+    const url = String(w.calls[0][2]);
+    assert.ok(url.startsWith('/') && !url.startsWith('//'), url);
+  }
+  const w = fakeWindow(`#access_token=${TOKEN}`, '//evil.com/x', '?a=1');
+  scrubAuthFragment(w);
+  assert.equal(w.calls[0][2], '/evil.com/x?a=1');
+  const none = fakeWindow(`#access_token=${TOKEN}`, '', '');
+  scrubAuthFragment(none);
+  assert.equal(none.calls[0][2], '/');
+});
+
+test('scrubAuthFragment is a no-op for a null window, missing history or a throwing replaceState, and takes the window as a required argument', () => {
   assert.equal(scrubAuthFragment(null), null);
   assert.equal(scrubAuthFragment({}), null);
   assert.equal(scrubAuthFragment({ location: { hash: `#access_token=${TOKEN}` } }), null);
@@ -457,8 +586,8 @@ test('scrubAuthFragment is a no-op without a window or history and never throws'
     },
   };
   assert.doesNotThrow(() => scrubAuthFragment(throwing));
-  // Node has no location or history, so the default is the missing-window case.
-  assert.equal(scrubAuthFragment(), null);
+  // The window is a required argument: there is no global fallback, so the caller must pass it.
+  assert.equal(scrubAuthFragment.length, 1);
 });
 
 // ---------------------------------------------------------------------------------------------
@@ -487,9 +616,9 @@ test('authRequest.ts has no console, no page URL reads, no React Native import a
   assert.ok(!src.includes('window.location'), 'window.location found');
   assert.ok(!/from\s+['"]react-native/.test(src) && !/require\(['"]react-native/.test(src), 'react-native import found');
   assert.ok(!/from\s+['"]react['"]/.test(src), 'react import found');
-  assert.ok(!src.includes('—'), 'em dash found');
+  assert.ok(!src.includes('\u2014'), 'em dash found');
 });
 
 test('every user-facing auth copy string is free of em dashes', () => {
-  for (const copy of Object.values(AUTH_COPY)) assert.ok(!copy.includes('—'), copy);
+  for (const copy of Object.values(AUTH_COPY)) assert.ok(!copy.includes('\u2014'), copy);
 });
