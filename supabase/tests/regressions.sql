@@ -1,3 +1,49 @@
+-- S12: anon reads only the allowlisted columns of kitchens, reviews, plans and plan_items
+-- (20260927005000_anon_column_grants.sql); signed-in users keep the whole row.
+do $$
+declare
+  c record;
+begin
+  for c in
+    select * from (values
+      ('kitchens', 'owner_id'), ('kitchens', 'rejection_reason'), ('kitchens', 'suspension_reason'),
+      ('kitchens', 'cod_enabled'), ('kitchens', 'approved_at'),
+      ('reviews', 'author_id'), ('reviews', 'order_id'), ('reviews', 'booking_id'),
+      ('plans', 'stripe_price_id'), ('plans', 'tax_bps'), ('plans', 'interval'), ('plans', 'meals_per_week'),
+      ('plans', 'photo_urls'), ('plans', 'service_area'), ('plans', 'updated_at')
+    ) v(tbl, col)
+  loop
+    if has_column_privilege('anon', 'public.' || c.tbl, c.col, 'select') then
+      raise exception 'REGRESSION: anon can read %.% again', c.tbl, c.col;
+    end if;
+  end loop;
+
+  for c in
+    select 'kitchens' as tbl, unnest(array['id','name','slug','cuisine','bio','approx_area','approx_lat','approx_lng',
+      'avatar_url','cover_url','specialties','years_active','availability','created_at','is_pro','supports_delivery',
+      'supports_pickup','verification_status']) as col
+    union all select 'reviews', unnest(array['id','kitchen_id','rating','body','created_at'])
+    union all select 'plan_items', unnest(array['id','plan_id','meal_id','qty','week_index'])
+    -- every plans column the migration grants (27): PLAN_SELECT in src/lib/subscriptions.ts plus created_at
+    union all select 'plans', unnest(array['id','kitchen_id','name','description','price_cents','fulfillment','goal',
+      'selection_model','meals_per_delivery','servings','per_meal_cents','per_delivery_cents','service_fee_bps',
+      'delivery_days','cutoff_hours','lead_time_hours','min_commitment','trial_price_cents','trial_cycles',
+      'cadence_weeks','rotating','rotation_weeks','status','cover_url','dietary_tags','allergens','created_at'])
+  loop
+    if not has_column_privilege('anon', 'public.' || c.tbl, c.col, 'select') then
+      raise exception 'REGRESSION: anon lost %.% -- guest browse reads it', c.tbl, c.col;
+    end if;
+  end loop;
+
+  if not has_column_privilege('authenticated', 'public.kitchens', 'owner_id', 'select') then
+    raise exception 'REGRESSION: authenticated lost kitchens.owner_id -- owner lookups are broken';
+  end if;
+  if has_function_privilege('public', 'public.owned_kitchen_ids()', 'execute')
+     or not has_function_privilege('anon', 'public.owned_kitchen_ids()', 'execute') then
+    raise exception 'REGRESSION: owned_kitchen_ids() execute grants drifted (anon and authenticated only)';
+  end if;
+end $$;
+
 -- Regression tests for the 2026-08 stabilization/hardening pass.
 --
 -- Plain SQL assertions (RAISE EXCEPTION on failure), not pgTAP -- no extra
