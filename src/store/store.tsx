@@ -79,6 +79,10 @@ export interface Toast {
 
 interface Store {
   ready: boolean;
+  /** True once the first server account reconcile has finished (signed-out result included).
+   *  prepperStatus, isAdmin and signedIn are only trustworthy after this; route guards wait on it. */
+  accountReady: boolean;
+  signedIn: boolean; // a live Supabase session exists (set by reconcileAccount)
   onboarded: boolean;
   setOnboarded: (v: boolean) => void;
   resetOnboarding: () => void;
@@ -195,6 +199,7 @@ let toastSeq = 1;
 
 export function StoreProvider({ children }: { children: React.ReactNode }) {
   const [ready, setReady] = useState(false);
+  const [accountReady, setAccountReady] = useState(false);
   const [onboarded, setOnboardedState] = useState(false);
   const [darkMode, setDarkModeState] = useState(false);
   const [cart, setCart] = useState<CartLine[]>([]);
@@ -361,6 +366,8 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
       setPrepplusUntil(s.prepplusUntil);
       const { data: sess } = await supabase.auth.getSession();
       setUid(sess.session?.user?.id ?? null);
+      // Account state is now known (signed out included), so route guards may decide.
+      setAccountReady(true);
       if (s.signedIn) {
         if (s.displayName) setName(s.displayName);
         if (s.firstName) setFirstName(s.firstName);
@@ -392,7 +399,9 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
         setAddressesLoading(false);
       }
     } catch {
-      // transient network/permission issue — keep the last known state
+      // transient network/permission issue: keep the last known state. The reconcile has
+      // still finished, so guards stop waiting and decide on that state, as they did before.
+      setAccountReady(true);
     }
   }, [refreshAddresses, refreshOrders]);
 
@@ -733,6 +742,8 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
 
   const value: Store = {
     ready,
+    accountReady,
+    signedIn: !!uid,
     onboarded,
     setOnboarded: setOnboardedState,
     resetOnboarding,
