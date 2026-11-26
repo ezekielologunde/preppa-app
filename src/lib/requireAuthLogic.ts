@@ -173,3 +173,19 @@ export function nextFollowState(resumed: boolean, following: boolean, serverIsFo
   if (serverIsFollowing) return { action: 'keep' };
   return { action: 'toggle', next: true };
 }
+
+/**
+ * A server-side toggle (a post like, a post save), given the value shown on screen and (when
+ * resumed) the one re-read from the server (null when that read failed or no such read exists):
+ * - toggle: flip to `next` (a resumed toggle only ever sets, never clears).
+ * - keep: already set on the server; show it, toggle nothing.
+ * - abort: no server value to trust; change nothing.
+ */
+export type ToggleStep = { action: 'toggle'; next: boolean } | { action: 'keep' } | { action: 'abort' };
+
+export function nextToggleState(resumed: boolean, current: boolean, serverValue: boolean | null): ToggleStep {
+  if (!resumed) return { action: 'toggle', next: !current };
+  if (typeof serverValue !== 'boolean') return { action: 'abort' };
+  if (serverValue) return { action: 'keep' };
+  return { action: 'toggle', next: true };
+}
