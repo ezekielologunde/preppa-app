@@ -30,3 +30,33 @@ Test user `test-user@example.com`, password and code constants in `support/mocks
 `123456`, any other code is rejected as expired. One kitchen fixture (`/store/aaaaaaaa-...`);
 every other table returns an empty list. `create-order` and `book-experience` return 401 without
 the fake user's bearer token, and every call is counted in `mocks.calls`.
+
+## Coverage (19 tests)
+
+- `sheet.spec.ts`: guest Follow opens a labelled modal dialog, URL kept, focus inside; Escape and
+  Not now close it, nothing runs, focus returns to Follow; Tab stays inside the dialog.
+- `signin.spec.ts`: password sign-in and emailed code (wrong code alert, field cleared, good code)
+  close the sheet, then Follow runs exactly once.
+- `money.spec.ts`: Pay as a guest opens the sheet with no `create-order` call; after sign-in Pay is
+  enabled again and nothing is charged until it is tapped again, then exactly one call.
+- `neutral.spec.ts`: duplicate-email sign-up shows the neutral green notice (no red, no shake, no
+  error alert); recovery for an unknown email (both GoTrue refusal shapes) advances exactly like a
+  known one; with the consent flag off, Terms and Privacy Policy open in a new tab and the tap
+  changes nothing else.
+- `history.spec.ts`: browser Back while the sheet is open dismisses it and runs nothing; reload
+  leaves a guest with no sheet and no stuck state.
+- `guest.spec.ts`: gated tabs show their guest empty states; profile keeps Help, Privacy, Terms;
+  the public store page has no gate.
+- Every test fails if any request reaches a host outside the allow-list.
+
+Sabotage check (C3c): each money, neutral and consent test was run against a patched copy of the
+bundle (`.dist-sabotage-N`, gitignored) and failed. The Back test still passes with the sheet
+host's `popstate` listener removed: on web, expo-router's own popstate handling re-resolves and
+remounts the screen, which also closes the sheet, so that listener is not pinned here.
+
+## Not covered
+
+- The consent checkbox variant (`EXPO_PUBLIC_CONSENT_CHECKBOX=1` needs its own build).
+- Book and Message on the experience page (planned `book.spec.ts`, not written yet).
+- Real-backend flows (real GoTrue, Edge Functions, Stripe).
+- Safari and Firefox (Chromium only).

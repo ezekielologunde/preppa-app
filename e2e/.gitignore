@@ -3,3 +3,4 @@ test-results/
 playwright-report/
 .dist-cache/
 .build-deps/
+.dist-sabotage-*/
