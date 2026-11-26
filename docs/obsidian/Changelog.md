@@ -8,6 +8,10 @@ tags: [project/preppa, type/changelog]
 
 # Changelog
 
+## Managed Stripe webhook health alerts (2026-11-25)
+
+New migration `20260927003000_managed_webhook_health.sql` rebuilds `detect_system_health_issues()` from its latest body (`20260927002000_install_stripe_reconcile_triggers.sql`) and adds two admin alerts, each at most hourly: `stripe_managed_webhook_missing` when `stripe._managed_webhooks` exists but has no enabled row (empty, or every row disabled), and `stripe_mirror_stale` when card orders were created between 24 hours and 15 minutes ago and no `stripe.*` mirror table has a row with `_updated_at` in the last 24 hours. Every earlier check is kept unchanged, as are the signature, security definer, `search_path` and grants. Pinned by `tests/managedWebhookHealth.test.ts`, which also fails if any earlier check disappears (web-launch DESIGN 1.11, part B). Not deployed. Stripe's own failing-webhook email on the live account is still an owner step (part E). See [[Security]].
+
 ## Re-runnable Stripe reconcile trigger install (2026-11-24)
 
 New migration `20260927002000_install_stripe_reconcile_triggers.sql` adds `public.install_stripe_reconcile_triggers()`, which creates the four `stripe.*` mirror triggers (`reconcile_paid_pi_trg`, `reconcile_paid_invoice_trg`, `sync_prepplus_membership_trg`, `sync_cook_pro_membership_trg`) with the same definitions as their original migrations and raises, naming every trigger it cannot install, instead of skipping. `public.check_stripe_reconcile_triggers()` lists the missing ones, and `detect_system_health_issues()` alerts admins, at most hourly, while the Stripe mirror exists but a trigger is missing. The migration installs only where a `stripe.*` table already exists; elsewhere run `select public.install_stripe_reconcile_triggers();` after `stripe-setup` (web-launch DESIGN 1.4, L1 step 8). Pinned by `tests/stripeReconcileTriggers.test.ts`. Not deployed. See [[Security]].
