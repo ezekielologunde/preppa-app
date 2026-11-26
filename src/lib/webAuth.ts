@@ -19,6 +19,8 @@ export function consentModeFromFlag(flag: string | undefined): 'checkbox' | 'not
 export const WEB_AUTH_COPY = {
   wrongCredentials: 'Wrong email or password',
   maybeExisting: 'If this email is new, we have sent next steps.',
+  codeMismatch: "That code didn't match or has expired. Request a new one.",
+  timeout: 'That took too long. Check your connection and try again.',
 } as const;
 
 function ownText(obj: unknown, key: string): string | null {
@@ -37,14 +39,25 @@ function ownText(obj: unknown, key: string): string | null {
 const WRONG_CREDENTIALS = /invalid[ _]login[ _]credentials|invalid[ _]credentials|wrong email or password|invalid email or password/i;
 // "User already registered" also says whether an account exists, so it gets the same reply as a new email.
 const ALREADY_REGISTERED = /already[ _]registered|already has an account|user[ _]already[ _]exists|email[ _]exists/i;
+// In the code step an expired code and a wrong one look the same to Supabase.
+const CODE_REJECTED = /otp_expired|token has expired or is invalid/i;
+// The client timeout (AUTH_TIMEOUT_MESSAGE in src/lib/supabase.ts), matched by its stable prefix.
+const CLIENT_TIMEOUT = /^Couldn.t reach sign-in/;
+
+function errorParts(err: unknown): string[] {
+  const fields = typeof err === 'string' ? [err] : [ownText(err, 'code'), ownText(err, 'status'), ownText(err, 'message')];
+  return fields.filter((v): v is string => v !== null);
+}
 
 /**
  * Copy for an auth error on the web sheet. Reads only the error's own code, status and message, and
- * never echoes the raw message: anything not recognised becomes the generic copy.
+ * never echoes the raw message: anything not recognised becomes the generic copy. ctx 'code' is the
+ * 6-digit code step, where an expired or invalid token means the code did not match.
  */
-export function webAuthError(err: unknown): string {
-  const fields = typeof err === 'string' ? [err] : [ownText(err, 'code'), ownText(err, 'status'), ownText(err, 'message')];
-  const parts = fields.filter((v): v is string => v !== null);
+export function webAuthError(err: unknown, ctx: 'auth' | 'code' = 'auth'): string {
+  const parts = errorParts(err);
+  if (parts.some((p) => CLIENT_TIMEOUT.test(p))) return WEB_AUTH_COPY.timeout;
+  if (ctx === 'code' && parts.some((p) => CODE_REJECTED.test(p))) return WEB_AUTH_COPY.codeMismatch;
   for (const p of parts) {
     const mapped = mapAuthErrorMessage(p);
     if (mapped !== AUTH_COPY.generic) return mapped;
@@ -55,14 +68,26 @@ export function webAuthError(err: unknown): string {
 }
 
 /**
+ * Neutral notice for the web sheet (Auth's mapNotice): an existing account gets the reply a new
+ * email gets, shown as information rather than an error. Null for anything else.
+ */
+export function webAuthNotice(err: unknown): string | null {
+  return errorParts(err).some((p) => ALREADY_REGISTERED.test(p)) ? WEB_AUTH_COPY.maybeExisting : null;
+}
+
+/**
  * Account key that binds a stored intent to the signing-in account without storing the email:
- * SHA-256 of the trimmed, lowercased email, hex, first 32 characters. Throws when Web Crypto is
- * unavailable, so a caller cannot bind an intent to an empty key.
+ * SHA-256 of the NFKC-normalised, trimmed, lowercased email, hex, first 32 characters. Throws on a
+ * non-string or blank email and when Web Crypto is unavailable, so a caller cannot bind an intent
+ * to an empty key.
  */
 export async function accountKeyForEmail(email: string): Promise<string> {
+  if (typeof email !== 'string') throw new TypeError('accountKeyForEmail needs an email string');
+  const normalised = email.normalize('NFKC').trim().toLowerCase();
+  if (normalised === '') throw new Error('accountKeyForEmail needs a non-empty email');
   const subtle = (globalThis as { crypto?: { subtle?: SubtleCryptoLike } }).crypto?.subtle;
   if (!subtle || typeof subtle.digest !== 'function') throw new Error('Web Crypto is unavailable');
-  const bytes = new TextEncoder().encode(String(email).trim().toLowerCase());
+  const bytes = new TextEncoder().encode(normalised);
   const digest = new Uint8Array(await subtle.digest('SHA-256', bytes));
   let hex = '';
   for (const b of digest) hex += b.toString(16).padStart(2, '0');

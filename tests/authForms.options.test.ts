@@ -10,7 +10,7 @@ import { existsSync, readFileSync } from 'node:fs';
 import { dirname, join, relative, resolve } from 'node:path';
 import test from 'node:test';
 import ts from 'typescript';
-import { WEB_PASSWORD_MIN, WEB_RESEND_COOLDOWN_SEC, webAuthError } from '../src/lib/webAuth';
+import { WEB_PASSWORD_MIN, WEB_RESEND_COOLDOWN_SEC, webAuthError, webAuthNotice } from '../src/lib/webAuth';
 
 const AUTH = 'src/components/auth/AuthForm.tsx';
 const CODE = 'src/components/auth/CodeForm.tsx';
@@ -19,6 +19,8 @@ const read = (p: string) => readFileSync(join(ROOT, p), 'utf8').replace(/\r\n/g,
 const TIMEOUT = /export const AUTH_TIMEOUT_MESSAGE = '([^']*)'/.exec(read('src/lib/supabase.ts'))![1];
 const CONSENT_TEXT = 'By continuing you agree to the Terms and Privacy Policy.';
 const CONSENT_REQUIRED = 'Please agree to the Terms and Privacy Policy to continue.';
+const NOTICE = 'If this email is new, we have sent next steps.';
+const CODE_MISMATCH = "That code didn't match or has expired. Request a new one.";
 
 /* ---------------- harness (trimmed copy) ---------------- */
 
@@ -42,6 +44,11 @@ const input = (tree: any, label: string) => {
   return found.length === 1 ? found[0] : undefined;
 };
 const pressable = (tree: any, label: string) => all(tree).find((e) => e.type === 'Pressable' && textOf(e).includes(label));
+// The colour of the Text showing exactly this copy: c.green is the info row, c.red the error row.
+const colorOf = (tree: any, copy: string) => {
+  const t = all(tree).find((e) => e.type === 'Text' && textOf(e) === copy);
+  return t ? [t.props.style].flat(2).find((s: any) => s && 'color' in s)?.color : undefined;
+};
 const btn = (tree: any) => { const b = all(tree).filter((e) => e.type === 'Btn'); assert.equal(b.length, 1); return b[0]; };
 
 class Clock {
@@ -244,6 +251,47 @@ test('onAccountEmail: trimmed lowercase email on a valid submit and on a code re
   assert.deepEqual(seenCode, ['bob@example.com']);
 });
 
+test('onAccountEmail: not called when the password is too short or consent is missing', async () => {
+  const seen: string[] = [];
+  const short = mountAuth('signup', { onAccountEmail: (e: string) => seen.push(e) });
+  fillSignup(short.m, '1234567');
+  await submit(short.m);
+  assert.ok(texts(short.m.tree).includes('Use a password of at least 8 characters.'));
+  assert.equal(seen.length, 0);
+  const noConsent = mountAuth('signup', { consent: consentProp('checkbox'), onAccountEmail: (e: string) => seen.push(e) });
+  fillSignup(noConsent.m);
+  await submit(noConsent.m);
+  assert.deepEqual(seen, [], 'submit');
+  await emailCode(noConsent.m);
+  assert.deepEqual(seen, [], 'email-code path');
+  assert.ok(texts(noConsent.m.tree).includes(CONSENT_REQUIRED));
+});
+
+test('onAccountEmail: a throwing or rejecting callback never blocks submit or the code request', async () => {
+  const boom = mountAuth('signup', { onAccountEmail: () => { throw new Error('storage full'); } });
+  fillSignup(boom.m);
+  await submit(boom.m);
+  assert.deepEqual(callsOf(boom.env, 'onNext'), [['Ada@Example.COM', true]]);
+  await emailCode(boom.m);
+  assert.equal(callsOf(boom.env, 'sendEmailOtp').length, 1);
+  const handlers: unknown[] = [];
+  const rejecting: any = { then(_ok: unknown, fail: unknown) { handlers.push(fail); return rejecting; } };
+  const later = mountAuth('signin', { onAccountEmail: () => rejecting });
+  type(later.m, 'Email address', 'ada@example.com');
+  type(later.m, 'Password', 'password1');
+  await submit(later.m);
+  await emailCode(later.m);
+  assert.equal(callsOf(later.env, 'signInWithPassword').length, 1);
+  assert.equal(callsOf(later.env, 'sendEmailOtp').length, 1);
+  assert.equal(handlers.length, 2);
+  assert.ok(handlers.every((h) => typeof h === 'function'), 'a rejection handler is attached');
+  const real = mountAuth('signin', { onAccountEmail: () => Promise.reject(new Error('later')) });
+  type(real.m, 'Email address', 'ada@example.com');
+  type(real.m, 'Password', 'password1');
+  await submit(real.m);
+  assert.equal(callsOf(real.env, 'signInWithPassword').length, 1);
+});
+
 /* ---------------- mapError ---------------- */
 
 test('mapError: overrides the sign-in, sign-up and code-request messages, timeout included', async () => {
@@ -266,12 +314,84 @@ test('mapError: overrides the sign-in, sign-up and code-request messages, timeou
   assert.ok(texts(signin.m.tree).includes('mapped copy'));
   assert.ok(!texts(signin.m.tree).includes('Email rate limit exceeded'), 'raw message not shown');
 
-  const signup = mountAuth('signup', { mapError: webAuthError });
+  const signup = mountAuth('signup', { mapError: webAuthError, mapNotice: webAuthNotice });
   signup.env.impl.signUpWithPassword = async () => { throw new Error('User already registered'); };
   fillSignup(signup.m);
   await submit(signup.m);
-  assert.ok(texts(signup.m.tree).includes('If this email is new, we have sent next steps.'));
-  assert.equal(shakeCount(signup.env), 1);
+  assert.equal(colorOf(signup.m.tree, NOTICE), 'c.green', 'a duplicate sign-up is the neutral info notice');
+  assert.equal(shakeCount(signup.env), 0, 'and does not shake');
+});
+
+/* ---------------- mapNotice, neutralRecovery ---------------- */
+
+test('mapNotice: a duplicate sign-up shows the notice as info, no red error, no shake, same step', async () => {
+  const { env, m } = mountAuth('signup', { mapError: webAuthError, mapNotice: webAuthNotice });
+  env.impl.signUpWithPassword = async () => { throw { code: 'user_already_exists', message: 'User already registered' }; };
+  fillSignup(m);
+  await submit(m);
+  assert.equal(colorOf(m.tree, NOTICE), 'c.green');
+  assert.equal(all(m.tree).filter((e) => e.type === 'Icon' && e.props.color === 'c.red').length, 0, 'no red error row');
+  assert.equal(shakeCount(env), 0);
+  assert.deepEqual(callsOf(env, 'onNext'), []);
+  assert.equal(btn(m.tree).props.label, 'Create account', 'same step');
+});
+
+test('mapNotice: null falls back to mapError, and the code request uses the notice too', async () => {
+  const { env, m } = mountAuth('signin', { mapError: webAuthError, mapNotice: webAuthNotice });
+  env.impl.signInWithPassword = async () => { throw new Error('Invalid login credentials'); };
+  type(m, 'Email address', 'ada@example.com');
+  type(m, 'Password', 'password1');
+  await submit(m);
+  assert.equal(colorOf(m.tree, 'Wrong email or password'), 'c.red');
+  assert.equal(shakeCount(env), 1);
+  env.impl.sendEmailOtp = async () => { throw { code: 'email_exists' }; };
+  await emailCode(m);
+  assert.equal(colorOf(m.tree, NOTICE), 'c.green');
+  assert.equal(colorOf(m.tree, 'Wrong email or password'), undefined, 'the earlier error is cleared');
+  assert.equal(shakeCount(env), 1, 'no second shake');
+  assert.deepEqual(callsOf(env, 'onNext'), []);
+});
+
+test('mapNotice absent: a duplicate sign-up is still the red, shaking mapError copy', async () => {
+  const { env, m } = mountAuth('signup', { mapError: webAuthError });
+  env.impl.signUpWithPassword = async () => { throw new Error('User already registered'); };
+  fillSignup(m);
+  await submit(m);
+  assert.equal(colorOf(m.tree, NOTICE), 'c.red');
+  assert.equal(shakeCount(env), 1);
+});
+
+async function recover(extra: Record<string, any>, impl?: () => Promise<unknown>) {
+  const r = mountAuth('signin', extra);
+  pressable(r.m.tree, 'Forgot password?')!.props.onPress();
+  r.m.flush();
+  type(r.m, 'Email address', 'ada@example.com');
+  type(r.m, 'New password', 'newpassword1');
+  if (impl) r.env.impl.sendPasswordResetOtp = impl;
+  await submit(r.m);
+  return r;
+}
+
+test('neutralRecovery: an unknown email advances to the code step exactly like a known one', async () => {
+  const opts = { neutralRecovery: true, mapError: webAuthError };
+  const known = await recover(opts);
+  assert.deepEqual(callsOf(known.env, 'onRecovery'), [['ada@example.com', 'newpassword1']]);
+  for (const e of [{ code: 'otp_disabled', message: 'Signups not allowed for otp' }, new Error('Signups not allowed for otp'), { code: 'user_not_found', message: 'User not found' }]) {
+    const unknown = await recover(opts, async () => { throw e; });
+    assert.deepEqual(callsOf(unknown.env, 'onRecovery'), callsOf(known.env, 'onRecovery'));
+    assert.deepEqual(texts(unknown.m.tree), texts(known.m.tree), 'same screen');
+    assert.equal(shakeCount(unknown.env), 0);
+  }
+});
+
+test('neutralRecovery: other errors still show mapError copy, and it is off by default', async () => {
+  const limited = await recover({ neutralRecovery: true, mapError: webAuthError }, async () => { throw { status: 429, message: 'x' }; });
+  assert.equal(colorOf(limited.m.tree, 'Too many tries. Wait a minute.'), 'c.red');
+  assert.deepEqual(callsOf(limited.env, 'onRecovery'), []);
+  assert.equal(shakeCount(limited.env), 1);
+  const off = await recover({ mapError: webAuthError }, async () => { throw { code: 'otp_disabled', message: 'Signups not allowed for otp' }; });
+  assert.deepEqual(callsOf(off.env, 'onRecovery'), []);
+  assert.equal(colorOf(off.m.tree, 'Something went wrong. Try again.'), 'c.red');
 });
 
 /* ---------------- consent ---------------- */
@@ -301,6 +421,31 @@ test('consent checkbox: unchecked accessible row blocks submit and the code requ
   assert.deepEqual(pressable(m.tree, CONSENT_TEXT)!.props.accessibilityState, { checked: true });
   await submit(m);
   assert.equal(callsOf(env, 'signUpWithPassword').length, 1);
+});
+
+test('consent checkbox: also blocks sign-in, its code request and the Enter key', async () => {
+  const { env, m } = mountAuth('signin', { consent: consentProp('checkbox') });
+  type(m, 'Email address', 'ada@example.com');
+  type(m, 'Password', 'password1');
+  await submit(m);
+  assert.ok(texts(m.tree).includes(CONSENT_REQUIRED));
+  await emailCode(m);
+  const enter = input(m.tree, 'Password')!.props.onSubmitEditing();
+  m.flush();
+  await enter;
+  await m.settle();
+  assert.ok(texts(m.tree).includes(CONSENT_REQUIRED));
+  assert.deepEqual(callsOf(env, 'signInWithPassword'), []);
+  assert.deepEqual(callsOf(env, 'sendEmailOtp'), []);
+  assert.equal(shakeCount(env), 3);
+  const up = mountAuth('signup', { consent: consentProp('checkbox') });
+  fillSignup(up.m);
+  const upEnter = input(up.m.tree, 'Password')!.props.onSubmitEditing();
+  up.m.flush();
+  await upEnter;
+  await up.m.settle();
+  assert.ok(texts(up.m.tree).includes(CONSENT_REQUIRED), 'Enter on sign-up');
+  assert.deepEqual(callsOf(up.env, 'signUpWithPassword'), []);
 });
 
 test('consent notice: one line of text, no checkbox, submit is not blocked', async () => {
@@ -354,16 +499,21 @@ test('resendCooldownSec default stays 24', async () => {
   assert.ok(pressable(m.tree, 'Resend in 22s'));
 });
 
-test('Code mapError: overrides the wrong-code and resend messages', async () => {
-  const { env, m } = mountCode({ mapError: webAuthError });
+test('Code mapError: overrides the wrong-code and resend messages, in the code context', async () => {
+  const ctxs: unknown[] = [];
+  const mapError = (e: unknown, ctx?: 'auth' | 'code') => { ctxs.push(ctx); return webAuthError(e, ctx); };
+  const { env, m } = mountCode({ mapError });
   env.impl.verifyEmailOtp = async () => { throw { code: 'otp_expired', message: 'Token has expired or is invalid' }; };
   input(m.tree, 'Six digit verification code')!.props.onChangeText('123456');
   await m.settle();
-  assert.ok(texts(m.tree).includes('That link expired. Send a new one.'));
+  assert.ok(texts(m.tree).includes(CODE_MISMATCH), 'a wrong code is not a link that expired');
+  assert.ok(!texts(m.tree).includes('That link expired. Send a new one.'));
   assert.equal(input(m.tree, 'Six digit verification code')!.props.value, '', 'field still cleared');
+  assert.equal(shakeCount(env), 1, 'and still shakes');
   env.impl.sendEmailOtp = async () => { throw { status: 429, message: 'raw server text' }; };
   await pressable(m.tree, 'Resend code')!.props.onPress();
   await m.settle();
   assert.ok(texts(m.tree).includes('Too many tries. Wait a minute.'));
   assert.ok(!texts(m.tree).includes('raw server text'));
+  assert.deepEqual(ctxs, ['code', 'code']);
 });

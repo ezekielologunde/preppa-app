@@ -12,7 +12,7 @@ export function Code({ email, onNext, newPassword, resendCooldownSec = 24, mapEr
   onNext: () => void;
   newPassword?: string;
   resendCooldownSec?: number;
-  mapError?: (err: unknown) => string;
+  mapError?: (err: unknown, ctx?: 'auth' | 'code') => string;
 }) {
   const c = useC();
   const [code, setCode] = useState('');
@@ -38,7 +38,7 @@ export function Code({ email, onNext, newPassword, resendCooldownSec = 24, mapEr
         if (cancelled) return;
         setBusy(false);
         // A stalled network surfaces the timeout message; anything else is a bad code.
-        setErr(mapError ? mapError(e) : e?.message === AUTH_TIMEOUT_MESSAGE ? e.message : 'That code didn’t match. Check the digits and try again.');
+        setErr(mapError ? mapError(e, 'code') : e?.message === AUTH_TIMEOUT_MESSAGE ? e.message : 'That code didn’t match. Check the digits and try again.');
         shake.fire();
         setCode('');
       });
@@ -55,7 +55,7 @@ export function Code({ email, onNext, newPassword, resendCooldownSec = 24, mapEr
       setResent(true);
       setTimeout(() => setResent(false), 2400);
     } catch (e: any) {
-      setErr(mapError ? mapError(e) : e?.message === AUTH_TIMEOUT_MESSAGE ? e.message : 'Couldn’t resend the code. Check your connection and try again.');
+      setErr(mapError ? mapError(e, 'code') : e?.message === AUTH_TIMEOUT_MESSAGE ? e.message : 'Couldn’t resend the code. Check your connection and try again.');
     } finally {
       setResending(false);
     }
