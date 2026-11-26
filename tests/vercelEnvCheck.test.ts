@@ -159,7 +159,10 @@ test('an unrecognised VERCEL_ENV fails without printing it', () => {
 
 test('vercel.json runs the check before the web export', () => {
   const config = JSON.parse(readFileSync(resolve(process.cwd(), 'vercel.json'), 'utf8'));
-  assert.equal(config.buildCommand, 'node scripts/check-vercel-env.mjs && expo export -p web');
+  assert.equal(
+    config.buildCommand,
+    'node scripts/check-vercel-env.mjs && expo export -p web && node scripts/scan-build-secrets.mjs',
+  );
 });
 
 test('Vercel builder without VERCEL_ENV: VERCEL set fails instead of skipping the checks', () => {
