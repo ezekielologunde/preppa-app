@@ -2,11 +2,15 @@
 project: Preppa
 type: changelog
 status: active
-last_updated: 2026-11-24
+last_updated: 2026-11-25
 tags: [project/preppa, type/changelog]
 ---
 
 # Changelog
+
+## Vercel security headers, scoped rewrite and bundle scan (2026-11-25)
+
+`vercel.json` now matches SECURITY-SPEC section 3 (web launch task 1.9). The Vercel `buildCommand` runs `scripts/check-vercel-env.mjs`, then `expo export -p web`, then `scripts/scan-build-secrets.mjs`, so a bundle with a secret pattern never deploys. Every path gets enforced `Strict-Transport-Security` (two years, `includeSubDomains`), `X-Content-Type-Options: nosniff`, `X-Frame-Options: DENY`, `Referrer-Policy: strict-origin-when-cross-origin`, `Cross-Origin-Opener-Policy: same-origin-allow-popups` and the spec `Permissions-Policy`. The CSP is sent only as `Content-Security-Policy-Report-Only` until L3 and L4 switch it to enforcing; its Supabase sources are `https://*.supabase.co` and `wss://*.supabase.co` because one `vercel.json` serves both projects. The SPA rewrite no longer catches everything: `_expo/`, `assets/` and any path ending in a file extension are served as files or 404. `/_expo/static/*` is cached for a year as immutable and `/` is `no-cache`. Hosts other than `app.preppa.live` (Vercel previews, the test host) send `X-Robots-Tag: noindex`. The bundle scan also fails on any `.map` file in `dist/`. A real local `expo export -p web` produced no `.map` file, passed the scan, and none of its 61 files matches the rewrite. Covered by `tests/vercelEdgeConfig.test.ts`; not yet deployed to Vercel. Task 1.8 (the build-time env check) shipped earlier, see the 2026-11-24 entry below. See [[Security]].
 
 ## Re-runnable Stripe reconcile trigger install (2026-11-24)
 

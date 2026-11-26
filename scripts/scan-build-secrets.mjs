@@ -22,6 +22,8 @@ async function files(dir) {
 
 const hits = [];
 for (const file of await files(root)) {
+  // SECURITY-SPEC 3: production must not ship source maps.
+  if (extname(file) === '.map') hits.push(`source map shipped: ${file}`);
   if (!textExtensions.has(extname(file))) continue;
   const body = await readFile(file, 'utf8');
   for (const [label, pattern] of forbidden) {

@@ -2,11 +2,15 @@
 project: Preppa
 type: security
 status: active
-last_updated: 2026-11-24
+last_updated: 2026-11-25
 tags: [project/preppa, type/security]
 ---
 
 # Security
+
+## Vercel edge headers and build gates (web launch tasks 1.8 and 1.9, 2026-11-25)
+
+The web build now has two gates around `expo export`: `scripts/check-vercel-env.mjs` before it (1.8, a Preview build with a `pk_live_` key or the production ref fails, as does a Production build with a `pk_test_` key or another ref, printing names and reasons only) and `scripts/scan-build-secrets.mjs` after it, which fails the deploy on Stripe secret or restricted keys, private keys, service-role markers or any shipped `.map` file. `vercel.json` enforces HSTS, nosniff, `X-Frame-Options: DENY` (with CSP `frame-ancestors 'none'` this blocks clickjacking), a strict Referrer-Policy, COOP and a Permissions-Policy that allows only camera, microphone, geolocation and Stripe payment. The CSP is Report-Only for L1: it reports, it does not block, so XSS protection from CSP starts only when L3 and L4 enforce it. Before enforcing, replace the `*.supabase.co` wildcard with the exact project host for each environment, because the wildcard would let a script connect to any Supabase project. The scoped rewrite stops missing assets from returning the app shell, and non-production hosts send `X-Robots-Tag: noindex`. The scan does not yet cover `whsec_`, Resend, Mux or JWT role checks (SECURITY-SPEC fix S9). See [[Launch-Plan]].
 
 ## Stripe reconcile triggers install loudly (web launch task 1.4, 2026-11-24)
 
