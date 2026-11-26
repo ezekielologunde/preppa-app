@@ -19,9 +19,9 @@ import ts from 'typescript';
 
 // Where each piece lives. The extraction changes this table and nothing else.
 const LOC = {
-  auth: 'src/components/Onboarding.tsx',
-  code: 'src/components/Onboarding.tsx',
-  ui: 'src/components/Onboarding.tsx',
+  auth: 'src/components/auth/AuthForm.tsx',
+  code: 'src/components/auth/CodeForm.tsx',
+  ui: 'src/components/auth/authUi.tsx',
   flow: 'src/components/Onboarding.tsx',
 };
 
