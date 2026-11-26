@@ -2,11 +2,15 @@
 project: Preppa
 type: changelog
 status: active
-last_updated: 2026-11-24
+last_updated: 2026-11-25
 tags: [project/preppa, type/changelog]
 ---
 
 # Changelog
+
+## Stuck-payment sweep (2026-11-25)
+
+New migration `20260927004000_stuck_payment_sweep.sql` adds `public.sweep_stuck_payments()` and the pg_cron job `stuck-payment-sweep`, every 5 minutes. It finds `stripe.payment_intents` rows with `status = 'succeeded'` created more than 5 minutes and less than 30 days ago whose metadata order, subscription cycle or booking (same keys and precedence as `reconcile_paid_pi()`) is still not marked paid, and alerts admins through `notify_admins` once per PaymentIntent, one alert per run listing the new ones. An order or cycle counts as paid at `paid` or `refunded`, a booking deposit once `confirmed_at` is set, a booking balance charge at `balance_charge_status = 'paid'`. Pinned by `tests/stuckPaymentSweep.test.ts` (web-launch DESIGN 1.12). Not deployed. See [[Security]].
 
 ## Re-runnable Stripe reconcile trigger install (2026-11-24)
 

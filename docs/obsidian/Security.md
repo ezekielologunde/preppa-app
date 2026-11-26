@@ -2,11 +2,15 @@
 project: Preppa
 type: security
 status: active
-last_updated: 2026-11-24
+last_updated: 2026-11-25
 tags: [project/preppa, type/security]
 ---
 
 # Security
+
+## Stuck-payment sweep (web launch task 1.12, 2026-11-25)
+
+`reconcile_paid_pi()` swallows its own errors and never runs if its trigger is missing, so a customer could be charged while the order, cycle or booking stays unpaid with no one told. `public.sweep_stuck_payments()` is the backstop. It is SECURITY DEFINER with `search_path` set to empty, every relation schema-qualified, execute revoked from public, anon and authenticated and granted to service_role only; pg_cron runs it every 5 minutes as `stuck-payment-sweep`. It holds no secret and makes no outbound request. It reads only `id`, `status`, `metadata` and the Stripe `created` time from `stripe.payment_intents`, and the alert and the per-PI `audit_log` row (action `anomaly_alerted`, entity `payment_intent`, kind `stuck_payment`) carry only the PaymentIntent id, the target kind and the target uuid: no amount, customer, email or card detail. Dedupe is permanent per PaymentIntent through that audit row (indexed), and an advisory lock stops two runs alerting the same PI. One `notify_admins` call per run lists at most 20 ids plus a count, so a backlog does not send one email per PaymentIntent. It returns 0 where the Stripe mirror is absent, and the schedule is skipped where pg_cron is absent. Pinned by `tests/stuckPaymentSweep.test.ts`, which reads the metadata keys and paid markers from `reconcile_paid_pi()` itself.
 
 ## Stripe reconcile triggers install loudly (web launch task 1.4, 2026-11-24)
 
