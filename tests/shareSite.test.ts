@@ -98,8 +98,172 @@ test('check-vercel-env.mjs fails a build exactly when resolveSite would reject a
     if (input !== undefined) env.EXPO_PUBLIC_SITE_URL = input;
     const result = spawnSync(process.execPath, [SCRIPT], { env, encoding: 'utf8' });
     const flagged = /^ {2}EXPO_PUBLIC_SITE_URL: /m.test(result.stderr);
-    const rejected = input !== undefined && input !== '' && parseSiteOrigin(input) === null;
+    // The build is a preview one, which also rejects the production origin (M2).
+    const rejected = input !== undefined && input !== '' && (parseSiteOrigin(input) ?? PRODUCTION) === PRODUCTION;
     assert.equal(flagged, rejected, `${JSON.stringify(input)}:\n${result.stdout}${result.stderr}`);
     assert.equal(result.status === 0, !rejected, `${JSON.stringify(input)}:\n${result.stdout}${result.stderr}`);
+  }
+});
+
+// ---- React Native URL independence (iOS and Android replace global URL with a regex class).
+
+// Stand-in for react-native/Libraries/Blob/URL.js (the URL class React Native installs as the
+// global URL on iOS and Android). The constructor (single argument) and every getter below are
+// copied from that file in react-native 0.8x as read from the shared deps; only the Flow types,
+// the blob helpers and the base-URL branch are left out.
+class RnUrl {
+  _url: string;
+  constructor(url: string) {
+    this._url = url;
+    if (this._url.includes('#')) {
+      const split = this._url.split('#');
+      const website = split[0].split('://')[1];
+      if (!website.includes('/')) this._url = split.join('/#');
+    }
+    if (!this._url.endsWith('/') && !(this._url.includes('?') || this._url.includes('#'))) {
+      const afterProtocol = this._url.split('://')[1];
+      if (afterProtocol && !afterProtocol.includes('/')) this._url += '/';
+    }
+  }
+  get hash() {
+    const m = this._url.match(/#([^/]*)/);
+    return m ? `#${m[1]}` : '';
+  }
+  get hostname() {
+    const m = this._url.match(/^https?:\/\/(?:[^@]+@)?([^:/?#]+)/);
+    return m ? m[1] : '';
+  }
+  get origin() {
+    const m = this._url.match(/^(https?:\/\/[^/]+)/);
+    return m ? m[1] : '';
+  }
+  get password() {
+    const m = this._url.match(/https?:\/\/.*:(.*)@/);
+    return m ? m[1] : '';
+  }
+  get pathname() {
+    const m = this._url.match(/https?:\/\/[^/]+(\/[^?#]*)?/);
+    return m ? m[1] || '/' : '/';
+  }
+  get port() {
+    const m = this._url.match(/:(\d+)(?=[/?#]|$)/);
+    return m ? m[1] : '';
+  }
+  get protocol() {
+    const m = this._url.match(/^([a-zA-Z][a-zA-Z\d+\-.]*):/);
+    return m ? `${m[1]}:` : '';
+  }
+  get search() {
+    const m = this._url.match(/\?([^#]*)/);
+    return m ? `?${m[1]}` : '';
+  }
+  get username() {
+    return '';
+  }
+}
+
+const RN_HOSTILE = ['https://:@staging.preppa.live', 'https://:\\evil.com:@staging.preppa.live'];
+
+const MATRIX: (string | undefined)[] = [
+  ...CASES.map(([input]) => input),
+  ...RN_HOSTILE,
+  'https://staging.preppa.live:443',
+  'HTTPS://APP.PREPPA.LIVE/',
+  'HTTPS://STAGING.PREPPA.LIVE',
+  'http://LOCALHOST:8081/',
+  'http://localhost:80',
+  'http://localhost:0080',
+  'https://localhost:443',
+  'http://localhost:0',
+  'https://localhost:0',
+  'http://127.0.0.1:0',
+  'http://localhost:65535',
+  'http://localhost:65536',
+  'http://localhost:99999',
+  'http://localhost:123456',
+  'http://localhost:',
+  'https://staging.preppa.live:0',
+  'https://staging.preppa.live:80',
+  'https://staging.preppa.live//',
+  'https://staging.preppa.live%2e',
+  'https://staging.preppa.live\u0000',
+  'https://staging.preppa.live\t',
+  'https://[::1]',
+  'https://:@app.preppa.live',
+  'https://@staging.preppa.live',
+];
+
+const withUrl = <T>(impl: unknown, fn: () => T): T => {
+  const saved = Object.getOwnPropertyDescriptor(globalThis, 'URL');
+  Object.defineProperty(globalThis, 'URL', { value: impl, configurable: true, writable: true });
+  try {
+    return fn();
+  } finally {
+    if (saved) Object.defineProperty(globalThis, 'URL', saved);
+  }
+};
+
+test('React Native URL stand-in reproduces the divergence this guards against', () => {
+  // Under RN's URL the hostile inputs parse to the staging host with no credentials, which the old
+  // URL-based check accepted; Node's URL reports a username or a different host for them.
+  const rn = new RnUrl('https://:@staging.preppa.live');
+  assert.equal(rn.hostname, 'staging.preppa.live');
+  assert.equal(rn.username, '');
+  assert.equal(rn.password, '');
+  assert.equal(rn.pathname, '/');
+  assert.equal(new RnUrl('https://:\\evil.com:@staging.preppa.live').hostname, 'staging.preppa.live');
+});
+
+test('parseSiteOrigin rejects the userinfo hostile inputs, with or without React Native URL', () => {
+  for (const impl of [URL, RnUrl, undefined]) {
+    withUrl(impl, () => {
+      for (const input of RN_HOSTILE) {
+        assert.equal(parseSiteOrigin(input), null, input);
+        assert.equal(resolveSite(input), PRODUCTION, input);
+      }
+    });
+  }
+});
+
+test('parseSiteOrigin gives identical results under Node URL, React Native URL and no URL at all', () => {
+  const baseline = MATRIX.map((input) => parseSiteOrigin(input));
+  for (const impl of [RnUrl, undefined]) {
+    const results = withUrl(impl, () => MATRIX.map((input) => parseSiteOrigin(input)));
+    assert.deepEqual(results, baseline);
+  }
+});
+
+test('parseSiteOrigin normalises to lowercase scheme://host[:port] and drops default ports', () => {
+  assert.equal(parseSiteOrigin('HTTPS://APP.PREPPA.LIVE/'), PRODUCTION);
+  assert.equal(parseSiteOrigin('HTTPS://STAGING.PREPPA.LIVE'), STAGING);
+  assert.equal(parseSiteOrigin('https://staging.preppa.live:443'), STAGING);
+  assert.equal(parseSiteOrigin('http://LOCALHOST:8081/'), 'http://localhost:8081');
+  assert.equal(parseSiteOrigin('http://localhost:80'), 'http://localhost');
+  assert.equal(parseSiteOrigin('https://localhost:443'), 'https://localhost');
+  assert.equal(parseSiteOrigin('http://localhost:65535'), 'http://localhost:65535');
+});
+
+test('parseSiteOrigin rejects port 0, ports above 65535 and an empty port', () => {
+  for (const input of [
+    'http://localhost:0', 'https://localhost:0', 'http://127.0.0.1:0', 'http://localhost:65536',
+    'http://localhost:99999', 'http://localhost:123456', 'http://localhost:', 'https://staging.preppa.live:0',
+  ]) {
+    assert.equal(parseSiteOrigin(input), null, input);
+  }
+});
+
+test('check-vercel-env.mjs siteOrigin block returns exactly what parseSiteOrigin returns', () => {
+  const src = readFileSync(SCRIPT, 'utf8');
+  const block = /\/\/ BEGIN siteOrigin[^\n]*\r?\n([\s\S]*?)\/\/ END siteOrigin/.exec(src);
+  assert.ok(block, 'expected BEGIN siteOrigin and END siteOrigin markers in check-vercel-env.mjs');
+  const scriptOrigin = new Function(`${block[1]}; return siteOrigin;`)() as (value: string) => string | null;
+  for (const input of MATRIX) {
+    if (input === undefined) continue;
+    assert.equal(scriptOrigin(input), parseSiteOrigin(input), JSON.stringify(input));
+  }
+  for (const impl of [RnUrl, undefined]) {
+    withUrl(impl, () => {
+      for (const input of RN_HOSTILE) assert.equal(scriptOrigin(input), null, input);
+    });
   }
 });

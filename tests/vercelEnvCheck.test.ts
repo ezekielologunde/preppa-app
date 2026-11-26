@@ -286,7 +286,12 @@ test('share origin: allowlisted origins pass', () => {
   assertPass({ VERCEL_ENV: 'preview', ...ISOLATED, [SITE]: 'https://staging.preppa.live' });
   assertPass({ VERCEL_ENV: 'development', ...ISOLATED, [NAMES.appEnv]: 'development', [SITE]: 'http://localhost:8081' });
   assertPass({ VERCEL_ENV: 'production', ...PRODUCTION, [SITE]: 'https://app.preppa.live' });
-  assertPass({ VERCEL_ENV: 'production', [SITE]: 'HTTPS://APP.PREPPA.LIVE/' });
+});
+
+// Adjusted for M2: a production build must carry exactly the production origin, so the uppercase
+// spelling that used to pass (it normalised to production) now fails.
+test('share origin: production rejects a non-exact spelling of the production origin', () => {
+  assertFail({ VERCEL_ENV: 'production', [SITE]: 'HTTPS://APP.PREPPA.LIVE/' }, [SITE]);
 });
 
 for (const value of [
@@ -316,3 +321,49 @@ test('share origin: a rejected value is reported alongside other failures, once'
 test('share origin: a local build runs no checks, so a rejected value does not fail it', () => {
   assert.match(assertPass({ [SITE]: `https://${MARKER}.com` }).output, /local build/);
 });
+
+// EXPO_PUBLIC_SITE_URL by build environment (M2). Production allows unset or exactly the production
+// origin; preview and development reject the production origin and accept staging or local origins.
+const SITE_VAR = 'EXPO_PUBLIC_SITE_URL';
+const PROD_SITE = 'https://app.preppa.live';
+const STAGING_SITE = 'https://staging.preppa.live';
+
+test('production: SITE_URL unset or the exact production origin passes, with no warning', () => {
+  assert.doesNotMatch(assertPass({ VERCEL_ENV: 'production' }).output, /WARN/);
+  assertPass({ VERCEL_ENV: 'production', [SITE_VAR]: '' });
+  assertPass({ VERCEL_ENV: 'production', [SITE_VAR]: PROD_SITE });
+});
+
+test('production: SITE_URL on staging, localhost, a slash variant or garbage fails', () => {
+  for (const value of [
+    STAGING_SITE, 'http://localhost:8081', 'https://localhost', 'http://127.0.0.1:19006',
+    `${PROD_SITE}/`, 'HTTPS://APP.PREPPA.LIVE', 'https://app.preppa.live:443', 'https://evil.com', '   ',
+  ]) {
+    assertFail({ VERCEL_ENV: 'production', [SITE_VAR]: value }, [SITE_VAR]);
+  }
+});
+
+for (const env of ['preview', 'development'] as const) {
+  test(`${env}: SITE_URL staging or a local origin passes`, () => {
+    for (const value of [STAGING_SITE, `${STAGING_SITE}/`, 'http://localhost:8081', 'https://localhost', 'http://127.0.0.1:19006']) {
+      assertPass({ VERCEL_ENV: env, ...ISOLATED, [SITE_VAR]: value });
+    }
+  });
+
+  test(`${env}: SITE_URL unset or empty passes with a warning`, () => {
+    assert.match(assertPass({ VERCEL_ENV: env, ...ISOLATED }).output, new RegExp(`WARN EXPO_PUBLIC_SITE_URL is unset on a ${env} build`));
+    assert.match(assertPass({ VERCEL_ENV: env, ...ISOLATED, [SITE_VAR]: '' }).output, /WARN/);
+  });
+
+  test(`${env}: SITE_URL on the production origin fails, in any spelling`, () => {
+    for (const value of [PROD_SITE, `${PROD_SITE}/`, 'HTTPS://APP.PREPPA.LIVE/', 'https://app.preppa.live:443']) {
+      assertFail({ VERCEL_ENV: env, ...ISOLATED, [SITE_VAR]: value }, [SITE_VAR]);
+    }
+  });
+
+  test(`${env}: SITE_URL that is not an allowed origin fails`, () => {
+    for (const value of ['https://evil.com', 'https://:@staging.preppa.live', 'http://localhost:0', 'https://staging.preppa.live/x']) {
+      assertFail({ VERCEL_ENV: env, ...ISOLATED, [SITE_VAR]: value }, [SITE_VAR]);
+    }
+  });
+}

@@ -135,27 +135,48 @@ if (!target) {
 // EXPO_PUBLIC_SITE_URL (DESIGN 2.12) is the origin share links use. The client falls back to
 // production for any value src/lib/siteOrigin.ts rejects, so a set but rejected value would quietly
 // send every share from this build to production; fail the build instead. Unset or empty passes
-// (the fallback is intended there). SITE_HOSTS and siteOrigin() are a copy of SITE_HOSTS and
+// (the fallback is intended there). The block between the BEGIN and END markers is a copy of SITE_HOSTS and
 // parseSiteOrigin() in src/lib/siteOrigin.ts; tests/shareSite.test.ts fails if they drift.
 const SITE_VAR = 'EXPO_PUBLIC_SITE_URL';
+const PRODUCTION_SITE = 'https://app.preppa.live';
+// BEGIN siteOrigin (self-contained; tests/shareSite.test.ts evaluates this block)
 const SITE_HOSTS = ['app.preppa.live', 'staging.preppa.live', 'localhost', '127.0.0.1'];
 const LOCAL_HOSTS = ['localhost', '127.0.0.1'];
+const SITE_PATTERN = /^(https?):\/\/([A-Za-z0-9.-]+)(?::([0-9]{1,5}))?\/?$/i;
 const siteOrigin = (value) => {
-  if (value === '' || value !== value.trim()) return null;
-  let site;
-  try { site = new URL(value); } catch { return null; }
-  const local = LOCAL_HOSTS.includes(site.hostname);
-  if (!SITE_HOSTS.includes(site.hostname)) return null;
-  if (site.protocol !== 'https:' && !(site.protocol === 'http:' && local)) return null;
-  if (site.username !== '' || site.password !== '') return null;
-  if (site.pathname !== '/' || site.search !== '' || site.hash !== '') return null;
-  if (site.port !== '' && !local) return null;
-  return site.origin;
+  const match = SITE_PATTERN.exec(value);
+  if (!match) return null;
+  const scheme = match[1].toLowerCase();
+  const host = match[2].toLowerCase();
+  if (!SITE_HOSTS.includes(host)) return null;
+  const local = LOCAL_HOSTS.includes(host);
+  if (scheme !== 'https' && !(scheme === 'http' && local)) return null;
+  let port = '';
+  if (match[3] !== undefined) {
+    const n = Number(match[3]);
+    if (n < 1 || n > 65535) return null;
+    if (n !== (scheme === 'https' ? 443 : 80)) port = `:${n}`;
+  }
+  if (port !== '' && !local) return null;
+  return `${scheme}://${host}${port}`;
 };
+// END siteOrigin
 if (isPresent(SITE_VAR) && siteOrigin(raw(SITE_VAR)) === null) {
   fail(SITE_VAR, 'is set but is not an allowed share origin (https on app.preppa.live or staging.preppa.live, '
     + 'or http or https on localhost or 127.0.0.1, with no path, query, credentials, padding or other port); '
     + 'the client would fall back to production');
+} else if (target === 'production') {
+  // Production shares must point at production: unset (the client falls back) or exactly the origin.
+  if (isPresent(SITE_VAR) && raw(SITE_VAR) !== PRODUCTION_SITE) {
+    fail(SITE_VAR, `production build must leave it unset or set it to exactly ${PRODUCTION_SITE}`);
+  }
+} else if (target === 'preview' || target === 'development') {
+  if (!isPresent(SITE_VAR)) {
+    // Unset falls back to production, so this build's shares would point at production.
+    console.log(`check-vercel-env: WARN ${SITE_VAR} is unset on a ${target} build; share links will point at production`);
+  } else if (siteOrigin(raw(SITE_VAR)) === PRODUCTION_SITE) {
+    fail(SITE_VAR, `${target} build must not share production links; use the staging or a local origin`);
+  }
 }
 
 if (failures.length) {

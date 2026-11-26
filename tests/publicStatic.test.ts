@@ -29,7 +29,9 @@ test('robots.txt and sitemap.xml exist in public/', () => {
 
 test('the sitemap lists only fixed routes that exist, and no per-entity URL', () => {
   const paths = sitemapPaths();
-  assert.ok(paths.includes('/'));
+  // '/' is a client-side redirect to /home (app/index.tsx), so the sitemap lists /home instead.
+  assert.ok(!paths.includes('/'));
+  assert.ok(paths.includes('/home'));
   assert.ok(paths.includes('/discover'));
   assert.equal(new Set(paths).size, paths.length, 'duplicate sitemap entry');
   for (const path of paths) {
