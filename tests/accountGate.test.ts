@@ -86,7 +86,6 @@ test('store exposes accountReady and signedIn, and only reconcileAccount sets ac
   const store = read('src/store/store.tsx');
   assert.match(store, /interface Store \{[^}]*\n\s*accountReady: boolean;/);
   assert.match(store, /interface Store \{[^}]*\n\s*signedIn: boolean;/);
-  assert.match(store, /useState\(false\);[^\n]*\n?/);
   assert.match(store, /const \[accountReady, setAccountReady\] = useState\(false\);/);
   assert.match(store, /const value: Store = \{[^}]*\n\s*accountReady,/);
   assert.match(store, /const value: Store = \{[^}]*\n\s*signedIn: !!uid,/);
@@ -95,7 +94,8 @@ test('store exposes accountReady and signedIn, and only reconcileAccount sets ac
   const total = store.split('setAccountReady(').length - 1;
   const inReconcile = body.split('setAccountReady(true)').length - 1;
   assert.ok(inReconcile >= 2, 'reconcileAccount must set accountReady on success and on failure');
-  assert.equal(total, inReconcile, 'accountReady is set outside reconcileAccount');
+  // The only other writer is the timeout fallback (pinned in its own test below).
+  assert.equal(total, inReconcile + 1, 'accountReady is set outside reconcileAccount and the timeout fallback');
   // Set only after the session is known, so signedIn is final when guards start deciding.
   assert.ok(body.indexOf('setUid(') < body.indexOf('setAccountReady(true)'), 'accountReady set before uid');
   // The failure path sets it too, or a transient error would leave guards waiting forever.
@@ -127,8 +127,50 @@ test('My Hub waits on accountReady and consumes ?connect= only when it handles i
   const handleGate = hub.indexOf("if (connectAction !== 'handle') return;");
   const signInBranch = hub.indexOf("if (connectAction === 'needSignIn') {");
   assert.ok(signInBranch > 0 && handleGate > signInBranch, 'sign-in branch must return before the handle gate');
-  assert.ok(handleGate < setParams[0].index!, '?connect= is consumed before the handle gate');
+  assert.ok(handleGate < setParams[0].index!, '?connect= must be consumed after the handle gate');
   // The sign-in branch returns without consuming the param.
   assert.doesNotMatch(hub.slice(signInBranch, handleGate), /setParams/);
   assert.match(hub.slice(signInBranch, handleGate), /toast\('Sign in to finish setting up payouts\.', 'info'\)/);
+});
+
+test('My Hub Connect effect re-runs when connectAction changes, and nothing renders before the wait return', () => {
+  const hub = read('app/(tabs)/my-hub.tsx');
+  // The effect must depend on connectAction: with [connect] alone, the Stripe return is never
+  // handled once accountReady flips (connect itself does not change).
+  const depsAt = hub.indexOf('}, [connectAction, connect]);');
+  assert.ok(depsAt > 0, 'Connect effect deps must be exactly [connectAction, connect]');
+  const effectStart = hub.lastIndexOf('useEffect(', depsAt);
+  assert.ok(effectStart > 0 && hub.slice(effectStart, depsAt).includes("connectAction !== 'handle'"), "deps array is not the Connect effect's");
+  // The wait return comes before any hub content: before the sign-in message, the redirect and the handlers.
+  const waitAt = hub.indexOf("if (decision === 'wait') return null;");
+  assert.ok(waitAt > 0, 'wait return missing in My Hub');
+  assert.ok(waitAt > hub.indexOf('const decision = myHubDecision(hubState);'), 'wait return must follow the decision');
+  assert.ok(waitAt < hub.indexOf("if (decision === 'signInToFinish') {"), 'wait return must come before the sign-in message');
+  assert.ok(waitAt < hub.indexOf("if (decision === 'redirect')"), 'wait return must come before the redirect');
+  assert.ok(waitAt < hub.indexOf('const startPrep = async'), 'wait return must come before hub content');
+});
+
+test('a hung first reconcile cannot leave accountReady false forever (8 s fallback)', () => {
+  const store = read('src/store/store.tsx').replace(/\r\n/g, '\n');
+  assert.match(store, /export const ACCOUNT_READY_TIMEOUT_MS = 8000;/);
+  const effect = store.match(/useEffect\(\(\) => \{\n\s*if \(!ready \|\| accountReady\) return;[\s\S]*?\}, \[ready, accountReady\]\);/);
+  assert.ok(effect, 'timeout effect not found in the store');
+  assert.match(effect[0], /setTimeout\(\(\) => setAccountReady\(true\), ACCOUNT_READY_TIMEOUT_MS\)/);
+  // Cleared on unmount and on normal completion (accountReady flipping re-runs the effect).
+  assert.match(effect[0], /return \(\) => clearTimeout\(/);
+});
+
+test('a failed first reconcile still reads the session so a signed-in cook is not shown signed out', () => {
+  const body = reconcileBody(read('src/store/store.tsx')).replace(/\r\n/g, '\n');
+  const catchAt = body.lastIndexOf('    } catch {\n');
+  assert.ok(catchAt > 0, 'outer catch not found');
+  const tail = body.slice(catchAt);
+  const tryAt = tail.indexOf('try {');
+  const innerCatch = tail.indexOf('} catch', tryAt);
+  const readAt = tail.indexOf('supabase.auth.getSession()');
+  const setUidAt = tail.indexOf('setUid(');
+  const readyAt = tail.indexOf('setAccountReady(true)');
+  assert.ok(tryAt >= 0 && readAt > tryAt && readAt < innerCatch, 'getSession must sit inside its own try/catch in the failure path');
+  assert.ok(setUidAt > readAt && setUidAt < innerCatch, 'uid must be set from the session');
+  assert.ok(innerCatch < readyAt, 'accountReady must be set after the session read');
 });

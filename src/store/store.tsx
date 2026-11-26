@@ -24,6 +24,10 @@ export type PrepperStatus = 'none' | 'pending' | 'approved';
 
 const LS = 'preppa.v1';
 
+/** If the first account reconcile has not finished this long after it started (stalled fetch,
+ * auth lock held), stop making the route guards wait and let them decide on the last known state. */
+export const ACCOUNT_READY_TIMEOUT_MS = 8000;
+
 export interface CartLine {
   key: string;
   name: string;
@@ -401,6 +405,11 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
     } catch {
       // transient network/permission issue: keep the last known state. The reconcile has
       // still finished, so guards stop waiting and decide on that state, as they did before.
+      // A session can still exist, so read it (own try/catch) or a signed-in cook looks signed out.
+      try {
+        const { data: sess } = await supabase.auth.getSession();
+        if (sess.session?.user?.id) setUid(sess.session.user.id);
+      } catch { /* no session info: stay on the last known uid */ }
       setAccountReady(true);
     }
   }, [refreshAddresses, refreshOrders]);
@@ -436,6 +445,14 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
     });
     return () => sub.subscription.unsubscribe();
   }, [ready, reconcileAccount]);
+
+  // Fallback: a reconcile that hangs must not leave the route guards rendering nothing forever.
+  // Armed once storage is ready; cleared on unmount and as soon as accountReady flips.
+  useEffect(() => {
+    if (!ready || accountReady) return;
+    const t = setTimeout(() => setAccountReady(true), ACCOUNT_READY_TIMEOUT_MS);
+    return () => clearTimeout(t);
+  }, [ready, accountReady]);
 
   // Re-check approval/payout status when the app returns to the foreground — otherwise an
   // approval that happened while the app was merely backgrounded (not a fresh sign-in) would
