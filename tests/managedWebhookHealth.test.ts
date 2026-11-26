@@ -1,5 +1,6 @@
 // DESIGN 1.11 (part B): detect_system_health_issues() alerts admins when stripe._managed_webhooks has no
-// enabled row, or when card orders were placed but no stripe.* mirror row was written in 24 hours.
+// enabled row, when card orders were placed but no stripe.* mirror row was written in 24 hours (unless
+// worker_not_running already holds in the same run), and when notify_admins() would reach no admin.
 //
 // No Postgres runs here, so these are static checks over the migration text. The guard against dropped
 // checks is derived, not hard-coded: every alert kind any earlier definition recorded, and the whole
@@ -12,7 +13,7 @@ import test from 'node:test';
 const MIGRATIONS_DIR = join(__dirname, '..', 'supabase', 'migrations');
 const NEW_MIGRATION = '20260927003000_managed_webhook_health.sql';
 const FN = 'detect_system_health_issues';
-const NEW_KINDS = ['stripe_managed_webhook_missing', 'stripe_mirror_stale'];
+const NEW_KINDS = ['stripe_managed_webhook_missing', 'stripe_mirror_stale', 'no_admin_recipients'];
 // Checks earlier tasks added; listed as well as derived so a lost definer file cannot shrink the set.
 const EXISTING_KINDS = [
   'cron_job_failure',
@@ -58,11 +59,11 @@ function functionDef(sql: string, name: string): { header: string; body: string 
   return { header: sql.slice(start, start + asMatch.index), body: sql.slice(bodyStart, bodyEnd) };
 }
 
-const definers = (): string[] =>
+const definers = (name: string = FN): string[] =>
   readdirSync(MIGRATIONS_DIR)
     .filter((f) => f.endsWith('.sql'))
     .sort()
-    .filter((f) => new RegExp(`create or replace function public\\.${FN}\\s*\\(`, 'i').test(read(f)));
+    .filter((f) => new RegExp(`create or replace function public\\.${name}\\s*\\(`, 'i').test(read(f)));
 
 function newest(): { file: string; body: string } {
   const all = definers();
@@ -192,4 +193,53 @@ test('both new alerts deduplicate hourly and sit inside the pg_cron guard', () =
       `${kind} recorded in audit_log`,
     );
   }
+});
+
+test('stripe_mirror_stale stays silent while worker_not_running holds in the same run', () => {
+  const { body } = newest();
+  const assigned = body.indexOf('into v_stale_workers');
+  const workerAlert = body.indexOf("meta->>'kind' = 'worker_not_running'");
+  const staleGuard = body.indexOf(
+    "if v_stale_workers is null and not exists ( select 1 from audit_log where action = 'anomaly_alerted' and entity = 'platform' and meta->>'kind' = 'stripe_mirror_stale'",
+  );
+  assert.ok(assigned > 0 && workerAlert > assigned, 'worker_not_running condition computed first');
+  assert.ok(staleGuard > workerAlert, 'stripe_mirror_stale is gated on v_stale_workers being null');
+  assert.equal(body.slice(assigned + 1, staleGuard).includes('into v_stale_workers'), false, 'not reassigned in between');
+  assert.equal(/v_stale_workers :=/.test(body), false, 'v_stale_workers is only set by its select');
+});
+
+test('no_admin_recipients uses exactly the recipient predicate of the newest notify_admins()', () => {
+  const all = definers('notify_admins');
+  assert.ok(all.length > 0, 'notify_admins is defined');
+  const notify = norm(functionDef(read(all[all.length - 1]), 'notify_admins').body);
+  const loop = /for v_admin, v_admin_email in select \S+ \S+ (from .*?) loop/.exec(notify);
+  assert.ok(loop, 'notify_admins recipient loop parsed');
+  assert.equal(loop[1], "from profiles p join auth.users u on u.id = p.id where p.role = 'admin'");
+  const { body } = newest();
+  assert.ok(
+    body.includes(
+      `if not exists ( select 1 ${loop[1]} ) and not exists ( select 1 from audit_log where action = 'anomaly_alerted' and entity = 'platform' and meta->>'kind' = 'no_admin_recipients' and created_at > now() - interval '1 hour' ) then`,
+    ),
+    'alerts when no profile matches the notify_admins predicate, at most hourly',
+  );
+  const block = alertBlock(body, 'no_admin_recipients');
+  assert.ok(block.includes("perform notify_admins('admin', 'no admin recipients'"), 'still calls notify_admins for the webhook URL');
+});
+
+test('the migration header names every new check and claims only what the checks can detect', () => {
+  const sql = newMigration();
+  const header = sql.slice(0, sql.indexOf('create or replace function')).replace(/^-- ?/gm, '').toLowerCase().replace(/\s+/g, ' ');
+  for (const kind of NEW_KINDS) assert.ok(header.includes(kind), `header describes ${kind}`);
+  assert.ok(header.includes('local snapshot'), 'says _managed_webhooks is only a local snapshot');
+  assert.match(
+    header,
+    /what these checks cannot see: an endpoint deleted on the stripe side .* or disabled by stripe/,
+    'says Stripe-side deletion and disabling are not detected',
+  );
+  assert.ok(header.includes('part e'), 'points to part E for those cases');
+  assert.equal(
+    /if that table is empty \(the endpoint was never registered, or was deleted as orphaned/.test(header),
+    false,
+    'no longer claims the empty-table check catches an orphan deletion',
+  );
 });

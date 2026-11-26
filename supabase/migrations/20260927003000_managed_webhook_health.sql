@@ -1,30 +1,41 @@
--- Web launch DESIGN 1.11 (part B): alert admins when the managed Stripe webhook is gone or silent.
+-- Web launch DESIGN 1.11 (part B): alert admins when this project's local record of the managed
+-- Stripe webhook is missing or disabled, when the stripe.* mirror has gone stale, and when no admin
+-- would receive any of these alerts.
 --
 -- The stripe-sync webhook is the only path by which Stripe events reach the stripe.* mirror and,
 -- through the reconcile triggers, mark orders paid. stripe-setup records it in
--- stripe._managed_webhooks. If that table is empty (the endpoint was never registered, or was
--- deleted as orphaned by another environment's stripe-setup, see RED-TEAM-LOOP0), or every row in
--- it is disabled, customers are charged and orders stay unpaid with nothing reported.
+-- stripe._managed_webhooks. That table is a local snapshot: stripe-setup writes it when it creates
+-- or finds the endpoint, and nothing re-reads the endpoint from Stripe afterwards.
 --
--- detect_system_health_issues() gains two checks, each re-alerting at most hourly:
+-- detect_system_health_issues() gains three checks, each re-alerting at most hourly:
 --   stripe_managed_webhook_missing  stripe._managed_webhooks exists and has no row whose status is
---                                   other than 'disabled' (empty, or all disabled).
+--                                   other than 'disabled': the endpoint was never registered here,
+--                                   its local row was removed, or its local row is marked disabled.
 --   stripe_mirror_stale             card orders were created between 24 hours and 15 minutes ago,
 --                                   and no stripe.* mirror table has a row with _updated_at inside
 --                                   the last 24 hours. The 15 minute lag leaves a just-placed order
---                                   time for its first webhook event before it counts.
--- Both are skipped where the stripe.* mirror does not exist (stripe-setup has not run), as the 1.4
--- reconcile-trigger check is. The mirror tables scanned are the stripe.* tables with an
+--                                   time for its first webhook event before it counts. Silent while
+--                                   worker_not_running is true in the same run, so a dead worker
+--                                   raises one alert, not two.
+--   no_admin_recipients             no profile with role 'admin' joined to an auth.users row exists,
+--                                   which is the exact set notify_admins() loops over, so every
+--                                   other alert would reach nobody but the optional webhook URL.
+-- The first two are skipped where the stripe.* mirror does not exist (stripe-setup has not run),
+-- as the 1.4 reconcile-trigger check is. The mirror tables scanned are the stripe.* tables with an
 -- _updated_at column, excluding the sync engine's metadata tables (names starting with '_') and
 -- stripe.accounts, which the worker touches on every run whether or not any event arrived.
 --
--- The Stripe dashboard setting that emails on failing webhook deliveries (DESIGN 1.11 part E) is
--- an owner step on the live account and is not part of this migration.
+-- What these checks cannot see: an endpoint deleted on the Stripe side (for example as orphaned by
+-- another environment's stripe-setup, see RED-TEAM-LOOP0) or disabled by Stripe after repeated
+-- delivery failures. Both leave the local row in place with status 'enabled'. The staleness check
+-- does not cover them either while the sync worker's reconciliation keeps writing mirror rows.
+-- Only Stripe's own failing-webhook email (DESIGN 1.11 part E, an owner step on the live account,
+-- not part of this migration) reports those cases.
 --
 -- Latest definition copied unchanged from 20260927002000_install_stripe_reconcile_triggers.sql
 -- (which carries the 20260908030000_system_health_monitoring.sql checks, the 1.2
 -- project_base_url_missing and worker_not_running checks, and the 1.4
--- stripe_reconcile_triggers_missing check) with the two checks above added at the end. Same
+-- stripe_reconcile_triggers_missing check) with the three checks above added at the end. Same
 -- signature, security definer, search_path and grants.
 create or replace function public.detect_system_health_issues()
 returns void
@@ -180,8 +191,9 @@ begin
   end if;
 
   -- DESIGN 1.11: card orders were placed but no stripe.* mirror row was written in 24 hours, so the
-  -- webhook is silent even if it is registered. Re-alerts at most hourly while the condition persists.
-  if not exists (
+  -- webhook is silent even if it is registered. Re-alerts at most hourly while the condition persists,
+  -- and stays silent while the worker_not_running condition is true in this run (one alert, not two).
+  if v_stale_workers is null and not exists (
     select 1 from audit_log
     where action = 'anomaly_alerted' and entity = 'platform' and meta->>'kind' = 'stripe_mirror_stale'
       and created_at > now() - interval '1 hour'
@@ -219,6 +231,22 @@ begin
       values (null, 'anomaly_alerted', 'platform', null,
         jsonb_build_object('kind', 'stripe_mirror_stale', 'tables', v_mirror_tables));
     end if;
+  end if;
+
+  -- DESIGN 1.11: nobody notify_admins() would reach. Same predicate as its recipient loop
+  -- (profiles.role = 'admin' joined to auth.users). The notify_admins call still reaches the
+  -- optional admin_alert_webhook_url; the audit_log row is the record either way. Hourly.
+  if not exists (
+    select 1 from profiles p join auth.users u on u.id = p.id where p.role = 'admin'
+  ) and not exists (
+    select 1 from audit_log
+    where action = 'anomaly_alerted' and entity = 'platform' and meta->>'kind' = 'no_admin_recipients'
+      and created_at > now() - interval '1 hour'
+  ) then
+    perform notify_admins('admin', 'No admin recipients',
+      'No profile has role admin with a matching auth user, so admin alerts reach no one by in-app notice or email.');
+    insert into audit_log (actor_id, action, entity, entity_id, meta)
+    values (null, 'anomaly_alerted', 'platform', null, jsonb_build_object('kind', 'no_admin_recipients'));
   end if;
 end;
 $$;
