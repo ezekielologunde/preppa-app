@@ -125,7 +125,8 @@ function admin() {
 // host, port only when it is not the scheme default, and no path, trailing slash, query, fragment,
 // credentials or wildcard. A redirect is allowed only when its URL.origin equals one entry exactly. A
 // missing or empty list, or any malformed entry, fails closed: the handler answers a fixed 500 that names
-// no origin. The first entry is the default return/refresh origin when the caller sends none (native).
+// no origin. The redirect itself must be http(s) too, so blob:<allowed origin>/x is refused. The first
+// entry is the default return/refresh origin when the caller sends none (native).
 const APP_ORIGINS_FAILURE_MESSAGE = 'Could not start payout setup. Please try again.';
 function parseAppOrigins(raw: string | undefined): string[] | null {
   const entries = (raw ?? '').split(',').map((entry) => entry.trim()).filter((entry) => entry !== '');
@@ -144,9 +145,11 @@ function parseAppOrigins(raw: string | undefined): string[] | null {
   return entries;
 }
 function isAllowedRedirect(url: string, allowedOrigins: string[]): boolean {
-  let origin: string;
-  try { origin = new URL(url).origin; } catch { return false; }
-  return allowedOrigins.includes(origin);
+  let parsed: URL;
+  try { parsed = new URL(url); } catch { return false; }
+  // blob: URLs report the inner URL's origin, so the redirect's own scheme is checked separately.
+  if (parsed.protocol !== 'https:' && parsed.protocol !== 'http:') return false;
+  return allowedOrigins.includes(parsed.origin);
 }
 function appOriginsFailureResponse(headers: Record<string, string> = {}): Response {
   console.error('connect-onboard refused: APP_ORIGINS is missing or malformed');

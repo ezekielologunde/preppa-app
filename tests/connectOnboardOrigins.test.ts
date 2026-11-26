@@ -206,6 +206,7 @@ test('a redirect on any other origin falls back to the first APP_ORIGINS entry',
     'https://staging.preppa.live:8443/my-hub',
     'http://localhost:8082/my-hub',
     'javascript:alert(1)',
+    `blob:${STAGING}/0b1c2d3e`,
     '//staging.preppa.live/my-hub',
     '/my-hub?connect=return',
     'not a url',
@@ -227,4 +228,26 @@ test('with no redirect in the body (native clients) the defaults use the first A
     returnUrl: `${PRODUCTION}/my-hub?connect=return`,
     refreshUrl: `${PRODUCTION}/my-hub?connect=refresh`,
   });
+});
+
+// The documented deploy paths must set APP_ORIGINS, or connect-onboard answers 500 to every POST once deployed.
+const DEPLOY_SCRIPT = readFileSync(join(__dirname, '..', 'scripts', 'deploy-staging.ps1'), 'utf8').replace(/\r\n/g, '\n');
+const DESIGN_DOC = readFileSync(join(__dirname, '..', 'docs', 'web-launch', 'DESIGN.md'), 'utf8').replace(/\r\n/g, '\n');
+
+test('deploy-staging step 4 sets APP_ORIGINS to the staging origin with the other function secrets', () => {
+  assert.match(DEPLOY_SCRIPT, /^\$AppOrigins = 'https:\/\/staging\.preppa\.live'/m, 'AppOrigins holds the staging origin');
+  const step4 = DEPLOY_SCRIPT.slice(DEPLOY_SCRIPT.indexOf("Step 4 '"), DEPLOY_SCRIPT.indexOf('foreach ($fn in $Guarded3)'));
+  assert.ok(step4.length > 0, 'step 4 found before the guarded deploys');
+  assert.match(step4, /Set-FunctionSecrets @\{[^}]*\bAPP_ORIGINS = \$AppOrigins\b[^}]*\}/, 'APP_ORIGINS set by Set-FunctionSecrets');
+  assert.match(step4, /Add-Evidence "function secrets set:[^"]*APP_ORIGINS = \$AppOrigins/, 'APP_ORIGINS recorded in the evidence line');
+  const reminder = DEPLOY_SCRIPT.split('\n').find((line) => line.includes('supabase secrets list'));
+  assert.ok(reminder && reminder.includes('APP_ORIGINS'), 'the closing secrets list reminder names APP_ORIGINS');
+});
+
+test('the DESIGN 4.2 deploy rule sets APP_ORIGINS, first entry the production origin, before connect-onboard', () => {
+  const start = DESIGN_DOC.indexOf('**4.2 deploy order');
+  const rule = DESIGN_DOC.slice(start, DESIGN_DOC.indexOf('\n1. ', start));
+  assert.ok(start >= 0 && rule.length > 0, '4.2 deploy order block found');
+  assert.match(rule, /`APP_ORIGINS`[^\n]*before `connect-onboard` is deployed/, 'APP_ORIGINS set before connect-onboard deploys');
+  assert.match(rule, /first entry is `https:\/\/app\.preppa\.live`/, 'production first entry is the app origin');
 });
