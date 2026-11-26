@@ -1,3 +1,44 @@
+-- S12: anon reads only the allowlisted columns of kitchens, reviews, plans and plan_items
+-- (20260927005000_anon_column_grants.sql); signed-in users keep the whole row.
+do $$
+declare
+  c record;
+begin
+  for c in
+    select * from (values
+      ('kitchens', 'owner_id'), ('kitchens', 'rejection_reason'), ('kitchens', 'suspension_reason'),
+      ('kitchens', 'cod_enabled'), ('kitchens', 'approved_at'),
+      ('reviews', 'author_id'), ('reviews', 'order_id'), ('reviews', 'booking_id'),
+      ('plans', 'stripe_price_id'), ('plans', 'tax_bps')
+    ) v(tbl, col)
+  loop
+    if has_column_privilege('anon', 'public.' || c.tbl, c.col, 'select') then
+      raise exception 'REGRESSION: anon can read %.% again', c.tbl, c.col;
+    end if;
+  end loop;
+
+  for c in
+    select 'kitchens' as tbl, unnest(array['id','name','slug','cuisine','bio','approx_area','approx_lat','approx_lng',
+      'avatar_url','cover_url','specialties','years_active','availability','created_at','is_pro','supports_delivery',
+      'supports_pickup','verification_status']) as col
+    union all select 'reviews', unnest(array['id','kitchen_id','rating','body','created_at'])
+    union all select 'plan_items', unnest(array['id','plan_id','meal_id','qty','week_index'])
+    union all select 'plans', unnest(array['id','kitchen_id','name','price_cents','status','created_at','cover_url'])
+  loop
+    if not has_column_privilege('anon', 'public.' || c.tbl, c.col, 'select') then
+      raise exception 'REGRESSION: anon lost %.% -- guest browse reads it', c.tbl, c.col;
+    end if;
+  end loop;
+
+  if not has_column_privilege('authenticated', 'public.kitchens', 'owner_id', 'select') then
+    raise exception 'REGRESSION: authenticated lost kitchens.owner_id -- owner lookups are broken';
+  end if;
+  if has_function_privilege('public', 'public.owned_kitchen_ids()', 'execute')
+     or not has_function_privilege('anon', 'public.owned_kitchen_ids()', 'execute') then
+    raise exception 'REGRESSION: owned_kitchen_ids() execute grants drifted (anon and authenticated only)';
+  end if;
+end $$;
+
 -- Regression tests for the 2026-08 stabilization/hardening pass.
 --
 -- Plain SQL assertions (RAISE EXCEPTION on failure), not pgTAP -- no extra
