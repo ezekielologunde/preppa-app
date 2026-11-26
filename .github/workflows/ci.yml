@@ -50,3 +50,5 @@ jobs:
       # trim it for speed if it becomes a bottleneck.
       - run: supabase start
       - run: psql "postgresql://postgres:postgres@127.0.0.1:54322/postgres" -v ON_ERROR_STOP=1 -f supabase/tests/regressions.sql
+      # Executes public.sweep_stuck_payments() on throwaway fixtures (rolled back), PASS/FAIL per case.
+      - run: psql "postgresql://postgres:postgres@127.0.0.1:54322/postgres" -v ON_ERROR_STOP=1 -f supabase/tests/stuck_payment_sweep_smoke.sql

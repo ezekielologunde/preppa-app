@@ -1,5 +1,5 @@
 import React, { useEffect } from 'react';
-import { View, useWindowDimensions } from 'react-native';
+import { Platform, View, useWindowDimensions } from 'react-native';
 import { Stack } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
 import * as SplashScreen from 'expo-splash-screen';
@@ -93,7 +93,8 @@ function AppShell() {
       </ErrorBoundary>
       <ToastHost />
       <CartFlash />
-      {ready && !onboarded ? <OnboardingFlow /> : null}
+      {/* Web visitors browse as guests; the preference flow stays native-only (auth is asked at gated actions). */}
+      {ready && !onboarded && Platform.OS !== 'web' ? <OnboardingFlow /> : null}
       {ready && onboarded ? <ApprovalWelcomeOverlay /> : null}
       <SplashOverlay done={ready} />
     </View>

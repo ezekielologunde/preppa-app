@@ -1,0 +1,59 @@
+# L1 evidence (test project)
+
+Ids, prefixes and counts only. No secret values.
+
+- 2026-11-26 02:48:07Z preflight ok: ref pvoticdzujmycnnyvdfu, branch web-launch-loop0, expected account acct_1UfOqeJJtcRW1Lzi
+- 2026-11-26 02:48:13Z linked pvoticdzujmycnnyvdfu
+- 2026-11-26 02:50:21Z vault: project_base_url, stripe_setup_secret, stripe_sync_worker_secret created (values not recorded)
+- 2026-11-26 02:58:02Z vault: project_base_url, stripe_setup_secret, stripe_sync_worker_secret created (values not recorded)
+- 2026-11-26 02:59:41Z vault: project_base_url, stripe_setup_secret, stripe_sync_worker_secret created (values not recorded)
+- 2026-11-26 03:13:29Z vault: project_base_url, stripe_setup_secret, stripe_sync_worker_secret created (values not recorded)
+- 2026-11-26 03:17:39Z function secrets set: STRIPE_SECRET_KEY (test key), STRIPE_EXPECTED_ACCOUNT = acct_1UfOqeJJtcRW1Lzi
+- 2026-11-26 03:18:14Z deployed stripe-setup
+- 2026-11-26 03:18:37Z deployed stripe-webhook
+- 2026-11-26 03:19:18Z deployed stripe-worker
+- 2026-11-26 03:19:19Z key check: prefix sk_test_, GET /v1/account = acct_1UfOqeJJtcRW1Lzi, test webhooks before: 
+- 2026-11-26 03:19:55Z negative check: HTTP 500, body '{"error":"Stripe configuration check failed"}', webhooks unchanged = True; STRIPE_EXPECTED_ACCOUNT restored to acct_1UfOqeJJtcRW1Lzi
+- 2026-11-26 03:20:26Z stripe-setup ok; test webhooks after: we_1UftETJJtcRW1LziAP65UnHg; added: we_1UftETJJtcRW1LziAP65UnHg
+- 2026-11-26 03:21:30Z db push finished
+- 2026-11-26 03:25:07Z install_stripe_reconcile_triggers run twice; check_stripe_reconcile_triggers() confirmed empty by operator
+- 2026-11-26 03:25:16Z deployed create-order
+- 2026-11-26 03:25:23Z deployed decline-order
+- 2026-11-26 03:25:46Z deployed accept-quote-and-deposit
+- 2026-11-26 03:25:54Z deployed auto-payouts
+- 2026-11-26 03:43:18Z deployed book-experience
+- 2026-11-26 03:43:27Z deployed cancel-booking
+- 2026-11-26 03:43:34Z deployed cancel-experience-booking
+- 2026-11-26 03:43:41Z deployed cancel-experience-session
+- 2026-11-26 03:43:47Z deployed charge-due-cycles
+- 2026-11-26 03:43:53Z deployed complete-booking
+- 2026-11-26 03:43:58Z deployed connect-dashboard-link
+- 2026-11-26 03:44:26Z deployed connect-link-oneoff
+- 2026-11-26 03:44:33Z deployed connect-onboard
+- 2026-11-26 03:44:40Z deployed connect-payout
+- 2026-11-26 03:47:02Z deployed connect-payout-settings
+- 2026-11-26 03:47:08Z deployed connect-status
+- 2026-11-26 03:47:16Z deployed create-service-request
+- 2026-11-26 03:47:21Z deployed create-subscription
+- 2026-11-26 03:47:30Z deployed delete-account
+- 2026-11-26 03:47:34Z deployed edit-service-request
+- 2026-11-26 03:47:39Z deployed experience-upsert
+- 2026-11-26 03:49:23Z deployed fulfill-plan-request
+- 2026-11-26 03:49:29Z deployed live-end
+- 2026-11-26 03:49:34Z deployed live-start
+- 2026-11-26 03:49:41Z deployed manage-cook-pro
+- 2026-11-26 03:49:47Z deployed manage-prepplus
+- 2026-11-26 03:49:55Z deployed manage-subscription
+- 2026-11-26 03:50:00Z deployed mux-webhook
+- 2026-11-26 03:50:06Z deployed payment-methods
+- 2026-11-26 03:50:11Z deployed plan-upsert
+- 2026-11-26 03:50:21Z deployed reconcile-booking-balances
+- 2026-11-26 03:50:29Z deployed reconcile-cycle-charges
+- 2026-11-26 03:50:41Z deployed reconcile-payouts
+- 2026-11-26 03:50:49Z deployed send-push
+- 2026-11-26 03:54:50Z deployed submit-quote
+- 2026-11-26 03:55:01Z deployed subscribe-box
+- 2026-11-26 03:55:10Z deployed subscribe-cook-pro
+- 2026-11-26 03:55:16Z deployed subscribe-plan
+- 2026-11-26 03:55:22Z deployed subscribe-prepplus
+- 2026-11-26 03:55:30Z deployed upload-media

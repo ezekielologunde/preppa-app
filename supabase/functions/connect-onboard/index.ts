@@ -2,9 +2,99 @@
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.45.4';
 import Stripe from 'https://esm.sh/stripe@16.12.0?target=deno';
 
+// BEGIN stripe-key-mode-guard-callers (docs/web-launch/DESIGN.md task 1.7)
+// Keep this block identical in every function that calls requireEnv('STRIPE_SECRET_KEY'):
+// tests/stripeKeyModeCallers.test.ts evaluates it from each file. Same rule as the 1.1g guard in the vendored
+// stripe-setup, stripe-webhook and stripe-worker wrappers: the key's mode must match the project and
+// GET /v1/account must return STRIPE_EXPECTED_ACCOUNT; the key and the account id are trimmed first.
+// Which mode: only SUPABASE_URL https://fwidhpzwldneeaphrxgg.supabase.co (the production project, compared
+// after URL normalisation, so a trailing slash is allowed but a path, port, query or credentials are not)
+// unlocks a live key (sk_live_/rk_live_). Every other well-formed http(s) URL is non-production and needs a
+// test key (sk_test_/rk_test_), local stacks included. A missing or unparseable SUPABASE_URL fails closed.
+// requireEnv('STRIPE_SECRET_KEY') runs the synchronous mode check at module load; the handler awaits
+// stripeKeyModeGuard() before any other work except the CORS preflight. Refusals log one fixed reason and
+// return a fixed 500 body; neither names a key, ref or account id.
+// Caching (per isolate): a pass is kept. Concurrent callers share one in-flight check. After a failed check
+// every call refuses without contacting Stripe for STRIPE_GUARD_RETRY_MS, then the next call runs one fresh
+// check. The clock is injectable for tests; the handlers use Date.now.
+const STRIPE_GUARD_PRODUCTION_URL = 'https://fwidhpzwldneeaphrxgg.supabase.co/';
+const STRIPE_GUARD_FAILURE_MESSAGE = 'Stripe configuration check failed';
+const STRIPE_GUARD_RETRY_MS = 30_000;
+let stripeGuardPassed = false;
+let stripeGuardInFlight: Promise<boolean> | null = null;
+let stripeGuardRetryAt = 0;
+function stripeGuardFailureResponse(headers: Record<string, string> = {}): Response {
+  return new Response(JSON.stringify({ error: STRIPE_GUARD_FAILURE_MESSAGE }), {
+    status: 500,
+    headers: { ...headers, 'Content-Type': 'application/json' },
+  });
+}
+function stripeGuardRefuse(reason: string): false {
+  console.error(`Stripe key-mode guard refused: ${reason}`);
+  return false;
+}
+function stripeGuardKeyModeMatches(stripeKey: string): boolean {
+  let supabaseUrl: URL;
+  try {
+    supabaseUrl = new URL(Deno.env.get('SUPABASE_URL') ?? '');
+  } catch {
+    return stripeGuardRefuse('SUPABASE_URL is missing or not a URL');
+  }
+  if (supabaseUrl.protocol !== 'https:' && supabaseUrl.protocol !== 'http:') {
+    return stripeGuardRefuse('SUPABASE_URL is missing or not a URL');
+  }
+  const allowedPrefixes = supabaseUrl.href === STRIPE_GUARD_PRODUCTION_URL ? ['sk_live_', 'rk_live_'] : ['sk_test_', 'rk_test_'];
+  if (!allowedPrefixes.some((prefix) => stripeKey.trim().startsWith(prefix))) {
+    return stripeGuardRefuse('STRIPE_SECRET_KEY mode does not match this project');
+  }
+  return true;
+}
+async function stripeGuardCheck(): Promise<boolean> {
+  const stripeKey = (Deno.env.get('STRIPE_SECRET_KEY') ?? '').trim();
+  if (!stripeGuardKeyModeMatches(stripeKey)) return false;
+  const expectedAccount = (Deno.env.get('STRIPE_EXPECTED_ACCOUNT') ?? '').trim();
+  if (!expectedAccount) return stripeGuardRefuse('STRIPE_EXPECTED_ACCOUNT is not set');
+  let account: { id?: unknown } | null;
+  try {
+    const response = await fetch('https://api.stripe.com/v1/account', {
+      method: 'GET',
+      headers: { Authorization: `Bearer ${stripeKey}` },
+      signal: AbortSignal.timeout(10_000),
+    });
+    if (!response.ok) return stripeGuardRefuse('Stripe account lookup failed');
+    account = await response.json();
+  } catch {
+    return stripeGuardRefuse('Stripe account lookup failed');
+  }
+  if (!account || account.id !== expectedAccount) {
+    return stripeGuardRefuse('Stripe account does not match STRIPE_EXPECTED_ACCOUNT');
+  }
+  return true;
+}
+async function stripeKeyModeGuard(clock: () => number = Date.now): Promise<boolean> {
+  if (stripeGuardPassed) return true;
+  if (!stripeGuardInFlight) {
+    if (clock() < stripeGuardRetryAt) return false;
+    stripeGuardInFlight = (async () => {
+      let passed = false;
+      try {
+        passed = await stripeGuardCheck();
+      } finally {
+        stripeGuardInFlight = null;
+        if (passed) stripeGuardPassed = true;
+        else stripeGuardRetryAt = clock() + STRIPE_GUARD_RETRY_MS;
+      }
+      return passed;
+    })();
+  }
+  return stripeGuardInFlight;
+}
+// END stripe-key-mode-guard-callers
+
 function requireEnv(name: string): string {
   const v = Deno.env.get(name);
   if (!v) throw new Error(`Missing required secret: ${name}`);
+  if (name === 'STRIPE_SECRET_KEY' && !stripeGuardKeyModeMatches(v)) throw new Error(STRIPE_GUARD_FAILURE_MESSAGE);
   return v;
 }
 
@@ -25,20 +115,60 @@ function admin() {
   return createClient(requireEnv('SUPABASE_URL'), requireEnv('SUPABASE_SERVICE_ROLE_KEY'), { auth: { persistSession: false } });
 }
 
-// Only the app's own domain is a valid post-KYC redirect target - this is the moment right
+// BEGIN connect-onboard-app-origins (docs/web-launch/DESIGN.md task 1.6)
+// Only the app's own origins are valid post-KYC redirect targets - this is the moment right
 // after a cook submits bank/identity info to Stripe, a high-trust window an open redirect
-// here would be worth exploiting.
-const ALLOWED_ORIGIN = 'https://app.preppa.live';
-function isAllowedRedirect(url: string): boolean {
-  try { return new URL(url).origin === ALLOWED_ORIGIN; } catch { return false; }
+// here would be worth exploiting. Pinned by tests/connectOnboardOrigins.test.ts.
+// APP_ORIGINS (function secret) is a comma separated list of exact origins, for example
+// https://staging.preppa.live,http://localhost:8081 (DESIGN section 4 lists the value per environment).
+// Each entry is trimmed and must already be in the form URL.origin produces: http(s) scheme, lower-case
+// host, port only when it is not the scheme default, and no path, trailing slash, query, fragment,
+// credentials or wildcard. A redirect is allowed only when its URL.origin equals one entry exactly. A
+// missing or empty list, or any malformed entry, fails closed: the handler answers a fixed 500 that names
+// no origin. The redirect itself must be http(s) too, so blob:<allowed origin>/x is refused. The first
+// entry is the default return/refresh origin when the caller sends none (native).
+const APP_ORIGINS_FAILURE_MESSAGE = 'Could not start payout setup. Please try again.';
+function parseAppOrigins(raw: string | undefined): string[] | null {
+  const entries = (raw ?? '').split(',').map((entry) => entry.trim()).filter((entry) => entry !== '');
+  if (entries.length === 0) return null;
+  for (const entry of entries) {
+    if (entry.includes('*')) return null;
+    let parsed: URL;
+    try {
+      parsed = new URL(entry);
+    } catch {
+      return null;
+    }
+    if (parsed.protocol !== 'https:' && parsed.protocol !== 'http:') return null;
+    if (parsed.origin !== entry) return null;
+  }
+  return entries;
 }
+function isAllowedRedirect(url: string, allowedOrigins: string[]): boolean {
+  let parsed: URL;
+  try { parsed = new URL(url); } catch { return false; }
+  // blob: URLs report the inner URL's origin, so the redirect's own scheme is checked separately.
+  if (parsed.protocol !== 'https:' && parsed.protocol !== 'http:') return false;
+  return allowedOrigins.includes(parsed.origin);
+}
+function appOriginsFailureResponse(headers: Record<string, string> = {}): Response {
+  console.error('connect-onboard refused: APP_ORIGINS is missing or malformed');
+  return new Response(JSON.stringify({ error: APP_ORIGINS_FAILURE_MESSAGE }), {
+    status: 500,
+    headers: { ...headers, 'content-type': 'application/json' },
+  });
+}
+// END connect-onboard-app-origins
 
 // Create (or reuse) the cook's Express connected account and return a Stripe-hosted
 // onboarding link (KYC/identity + payout bank). Preppa is the platform; the cook does
 // NOT set up their own Stripe account. Web return URLs by default; caller may override.
 Deno.serve(async (req) => {
   if (req.method === 'OPTIONS') return new Response('ok', { headers: corsHeaders });
+  if (!(await stripeKeyModeGuard())) return stripeGuardFailureResponse(corsHeaders);
   if (req.method !== 'POST') return json(405, { error: 'method not allowed' });
+  const appOrigins = parseAppOrigins(Deno.env.get('APP_ORIGINS'));
+  if (!appOrigins) return appOriginsFailureResponse(corsHeaders);
   try {
     const db = admin();
     const jwt = (req.headers.get('Authorization') ?? '').replace('Bearer ', '');
@@ -55,10 +185,10 @@ Deno.serve(async (req) => {
     const body = await req.json().catch(() => ({}));
     const kitchenId = body?.kitchenId;
     if (typeof kitchenId !== 'string') return json(400, { error: 'kitchenId required' });
-    const returnUrl = (typeof body?.returnUrl === 'string' && isAllowedRedirect(body.returnUrl))
-      ? body.returnUrl : 'https://app.preppa.live/my-hub?connect=return';
-    const refreshUrl = (typeof body?.refreshUrl === 'string' && isAllowedRedirect(body.refreshUrl))
-      ? body.refreshUrl : 'https://app.preppa.live/my-hub?connect=refresh';
+    const returnUrl = (typeof body?.returnUrl === 'string' && isAllowedRedirect(body.returnUrl, appOrigins))
+      ? body.returnUrl : `${appOrigins[0]}/my-hub?connect=return`;
+    const refreshUrl = (typeof body?.refreshUrl === 'string' && isAllowedRedirect(body.refreshUrl, appOrigins))
+      ? body.refreshUrl : `${appOrigins[0]}/my-hub?connect=refresh`;
 
     const { data: kitchen } = await db.from('kitchens').select('id, owner_id, name').eq('id', kitchenId).single();
     if (!kitchen || kitchen.owner_id !== userId) return json(403, { error: 'not your kitchen' });
