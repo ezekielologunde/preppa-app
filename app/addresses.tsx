@@ -1,5 +1,5 @@
 import React, { useRef, useState } from 'react';
-import { View, Text, ScrollView, TextInput, ActivityIndicator } from 'react-native';
+import { View, Text, ScrollView, TextInput, ActivityIndicator, Platform } from 'react-native';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { useC } from '../src/theme/ThemeContext';
 import { type, radius } from '../src/theme/theme';
@@ -8,6 +8,7 @@ import { Icon, Press, Btn } from '../src/ui';
 import { Screen, TopBar, MiniTag, Empty } from '../src/ui/layout';
 import { addressLocality, type SavedAddress } from '../src/lib/addresses';
 import { confirmAction } from '../src/lib/confirm';
+import { requestSignIn } from '../src/lib/authRequest';
 
 export default function Addresses() {
   const c = useC();
@@ -62,6 +63,8 @@ export default function Addresses() {
       }
       reset();
     } catch (e: any) {
+      // Web: a guest also gets the sign-in sheet; the form stays filled and Save is tapped again. Native keeps the toast only.
+      if (e?.message === 'AUTH_REQUIRED' && Platform.OS === 'web') void requestSignIn('generic');
       toast(e?.message === 'AUTH_REQUIRED' ? 'Sign in to save an address.' : 'Could not save this address. Check your connection and try again.', 'info');
     } finally { addressActionInFlight.current = false; setBusy(false); }
   };

@@ -15,6 +15,8 @@ import { AddressPickerSheet, CardPickerSheet } from '../src/components/PickerShe
 import { CardPaymentSheet } from '../src/components/CardPaymentSheet';
 import { Dialog } from '../src/ui/overlay';
 import { addressLocality, isCompleteDeliveryAddress } from '../src/lib/addresses';
+import { requestSignIn } from '../src/lib/authRequest';
+import { useRequireAuth } from '../src/lib/useRequireAuth';
 
 const brandName = (b: string) => (b ? b.charAt(0).toUpperCase() + b.slice(1) : 'Card');
 
@@ -30,6 +32,7 @@ export default function Checkout() {
   const remainingKitchenCount = new Set(cart.filter((line) => lineKey(line) !== checkoutCook).map(lineKey)).size;
   const t = useTotals(lines, tip, mode);
   const { methods, defaultId, loading: cardsLoading, error: cardsError, refetch: refetchCards } = useSavedCards();
+  const requireAuth = useRequireAuth();
   const [busy, setBusy] = useState(false);
   const paymentInFlight = useRef(false);
   const [addrSheet, setAddrSheet] = useState(false);
@@ -118,8 +121,15 @@ export default function Checkout() {
       let customerMessage: string;
       if (msg === 'AUTH_REQUIRED') {
         customerMessage = 'Please sign in again to place your order.';
-        toast('Please sign in again to place your order.', 'info');
-        resetOnboarding(); // re-show the sign-in gate
+        if (Platform.OS === 'web') {
+          // Web: the sign-in sheet opens over checkout. Pay is enabled again and is not re-fired after sign-in.
+          void requestSignIn('checkout', { kind: 'checkout', ids: [], path: '/checkout', t: Date.now() }).then((ok) => {
+            if (ok) setPaymentError(null);
+          });
+        } else {
+          toast('Please sign in again to place your order.', 'info');
+          resetOnboarding(); // re-show the sign-in gate
+        }
       } else if (/no longer available|are unavailable|taking orders|payouts are set up|own kitchen|delivery address|pickup address|valid area|tax|too many attempts|already been paid|could not be recovered|could not be resumed|no longer payable|different kitchen|cart is out of date/i.test(msg)) {
         // Server rejected on live availability (item sold out / kitchen paused / not payout-ready).
         // These messages are already customer-friendly — surface them instead of a generic error
@@ -189,6 +199,13 @@ export default function Checkout() {
     } catch (e) {
       onError(e);
     }
+  };
+
+  // Pay: a signed-out web user gets the sign-in sheet first. Checkout moves money, so it is not
+  // re-fired after sign-in; the button is enabled again and the user taps it once more.
+  const onPay = () => {
+    if (paymentInFlight.current) return; // the screen's own guard, before the sheet
+    void requireAuth('checkout', { kind: 'checkout', ids: [], path: '/checkout', t: Date.now() }, place);
   };
 
   const confirmSavedCard = async () => {
@@ -341,7 +358,7 @@ export default function Checkout() {
           flex={1}
           loading={busy}
           disabled={busy || (cardsLoading && Platform.OS === 'web') || fulfillmentUnavailable}
-          onPress={place}
+          onPress={onPay}
         />
       </Dock>
 
