@@ -194,7 +194,7 @@ export function AuthSheet({ visible, title, success, onDismiss, onAccountEmail, 
           {!wide ? <View style={{ width: 40, height: 5, borderRadius: 3, backgroundColor: c.border, alignSelf: 'center', marginBottom: 12 }} /> : null}
           <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: 12 }}>
             <Text nativeID={TITLE_ID} accessibilityRole="header" style={[type(18, 700), { color: c.ink, letterSpacing: -0.3, flex: 1 }]}>{title}</Text>
-            <Pressable onPress={dismiss} disabled={!dismissible} accessibilityRole="button" accessibilityState={{ disabled: !dismissible }} hitSlop={8}>
+            <Pressable onPress={dismiss} disabled={!dismissible} aria-disabled={!dismissible} accessibilityRole="button" accessibilityState={{ disabled: !dismissible }} hitSlop={8} style={{ opacity: dismissible ? 1 : 0.45 }}>
               <Text style={[type(14, 700), { color: dismissible ? c.soft : c.muted }]}>{SHEET_COPY.notNow}</Text>
             </Pressable>
           </View>

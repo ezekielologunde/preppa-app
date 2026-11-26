@@ -26,6 +26,12 @@ export const SHEET_COPY = Object.freeze({
 /** How long the success state shows before the sheet closes. */
 export const SUCCESS_MS = 600;
 
+/** After this long on the success step the host closes the sheet even if lookups are still pending. */
+export const SUCCESS_FALLBACK_MS = 5000;
+
+/** The session lookup that decides the account binding gives up after this long. */
+export const SESSION_LOOKUP_MS = 5000;
+
 export function sheetTitle(reason: AuthReason | null | undefined): string {
   if (reason && Object.prototype.hasOwnProperty.call(SHEET_TITLES, reason)) return SHEET_TITLES[reason];
   return SHEET_TITLES.generic;
@@ -71,19 +77,45 @@ export function canDismiss(step: SheetStep): boolean {
 // ---------------------------------------------------------------------------------------------
 // After sign-in
 
-export type SignedInDecision = 'resume' | 'clear-and-continue';
+/**
+ * - resume: the bound account signed in; consume the stored intent and resolve true.
+ * - cancel: a different account signed in; clear the intent and resolve false (the action must not run).
+ * - continue: nothing to compare; clear the intent and resolve true (money kinds need a second tap).
+ */
+export type SignedInOutcome = 'resume' | 'cancel' | 'continue';
 
 /**
- * What to do with the stored intent once the store reports a sign-in. `boundKey` is the account
- * key the intent was saved under (null when no intent was saved); `sessionEmailKey` is the key of
- * the account that actually signed in (null when it could not be computed). Resume only when both
- * exist and match; otherwise the stored intent is cleared, but the sign-in still counts as success.
+ * The account binding once a sign-in is seen. `boundKey` is the account key the intent was saved
+ * under (null when no email was submitted, the sign-in came from another tab, or crypto is missing);
+ * `sessionEmailKey` is the key of the account that actually signed in (null when the session lookup
+ * failed or timed out). Only two known, different keys cancel.
  */
-export function onSignedIn(args: { boundKey: string | null; sessionEmailKey: string | null }): SignedInDecision {
+export function onSignedIn(args: { boundKey: string | null; sessionEmailKey: string | null }): SignedInOutcome {
   const { boundKey, sessionEmailKey } = args;
-  if (typeof boundKey !== 'string' || boundKey === '') return 'clear-and-continue';
-  if (typeof sessionEmailKey !== 'string' || sessionEmailKey === '') return 'clear-and-continue';
-  return boundKey === sessionEmailKey ? 'resume' : 'clear-and-continue';
+  if (typeof boundKey !== 'string' || boundKey === '') return 'continue';
+  if (typeof sessionEmailKey !== 'string' || sessionEmailKey === '') return 'continue';
+  if (boundKey !== sessionEmailKey) return 'cancel';
+  return 'resume';
+}
+
+/** The value the sign-in request resolves with for an outcome. */
+export function outcomeResolves(outcome: SignedInOutcome): boolean {
+  return outcome !== 'cancel';
+}
+
+// ---------------------------------------------------------------------------------------------
+// Leaving the screen
+
+/** The route changed since the sheet opened (browser Back, a link): the open request is dismissed. */
+export function routeChangeDismisses(args: { open: boolean; openedPath: string | null; pathname: string | null }): boolean {
+  if (!args.open) return false;
+  if (typeof args.openedPath !== 'string' || typeof args.pathname !== 'string') return false;
+  return args.pathname !== args.openedPath;
+}
+
+/** An auth state event that ends the session (logout, token expiry, another tab signing out). */
+export function isSignOutEvent(event: unknown): boolean {
+  return event === 'SIGNED_OUT';
 }
 
 // ---------------------------------------------------------------------------------------------

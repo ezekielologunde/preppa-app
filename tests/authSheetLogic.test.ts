@@ -4,13 +4,18 @@ import test from 'node:test';
 import {
   SHEET_TITLES,
   SHEET_COPY,
+  SESSION_LOOKUP_MS,
+  SUCCESS_FALLBACK_MS,
   SUCCESS_MS,
   FIRST_STEP,
   canDismiss,
   isSameOpenRequest,
+  isSignOutEvent,
   mayBindIntent,
   nextStep,
   onSignedIn,
+  outcomeResolves,
+  routeChangeDismisses,
   sheetTitle,
   type SheetStep,
 } from '../src/lib/authSheetLogic';
@@ -30,15 +35,49 @@ test('onSignedIn resumes when the bound key equals the signed-in account key', (
   assert.equal(onSignedIn({ boundKey: KEY_A, sessionEmailKey: KEY_A }), 'resume');
 });
 
-test('onSignedIn drops the intent on a key mismatch but still reports success', () => {
-  assert.equal(onSignedIn({ boundKey: KEY_A, sessionEmailKey: KEY_B }), 'clear-and-continue');
+test('onSignedIn cancels when both keys are known and differ', () => {
+  assert.equal(onSignedIn({ boundKey: KEY_A, sessionEmailKey: KEY_B }), 'cancel');
+  assert.equal(onSignedIn({ boundKey: KEY_B, sessionEmailKey: KEY_A }), 'cancel');
 });
 
-test('onSignedIn clears when no intent was bound or the session key is unknown', () => {
-  assert.equal(onSignedIn({ boundKey: null, sessionEmailKey: KEY_A }), 'clear-and-continue');
-  assert.equal(onSignedIn({ boundKey: KEY_A, sessionEmailKey: null }), 'clear-and-continue');
-  assert.equal(onSignedIn({ boundKey: null, sessionEmailKey: null }), 'clear-and-continue');
-  assert.equal(onSignedIn({ boundKey: '', sessionEmailKey: '' }), 'clear-and-continue');
+test('onSignedIn continues when either key is missing (nothing to compare)', () => {
+  assert.equal(onSignedIn({ boundKey: null, sessionEmailKey: KEY_A }), 'continue');
+  assert.equal(onSignedIn({ boundKey: '', sessionEmailKey: KEY_A }), 'continue');
+  assert.equal(onSignedIn({ boundKey: KEY_A, sessionEmailKey: null }), 'continue');
+  assert.equal(onSignedIn({ boundKey: KEY_A, sessionEmailKey: '' }), 'continue');
+  assert.equal(onSignedIn({ boundKey: null, sessionEmailKey: null }), 'continue');
+  assert.equal(onSignedIn({ boundKey: '', sessionEmailKey: '' }), 'continue');
+  assert.equal(onSignedIn({ boundKey: null, sessionEmailKey: '' }), 'continue');
+  assert.equal(onSignedIn({ boundKey: '', sessionEmailKey: null }), 'continue');
+});
+
+test('outcomeResolves: only cancel resolves the request false', () => {
+  assert.equal(outcomeResolves('resume'), true);
+  assert.equal(outcomeResolves('continue'), true);
+  assert.equal(outcomeResolves('cancel'), false);
+  assert.equal(outcomeResolves(onSignedIn({ boundKey: KEY_A, sessionEmailKey: KEY_B })), false, 'a mismatch never runs the action');
+});
+
+test('the success fallback is a few seconds and the session lookup gives up no later', () => {
+  assert.equal(SUCCESS_FALLBACK_MS, 5000);
+  assert.ok(SUCCESS_FALLBACK_MS > SUCCESS_MS);
+  assert.equal(SESSION_LOOKUP_MS, 5000);
+  assert.ok(SESSION_LOOKUP_MS <= SUCCESS_FALLBACK_MS);
+});
+
+test('routeChangeDismisses only for an open sheet whose path changed', () => {
+  assert.equal(routeChangeDismisses({ open: true, openedPath: '/kitchen/1', pathname: '/' }), true);
+  assert.equal(routeChangeDismisses({ open: true, openedPath: '/kitchen/1', pathname: '/kitchen/1' }), false);
+  assert.equal(routeChangeDismisses({ open: false, openedPath: '/kitchen/1', pathname: '/' }), false);
+  assert.equal(routeChangeDismisses({ open: true, openedPath: null, pathname: '/' }), false);
+  assert.equal(routeChangeDismisses({ open: true, openedPath: '/', pathname: null }), false);
+});
+
+test('isSignOutEvent is true for SIGNED_OUT only', () => {
+  assert.equal(isSignOutEvent('SIGNED_OUT'), true);
+  for (const e of ['SIGNED_IN', 'TOKEN_REFRESHED', 'INITIAL_SESSION', 'USER_UPDATED', 'PASSWORD_RECOVERY', '', null, undefined]) {
+    assert.equal(isSignOutEvent(e), false, String(e));
+  }
 });
 
 test('canDismiss is true on every step but success', () => {
@@ -104,7 +143,8 @@ test('isSameOpenRequest: a request that closed and a new one that opened are tol
     const second = requestSignIn('follow');
     assert.equal(getSignInState().open, true);
     assert.equal(isSameOpenRequest(captured, getSignInState()), false, 'a later request is not the captured one');
-    // The host's success timer for the first request must therefore never settle the second.
+    // The host's success timer for the first request must therefore never settle the second, and
+    // the success state kept for the first (successFor) never renders on the second.
     dismissSignIn();
     assert.equal(await second, false);
   } finally {
@@ -128,6 +168,22 @@ test('resolve once: a second resolveSignIn(true) after a dismiss has no effect',
     resolveSignIn(true);
     assert.equal(await p, false);
     assert.equal(getSignInState().open, false);
+  } finally {
+    off();
+    __resetForTests();
+  }
+});
+
+test('resolve once: a fallback close after the success close has no effect', async () => {
+  __resetForTests();
+  const off = subscribe(() => {});
+  try {
+    const p = requestSignIn('follow');
+    const opened = getSignInState();
+    // The success timer settles first; the fallback timer for the same request then finds it closed.
+    if (isSameOpenRequest(opened, getSignInState())) resolveSignIn(outcomeResolves('cancel'));
+    if (isSameOpenRequest(opened, getSignInState())) resolveSignIn(outcomeResolves('continue'));
+    assert.equal(await p, false);
   } finally {
     off();
     __resetForTests();

@@ -41,8 +41,8 @@ test('_layout scrubs the auth fragment once, at module level, behind the web gua
 
 test('_layout keeps the native onboarding gate as it was', () => {
   const src = read('app/_layout.tsx');
-  assert.ok(src.includes("{ready && !onboarded && Platform.OS !== 'web' ? <OnboardingFlow /> : null}"), 'onboarding gate line changed');
-  assert.ok(src.includes('{/* Web visitors browse as guests; the preference flow stays native-only (auth is asked at gated actions). */}'));
+  assert.match(src, /\{\s*ready\s*&&\s*!onboarded\s*&&\s*Platform\.OS\s*!==\s*'web'\s*\?\s*<OnboardingFlow\s*\/>\s*:\s*null\s*\}/, 'onboarding gate changed');
+  assert.equal(src.split('<OnboardingFlow').length - 1, 1, 'OnboardingFlow rendered once');
 });
 
 test('AuthSheetHost renders null off web and subscribes only inside the web host', () => {
@@ -59,14 +59,62 @@ test('AuthSheetHost guards stale work and clears the intent on every exit', () =
   const inner = functionBody(src, 'WebAuthSheetHost');
   // Unmount settles false once and clears the stored intent.
   assert.match(inner, /return \(\) => \{[\s\S]*?clearIntent\(\);\s*dismissSignIn\(\);\s*\};\s*\}, \[\]\);/);
-  // The success timer settles only the request the sign-in belongs to.
-  assert.match(inner, /if \(!isSameOpenRequest\(opened, getSignInState\(\)\)\) return;\s*if \(alive\.current\) setSuccess\(false\);\s*resolveSignIn\(true\);/);
-  assert.equal(inner.split('resolveSignIn(true)').length - 1, 1, 'one place resolves true');
+  // Only close() settles a sign-in, and only the request the sign-in belongs to.
+  assert.equal(inner.split('resolveSignIn(').length - 1, 1, 'one place resolves');
+  assert.match(inner, /const close = useCallback\(\(opened: SignInState, ok: boolean\) => \{[\s\S]*?if \(!isSameOpenRequest\(opened, getSignInState\(\)\)\) return;\s*resolveSignIn\(ok\);/);
+  // The account binding decides the resolve value (a mismatch resolves false).
+  assert.match(inner, /const outcome = onSignedIn\(\{ boundKey: boundKey\.current, sessionEmailKey: sessionKey \}\);/);
+  assert.match(inner, /close\(opened, outcomeResolves\(outcome\)\)/);
+  // A lookup that returns after its request closed clears the intent and drops its success state.
+  assert.match(inner, /await sessionAccountKey\(\);\s*if \(!isSameOpenRequest\(opened, getSignInState\(\)\)\) \{\s*clearIntent\(\);\s*resetSuccess\(opened\);\s*return;/);
+  // Success is kept per request and reset on every settle path, so it never flashes on the next one.
+  assert.match(inner, /success=\{isSameOpenRequest\(successFor, sheet\)\}/);
+  assert.match(inner, /clearTimer\(timer\);\s*resetSuccess\(opened\);\s*if \(!isSameOpenRequest/);
   // A late key lookup stores the intent only through mayBindIntent.
   assert.match(inner, /if \(!mayBindIntent\(\{[^}]*\}\)\) return;\s*if \(saveIntent\(intent, key\)\)/);
   assert.equal(inner.split('saveIntent(').length - 1, 1, 'one place saves the intent');
-  // Dismiss clears and settles false.
-  assert.match(inner, /clearIntent\(\);\s*dismissSignIn\(\);\s*\}, \[\]\);/);
+  // A new email clears the copy saved under the previous one.
+  assert.match(inner, /const onAccountEmail = useCallback\(\(email: string\) => \{[\s\S]*?clearIntent\(\);[\s\S]*?accountKeyForEmail\(email\)/);
+  // Cancel clears and settles false; Not now is ignored while finishing.
+  assert.match(inner, /const cancel = useCallback\(\(\) => \{[\s\S]*?clearIntent\(\);\s*dismissSignIn\(\);\s*\}, \[\]\);/);
+  assert.match(inner, /const onDismiss = useCallback\(\(\) => \{\s*if \(finishing\.current\) return;\s*cancel\(\);/);
+});
+
+test('AuthSheetHost never traps the user on the success step', () => {
+  const src = read('src/components/auth/AuthSheetHost.tsx');
+  const inner = functionBody(src, 'WebAuthSheetHost');
+  const start = inner.indexOf('const finish = useCallback(');
+  const lookup = inner.indexOf('await sessionAccountKey()', start);
+  assert.ok(start >= 0 && lookup > start, 'finish not found');
+  // The fallback timer is armed before the session lookup, so a hung lookup still closes the sheet.
+  const head = inner.slice(start, lookup);
+  assert.match(head, /if \(alive\.current\) setSuccessFor\(opened\);/);
+  assert.match(head, /timer\.current = setTimeout\(\(\) => \{[\s\S]*?clearIntent\(\);\s*close\(opened, [\s\S]*?\}, SUCCESS_FALLBACK_MS\);/);
+  // The session lookup is bounded.
+  assert.match(src, /return withTimeout\(lookup, SESSION_LOOKUP_MS, null\);/);
+  // reconcileAccount starts but the host does not wait on it.
+  assert.match(inner, /const onFormSignedIn = useCallback\(\(\) => \{\s*reconcileAccount\(\)\.catch\(\(\) => \{\}\);\s*finish\(\);\s*\}/);
+  assert.doesNotMatch(inner, /await reconcileAccount|reconcileAccount\(\)[^;]*\.then/);
+});
+
+test('AuthSheetHost dismisses on browser Back, route changes and sign-out', () => {
+  const src = read('src/components/auth/AuthSheetHost.tsx');
+  assert.match(src, /import \{ usePathname \} from 'expo-router';/);
+  const inner = functionBody(src, 'WebAuthSheetHost');
+  assert.match(inner, /const pathname = usePathname\(\);/);
+  assert.match(inner, /openedPath\.current = pathname;/);
+  assert.match(inner, /if \(routeChangeDismisses\(\{ open: sheet\.open, openedPath: openedPath\.current, pathname \}\)\) cancel\(\);/);
+  assert.match(inner, /const onPop = \(\) => \{\s*if \(getSignInState\(\)\.open\) cancel\(\);\s*\};/);
+  assert.match(inner, /window\.addEventListener\('popstate', onPop\);/);
+  assert.match(inner, /window\.removeEventListener\('popstate', onPop\);/);
+  assert.match(inner, /supabase\.auth\.onAuthStateChange\(\(event\) => \{\s*if \(isSignOutEvent\(event\)\) cancel\(\);\s*\}\);/);
+  assert.match(inner, /data\.subscription\.unsubscribe\(\);/);
+});
+
+test('AuthSheet shows Not now as disabled whenever dismissal is blocked', () => {
+  const src = read('src/components/auth/AuthSheet.tsx');
+  assert.match(src, /const dismissible = canDismiss\(shown\);/);
+  assert.match(src, /<Pressable onPress=\{dismiss\} disabled=\{!dismissible\} aria-disabled=\{!dismissible\}[^>]*style=\{\{ opacity: dismissible \? 1 : 0\.45 \}\}>/);
 });
 
 for (const file of SHEET_FILES) {
@@ -101,14 +149,16 @@ test('AuthSheet uses Modal directly and points at the code-first decision', () =
   assert.match(src, /TODO: code-first on web \(docs\/web-launch\/SIGNIN-DESIGN\.md, decision 1\)/);
 });
 
-test('store logout clears the intent and closes the sheet', () => {
+test('store logout and deleteAccount clear the intent and close the sheet', () => {
   const src = read('src/store/store.tsx');
   assert.match(src, /import \{ clearIntent, dismissSignIn \} from '\.\.\/lib\/authRequest';/);
-  const line = src.split(/\r?\n/).find((l) => l.includes('const logout = useCallback('));
-  assert.ok(line, 'logout not found');
-  assert.match(line, /clearIntent\(\);/);
-  assert.match(line, /dismissSignIn\(\);/);
-  assert.match(line, /signOutUser\(\);/);
+  const logout = src.match(/const logout = useCallback\(\(\) => \{([\s\S]*?)\}, \[\]\);/);
+  assert.ok(logout, 'logout not found');
+  assert.match(logout[1], /clearIntent\(\);\s*dismissSignIn\(\);\s*signOutUser\(\);/);
+  const del = src.match(/const deleteAccount = useCallback\(async \(\) => \{([\s\S]*?)\}, \[\]\);/);
+  assert.ok(del, 'deleteAccount not found');
+  // Only once the server delete succeeded, right before the local sign-out.
+  assert.match(del[1], /await deleteAccountServerSide\(\);[\s\S]*?clearIntent\(\);\s*dismissSignIn\(\);\s*signOutUser\(\);/);
 });
 
 test('Onboarding still imports from ./auth/ and passes none of the web-only options', () => {

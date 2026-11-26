@@ -667,6 +667,8 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
     // an uncashed balance, or active subscribers — the caller must surface that, not swallow it.
     await deleteAccountServerSide();
     ordersRequestSequence.current += 1;
+    clearIntent();
+    dismissSignIn();
     signOutUser();
     AsyncStorage.removeItem(LS).catch(() => {});
     setCart([]);
