@@ -32,6 +32,8 @@ export interface MockState {
   blocked: string[];
   following: boolean;
   signedIn: boolean;
+  /** Which GoTrue refusal a recovery code request for an unknown email gets. */
+  unknownOtpError: 'signupsNotAllowed' | 'notFound';
 }
 
 export interface MockOptions {
@@ -51,7 +53,7 @@ function cors(req: { headers(): Record<string, string> }): Record<string, string
 }
 
 export async function installMocks(page: Page, opts: MockOptions): Promise<MockState> {
-  const state: MockState = { calls: {}, blocked: [], following: false, signedIn: false };
+  const state: MockState = { calls: {}, blocked: [], following: false, signedIn: false, unknownOtpError: 'signupsNotAllowed' };
   const local = new Set([`http://127.0.0.1:${opts.port}`, `http://localhost:${opts.port}`]);
   const bump = (k: string) => { state.calls[k] = (state.calls[k] || 0) + 1; };
 
@@ -83,7 +85,16 @@ export async function installMocks(page: Page, opts: MockOptions): Promise<MockS
       if (grant === 'refresh_token') return json(200, session());
       return json(400, { msg: 'unsupported grant' });
     }
-    if (p === '/auth/v1/otp') { bump('auth:otp'); return json(200, {}); }
+    if (p === '/auth/v1/otp') {
+      bump('auth:otp');
+      // Password recovery sends create_user:false; for an address with no account GoTrue refuses
+      // with one of these two shapes (the app must answer both exactly as it answers a real one).
+      if (body.create_user === false && body.email !== TEST_EMAIL) {
+        if (state.unknownOtpError === 'notFound') return json(400, { code: 'user_not_found', error_code: 'user_not_found', msg: 'User not found' });
+        return json(422, { code: 'otp_disabled', error_code: 'otp_disabled', msg: 'Signups not allowed for otp' });
+      }
+      return json(200, {});
+    }
     if (p === '/auth/v1/verify') {
       bump('auth:verify');
       if (body.token === GOOD_CODE) { state.signedIn = true; return json(200, session()); }
@@ -101,7 +112,8 @@ export async function installMocks(page: Page, opts: MockOptions): Promise<MockS
       const name = p.slice('/functions/v1/'.length);
       bump(`fn:${name}`);
       if (!authed) return json(401, { error: 'Not signed in', code: 'AUTH_REQUIRED' });
-      if (name === 'create-order') return json(200, { orderId: 'order-fixture', clientSecret: 'pi_fixture_secret_fixture', taxCents: 0 });
+      // alreadyPaid: the app goes straight to tracking and never loads Stripe.js (an outside host).
+      if (name === 'create-order') return json(200, { orderId: 'order-fixture', clientSecret: null, taxCents: 0, alreadyPaid: true });
       if (name === 'book-experience') return json(200, { bookingId: 'booking-fixture', clientSecret: 'pi_fixture_secret_fixture', amountCents: 5000 });
       return json(200, {});
     }
