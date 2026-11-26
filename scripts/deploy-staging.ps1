@@ -308,6 +308,11 @@ try {
     $rest = @($all | Where-Object { $first -notcontains $_ })
     $order = @($first) + $rest
     Say "$($order.Count) functions to deploy."
+    if ($StartAt -gt 4) {
+      # A resume skips step 4, and connect-onboard refuses every request without APP_ORIGINS (DESIGN 1.6).
+      Set-FunctionSecrets @{ APP_ORIGINS = $AppOrigins }
+      Add-Evidence "function secrets set: APP_ORIGINS = $AppOrigins (step 9 resume)"
+    }
     Push-Location $RepoRoot
     try {
       $n = 0

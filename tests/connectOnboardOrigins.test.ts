@@ -244,6 +244,16 @@ test('deploy-staging step 4 sets APP_ORIGINS to the staging origin with the othe
   assert.ok(reminder && reminder.includes('APP_ORIGINS'), 'the closing secrets list reminder names APP_ORIGINS');
 });
 
+test('deploy-staging step 9 sets APP_ORIGINS when the run was resumed past step 4, before any function deploys', () => {
+  const step9 = DEPLOY_SCRIPT.slice(DEPLOY_SCRIPT.indexOf("Step 9 '"));
+  const guard = step9.indexOf('if ($StartAt -gt 4)');
+  const firstDeploy = step9.indexOf('foreach ($fn in $order)');
+  assert.ok(guard >= 0 && firstDeploy > guard, 'a StartAt > 4 guard comes before the deploy loop');
+  const block = step9.slice(guard, firstDeploy);
+  assert.match(block, /Set-FunctionSecrets @\{\s*APP_ORIGINS = \$AppOrigins\s*\}/, 'APP_ORIGINS set on the resume path');
+  assert.match(block, /Add-Evidence.*APP_ORIGINS/, 'the resume path records it in the evidence file');
+});
+
 test('the DESIGN 4.2 deploy rule sets APP_ORIGINS, first entry the production origin, before connect-onboard', () => {
   const start = DESIGN_DOC.indexOf('**4.2 deploy order');
   const rule = DESIGN_DOC.slice(start, DESIGN_DOC.indexOf('\n1. ', start));
