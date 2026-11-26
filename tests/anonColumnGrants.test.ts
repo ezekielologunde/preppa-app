@@ -38,7 +38,7 @@ function migration(): string {
   return norm(readFileSync(MIGRATION, 'utf8'));
 }
 
-const src = (rel: string): string => readFileSync(join(ROOT, rel), 'utf8');
+const src = (rel: string): string => readFileSync(join(ROOT, rel), 'utf8').replace(/\r\n/g, '\n');
 
 function anonGrant(sql: string, table: string): string[] {
   const m = new RegExp(`grant select \\(([^)]*)\\) on public\\.${table} to anon;`).exec(sql);
