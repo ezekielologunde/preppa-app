@@ -25,8 +25,13 @@ import { ErrorBoundary } from '../src/components/ErrorBoundary';
 import { ApprovalWelcomeOverlay } from '../src/components/ApprovalWelcomeOverlay';
 import { useNotificationTapNavigation } from '../src/lib/push';
 import { StripeRoot } from '../src/components/StripeRoot';
+import { AuthSheetHost } from '../src/components/auth/AuthSheetHost';
+import { scrubAuthFragment } from '../src/lib/authRequest';
 
 SplashScreen.preventAutoHideAsync().catch(() => {});
+
+// Web boot, once: drop #access_token / #error from the address bar (the session is not read from the URL).
+if (Platform.OS === 'web' && typeof window !== 'undefined') scrubAuthFragment(window);
 
 export default function RootLayout() {
   // Hanken Grotesk (UI, 400/500/600/700) + Fraunces (editorial serif, hero-only). The old
@@ -92,6 +97,7 @@ function AppShell() {
         </View>
       </ErrorBoundary>
       <ToastHost />
+      <AuthSheetHost />
       <CartFlash />
       {/* Web visitors browse as guests; the preference flow stays native-only (auth is asked at gated actions). */}
       {ready && !onboarded && Platform.OS !== 'web' ? <OnboardingFlow /> : null}

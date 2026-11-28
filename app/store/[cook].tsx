@@ -16,6 +16,8 @@ import { shareAndNotify, SITE } from '../../src/lib/share';
 import { FLAGS } from '../../src/config/flags';
 import { openThread } from '../../src/lib/messages';
 import { toggleFollow, fetchIsFollowing } from '../../src/lib/feed';
+import { buildIntent, nextFollowState } from '../../src/lib/requireAuthLogic';
+import { useRequireAuth } from '../../src/lib/useRequireAuth';
 import { fetchExperiencesForKitchen, type Experience } from '../../src/lib/experiences';
 import { fetchKitchenLivestream } from '../../src/lib/livestream';
 import { invalidate } from '../../src/data/cache';
@@ -138,6 +140,7 @@ function RealKitchenStore({ profile, meals, mealsLoading, mealsError, reviewsErr
   const c = useC();
   const router = useRouter();
   const { toast } = useStore();
+  const requireAuth = useRequireAuth();
   const [following, setFollowing] = useState(false);
   const [followLoading, setFollowLoading] = useState(true);
   const [followMutating, setFollowMutating] = useState(false);
@@ -156,37 +159,62 @@ function RealKitchenStore({ profile, meals, mealsLoading, mealsError, reviewsErr
       .finally(() => { if (alive) setFollowLoading(false); });
     return () => { alive = false; };
   }, [profile.id, followNonce]);
-  const onFollow = async () => {
+  const onFollow = () => {
+    // The screen's own guards come before the sheet, so a guest never signs in to a tap that does nothing.
     if (followLoading || followMutationInFlight.current) return;
-    followMutationInFlight.current = true;
-    const next = !following;
-    setFollowMutating(true);
-    setFollowing(next); // optimistic
-    try {
-      const real = await toggleFollow(profile.id);
-      setFollowing(real);
-      toast(real ? `Following ${profile.name}` : `Unfollowed ${profile.name}`, real ? 'check' : 'x', real);
-    } catch (e: any) {
-      setFollowing(!next);
-      toast(/auth|session|sign in/i.test(String(e?.message)) ? 'Sign in to follow kitchens' : 'Could not update your follow. Try again.', 'info');
-    } finally {
-      followMutationInFlight.current = false;
-      setFollowMutating(false);
-    }
+    void requireAuth('follow', buildIntent('follow', [profile.id], `/store/${profile.id}`, Date.now()), async ({ resumed }) => {
+      if (followMutationInFlight.current) return;
+      followMutationInFlight.current = true;
+      let serverIsFollowing: boolean | null = null;
+      if (resumed) {
+        // Signed in from the sheet: `following` was read signed out, so re-read it. A resumed follow never unfollows.
+        serverIsFollowing = await fetchIsFollowing(profile.id).catch(() => null);
+      }
+      const step = nextFollowState(resumed, following, serverIsFollowing);
+      if (step.action === 'abort') {
+        followMutationInFlight.current = false;
+        setFollowNonce((n) => n + 1);
+        toast('Could not update your follow. Try again.', 'info');
+        return;
+      }
+      if (step.action === 'keep') {
+        followMutationInFlight.current = false;
+        setFollowing(true);
+        toast(`Following ${profile.name}`, 'check', true);
+        return;
+      }
+      const next = step.next;
+      setFollowMutating(true);
+      setFollowing(next); // optimistic
+      try {
+        const real = await toggleFollow(profile.id);
+        setFollowing(real);
+        toast(real ? `Following ${profile.name}` : `Unfollowed ${profile.name}`, real ? 'check' : 'x', real);
+      } catch (e: any) {
+        setFollowing(!next);
+        toast(/auth|session|sign in/i.test(String(e?.message)) ? 'Sign in to follow kitchens' : 'Could not update your follow. Try again.', 'info');
+      } finally {
+        followMutationInFlight.current = false;
+        setFollowMutating(false);
+      }
+    });
   };
-  const onMessage = async () => {
+  const onMessage = () => {
     if (chatOpeningInFlight.current) return;
-    chatOpeningInFlight.current = true;
-    setChatOpening(true);
-    try {
-      const threadId = await openThread(profile.id, 'store');
-      router.push(`/messages/${threadId}`);
-    } catch {
-      toast('Could not open messages. Please try again.', 'info');
-    } finally {
-      chatOpeningInFlight.current = false;
-      setChatOpening(false);
-    }
+    void requireAuth('openThread', buildIntent('openThread', [profile.id], `/store/${profile.id}`, Date.now()), async () => {
+      if (chatOpeningInFlight.current) return;
+      chatOpeningInFlight.current = true;
+      setChatOpening(true);
+      try {
+        const threadId = await openThread(profile.id, 'store');
+        router.push(`/messages/${threadId}`);
+      } catch {
+        toast('Could not open messages. Please try again.', 'info');
+      } finally {
+        chatOpeningInFlight.current = false;
+        setChatOpening(false);
+      }
+    });
   };
   const initial = profile.name.trim()[0]?.toUpperCase() ?? 'K';
   const sub = [profile.cuisine, profile.area].filter(Boolean).join(' · ');

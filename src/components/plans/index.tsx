@@ -11,6 +11,8 @@ import { AutoScrollGallery } from '../cards';
 import { money } from '../../data/data';
 import { openThread } from '../../lib/messages';
 import { confirmAction } from '../../lib/confirm';
+import { buildIntent } from '../../lib/requireAuthLogic';
+import { useRequireAuth } from '../../lib/useRequireAuth';
 import {
   fetchActivePlans, listMySubscriptions, pauseSubscription, resumeSubscription, cancelSubscription,
   skipCycle, selectCycleMeals, customerWeeklyCents, fetchBoxKitchens, updateSubscriptionDeliveryAddress,
@@ -124,6 +126,7 @@ export function MyPlansSection({ onBrowse }: { onBrowse: () => void }) {
   const c = useC();
   const router = useRouter();
   const { toast } = useStore();
+  const requireAuth = useRequireAuth();
   const [subs, setSubs] = useState<MySubscription[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
@@ -170,10 +173,13 @@ export function MyPlansSection({ onBrowse }: { onBrowse: () => void }) {
   const message = async (sub: MySubscription) => {
     if (sub.isBox) { setBoxPicker(sub); return; } // cross-kitchen box → pick which cook to message
     if (!sub.kitchenId) return;
-    try {
-      const tid = await openThread(sub.kitchenId, 'subscription', sub.id);
-      router.push(`/messages/${tid}`);
-    } catch { toast('Could not open chat. Please try again.', 'info'); }
+    const kitchenId = sub.kitchenId;
+    await requireAuth('openThread', buildIntent('openThread', [kitchenId, sub.id], '/plans', Date.now()), async () => {
+      try {
+        const tid = await openThread(kitchenId, 'subscription', sub.id);
+        router.push(`/messages/${tid}`);
+      } catch { toast('Could not open chat. Please try again.', 'info'); }
+    });
   };
 
   const requestAction = (sub: MySubscription, action: 'pause' | 'resume' | 'cancel' | 'skip') => {
@@ -260,6 +266,7 @@ export function BoxCookPicker({ sub, onClose }: { sub: MySubscription | null; on
   const c = useC();
   const router = useRouter();
   const { toast } = useStore();
+  const requireAuth = useRequireAuth();
   const [kitchens, setKitchens] = useState<BoxKitchen[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
@@ -290,10 +297,13 @@ export function BoxCookPicker({ sub, onClose }: { sub: MySubscription | null; on
   if (!sub) return null;
   const pick = async (k: BoxKitchen) => {
     if (messageInFlight.current) return;
-    messageInFlight.current = true;
-    try { const tid = await openThread(k.kitchenId, 'box', sub.id); onClose(); router.push(`/messages/${tid}`); }
-    catch { toast('Could not open chat. Check your connection and try again.', 'info'); }
-    finally { messageInFlight.current = false; }
+    await requireAuth('openThread', buildIntent('openThread', [k.kitchenId, sub.id], '/plans', Date.now()), async () => {
+      if (messageInFlight.current) return;
+      messageInFlight.current = true;
+      try { const tid = await openThread(k.kitchenId, 'box', sub.id); onClose(); router.push(`/messages/${tid}`); }
+      catch { toast('Could not open chat. Check your connection and try again.', 'info'); }
+      finally { messageInFlight.current = false; }
+    });
   };
 
   return (

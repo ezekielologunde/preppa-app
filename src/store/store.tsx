@@ -10,6 +10,7 @@ import {
   type ApplicationFields, type AppNotification,
 } from '../lib/supabase';
 import { supabase } from '../lib/supabase';
+import { clearIntent, dismissSignIn } from '../lib/authRequest';
 import { threadUnreadCount, subscribeMyNotifications } from '../lib/messages';
 import { fetchCustomerOrders, fetchOrderStatus, fetchReorderMeals, timeAgo } from '../lib/orders';
 import { getMyKitchen, getKitchenAvailability, setKitchenAvailability } from '../lib/connect';
@@ -23,6 +24,10 @@ export type { ApplicationFields };
 export type PrepperStatus = 'none' | 'pending' | 'approved';
 
 const LS = 'preppa.v1';
+
+/** If the first account reconcile has not finished this long after it started (stalled fetch,
+ * auth lock held), stop making the route guards wait and let them decide on the last known state. */
+export const ACCOUNT_READY_TIMEOUT_MS = 8000;
 
 export interface CartLine {
   key: string;
@@ -79,6 +84,10 @@ export interface Toast {
 
 interface Store {
   ready: boolean;
+  /** True once the first server account reconcile has finished (signed-out result included).
+   *  prepperStatus, isAdmin and signedIn are only trustworthy after this; route guards wait on it. */
+  accountReady: boolean;
+  signedIn: boolean; // a live Supabase session exists (set by reconcileAccount)
   onboarded: boolean;
   setOnboarded: (v: boolean) => void;
   resetOnboarding: () => void;
@@ -195,6 +204,7 @@ let toastSeq = 1;
 
 export function StoreProvider({ children }: { children: React.ReactNode }) {
   const [ready, setReady] = useState(false);
+  const [accountReady, setAccountReady] = useState(false);
   const [onboarded, setOnboardedState] = useState(false);
   const [darkMode, setDarkModeState] = useState(false);
   const [cart, setCart] = useState<CartLine[]>([]);
@@ -361,6 +371,8 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
       setPrepplusUntil(s.prepplusUntil);
       const { data: sess } = await supabase.auth.getSession();
       setUid(sess.session?.user?.id ?? null);
+      // Account state is now known (signed out included), so route guards may decide.
+      setAccountReady(true);
       if (s.signedIn) {
         if (s.displayName) setName(s.displayName);
         if (s.firstName) setFirstName(s.firstName);
@@ -392,7 +404,14 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
         setAddressesLoading(false);
       }
     } catch {
-      // transient network/permission issue — keep the last known state
+      // transient network/permission issue: keep the last known state. The reconcile has
+      // still finished, so guards stop waiting and decide on that state, as they did before.
+      // A session can still exist, so read it (own try/catch) or a signed-in cook looks signed out.
+      try {
+        const { data: sess } = await supabase.auth.getSession();
+        if (sess.session?.user?.id) setUid(sess.session.user.id);
+      } catch { /* no session info: stay on the last known uid */ }
+      setAccountReady(true);
     }
   }, [refreshAddresses, refreshOrders]);
 
@@ -427,6 +446,14 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
     });
     return () => sub.subscription.unsubscribe();
   }, [ready, reconcileAccount]);
+
+  // Fallback: a reconcile that hangs must not leave the route guards rendering nothing forever.
+  // Armed once storage is ready; cleared on unmount and as soon as accountReady flips.
+  useEffect(() => {
+    if (!ready || accountReady) return;
+    const t = setTimeout(() => setAccountReady(true), ACCOUNT_READY_TIMEOUT_MS);
+    return () => clearTimeout(t);
+  }, [ready, accountReady]);
 
   // Re-check approval/payout status when the app returns to the foreground — otherwise an
   // approval that happened while the app was merely backgrounded (not a fresh sign-in) would
@@ -631,7 +658,7 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
   }, [orders]);
 
   const resetOnboarding = useCallback(() => setOnboardedState(false), []);
-  const logout = useCallback(() => { ordersRequestSequence.current += 1; signOutUser(); setPrepperStatus('none'); setOwnKitchenId(null); setIsAdmin(false); setIsPrepPlus(false); setPrepplusUntil(null); setOrders([]); setOrdersError(''); setOrdersLoading(false); setAddresses([]); setAddressId(''); setOnboardedState(false); }, []);
+  const logout = useCallback(() => { ordersRequestSequence.current += 1; clearIntent(); dismissSignIn(); signOutUser(); setPrepperStatus('none'); setOwnKitchenId(null); setIsAdmin(false); setIsPrepPlus(false); setPrepplusUntil(null); setOrders([]); setOrdersError(''); setOrdersLoading(false); setAddresses([]); setAddressId(''); setOnboardedState(false); }, []);
   const deleteAccount = useCallback(async () => {
     // Apple 5.1.1(v) / Google Play: account-deletion path. Calls the real delete-account edge
     // function FIRST (anonymizes the profile, soft-deletes the auth user so sign-in is
@@ -640,6 +667,8 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
     // an uncashed balance, or active subscribers — the caller must surface that, not swallow it.
     await deleteAccountServerSide();
     ordersRequestSequence.current += 1;
+    clearIntent();
+    dismissSignIn();
     signOutUser();
     AsyncStorage.removeItem(LS).catch(() => {});
     setCart([]);
@@ -733,6 +762,8 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
 
   const value: Store = {
     ready,
+    accountReady,
+    signedIn: !!uid,
     onboarded,
     setOnboarded: setOnboardedState,
     resetOnboarding,

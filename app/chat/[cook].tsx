@@ -1,8 +1,10 @@
-import React, { useCallback, useEffect, useState } from 'react';
+import React, { useCallback, useEffect, useRef, useState } from 'react';
 import { ActivityIndicator, Text, View } from 'react-native';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { openThread } from '../../src/lib/messages';
 import { isRejectedSeedKitchenRoute } from '../../src/lib/routePolicy';
+import { buildIntent } from '../../src/lib/requireAuthLogic';
+import { useRequireAuth } from '../../src/lib/useRequireAuth';
 import { useC } from '../../src/theme/ThemeContext';
 import { type } from '../../src/theme/theme';
 import { Btn } from '../../src/ui';
@@ -18,19 +20,33 @@ export default function LegacyChatRedirect() {
   const [attempt, setAttempt] = useState(0);
   const rejectedSeed = isRejectedSeedKitchenRoute(cook);
   const kitchenId = cook && !rejectedSeed ? cook : null;
+  const requireAuth = useRequireAuth();
+  // One open (and on web, one sign-in sheet) per attempt; a re-run meanwhile does nothing.
+  const connecting = useRef(false);
 
   const connect = useCallback(async () => {
-    if (!kitchenId) return;
+    if (!kitchenId || connecting.current) return;
+    connecting.current = true;
     setError('');
+    let ran = false;
     try {
-      const threadId = await openThread(kitchenId, 'store');
-      router.replace(`/messages/${threadId}`);
-    } catch (e: any) {
-      setError(/auth|session|sign in/i.test(String(e?.message))
-        ? 'Sign in to message this kitchen.'
-        : (e?.message || 'Could not open this conversation.'));
+      // Native runs at once, as before. A web guest gets the sign-in sheet; a dismissal shows the fallback below.
+      const ok = await requireAuth('openThread', buildIntent('openThread', [kitchenId], `/chat/${kitchenId}`, Date.now()), async () => {
+        ran = true;
+        try {
+          const threadId = await openThread(kitchenId, 'store');
+          router.replace(`/messages/${threadId}`);
+        } catch (e: any) {
+          setError(/auth|session|sign in/i.test(String(e?.message))
+            ? 'Sign in to message this kitchen.'
+            : (e?.message || 'Could not open this conversation.'));
+        }
+      });
+      if (!ok && !ran) setError('Sign in to message this kitchen.');
+    } finally {
+      connecting.current = false;
     }
-  }, [router, kitchenId, attempt]);
+  }, [router, kitchenId, attempt, requireAuth]);
 
   useEffect(() => { void connect(); }, [connect]);
 

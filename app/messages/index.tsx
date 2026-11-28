@@ -6,6 +6,7 @@ import { type, radius } from '../../src/theme/theme';
 import { Btn, Icon, Press } from '../../src/ui';
 import { Screen, TopBar, Empty } from '../../src/ui/layout';
 import { listThreads, type Thread } from '../../src/lib/messages';
+import { GuestGate } from '../../src/components/GuestGate';
 
 function relTime(iso: string | null): string {
   if (!iso) return '';
@@ -25,6 +26,14 @@ function previewText(t: Thread): string {
 }
 
 export default function MessagesList() {
+  return (
+    <GuestGate title="Sign in to see your messages" body="Your conversations with cooks show up here after you sign in." icon="chat" screenTitle="Messages">
+      <MessagesListScreen />
+    </GuestGate>
+  );
+}
+
+function MessagesListScreen() {
   const c = useC();
   const router = useRouter();
   const [threads, setThreads] = useState<Thread[]>([]);

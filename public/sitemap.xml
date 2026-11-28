@@ -1,0 +1,9 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!-- Fixed public routes only. Per-entity pages (meals, stores, posts, experiences) are not listed. -->
+<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">
+  <url><loc>https://app.preppa.live/home</loc></url>
+  <url><loc>https://app.preppa.live/discover</loc></url>
+  <url><loc>https://app.preppa.live/experiences</loc></url>
+  <url><loc>https://app.preppa.live/feeds</loc></url>
+  <url><loc>https://app.preppa.live/prepplus</loc></url>
+</urlset>

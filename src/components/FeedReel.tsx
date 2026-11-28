@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import { View, Text } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
@@ -11,7 +11,9 @@ import { useStore } from '../store/store';
 import { Icon, Press, GradBox } from '../ui';
 import { shareAndNotify, SITE } from '../lib/share';
 import { reportContent } from '../lib/report';
-import { togglePostLike, togglePostSave, toggleFollow, recordFeedEvent, initialOf, FeedPost } from '../lib/feed';
+import { togglePostLike, togglePostSave, toggleFollow, fetchIsFollowing, recordFeedEvent, initialOf, FeedPost } from '../lib/feed';
+import { buildIntent, nextFollowState, nextToggleState, withInFlight } from '../lib/requireAuthLogic';
+import { useRequireAuth } from '../lib/useRequireAuth';
 
 /** One full-screen reel — shared by the main feed, a kitchen's feed, and the post-detail screen.
  * `isActive` gates video playback (pass the paging list's currently-visible item; defaults to
@@ -21,6 +23,10 @@ export const FeedReel = React.memo(function FeedReel({ f, height, isActive = tru
   const insets = useSafeAreaInsets();
   const router = useRouter();
   const { toast } = useStore();
+  const requireAuth = useRequireAuth();
+  const likeInFlight = useRef(false);
+  const saveInFlight = useRef(false);
+  const followInFlight = useRef(false);
   const [liked, setLiked] = useState(f.liked);
   const [likes, setLikes] = useState(f.likeCount);
   const [saved, setSaved] = useState(f.saved);
@@ -45,32 +51,66 @@ export const FeedReel = React.memo(function FeedReel({ f, height, isActive = tru
     if (isActive) player.play(); else player.pause();
   }, [isActive, isVideo, player]);
 
-  const onLike = async () => {
-    const next = !liked;
-    setLiked(next); setLikes((n) => n + (next ? 1 : -1)); // optimistic
-    try { const real = await togglePostLike(f.id); if (real !== next) { setLiked(real); setLikes((n) => n + (real ? 1 : -1) - (next ? 1 : -1)); } }
-    catch { setLiked(!next); setLikes((n) => n + (next ? -1 : 1)); toast('Sign in to like posts', 'info'); }
+  // Like and save have no server read that reports a failure (fetchPost's overlays fall back to
+  // false), so a resumed like or save changes nothing (nextToggleState with no server value): the
+  // shown state was read signed out (or before the account state was known), so a toast asks the
+  // user to tap again. withInFlight sets each in-flight flag and always clears it.
+  const onLike = () => {
+    if (likeInFlight.current) return;
+    void requireAuth('like', undefined, ({ resumed }) => withInFlight(likeInFlight, async () => {
+      const step = nextToggleState(resumed, liked, null);
+      if (step.action === 'abort') { toast('Signed in. Tap again to finish.', 'info'); return; }
+      if (step.action !== 'toggle') return;
+      const next = step.next;
+      setLiked(next); setLikes((n) => n + (next ? 1 : -1)); // optimistic
+      try { const real = await togglePostLike(f.id); if (real !== next) { setLiked(real); setLikes((n) => n + (real ? 1 : -1) - (next ? 1 : -1)); } }
+      catch { setLiked(!next); setLikes((n) => n + (next ? -1 : 1)); toast('Sign in to like posts', 'info'); }
+    }));
   };
 
-  const onSave = async () => {
-    const next = !saved;
-    setSaved(next); // optimistic
-    try {
-      const real = await togglePostSave(f.id);
-      setSaved(real);
-      toast(real ? 'Saved to your list' : 'Removed from saved', 'bookmark', real);
-      if (real) recordFeedEvent(f.id, 'save');
-    } catch { setSaved(!next); toast('Sign in to save posts', 'info'); }
+  const onSave = () => {
+    if (saveInFlight.current) return;
+    void requireAuth('save', undefined, ({ resumed }) => withInFlight(saveInFlight, async () => {
+      const step = nextToggleState(resumed, saved, null);
+      if (step.action === 'abort') { toast('Signed in. Tap again to finish.', 'info'); return; }
+      if (step.action !== 'toggle') return;
+      const next = step.next;
+      setSaved(next); // optimistic
+      try {
+        const real = await togglePostSave(f.id);
+        setSaved(real);
+        toast(real ? 'Saved to your list' : 'Removed from saved', 'bookmark', real);
+        if (real) recordFeedEvent(f.id, 'save');
+      } catch { setSaved(!next); toast('Sign in to save posts', 'info'); }
+    }));
   };
 
-  const onFollow = async () => {
-    const next = !following;
-    setFollowing(next); // optimistic
-    try {
-      const real = await toggleFollow(f.kitchenId);
-      setFollowing(real);
-      toast(real ? `Following ${f.kitchenName}` : `Unfollowed ${f.kitchenName}`, real ? 'check' : 'info', real);
-    } catch { setFollowing(!next); toast('Sign in to follow kitchens', 'info'); }
+  const onFollow = () => {
+    if (followInFlight.current) return;
+    void requireAuth('follow', buildIntent('follow', [f.kitchenId], `/post/${f.id}`, Date.now()), ({ resumed }) => withInFlight(followInFlight, async () => {
+      let serverIsFollowing: boolean | null = null;
+      if (resumed) {
+        // Signed in from the sheet: `following` was read signed out, so re-read it. A resumed follow never unfollows.
+        serverIsFollowing = await fetchIsFollowing(f.kitchenId).catch(() => null);
+      }
+      const step = nextFollowState(resumed, following, serverIsFollowing);
+      if (step.action === 'abort') {
+        toast('Could not update your follow. Try again.', 'info');
+        return;
+      }
+      if (step.action === 'keep') {
+        setFollowing(true);
+        toast(`Following ${f.kitchenName}`, 'check', true);
+        return;
+      }
+      const next = step.next;
+      setFollowing(next); // optimistic
+      try {
+        const real = await toggleFollow(f.kitchenId);
+        setFollowing(real);
+        toast(real ? `Following ${f.kitchenName}` : `Unfollowed ${f.kitchenName}`, real ? 'check' : 'info', real);
+      } catch { setFollowing(!next); toast('Sign in to follow kitchens', 'info'); }
+    }));
   };
 
   return (

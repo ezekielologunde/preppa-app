@@ -1,38 +1,16 @@
 import React, { useEffect, useRef, useState } from 'react';
-import { Animated, Easing, Pressable, StyleSheet, Text, TextInput, View, ScrollView } from 'react-native';
+import { Animated, Easing, Pressable, StyleSheet, Text, View, ScrollView } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useStore } from '../store/store';
-import { sendEmailOtp, verifyEmailOtp, signUpWithPassword, signInWithPassword, sendPasswordResetOtp, updatePassword, AUTH_TIMEOUT_MESSAGE } from '../lib/supabase';
+import { Spinner, Title, Lead } from './auth/authUi';
+import { Auth } from './auth/AuthForm';
+import { Code } from './auth/CodeForm';
 import { captureCurrentLocation } from '../lib/geo';
 import { Icon } from '../ui/Icon';
 import { Press, GradBox, Btn } from '../ui/primitives';
 import { useReducedMotion } from '../ui/useReducedMotion';
 import { useC } from '../theme/ThemeContext';
 import { type, GRAD, shadow, radius, FILL } from '../theme/theme';
-
-function Spinner({ size = 19, color = '#fff', track }: { size?: number; color?: string; track?: string }) {
-  const r = useRef(new Animated.Value(0)).current;
-  const reduced = useReducedMotion();
-  useEffect(() => {
-    if (reduced) return;
-    Animated.loop(Animated.timing(r, { toValue: 1, duration: 700, easing: Easing.linear, useNativeDriver: true })).start();
-  }, [r, reduced]);
-  const spin = r.interpolate({ inputRange: [0, 1], outputRange: ['0deg', '360deg'] });
-  return <Animated.View style={{ width: size, height: size, borderRadius: size / 2, borderWidth: 2.5, borderColor: track ?? color, opacity: track ? 1 : 0.3, borderTopColor: color, transform: [{ rotate: spin }] }} />;
-}
-
-function Title({ parts }: { parts: (string | { g: string })[] }) {
-  const c = useC();
-  return (
-    <Text style={[type(34, 900), { color: c.ink, letterSpacing: -1.5, lineHeight: 37, marginTop: 18 }]}>
-      {parts.map((p, i) => (typeof p === 'string' ? p : <Text key={i} style={{ color: c.accentText }}>{p.g}</Text>))}
-    </Text>
-  );
-}
-function Lead({ children }: { children: React.ReactNode }) {
-  const c = useC();
-  return <Text style={[type(15.5, 500), { color: c.soft, lineHeight: 24, marginTop: 14, maxWidth: 320 }]}>{children}</Text>;
-}
 
 /* ---------- steps ---------- */
 function JoiningPill() {
@@ -127,199 +105,6 @@ function Welcome({ go }: { go: (s: string, m: 'signin' | 'signup') => void }) {
         </Pressable>
         <Text style={[type(11.5, 600), { color: c.muted, textAlign: 'center', marginTop: 14 }]}>By continuing you agree to Preppa’s Terms & Food Safety Standards.</Text>
       </Reveal>
-    </>
-  );
-}
-
-function Auth({ mode, onNext, onRecovery }: { mode: 'signin' | 'signup'; onNext: (email: string, authed: boolean) => void; onRecovery: (email: string, newPassword: string) => void }) {
-  const c = useC();
-  const [email, setEmail] = useState('');
-  const [password, setPassword] = useState('');
-  const [fullName, setFullName] = useState('');
-  const [err, setErr] = useState<string | null>(null);
-  const [info, setInfo] = useState<string | null>(null);
-  const [busy, setBusy] = useState(false);
-  const [codeBusy, setCodeBusy] = useState(false);
-  const [recovering, setRecovering] = useState(false);
-  const shake = useShake();
-
-  const validEmail = /^\S+@\S+\.\S+$/.test(email.trim());
-  const clearMsgs = () => { if (err) setErr(null); if (info) setInfo(null); };
-
-  // Primary path: email + password → session directly (no code to copy).
-  const submit = async () => {
-    if (busy || codeBusy) return;
-    const addr = email.trim();
-    const nm = fullName.trim();
-    if (!recovering && mode === 'signup' && nm.length < 2) { setErr('Please enter your name.'); shake.fire(); return; }
-    if (!validEmail) { setErr('That doesn’t look like an email — check for typos.'); shake.fire(); return; }
-    if (password.length < 8) { setErr('Use a password of at least 8 characters.'); shake.fire(); return; }
-    setErr(null); setInfo(null); setBusy(true);
-    try {
-      if (recovering) {
-        await sendPasswordResetOtp(addr);
-        setBusy(false);
-        onRecovery(addr, password);
-        return;
-      }
-      if (mode === 'signup') {
-        const session = await signUpWithPassword(addr, password, { display_name: nm, first_name: nm.split(/\s+/)[0] });
-        setBusy(false);
-        if (session) onNext(addr, true);
-        else setInfo(`We sent a confirmation link to ${addr}. Tap it, then sign in.`);
-      } else {
-        await signInWithPassword(addr, password);
-        setBusy(false);
-        onNext(addr, true);
-      }
-    } catch (e: any) {
-      setBusy(false);
-      const msg = e?.message === AUTH_TIMEOUT_MESSAGE
-        ? e.message
-        : recovering
-          ? 'Couldn’t send a recovery code. Check the email and try again.'
-        : mode === 'signin'
-          ? 'Wrong email or password. Try again, or email yourself a code.'
-          : (typeof e?.message === 'string' && e.message.toLowerCase().includes('already'))
-            ? 'That email already has an account — sign in instead.'
-            : 'Couldn’t create your account — please try again.';
-      setErr(msg); shake.fire();
-    }
-  };
-
-  // Fallback: passwordless — email a 6-digit sign-in code (the old flow).
-  const emailCode = async () => {
-    if (busy || codeBusy) return;
-    const addr = email.trim();
-    const nm = fullName.trim();
-    if (mode === 'signup' && nm.length < 2) { setErr('Please enter your name.'); shake.fire(); return; }
-    if (!validEmail) { setErr('That doesn’t look like an email — check for typos.'); shake.fire(); return; }
-    setErr(null); setInfo(null); setCodeBusy(true);
-    try {
-      await sendEmailOtp(addr, mode === 'signup' ? { display_name: nm, first_name: nm.split(/\s+/)[0] } : undefined);
-      setCodeBusy(false);
-      onNext(addr, false);
-    } catch (e: any) {
-      setCodeBusy(false);
-      setErr(e?.message || 'Couldn’t send your code just now — please try again.');
-      shake.fire();
-    }
-  };
-
-  const inputStyle = (hasErr: boolean) => [stt.input, { backgroundColor: c.surface, borderColor: hasErr ? c.red : c.border, color: c.ink }];
-
-  return (
-    <>
-      <Title parts={[recovering ? 'Reset your password.' : mode === 'signin' ? 'Welcome back.' : 'Create your account.']} />
-      <Lead>{recovering ? 'Choose a new password. We’ll email a code to confirm it’s you.' : mode === 'signin' ? 'Sign in with your email and password.' : 'A couple details and you’re in — your password lets you skip codes next time.'}</Lead>
-      <Animated.View style={{ marginTop: 24, transform: [{ translateX: shake.x }] }}>
-        {mode === 'signup' && !recovering ? (
-          <View style={{ marginBottom: 14 }}>
-            <Text style={[type(12.5, 800), { color: c.soft, marginBottom: 8 }]}>Full name</Text>
-      <TextInput value={fullName} onChangeText={(t) => { setFullName(t); clearMsgs(); }} autoCapitalize="words" autoComplete="name" textContentType="name" placeholder="Your name" placeholderTextColor={c.muted} accessibilityLabel="Your name" style={inputStyle(false)} />
-          </View>
-        ) : null}
-        <Text style={[type(12.5, 800), { color: c.soft, marginBottom: 8 }]}>Email address</Text>
-      <TextInput value={email} onChangeText={(t) => { setEmail(t); clearMsgs(); }} keyboardType="email-address" autoCapitalize="none" autoComplete="email" textContentType="emailAddress" placeholder="you@example.com" placeholderTextColor={c.muted} accessibilityLabel="Email address" style={inputStyle(!!err)} />
-        <View style={{ height: 14 }} />
-        <Text style={[type(12.5, 800), { color: c.soft, marginBottom: 8 }]}>{recovering ? 'New password' : 'Password'}</Text>
-      <TextInput value={password} onChangeText={(t) => { setPassword(t); clearMsgs(); }} onSubmitEditing={submit} secureTextEntry autoCapitalize="none" autoComplete={mode === 'signup' || recovering ? 'password-new' : 'password'} textContentType={mode === 'signup' || recovering ? 'newPassword' : 'password'} placeholder={mode === 'signup' || recovering ? 'At least 8 characters' : 'Your password'} placeholderTextColor={c.muted} accessibilityLabel={recovering ? 'New password' : 'Password'} style={inputStyle(!!err)} />
-      {mode === 'signin' ? <Pressable onPress={() => { setRecovering((v) => !v); setErr(null); setInfo(null); setPassword(''); }} accessibilityRole="button" style={{ marginTop: 11, alignSelf: 'flex-end' }}><Text style={[type(13, 700), { color: c.primary }]}>{recovering ? 'Back to sign in' : 'Forgot password?'}</Text></Pressable> : null}
-        {err ? <View style={{ flexDirection: 'row', alignItems: 'center', gap: 7, marginTop: 9 }}><Icon name="info" size={15} color={c.red} /><Text style={[type(13, 700), { color: c.red, flex: 1 }]}>{err}</Text></View> : null}
-        {info ? <View style={{ flexDirection: 'row', alignItems: 'center', gap: 7, marginTop: 9 }}><Icon name="check" size={15} color={c.green} /><Text style={[type(13, 700), { color: c.green, flex: 1 }]}>{info}</Text></View> : null}
-      </Animated.View>
-      <View style={{ flex: 1, minHeight: 24 }} />
-      <Btn
-        label={busy ? (recovering ? 'Sending code…' : mode === 'signin' ? 'Signing in…' : 'Creating…') : (recovering ? 'Send recovery code' : mode === 'signin' ? 'Sign in' : 'Create account')}
-        iconRight={busy ? undefined : 'arrow'} loading={busy} onPress={submit} block lg
-      />
-      {!recovering ? <Pressable onPress={emailCode} accessibilityRole="button" style={{ marginTop: 16, alignSelf: 'center' }}>
-        <Text style={[type(13.5, 700), { color: c.soft }]}>{codeBusy ? 'Sending code…' : 'Email me a sign-in code instead'}</Text>
-      </Pressable> : null}
-    </>
-  );
-}
-
-function Code({ email, onNext, newPassword }: { email: string; onNext: () => void; newPassword?: string }) {
-  const c = useC();
-  const [code, setCode] = useState('');
-  const [busy, setBusy] = useState(false);
-  const [err, setErr] = useState<string | null>(null);
-  const [cool, setCool] = useState(0);
-  const [resent, setResent] = useState(false);
-  const [resending, setResending] = useState(false);
-  const ref = useRef<TextInput>(null);
-  const shake = useShake();
-  useEffect(() => { const t = setTimeout(() => ref.current?.focus(), 300); return () => clearTimeout(t); }, []);
-  useEffect(() => { if (cool <= 0) return; const t = setTimeout(() => setCool((v) => v - 1), 1000); return () => clearTimeout(t); }, [cool]);
-  useEffect(() => {
-    // NB: depend on `code` only. If `busy` were a dep, flipping it in setBusy(true)
-    // would re-run this effect and cancel the in-flight verify before it resolves.
-    if (code.length !== 6 || busy) return;
-    setBusy(true);
-    let cancelled = false;
-    verifyEmailOtp(email, code)
-      .then(async () => { if (newPassword) await updatePassword(newPassword); })
-      .then(() => { if (!cancelled) onNext(); })
-      .catch((e: any) => {
-        if (cancelled) return;
-        setBusy(false);
-        // A stalled network surfaces the timeout message; anything else is a bad code.
-        setErr(e?.message === AUTH_TIMEOUT_MESSAGE ? e.message : 'That code didn’t match. Check the digits and try again.');
-        shake.fire();
-        setCode('');
-      });
-    return () => { cancelled = true; };
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [code]);
-  const resend = async () => {
-    if (resending || cool > 0) return;
-    setResending(true);
-    setErr(null);
-    try {
-      await (newPassword ? sendPasswordResetOtp(email) : sendEmailOtp(email));
-      setCool(24);
-      setResent(true);
-      setTimeout(() => setResent(false), 2400);
-    } catch (e: any) {
-      setErr(e?.message === AUTH_TIMEOUT_MESSAGE ? e.message : 'Couldn’t resend the code. Check your connection and try again.');
-    } finally {
-      setResending(false);
-    }
-  };
-  return (
-    <>
-      <Title parts={['Check your inbox.']} />
-      <Lead>We sent a 6-digit code to <Text style={{ color: c.ink, fontFamily: type(15.5, 700).fontFamily }}>{email}</Text>.</Lead>
-      <Animated.View style={{ flexDirection: 'row', gap: 9, marginTop: 22, transform: [{ translateX: shake.x }] }}>
-        {Array.from({ length: 6 }).map((_, i) => {
-          const live = i === code.length && !busy;
-          return (
-            <View key={i} style={[stt.otpBox, { backgroundColor: c.surface, borderColor: err ? c.red : live ? c.primary : c.border }]}>
-              <Text style={[type(23, 900), { color: c.ink }]}>{code[i] || ''}</Text>
-            </View>
-          );
-        })}
-        <TextInput
-          ref={ref}
-          value={code}
-          onChangeText={(t) => { setCode(t.replace(/\D/g, '').slice(0, 6)); if (err) setErr(null); }}
-          keyboardType="number-pad"
-          maxLength={6}
-          autoFocus
-          accessibilityLabel="Six digit verification code"
-          caretHidden
-          selectionColor="transparent"
-          style={[FILL, { color: 'transparent', fontSize: 24, textAlign: 'center' }] as any}
-        />
-      </Animated.View>
-      {err ? <View style={{ flexDirection: 'row', alignItems: 'center', gap: 7, marginTop: 12 }}><Icon name="info" size={15} color={c.red} /><Text style={[type(13, 700), { color: c.red }]}>{err}</Text></View> : null}
-      {busy ? <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8, marginTop: 12 }}><Spinner size={15} color={c.primaryD} track={c.border} /><Text style={[type(13, 700), { color: c.soft }]}>Verifying…</Text></View> : null}
-      <View style={{ flex: 1, minHeight: 24 }} />
-      <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 6, paddingBottom: 4 }}>
-        <Text style={[type(14, 600), { color: c.muted }]}>{resent ? 'Code re-sent ✓' : resending ? 'Sending another code…' : 'Didn’t get it?'}</Text>
-      {!resent && !resending ? <Pressable disabled={cool > 0} onPress={resend} accessibilityRole="button" accessibilityState={{ disabled: cool > 0 }}><Text style={[type(14, 800), { color: cool > 0 ? c.muted : c.primary, textDecorationLine: cool > 0 ? 'none' : 'underline' }]}>{cool > 0 ? `Resend in ${cool}s` : 'Resend code'}</Text></Pressable> : null}
-      </View>
     </>
   );
 }
@@ -421,23 +206,6 @@ function Finish({ onDone }: { onDone: () => void }) {
   );
 }
 
-function useShake() {
-  const x = useRef(new Animated.Value(0)).current;
-  const reduced = useReducedMotion();
-  const fire = () => {
-    if (reduced) return;
-    x.setValue(0);
-    Animated.sequence([
-      Animated.timing(x, { toValue: -8, duration: 60, useNativeDriver: true }),
-      Animated.timing(x, { toValue: 8, duration: 60, useNativeDriver: true }),
-      Animated.timing(x, { toValue: -6, duration: 60, useNativeDriver: true }),
-      Animated.timing(x, { toValue: 6, duration: 60, useNativeDriver: true }),
-      Animated.timing(x, { toValue: 0, duration: 60, useNativeDriver: true }),
-    ]).start();
-  };
-  return { x, fire };
-}
-
 export function OnboardingFlow() {
   const c = useC();
   const { setOnboarded, coords, setLocation, setCoords, setCountry } = useStore();
@@ -494,8 +262,6 @@ export function OnboardingFlow() {
 }
 
 const stt = StyleSheet.create({
-  input: { height: 56, borderRadius: radius.card, paddingHorizontal: 18, borderWidth: 1, fontSize: 16 },
-  otpBox: { flex: 1, height: 60, borderRadius: radius.card, borderWidth: 1, alignItems: 'center', justifyContent: 'center' },
   goal: { flexDirection: 'row', alignItems: 'center', gap: 14, padding: 15, borderRadius: radius.xl, borderWidth: 1.5 },
   cuis: { height: 42, paddingHorizontal: 17, borderRadius: radius.pill, borderWidth: 1, alignItems: 'center', justifyContent: 'center' },
 });

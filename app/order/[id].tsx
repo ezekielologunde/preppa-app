@@ -11,6 +11,8 @@ import { OrderLineRow } from '../../src/components/shared';
 import { createOrderTicket, TICKET_CATEGORIES, TicketCategory } from '../../src/lib/tickets';
 import { FLAGS } from '../../src/config/flags';
 import { openThread } from '../../src/lib/messages';
+import { buildIntent } from '../../src/lib/requireAuthLogic';
+import { useRequireAuth } from '../../src/lib/useRequireAuth';
 
 const STEPS = ['Order confirmed', 'Cook is preparing', 'Ready for handoff', 'Completed'];
 
@@ -23,6 +25,8 @@ export default function OrderDetail() {
   const [refreshError, setRefreshError] = useState(false);
   const [reordering, setReordering] = useState(false);
   const refreshInFlight = useRef(false);
+  const requireAuth = useRequireAuth();
+  const chatInFlight = useRef(false);
 
   const refresh = useCallback(async () => {
     if (!id || refreshInFlight.current) return;
@@ -56,9 +60,15 @@ export default function OrderDetail() {
 
   const cook = cookOfLine({ cook: o.cook, kitchenName: o.kitchenName, grad: o.lines[0]?.grad ?? 'g1' });
   const kitchenId = o.cook;
-  const openChat = async () => {
-    try { const tid = await openThread(kitchenId, 'order', o.dbId); router.push(`/messages/${tid}`); }
-    catch { toast('Could not open chat. Please try again.', 'info'); }
+  const openChat = () => {
+    if (chatInFlight.current) return;
+    void requireAuth('openThread', buildIntent('openThread', [kitchenId, o.dbId], `/order/${o.id}`, Date.now()), async () => {
+      if (chatInFlight.current) return;
+      chatInFlight.current = true;
+      try { const tid = await openThread(kitchenId, 'order', o.dbId); router.push(`/messages/${tid}`); }
+      catch { toast('Could not open chat. Please try again.', 'info'); }
+      finally { chatInFlight.current = false; }
+    });
   };
   const active = o.status === 'confirming' || o.status === 'confirmed' ? 0 : o.status === 'completed' ? 3 : o.status === 'ready' ? 2 : 1;
   const headline = o.status === 'confirming' ? 'Confirming your payment' : o.status === 'confirmed' ? 'Order confirmed' : o.status === 'cancelled' ? 'Order cancelled' : o.status === 'completed' ? 'Completed, enjoy!' : o.status === 'ready' ? (o.mode === 'pickup' ? 'Ready for pickup' : 'On its way') : 'Your cook is preparing';

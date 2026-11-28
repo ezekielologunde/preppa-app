@@ -8,10 +8,19 @@ import { Btn, Icon, Press, GradBox } from '../src/ui';
 import { Screen, TopBar, Empty } from '../src/ui/layout';
 import { fetchSavedPosts, togglePostSave, recordFeedEvent, FeedPost } from '../src/lib/feed';
 import { useStore } from '../src/store/store';
+import { GuestGate } from '../src/components/GuestGate';
 
 /** Profile → Saved: the posts a customer bookmarked in the feed, newest-saved first.
  *  A re-order shortlist — each pinned dish that's still orderable gets a direct Order CTA. */
 export default function Saved() {
+  return (
+    <GuestGate title="Sign in to see saved posts" body="Posts you save from the feed show up here after you sign in." icon="bookmark" screenTitle="Saved">
+      <SavedScreen />
+    </GuestGate>
+  );
+}
+
+function SavedScreen() {
   const c = useC();
   const router = useRouter();
   const { toast } = useStore();

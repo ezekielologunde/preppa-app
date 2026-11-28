@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { View, Text, ScrollView, StyleProp, ViewStyle, TextInput, LayoutChangeEvent } from 'react-native';
+import { View, Text, ScrollView, StyleProp, ViewStyle, TextInput, LayoutChangeEvent, Platform } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useRouter, useLocalSearchParams, Redirect, useFocusEffect } from 'expo-router';
 import { useC } from '../../src/theme/ThemeContext';
@@ -10,6 +10,8 @@ import { money } from '../../src/data/data';
 import { fetchDashboardSummary, fetchKitchenOrders, updateOrderStatus, KitchenDashboardSummary, KitchenOrderRow } from '../../src/lib/orders';
 import { getMyKitchen, refreshConnectStatus, startConnectOnboarding } from '../../src/lib/connect';
 import { FLAGS } from '../../src/config/flags';
+import { connectReturnAction, myHubDecision } from '../../src/lib/accountGate';
+import { requestSignIn } from '../../src/lib/authRequest';
 
 export type Tone = 'ic-amber' | 'ic-green' | 'ic-purple' | 'ic-blue' | 'ic-ink' | 'ic-red';
 export function well(c: Palette, t: Tone): [string, string] {
@@ -380,7 +382,10 @@ export default function MyHub() {
   const c = useC();
   const router = useRouter();
   const { connect } = useLocalSearchParams<{ connect?: string }>();
-  const { ready, avail, toggleAvail, toast, prepperStatus, name, firstName } = useStore();
+  const { ready, accountReady, signedIn, avail, toggleAvail, toast, prepperStatus, name, firstName } = useStore();
+  const hubState = { ready, accountReady, signedIn, prepperStatus, connect };
+  const connectAction = connectReturnAction(hubState);
+  const signInToastShown = React.useRef(false);
   const [dir, setDir] = useState<'focus' | 'brief'>('focus');
   const [summary, setSummary] = useState<KitchenDashboardSummary | null>(null);
   const [needsPrep, setNeedsPrep] = useState<KitchenOrderRow[]>([]);
@@ -403,9 +408,21 @@ export default function MyHub() {
   useFocusEffect(React.useCallback(() => { load(); }, [load]));
 
   // Landed back here from Stripe Connect onboarding (connect-onboard's return_url/refresh_url).
+  // Decided only once the account state is known (see src/lib/accountGate.ts): on a hard load
+  // the session and prepperStatus arrive after mount, and getMyKitchen() is null without a session.
   React.useEffect(() => {
-    if (!connect) return;
-    router.setParams({ connect: undefined });
+    if (connectAction === 'needSignIn') {
+      // Signed out: leave ?connect= in the URL so it is handled after sign-in.
+      if (!signInToastShown.current) {
+        signInToastShown.current = true;
+        // Web: open the sign-in sheet; ?connect= stays and is handled once signedIn flips.
+        if (Platform.OS === 'web') void requestSignIn('connect');
+        else toast('Sign in to finish setting up payouts.', 'info');
+      }
+      return;
+    }
+    if (connectAction !== 'handle') return;
+    router.setParams({ connect: undefined }); // consumed, so a refresh does not repeat it
     (async () => {
       const kitchen = await getMyKitchen().catch(() => {
         toast('Couldn’t check your payout setup. Open Earnings and try again.', 'info');
@@ -434,10 +451,25 @@ export default function MyHub() {
       }
       // eslint-disable-next-line react-hooks/exhaustive-deps
     })();
-  }, [connect]);
+  }, [connectAction, connect]);
 
-  if (!ready) return null; // wait for persisted role to hydrate before deciding — otherwise the guard below is skipped
-  if (prepperStatus !== 'approved') return <Redirect href="/(tabs)/home" />; // prepper-only
+  // Prepper-only. Waits for storage hydration and the first account reconcile before deciding.
+  const decision = myHubDecision(hubState);
+  if (decision === 'wait') return null;
+  if (decision === 'signInToFinish') {
+    return (
+      <View style={{ flex: 1, alignItems: 'center', justifyContent: 'center', padding: 24, backgroundColor: c.bg }}>
+        <Text style={[type(15, 700), { color: c.ink, textAlign: 'center' }]}>Sign in to finish setting up payouts.</Text>
+        {/* Web: reopens the sheet after a dismiss; ?connect= stays in the URL and is handled once signedIn flips. */}
+        {Platform.OS === 'web' ? (
+          <View style={{ marginTop: 16 }}>
+            <Btn label="Sign in" onPress={() => void requestSignIn('connect')} />
+          </View>
+        ) : null}
+      </View>
+    );
+  }
+  if (decision === 'redirect') return <Redirect href="/(tabs)/home" />;
 
   const startPrep = async (orderId: string) => {
     setActingOn(orderId);
